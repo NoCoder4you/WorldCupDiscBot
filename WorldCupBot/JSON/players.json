@@ -1,0 +1,87 @@
+{
+    "298121351871594497": {
+        "display_name": "Siren",
+        "teams": [
+            {
+                "team": "Italy",
+                "ownership": {
+                    "main_owner": 298121351871594497,
+                    "split_with": []
+                },
+                "public_message_id": 1402411186049515613
+            },
+            {
+                "team": "Japan",
+                "ownership": {
+                    "main_owner": 298121351871594497,
+                    "split_with": []
+                },
+                "public_message_id": 1402411189559885836
+            },
+            {
+                "team": "Spain",
+                "ownership": {
+                    "main_owner": 1202812518398169111,
+                    "split_with": []
+                },
+                "public_message_id": 1402410745307598898
+            }
+        ]
+    },
+    "513795974330580994": {
+        "display_name": "Decepted",
+        "teams": []
+    },
+    "570704277840855050": {
+        "display_name": "Aaelin",
+        "teams": [
+            {
+                "team": "Qatar",
+                "ownership": {
+                    "main_owner": 570704277840855050,
+                    "split_with": []
+                },
+                "public_message_id": 1402411193041424445
+            },
+            {
+                "team": "Canada",
+                "ownership": {
+                    "main_owner": 570704277840855050,
+                    "split_with": []
+                },
+                "public_message_id": 1402411161575751680
+            }
+        ]
+    },
+    "1202812518398169111": {
+        "username": "noahtest0842",
+        "teams": [
+            {
+                "team": "Spain",
+                "ownership": {
+                    "main_owner": 1202812518398169111,
+                    "split_with": [
+                        298121351871594497
+                    ]
+                },
+                "public_message_id": 1402411201610121419
+            },
+            {
+                "team": "Chile",
+                "ownership": {
+                    "main_owner": 1202812518398169111,
+                    "split_with": []
+                },
+                "public_message_id": 1402411171323314248
+            },
+            {
+                "team": "Denmark",
+                "ownership": {
+                    "main_owner": 1202812518398169111,
+                    "split_with": []
+                },
+                "public_message_id": 1402411181989433414
+            }
+        ]
+    }
+}

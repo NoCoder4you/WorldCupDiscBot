@@ -1,0 +1,46 @@
+[
+  {
+    "timestamp": "2025-08-05T22:00:21.890207+00:00",
+    "status": "accepted",
+    "request_id": "298121351871594497_Spain_1754431212",
+    "team": "Spain",
+    "main_owner_id": 1202812518398169111,
+    "requester_id": "298121351871594497",
+    "resolved_by": "1202812518398169111",
+    "expires_at": 1754604012.75349
+  },
+  {
+    "timestamp": "2025-08-05T22:01:46.305025+00:00",
+    "status": "declined",
+    "request_id": "298121351871594497_Denmark_1754431301",
+    "team": "Denmark",
+    "main_owner_id": 1202812518398169111,
+    "requester_id": "298121351871594497",
+    "resolved_by": "1202812518398169111",
+    "expires_at": 1754604101.305376
+  },
+  {
+    "request_id": "298121351871594497_Qatar_1754429031",
+    "team": "Qatar",
+    "main_owner_id": "570704277840855050",
+    "requester_id": "298121351871594497",
+    "timestamp": 1754447097,
+    "status": "declined"
+  },
+  {
+    "request_id": "298121351871594497_Qatar_1754496662",
+    "team": "Qatar",
+    "main_owner_id": "570704277840855050",
+    "requester_id": "298121351871594497",
+    "timestamp": 1754501619,
+    "status": "accepted"
+  },
+  {
+    "request_id": "298121351871594497_Denmark_1754502202",
+    "team": "Denmark",
+    "main_owner_id": "1202812518398169111",
+    "requester_id": "298121351871594497",
+    "timestamp": 1754503007,
+    "status": "accepted"
+  }
+]
