@@ -4,7 +4,45 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="947d1cc8-b0df-46c2-ab47-de53399ab6af" name="Changes" comment="Added Previous files" />
+    <list default="true" id="947d1cc8-b0df-46c2-ab47-de53399ab6af" name="Changes" comment="Added Previous files">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/AdminControl.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/BackupRestore.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/BetAdminSettle.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/Betting.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/ChannelManage.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/EntriesTracker.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/GuildLocker.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/MessageDelete.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/ReactionRole.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/SplitOwnership.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/TeamsDistribution.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/WCVerify.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/nem.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/role_utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/COGS/rules.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/bets.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/cogs_status.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/countryroles.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/entries_tracker.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/guilds.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/players.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/split_requests.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/split_requests_log.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/team_iso.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/teams.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/verification_codes.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/JSON/verified.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/WC.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/bot.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/health.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/launcher.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/static/app.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/static/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/WorldCupBot/static/style.css" beforeDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -41,17 +79,18 @@
     "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/beave/PycharmProjects/WorldCupDiscBot/WorldCupBot/static"
+    "last_opened_file_path": "C:/Users/beave/PycharmProjects/WorldCupDiscBot"
   }
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\beave\PycharmProjects\WorldCupDiscBot\WorldCupBot\static" />
       <recent name="C:\Users\beave\PycharmProjects\WorldCupDiscBot" />
+      <recent name="C:\Users\beave\PycharmProjects\WorldCupDiscBot\WorldCupBot\static" />
     </key>
   </component>
   <component name="SharedIndexes">
@@ -85,8 +124,27 @@
       <option name="project" value="LOCAL" />
       <updated>1757991653946</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Added Previous files">
+      <option name="closed" value="true" />
+      <created>1757992132142</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1757992132142</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Added Previous files" />
