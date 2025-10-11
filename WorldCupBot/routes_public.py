@@ -13,10 +13,17 @@ def _safe_json_load(path, default):
         return default
 
 def create_public_routes(ctx):
-    bp = Blueprint("public", __name__)
+    """
+    Registers:
+      - GET /            -> static/index.html
+      - GET /favicon.ico -> static favicon if present
+      - /api/* endpoints via a dedicated blueprint with url_prefix='/api'
+    """
+    root = Blueprint("root_public", __name__)
+    api = Blueprint("public_api", __name__, url_prefix="/api")
 
     # ---------- Root UI ----------
-    @bp.route("/", methods=["GET"])
+    @root.route("/", methods=["GET"])
     def index():
         static_folder = current_app.static_folder or os.path.join(ctx.get("BASE_DIR",""), "static")
         index_path = os.path.join(static_folder, "index.html")
@@ -24,7 +31,7 @@ def create_public_routes(ctx):
             return send_from_directory(static_folder, "index.html")
         return jsonify({"ok": False, "error": "index.html not found"}), 404
 
-    @bp.route("/favicon.ico", methods=["GET"])
+    @root.route("/favicon.ico", methods=["GET"])
     def favicon():
         static_folder = current_app.static_folder or os.path.join(ctx.get("BASE_DIR",""), "static")
         for name in ("favicon.ico", "favicon.png"):
@@ -34,11 +41,11 @@ def create_public_routes(ctx):
         abort(404)
 
     # ---------- API ----------
-    @bp.route("/api/ping", methods=["GET"])
+    @api.get("/ping")
     def api_ping():
         return jsonify({"ok": True, "ts": int(time.time())})
 
-    @bp.route("/api/system", methods=["GET"])
+    @api.get("/system")
     def api_system():
         usage = ctx["get_bot_resource_usage"]()
         data = {
@@ -52,15 +59,15 @@ def create_public_routes(ctx):
         }
         return jsonify(data)
 
-    @bp.route("/api/bets", methods=["GET"])
+    @api.get("/bets")
     def api_bets():
         base = ctx.get("BASE_DIR", "")
         bets_path = os.path.join(base, "JSON", "bets.json")
         data = _safe_json_load(bets_path, [])
-        # Optional filter by status: ?status=open|closed|settled
         status = request.args.get("status")
         if status and isinstance(data, list):
             data = [b for b in data if str(b.get("status","")).lower() == status.lower()]
         return jsonify({"ok": True, "bets": data})
 
-    return bp
+    # Return BOTH blueprints so launcher can register them
+    return [root, api]
