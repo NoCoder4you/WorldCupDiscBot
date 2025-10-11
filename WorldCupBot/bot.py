@@ -1,180 +1,316 @@
+
 import os
-import sys
-import traceback
+import json
+import logging
+from typing import List
+
 import discord
 from discord.ext import commands
-from discord import ui
-import asyncio
-import logging
-import json
 
-COGS_DIR = "/home/pi/WorldCupDiscBot/WorldCupBot/COGS"
-JSON_DIR = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON"
+# -------------------- Paths & Config --------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+JSON_DIR = os.path.join(BASE_DIR, "JSON")
+COGS_DIR = os.path.join(BASE_DIR, "COGS")
+CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
+LOG_PATH = os.path.join(BASE_DIR, "WC.log")
+COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
 
-# --- Logging Setup ---
-LOG_FILE = "WC.log"
+os.makedirs(JSON_DIR, exist_ok=True)
+os.makedirs(COGS_DIR, exist_ok=True)
+
+# -------------------- Logging --------------------
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s:%(levelname)s:%(message)s',
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.FileHandler(LOG_PATH, encoding="utf-8"),
         logging.StreamHandler()
     ]
 )
+log = logging.getLogger("WorldCupBot")
 
-# Bot token (never hardcode in production!)
-BOT_TOKEN = "MTM4NTQwMjk0OTU4MDIyNjY1MA.GcoaGn.-V2q66NwlsAObCixV60He-izsMT9XTEo0fqNgw"
+# -------------------- Load config --------------------
+def load_config() -> dict:
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log.error("Failed to load config.json: %s", e)
+        return {}
+
+CONFIG = load_config()
+BOT_TOKEN = CONFIG.get("BOT_TOKEN", "").strip()
+
+# No hardcoded defaults here - must be configured in config.json
+ADMIN_CATEGORY_NAME: str = str(CONFIG.get("ADMIN_CATEGORY_NAME", "") or "")
+ADMIN_ROLE_NAME: str = str(CONFIG.get("ADMIN_ROLE_NAME", "") or "")
+_admin_ids_raw = CONFIG.get("ADMIN_LOG_CHANNEL_IDS", [])
+ADMIN_LOG_CHANNEL_IDS: List[int] = []
+for x in _admin_ids_raw:
+    try:
+        ADMIN_LOG_CHANNEL_IDS.append(int(x))
+    except Exception:
+        pass
+
 if not BOT_TOKEN:
-    print("INVALID BOT TOKEN")
-    sys.exit(1)
+    log.error("BOT_TOKEN missing in config.json. Exiting.")
+    raise SystemExit(2)
 
+# -------------------- Intents --------------------
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="wc ", intents=intents, help_command=None)
 
-# Expose JSON_DIR for cogs
-bot.JSON_DIR = JSON_DIR
+# -------------------- Bot --------------------
+class WorldCupBot(commands.Bot):
+    def __init__(self):
+        super().__init__(
+            command_prefix="wc ",
+            intents=intents,
+            help_command=None
+        )
+        self.loaded_exts: List[str] = []
 
+    async def setup_hook(self) -> None:
+        await self.load_all_cogs()
+        log.info("setup_hook completed.")
 
-async def update_guilds_json():
-    while True:
-        data = {
-            "guild_count": len(bot.guilds),
-            "guilds": [{"id": g.id, "name": g.name} for g in bot.guilds]
-        }
-        with open(os.path.join(JSON_DIR, "guilds.json"), "w") as f:
-            json.dump(data, f)
-        await asyncio.sleep(30)
+    async def on_ready(self):
+        log.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "?")
+        # Post config report inside Discord for each guild
+        await self._post_config_report()
 
-# --- Dynamic Cog Loader ---
-def discover_extensions():
-    cogs = []
-    for file in os.listdir(COGS_DIR):
-        if file.endswith('.py') and not file.startswith("_"):
-            module = f"COGS.{file[:-3]}"
-            cogs.append(module)
-    return cogs
+    async def _post_config_report(self):
+        for guild in self.guilds:
+            msgs = []
+            msgs.append("WorldCupBot is online.")
+            msgs.append(f"Config - ADMIN_ROLE_NAME: {ADMIN_ROLE_NAME or 'MISSING'}")
+            msgs.append(f"Config - ADMIN_CATEGORY_NAME: {ADMIN_CATEGORY_NAME or 'MISSING'}")
+            if ADMIN_LOG_CHANNEL_IDS:
+                parts = []
+                for cid in ADMIN_LOG_CHANNEL_IDS:
+                    ch = guild.get_channel(cid)
+                    parts.append(f"#{ch.name}" if ch else str(cid))
+                msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: " + ", ".join(parts))
+            else:
+                msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: none set (will use fallback)")
 
-async def load_cogs():
-    extensions = discover_extensions()
-    for extension in extensions:
-        try:
-            await bot.load_extension(extension)
-            print(f'[LOADED] - {extension}')
-        except Exception as e:
-            logging.error(f"Failed to load cog {extension}: {e}")
-            print(f"--- !!! [FAILED] !!! --- - {extension}: {e}")
-    print("All Cogs Loaded")
+            # Warnings if missing
+            warn = []
+            if not ADMIN_ROLE_NAME:
+                warn.append("ADMIN_ROLE_NAME not set - admin commands will be blocked.")
+            if not ADMIN_CATEGORY_NAME:
+                warn.append("ADMIN_CATEGORY_NAME not set - admin commands will be blocked.")
+            if warn:
+                msgs.append("⚠️ " + " ".join(warn))
 
-# --- Owner-only Admin Commands ---
-@bot.command(name="load")
-async def load(ctx, extension: str):
-    """Dynamically load a cog."""
-    ext = f"COGS.{extension}" if not extension.startswith("COGS.") else extension
-    try:
-        await bot.load_extension(ext)
-        await ctx.send(f"Loaded `{ext}` successfully.", delete_after=2.5)
-    except Exception as e:
-        logging.error(f"Failed to load cog {ext}: {e}")
-        await ctx.send(f"Failed to load `{ext}`: {e}", delete_after=2.5)
+            # Send to admin log channels or fallback
+            await send_discord_log(guild, "\n".join(msgs))
 
-@bot.command(name="unload")
-async def unload(ctx, extension: str):
-    """Dynamically unload a cog."""
-    ext = f"COGS.{extension}" if not extension.startswith("COGS.") else extension
-    try:
-        await bot.unload_extension(ext)
-        await ctx.send(f"Unloaded `{ext}` successfully.", delete_after=2.5)
-    except Exception as e:
-        logging.error(f"Failed to unload cog {ext}: {e}")
-        await ctx.send(f"Failed to unload `{ext}`: {e}", delete_after=2.5)
-
-@commands.command(name="reload")
-async def reload(self, ctx, cog: str):
-    """Reloads a specified cog."""
-    try:
-        cog_path = f"COGS.{cog}"
-        self.bot.reload_extension(cog_path)
-        msg = f"✅ Successfully reloaded `{cog}`"
-        await ctx.send(msg)
-        logging.info(f"Reloaded cog: {cog} by {ctx.author}")
-    except Exception as e:
-        error_msg = f"❌ Failed to reload `{cog}`\n```{traceback.format_exc()}```"
-        await ctx.send(error_msg)
-        logging.error(f"Failed to reload cog: {cog} by {ctx.author}\n{traceback.format_exc()}")
-
-
-class ReloadCogView(ui.View):
-    def __init__(self, bot, cogs):
-        super().__init__(timeout=60)
-        self.bot = bot
-        for cog in cogs:
-            self.add_item(self.ReloadButton(bot, cog))
-
-    class ReloadButton(ui.Button):
-        def __init__(self, bot, cog):
-            label = cog.replace("COGS.", "")
-            super().__init__(label=label, style=discord.ButtonStyle.primary)
-            self.bot = bot
-            self.cog = cog
-
-        async def callback(self, interaction: discord.Interaction):
+    # --------------- Cog Helpers ---------------
+    async def load_all_cogs(self):
+        loaded = []
+        for fname in os.listdir(COGS_DIR):
+            if not fname.endswith(".py") or fname == "__init__.py":
+                continue
+            ext = f"COGS.{fname[:-3]}"
             try:
-                await self.bot.reload_extension(self.cog)
-
-                await interaction.response.send_message(f"Reloaded `{self.cog}`.", ephemeral=True)
+                await self.load_extension(ext)
+                loaded.append(ext)
+                log.info("Loaded cog: %s", ext)
             except Exception as e:
-                await interaction.response.send_message(f"Failed to reload `{self.cog}`: {e}", ephemeral=True)
+                log.exception("Error loading cog %s: %s", ext, e)
+        self.loaded_exts = loaded
+        self._write_cogs_status(loaded)
 
-@bot.command(name="rc")
-async def rc(ctx):
-    cogs = discover_extensions()
-    view = ReloadCogView(bot, cogs)
-    await ctx.send("Reload any cog:", view=view, delete_after=60)
+    async def reload_cog(self, short_name: str) -> str:
+        ext = f"COGS.{short_name}"
+        try:
+            await self.unload_extension(ext)
+        except Exception:
+            pass
+        await self.load_extension(ext)
+        self._mark_cog_loaded(short_name, True)
+        return f"Reloaded {short_name}"
 
+    async def load_cog(self, short_name: str) -> str:
+        ext = f"COGS.{short_name}"
+        await self.load_extension(ext)
+        self._mark_cog_loaded(short_name, True)
+        return f"Loaded {short_name}"
 
+    async def unload_cog(self, short_name: str) -> str:
+        ext = f"COGS.{short_name}"
+        await self.unload_extension(ext)
+        self._mark_cog_loaded(short_name, False)
+        return f"Unloaded {short_name}"
 
-@bot.command(name="cogs")
-async def list_cogs(ctx):
-    """List all currently loaded cogs and available .py files."""
-    loaded_cogs = list(bot.extensions.keys())
-    available_cogs = discover_extensions()
+    def _write_cogs_status(self, loaded_exts):
+        data = {"loaded": list(loaded_exts)}
+        try:
+            with open(COGS_STATUS_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            log.warning("Failed to write cogs_status.json: %s", e)
 
-    response = "**Loaded Cogs:**\n"
-    response += "\n".join(f"- {cog}" for cog in loaded_cogs) if loaded_cogs else "No cogs loaded."
+    def _mark_cog_loaded(self, short_name: str, is_loaded: bool):
+        data = {"loaded": []}
+        try:
+            if os.path.exists(COGS_STATUS_PATH):
+                with open(COGS_STATUS_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+        except Exception:
+            pass
+        ext = f"COGS.{short_name}"
+        cur = set(data.get("loaded", []))
+        if is_loaded:
+            cur.add(ext)
+        else:
+            cur.discard(ext)
+        data["loaded"] = sorted(cur)
+        try:
+            with open(COGS_STATUS_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            log.warning("Failed to update cogs_status.json: %s", e)
 
-    response += "\n\n**Available .py Files:**\n"
-    response += "\n".join(f"- {cog}" for cog in available_cogs)
+bot = WorldCupBot()
 
-    await ctx.send(response, delete_after=5)
+# -------------------- Helpers: Role and Category checks --------------------
+def member_has_role(member: discord.Member, role_name: str) -> bool:
+    if not role_name:
+        return False
+    return any(r.name == role_name for r in getattr(member, "roles", []))
 
-@bot.command(name="restart")
-async def restart(ctx):
-    """Restart the bot dynamically."""
+def in_admin_category(channel: discord.abc.GuildChannel, category_name: str) -> bool:
+    if not category_name:
+        return False
+    # Handle threads
+    if isinstance(channel, discord.Thread):
+        parent = channel.parent
+        if parent and parent.category and parent.category.name == category_name:
+            return True
+        return False
+    # Normal text channel
+    if hasattr(channel, "category") and channel.category and channel.category.name == category_name:
+        return True
+    return False
+
+async def get_fallback_log_channels(guild: discord.Guild) -> List[discord.abc.Messageable]:
+    # If explicit ADMIN_LOG_CHANNEL_IDS exist, use them
+    chans: List[discord.abc.Messageable] = []
+    if ADMIN_LOG_CHANNEL_IDS:
+        for cid in ADMIN_LOG_CHANNEL_IDS:
+            ch = guild.get_channel(int(cid))
+            if ch and isinstance(ch, (discord.TextChannel, discord.Thread)):
+                chans.append(ch)
+        if chans:
+            return chans
+
+    # Else, try to find any channel under the admin category
+    if ADMIN_CATEGORY_NAME:
+        for ch in guild.text_channels:
+            if ch.category and ch.category.name == ADMIN_CATEGORY_NAME and ch.permissions_for(guild.me).send_messages:
+                chans.append(ch)
+        if chans:
+            return chans
+
+    # Else, fall back to system channel if possible
+    if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
+        return [guild.system_channel]
+
+    # Else, nothing
+    return []
+
+async def send_discord_log(guild: discord.Guild, message: str):
+    targets = await get_fallback_log_channels(guild)
+    if not targets:
+        log.warning("No suitable log channel found in guild %s. Message: %s", guild.name if guild else "?", message)
+        return
+    for ch in targets:
+        try:
+            await ch.send(message)
+        except Exception:
+            pass
+    log.info(message)
+
+def admin_only_context():
+    async def predicate(ctx: commands.Context):
+        if not isinstance(ctx.author, discord.Member):
+            await ctx.reply("Must be used in a server.", delete_after=5)
+            return False
+        if not ADMIN_ROLE_NAME:
+            await send_discord_log(ctx.guild, "Admin command blocked - ADMIN_ROLE_NAME not configured in config.json")
+            await ctx.reply("Admin role not configured.", delete_after=8)
+            return False
+        if not ADMIN_CATEGORY_NAME:
+            await send_discord_log(ctx.guild, "Admin command blocked - ADMIN_CATEGORY_NAME not configured in config.json")
+            await ctx.reply("Admin category not configured.", delete_after=8)
+            return False
+        if not member_has_role(ctx.author, ADMIN_ROLE_NAME):
+            await ctx.reply(f"You need the {ADMIN_ROLE_NAME} role.", delete_after=8)
+            return False
+        if not in_admin_category(ctx.channel, ADMIN_CATEGORY_NAME):
+            await ctx.reply(f"Use this in the {ADMIN_CATEGORY_NAME} category.", delete_after=8)
+            return False
+        return True
+    return commands.check(predicate)
+
+# -------------------- Text Commands (prefix: 'wc') --------------------
+@bot.command(name="ping", help="Check latency")
+@admin_only_context()
+async def cmd_ping(ctx: commands.Context):
+    await ctx.reply(f"Pong {round(bot.latency*1000)} ms")
+    await send_discord_log(ctx.guild, f"Ping used by {ctx.author} in #{ctx.channel}")
+
+@bot.command(name="load", help="Load a cog by name")
+@admin_only_context()
+async def cmd_load(ctx: commands.Context, name: str):
     try:
-        await ctx.send("Restarting the bot... Please wait!", delete_after=2.5)
-        print("Bot is restarting...")
-        await bot.close()
-        os.execv(sys.executable, ['python'] + sys.argv)
+        msg = await bot.load_cog(name)
+        await ctx.reply(msg)
+        await send_discord_log(ctx.guild, f"Cog load by {ctx.author}: {name}")
     except Exception as e:
-        logging.error(f"Failed to restart the bot: {e}")
-        await ctx.send(f"Failed to restart the bot: {e}", delete_after=5)
+        await ctx.reply(f"Load failed: {e}")
+        await send_discord_log(ctx.guild, f"Cog load FAILED by {ctx.author}: {name} -> {e}")
 
-@bot.command(name="stop")
-@commands.is_owner()
-async def stop(ctx):
-    await bot.close()
-    
-@bot.command(name="sync")
-@commands.is_owner()
-async def sync(command):
-    await bot.tree.sync()
+@bot.command(name="unload", help="Unload a cog by name")
+@admin_only_context()
+async def cmd_unload(ctx: commands.Context, name: str):
+    try:
+        msg = await bot.unload_cog(name)
+        await ctx.reply(msg)
+        await send_discord_log(ctx.guild, f"Cog unload by {ctx.author}: {name}")
+    except Exception as e:
+        await ctx.reply(f"Unload failed: {e}")
+        await send_discord_log(ctx.guild, f"Cog unload FAILED by {ctx.author}: {name} -> {e}")
 
+@bot.command(name="reload", help="Reload a cog by name")
+@admin_only_context()
+async def cmd_reload(ctx: commands.Context, name: str):
+    try:
+        msg = await bot.reload_cog(name)
+        await ctx.reply(msg)
+        await send_discord_log(ctx.guild, f"Cog reload by {ctx.author}: {name}")
+    except Exception as e:
+        await ctx.reply(f"Reload failed: {e}")
+        await send_discord_log(ctx.guild, f"Cog reload FAILED by {ctx.author}: {name} -> {e}")
+
+# -------------------- Errors --------------------
 @bot.event
-async def on_ready():
-    print(f'Logged in as {bot.user.name}')
-    await load_cogs()
-    await bot.tree.sync()
-    await bot.loop.create_task(update_guilds_json())
-    print("Bot is ready.")
+async def on_command_error(ctx: commands.Context, error: Exception):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.reply("Missing argument.")
+        return
+    if isinstance(error, commands.CommandNotFound):
+        return
+    try:
+        await ctx.reply("An error occurred.")
+    except Exception:
+        pass
+    log.exception("Command error: %s", error)
 
-bot.run(BOT_TOKEN)
+# -------------------- Run --------------------
+def main():
+    bot.run(BOT_TOKEN, log_handler=None)
+
+if __name__ == "__main__":
+    main()

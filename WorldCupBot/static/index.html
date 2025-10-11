@@ -1,270 +1,77 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>World Cup 2026 Bot Admin Panel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="style.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>World Cup 2026 Panel</title>
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-    <header class="header-bar">
-        <div class="brand">World Cup 2026 Bot Admin</div>
-        <nav>
-            <input type="checkbox" id="menu-toggle" />
-            <label class="menu-icon" for="menu-toggle">&#9776;</label>
-            <ul class="menu" id="main-menu">
-                <li><a href="dash" data-page="dashboard" class="active">Dashboard</a></li>
-                <li><a href="cogs" data-page="cogs">Cogs</a></li>
-                <li><a href="splits" data-page="splits">Split Requests</a></li>
-                <li><a href="bets" data-page="bets">Open Bets</a></li>
-                <li><a href="backups" data-page="backups">Backups</a></li>
-                <li><a href="logs" data-page="log">Bot Log</a></li>
-                <li><a href="teams" data-page="ownership">Team Ownership</a></li>
-            </ul>
-        </nav>
-        <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
-            <span id="theme-icon" aria-label="Theme">🌙</span>
-        </button>
-    </header>
-
-    <div id="notify-bar"></div>
-    <main>
-        <!-- DASHBOARD SECTION -->
-        <section id="dashboard" class="dashboard active-section">
-            <div class="grid">
-                <!-- 1. Uptime -->
-                <div class="card">
-                    <div class="card-title" id="uptime-label">Uptime</div>
-                    <div class="card-value-wrapper">
-                        <span class="card-value" id="uptime-value">--:--:--</span>
-                    </div>
-                </div>
-                <!-- 2. Ping -->
-                <div class="card">
-                    <div class="card-title">Ping</div>
-                    <div class="card-value-wrapper">
-                        <span class="card-value" id="ping-value">-- ms</span>
-                    </div>
-                </div>
-                <!-- 3. Guild Count -->
-                <div class="card">
-                    <div class="card-title">Guilds</div>
-                    <div class="card-value-wrapper">
-                        <span class="card-value" id="guild-count">0</span>
-                    </div>
-                    <div class="guild-list-scroll" id="guild-list"></div>
-                </div>
-                <!-- 4. Bot Process -->
-                <div class="card">
-                    <div class="card-title">Bot Process</div>
-                    <div class="card-value-wrapper">
-                        <span class="card-value" id="botstats-value">---</span>
-                    </div>
-                </div>
-                <!-- 5. System Usage (Memory, CPU, Disk) -->
-                <div class="card">
-                    <div class="card-title">System Usage</div>
-                    <div class="gauges-flex">
-                        <!-- Memory Gauge -->
-                        <div class="gauge-container">
-                            <div class="gauge-label">Memory</div>
-                            <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
-                                <path class="gauge-bar" id="mem-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
-                                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="mem-text">0%</text>
-                            </svg>
-                            <div class="gauge-extra-scroll" id="mem-extra-scroll">
-                                <span class="gauge-extra" id="mem-extra"></span>
-                            </div>
-                        </div>
-                        <!-- CPU Gauge -->
-                        <div class="gauge-container">
-                            <div class="gauge-label">CPU</div>
-                            <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
-                                <path class="gauge-bar" id="cpu-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
-                                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="cpu-text">0%</text>
-                            </svg>
-                            <div class="gauge-extra-scroll" id="cpu-extra-scroll">
-                                <span class="gauge-extra" id="cpu-extra"></span>
-                            </div>
-                        </div>
-                        <!-- Disk Gauge -->
-                        <div class="gauge-container">
-                            <div class="gauge-label">Disk</div>
-                            <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
-                                <path class="gauge-bar" id="disk-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
-                                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="disk-text">0%</text>
-                            </svg>
-                            <div class="gauge-extra-scroll" id="disk-extra-scroll">
-                                <span class="gauge-extra" id="disk-extra"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- 6. Bot Actions -->
-                <div class="card">
-                    <div class="card-title">Bot Actions</div>
-                    <div class="actions-row">
-                        <button id="restart-bot" class="btn btn-restart">Restart Bot</button>
-                        <button id="stop-bot" class="btn btn-stop">Stop Bot</button>
-                        <button id="start-bot" class="btn btn-restart" style="display:none;">Start Bot</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- LOG PAGE -->
-        <section id="log" class="page-section">
-            <div class="card log-card">
-                <div class="log-header">
-                    <div class="log-tabs">
-                        <button class="log-tab active" data-log="bot">WC.log</button>
-                        <button class="log-tab" data-log="health">health.log</button>
-                    </div>
-                    <div class="log-actions">
-                        <select id="log-filter">
-                            <option value="">All</option>
-                            <option value="INFO">INFO</option>
-                            <option value="WARNING">WARNING</option>
-                            <option value="ERROR">ERROR</option>
-                            <option value="CRITICAL">CRITICAL</option>
-                            <option value="DEBUG">DEBUG</option>
-                            <option value="custom">Custom…</option>
-                        </select>
-                        <input type="text" id="log-search" placeholder="Custom filter..." style="display:none; width:120px;">
-                        <button id="log-download" class="btn btn-restart" title="Download Log">Download</button>
-                        <button id="log-clear" class="btn btn-stop" title="Clear Log">Clear</button>
-                        <button id="log-refresh" class="btn" title="Refresh">⟳</button>
-                    </div>
-                </div>
-                <div class="log-window" id="log-window"></div>
-            </div>
-        </section>
-
-        <!-- TEAM OWNERSHIP PAGE -->
-        <section id="ownership" class="page-section">
-            <div class="card ownership-card">
-                <div class="ownership-header">
-                    <span class="ownership-title">Team Ownership</span>
-                    <div class="ownership-actions">
-                        <button id="sort-abc" class="btn btn-restart">Sort A→Z</button>
-                        <button id="sort-cba" class="btn btn-restart">Sort Z→A</button>
-                        <input type="text" id="player-filter" placeholder="Filter player(s)">
-                        <button id="add-ownership" class="btn btn-restart">Add Ownership</button>
-                    </div>
-                </div>
-                <div class="ownership-table-scroll">
-                    <table class="ownership-table" id="ownership-table">
-                        <thead>
-                            <tr>
-                                <th>Country</th>
-                                <th>Owner(s)</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Rows injected by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div id="ownership-modal" class="ownership-modal" style="display:none;"></div>
-        </section>
-
-        <!-- COGS PAGE -->
-        <section id="cogs" class="page-section">
-            <div class="card cogs-card">
-                <div class="cogs-header">
-                    <span class="cogs-title">Loaded Cogs</span>
-                </div>
-                <div class="cogs-table-scroll">
-                    <table class="cogs-table" id="cogs-table">
-                        <thead>
-                            <tr>
-                                <th>Cog</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                                <th>Last Error</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Rows injected by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <section id="json" class="page-section"></section>
-        
-        <!-- SPLIT REQUEST PAGE -->
-        <section id="splits" class="page-section">
-            <div class="card split-requests-card">
-                <div class="split-requests-header">
-                    <span class="split-requests-title">Split Ownership Requests</span>
-                </div>
-                <div class="split-requests-table-scroll">
-                    <table class="split-requests-table">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Team</th>
-                                <th>Main Owner</th>
-                                <th>Requester</th>
-                                <th>Ownership %</th>
-                                <th>Timestamp</th>
-                                <th></th> 
-                            </tr>
-                        </thead>
-                        <tbody id="split-requests-table-body">
-                            <!-- Filled by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <!-- BETTING PAGE SECTION -->
-        <section id="bets" class="page-section">
-            <div class="card betting-card">
-                <div class="betting-header">
-                    <span class="betting-title">Open Bets</span>
-                </div>
-                <div class="betting-table-scroll">
-                    <table class="betting-table">
-                        <thead>
-                            <tr>
-                                <th>Bet</th>
-                                <th>Wager</th>
-                                <th>Player 1</th>
-                                <th>Player 2</th>
-                                <th>Settle</th>
-                            </tr>
-                        </thead>
-                        <tbody id="betting-table-body">
-                            <!-- Rows filled by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
-
-        <section id="backups" class="page-section"></section>
-    </main>
-    <div id="settle-modal" class="settle-modal" style="display:none;">
-        <!-- Modal content is injected by JS -->
+  <header>
+    <h1>World Cup 2026</h1>
+    <div id="auth-controls">
+      <button id="btn-admin-toggle">Admin view</button>
+      <button id="btn-logout" style="display:none" data-admin="true">Logout</button>
     </div>
-    <div id="split-modal" class="split-modal" style="display:none;">
-        <!-- Modal content is injected by JS -->
-    </div> 
+  </header>
 
-    
-    <footer>
-        <small>World Cup 2026 Discord Bot - Admin Panel</small>
-    </footer>
-    <script src="app.js"></script>
-   
+  <!-- Public section -->
+  <section id="public-section" data-public="true">
+    <h2>Public</h2>
+    <div class="card">
+      <h3>Ping</h3>
+      <pre id="ping"></pre>
+    </div>
+    <div class="card">
+      <h3>System</h3>
+      <pre id="sys"></pre>
+      <button id="refresh-system">Refresh</button>
+    </div>
+    <div class="card">
+      <h3>Bets</h3>
+      <pre id="bets"></pre>
+      <button id="refresh-bets">Refresh</button>
+    </div>
+  </section>
+
+  <!-- Admin-only widgets sprinkled through the UI -->
+  <section id="admin-widgets">
+    <div class="card" data-admin="true">
+      <h3>Bot controls</h3>
+      <button id="start-bot">Start Bot</button>
+      <button id="stop-bot">Stop Bot</button>
+      <button id="restart-bot">Restart Bot</button>
+    </div>
+
+    <div class="card" data-admin="true">
+      <h3>Logs</h3>
+      <div class="row">
+        <button data-log="bot" class="btn-log">View Bot Log</button>
+        <button data-log="health" class="btn-log">View Health Log</button>
+        <button id="clear-bot-log" class="btn-log-clear" data-log="bot">Clear Bot Log</button>
+        <button id="clear-health-log" class="btn-log-clear" data-log="health">Clear Health Log</button>
+      </div>
+      <pre id="log-output"></pre>
+    </div>
+
+    <div class="card" data-admin="true">
+      <h3>Cogs</h3>
+      <div id="cogs-list"></div>
+    </div>
+  </section>
+
+  <!-- Password modal -->
+  <div id="password-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h3>Admin Login</h3>
+      <input id="admin-password" type="password" placeholder="Enter password"/>
+      <button id="submit-password">Login</button>
+      <button id="cancel-password">Cancel</button>
+      <div id="login-error" class="error"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
