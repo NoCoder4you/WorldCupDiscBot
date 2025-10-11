@@ -14,10 +14,9 @@ def _safe_json_load(path, default):
 
 def create_public_routes(ctx):
     """
-    Registers:
-      - GET /            -> static/index.html
-      - GET /favicon.ico -> static favicon if present
-      - /api/* endpoints via a dedicated blueprint with url_prefix='/api'
+    Returns two blueprints:
+      - root_public (/) and /favicon.ico
+      - public_api (/api/*)
     """
     root = Blueprint("root_public", __name__)
     api = Blueprint("public_api", __name__, url_prefix="/api")
@@ -69,5 +68,17 @@ def create_public_routes(ctx):
             data = [b for b in data if str(b.get("status","")).lower() == status.lower()]
         return jsonify({"ok": True, "bets": data})
 
-    # Return BOTH blueprints so launcher can register them
+    # helpful debug
+    @api.get("/debug/routes")
+    def api_routes():
+        try:
+            from flask import current_app as app
+            rules = []
+            for r in app.url_map.iter_rules():
+                methods = ",".join(sorted(m for m in r.methods if m in ("GET","POST","PUT","PATCH","DELETE")))
+                rules.append({"rule": str(r), "endpoint": r.endpoint, "methods": methods})
+            return jsonify({"ok": True, "routes": rules})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
     return [root, api]

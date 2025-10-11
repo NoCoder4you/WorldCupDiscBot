@@ -119,7 +119,11 @@ def write_health_log(mem_mb, cpu_percent):
     log_health_line(f"Memory: {mem_mb:.2f} MB | CPU: {cpu_percent:.1f}%")
 
 def run_flask():
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        static_folder=os.path.join(BASE_DIR, "static"),
+        static_url_path=""
+    )
     app.secret_key = FLASK_SECRET
 
     context = {
@@ -139,14 +143,21 @@ def run_flask():
         "get_bot_resource_usage": get_bot_resource_usage,
     }
 
-    app.register_blueprint(create_public_routes(context))
+    # Register public routes (root + /api)
+    bps = create_public_routes(context)
+    if isinstance(bps, (list, tuple)):
+        for bp in bps:
+            app.register_blueprint(bp)
+    else:
+        app.register_blueprint(bps)
+
+    # Register admin routes
     app.register_blueprint(create_admin_routes(context))
 
     print("Starting Flask admin panel at http://0.0.0.0:5000 ...")
     app.run(host='0.0.0.0', port=5000, debug=False)
 
 if __name__ == '__main__':
-    # No git pull here - updater runs before this script
     pip_install_requirements()
     start_bot()
 
