@@ -1,4 +1,3 @@
-
 from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request
 import os
 import time
@@ -67,18 +66,5 @@ def create_public_routes(ctx):
         if status and isinstance(data, list):
             data = [b for b in data if str(b.get("status","")).lower() == status.lower()]
         return jsonify({"ok": True, "bets": data})
-
-    # helpful debug
-    @api.get("/debug/routes")
-    def api_routes():
-        try:
-            from flask import current_app as app
-            rules = []
-            for r in app.url_map.iter_rules():
-                methods = ",".join(sorted(m for m in r.methods if m in ("GET","POST","PUT","PATCH","DELETE")))
-                rules.append({"rule": str(r), "endpoint": r.endpoint, "methods": methods})
-            return jsonify({"ok": True, "routes": rules})
-        except Exception as e:
-            return jsonify({"ok": False, "error": str(e)}), 500
 
     return [root, api]

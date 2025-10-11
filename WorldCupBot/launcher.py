@@ -1,11 +1,10 @@
-
 import os
 import subprocess
 import threading
 import time
 import psutil
 import json
-from flask import Flask
+from flask import Flask, jsonify
 from routes_public import create_public_routes
 from routes_admin import create_admin_routes
 
@@ -153,6 +152,15 @@ def run_flask():
 
     # Register admin routes
     app.register_blueprint(create_admin_routes(context))
+
+    # Root-level debug to list routes (helps verify quickly)
+    @app.get("/debug/routes")
+    def route_map():
+        rules = []
+        for r in app.url_map.iter_rules():
+            methods = ",".join(sorted(m for m in r.methods if m in ("GET","POST","PUT","PATCH","DELETE")))
+            rules.append({"rule": str(r), "endpoint": r.endpoint, "methods": methods})
+        return jsonify({"ok": True, "routes": rules})
 
     print("Starting Flask admin panel at http://0.0.0.0:5000 ...")
     app.run(host='0.0.0.0', port=5000, debug=False)
