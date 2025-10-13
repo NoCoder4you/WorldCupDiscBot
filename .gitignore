@@ -29,7 +29,6 @@ Backups/
 *.gz
 
 # Config and secrets
-
 .env
 *.key
 *.pem

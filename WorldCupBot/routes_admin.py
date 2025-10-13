@@ -26,6 +26,7 @@ def create_admin_routes(ctx):
 
     ADMIN_PASSWORD = ctx.get("ADMIN_PASSWORD", "")
 
+    # ---------- Auth ----------
     @bp.get("/auth/status")
     def auth_status():
         return jsonify({ "ok": True, "unlocked": bool(session.get("admin_unlocked")) })
@@ -51,6 +52,7 @@ def create_admin_routes(ctx):
             return jsonify({ "ok": False, "error": "admin required" }), 403
         return None
 
+    # ---------- Bot control ----------
     @bp.get("/bot/status")
     def bot_status():
         return jsonify({ "ok": True, "running": bool(ctx["is_bot_running"]()) })
@@ -76,6 +78,7 @@ def create_admin_routes(ctx):
         ok = ctx["restart_bot"]()
         return jsonify({ "ok": bool(ok) })
 
+    # ---------- Cogs ----------
     @bp.get("/cogs")
     def cogs_list():
         base = ctx.get("BASE_DIR", "")
@@ -92,6 +95,7 @@ def create_admin_routes(ctx):
         _enqueue_command(base, { "kind": "cog", "action": action, "cog": cog })
         return jsonify({ "ok": True, "queued": { "cog": cog, "action": action } })
 
+    # ---------- Backups maintenance ----------
     @bp.post("/backups/prune")
     def backups_prune():
         resp = require_admin()

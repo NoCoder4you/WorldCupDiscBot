@@ -1,6 +1,6 @@
-
-from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session
-import os, time, platform, json, shutil, zipfile, datetime, io, glob
+from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file
+import os, time, platform, json, shutil, zipfile, datetime, glob
+import psutil
 
 # ---------- Helpers ----------
 def _json_load(path, default):
@@ -75,7 +75,6 @@ def _restore_backup(base_dir, name):
     src = os.path.join(bdir, name)
     if not (os.path.isfile(src) and src.endswith(".zip")):
         raise FileNotFoundError("Backup not found")
-    # Make safety copy of current JSON dir
     if os.path.isdir(jdir):
         shutil.copytree(jdir, jdir + ".bak.restore", dirs_exist_ok=True)
     with zipfile.ZipFile(src, "r") as z:
@@ -83,13 +82,11 @@ def _restore_backup(base_dir, name):
         z.extractall(jdir)
     return True
 
-def _tail_file(path, max_lines=400):
+def _tail_file(path, max_lines=500):
     if not os.path.isfile(path): return []
     with open(path, "rb") as f:
         try:
             f.seek(0, os.SEEK_END)
-            size = f.tell()
-            block = -1
             data = []
             while len(data) < max_lines and f.tell() > 0:
                 step = min(4096, f.tell())
@@ -137,35 +134,39 @@ def create_public_routes(ctx):
     @api.get("/ping")
     def api_ping():
         running = bool(ctx["is_bot_running"]())
-        pid = ctx.get("bot_process").pid if (ctx.get("bot_process") and running) else None
-        return jsonify({"ok": True, "ts": int(time.time()), "bot_running": running, "pid": pid})
+        pid = None
+        if running:
+            try:
+                pid = ctx.get("bot_process").pid if ctx.get("bot_process") else None
+            except Exception:
+                pid = None
+        return jsonify({"status": "ok", "bot_running": running, "pid": pid})
 
     @api.get("/system")
     def api_system():
-        usage = ctx["get_bot_resource_usage"]()
-        # System-wide memory and CPU are not available without psutil system calls; return bot usage only.
-        data = {
-            "ok": True,
-            "python_version": platform.python_version(),
-            "platform": platform.platform(),
-            "bot_running": bool(ctx["is_bot_running"]()),
-            "cpu_percent": usage.get("cpu_percent"),
-            "mem_mb": usage.get("mem_mb"),
-        }
+        # Use psutil directly for rich system metrics
+        try:
+            sys_mem = psutil.virtual_memory()
+            sys_cpu = psutil.cpu_percent(interval=0.1)
+            disk = psutil.disk_usage('/')
+        except Exception:
+            # Fallback if psutil missing
+            sys_mem = type("x",(object,),{"total":0,"used":0,"percent":0})()
+            sys_cpu = 0.0
+            class D: total=0; used=0; percent=0
+            disk = D()
+
+        usage = ctx["get_bot_resource_usage"]() if "get_bot_resource_usage" in ctx else {"mem_mb": None, "cpu_percent": None}
         return jsonify({
-            "ok": True,
+            "bot": usage,
             "system": {
-                "cpu_percent": usage.get("cpu_percent") or 0.0,
-                "mem_percent": 0.0,
-                "mem_used_mb": usage.get("mem_mb") or 0.0,
-                "mem_total_mb": 0.0,
-                # optional disk fields left zeroed
-                "disk_used_mb": 0.0,
-                "disk_total_mb": 0.0,
-            },
-            "bot": {
-                "cpu_percent": usage.get("cpu_percent") or 0.0,
-                "mem_mb": usage.get("mem_mb") or 0.0,
+                "mem_total_mb": (getattr(sys_mem, "total", 0) or 0) / 1024 / 1024,
+                "mem_used_mb": (getattr(sys_mem, "used", 0) or 0) / 1024 / 1024,
+                "mem_percent": float(getattr(sys_mem, "percent", 0) or 0),
+                "cpu_percent": float(sys_cpu or 0),
+                "disk_total_mb": (getattr(disk, "total", 0) or 0) / 1024 / 1024,
+                "disk_used_mb": (getattr(disk, "used", 0) or 0) / 1024 / 1024,
+                "disk_percent": float(getattr(disk, "percent", 0) or 0),
             }
         })
 
@@ -173,43 +174,91 @@ def create_public_routes(ctx):
     def api_uptime():
         running = bool(ctx["is_bot_running"]())
         now = time.time()
-        start = ctx.get("bot_last_start_ref", {}).get("value") or None
-        stop = ctx.get("bot_last_stop_ref", {}).get("value") or None
-        uptime = int(now - start) if (running and start) else 0
-        downtime = int(now - stop) if ((not running) and stop) else 0
+        start_ts = None
+        stop_ts = None
+
+        # Try to resolve from process create_time for accuracy
+        try:
+            if running:
+                pid = ctx.get("bot_process").pid if ctx.get("bot_process") else None
+                if pid:
+                    p = psutil.Process(pid)
+                    start_ts = p.create_time()
+        except Exception:
+            start_ts = None
+
+        # Fallback to refs
+        if start_ts is None:
+            start_ref = ctx.get("bot_last_start_ref", {})
+            start_ts = start_ref.get("value") if isinstance(start_ref, dict) else None
+        stop_ref = ctx.get("bot_last_stop_ref", {})
+        stop_ts = stop_ref.get("value") if isinstance(stop_ref, dict) else None
 
         def _fmt(sec):
+            sec = max(0, int(sec or 0))
             h = sec // 3600; m = (sec % 3600) // 60; s = sec % 60
             return f"{h:02d}:{m:02d}:{s:02d}"
+
+        if running and start_ts:
+            uptime = now - float(start_ts)
+            return jsonify({"bot_running": True, "uptime_seconds": int(uptime), "uptime_hms": _fmt(uptime)})
+        else:
+            downtime = (now - float(stop_ts)) if stop_ts else 0
+            return jsonify({"bot_running": False, "downtime_seconds": int(downtime), "downtime_hms": _fmt(downtime)})
+
+    # ---------- Health (crash monitor) ----------
+    @api.get("/health")
+    def api_health():
+        """Expose crash status and basic runtime health."""
+        running = bool(ctx["is_bot_running"]())
+        # allow launcher to provide a callable that returns crash status
+        crash_status = {}
+        f = ctx.get("get_crash_status")
+        if callable(f):
+            try:
+                crash_status = f() or {}
+            except Exception:
+                crash_status = {}
+        # fallbacks
+        last_start = (ctx.get("bot_last_start_ref") or {}).get("value")
+        last_stop = (ctx.get("bot_last_stop_ref") or {}).get("value")
+        now = time.time()
+        cooldown_until = crash_status.get("cooldown_until", 0)
         return jsonify({
-            "ok": True,
             "bot_running": running,
-            "uptime_s": uptime,
-            "downtime_s": downtime,
-            "uptime_hms": _fmt(uptime) if uptime else None,
-            "downtime_hms": _fmt(downtime) if downtime else None,
+            "crash_count": int(crash_status.get("crash_count", 0)),
+            "cooldown_active": bool(crash_status.get("cooldown_active", False)),
+            "seconds_until_restart": max(0, int(cooldown_until - now)) if cooldown_until else 0,
+            "window_seconds": int(crash_status.get("window_seconds", 60)),
+            "max_crashes": int(crash_status.get("max_crashes", 3)),
+            "last_start": last_start,
+            "last_stop": last_stop,
+            "ts": int(now)
         })
 
     @api.get("/guilds")
     def api_guilds():
-        # Optional file the bot can write
         data = _json_load(_guilds_path(ctx.get("BASE_DIR","")), {"guild_count": 0, "guilds": []})
         return jsonify(data)
 
-    # Bot process controls (kept open so dashboard buttons work)
+    # Bot process controls
     @api.post("/bot/start")
     def bot_start():
         ok = ctx["start_bot"]()
+        ctx.setdefault("bot_last_stop_ref", {}).update({"value": None})
+        ctx.setdefault("bot_last_start_ref", {}).update({"value": time.time()})
         return jsonify({"ok": bool(ok)})
 
     @api.post("/bot/stop")
     def bot_stop():
         ok = ctx["stop_bot"]()
+        ctx.setdefault("bot_last_stop_ref", {}).update({"value": time.time()})
         return jsonify({"ok": bool(ok)})
 
     @api.post("/bot/restart")
     def bot_restart():
         ok = ctx["restart_bot"]()
+        ctx.setdefault("bot_last_start_ref", {}).update({"value": time.time()})
         return jsonify({"ok": bool(ok)})
 
     # ---------- Logs ----------
@@ -219,7 +268,7 @@ def create_public_routes(ctx):
         fp = paths.get(kind)
         if not fp or not os.path.exists(fp):
             return jsonify({"ok": True, "lines": []})
-        return jsonify({"ok": True, "lines": _tail_file(fp, max_lines=600)})
+        return jsonify({"ok": True, "lines": _tail_file(fp, max_lines=500)})
 
     @api.get("/log/<kind>/download")
     def log_download(kind):
@@ -318,7 +367,7 @@ def create_public_routes(ctx):
         _enqueue_command(base, {"kind": "split_force", "request_id": req_id, "action": action})
         return jsonify({"ok": True, "msg": "queued"})
 
-    # ---------- Cogs compatibility for old UI ----------
+    # ---------- Cogs ----------
     @api.get("/cogs")
     def cogs_list():
         base = ctx.get("BASE_DIR","")
@@ -342,12 +391,11 @@ def create_public_routes(ctx):
         _enqueue_command(base, {"kind": "cog", "action": action, "cog": cog})
         return jsonify({"ok": True})
 
-    # ---------- Backups: legacy and enhanced ----------
+    # ---------- Backups ----------
     @api.get("/backups")
     def backups_list():
         base = ctx.get("BASE_DIR","")
         files = _list_backups(base)
-        # Enhanced grouping for your two-pane UI
         folders = [{
             "display": "JSON snapshots",
             "count": len(files),
