@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>World Cup 2026 Bot Admin Panel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="style.css" rel="stylesheet">
+    <link href="/style.css" rel="stylesheet">
 </head>
 <body>
     <header class="header-bar">
@@ -13,13 +13,13 @@
             <input type="checkbox" id="menu-toggle" />
             <label class="menu-icon" for="menu-toggle">&#9776;</label>
             <ul class="menu" id="main-menu">
-                <li><a href="dash" data-page="dashboard" class="active">Dashboard</a></li>
-                <li><a href="cogs" data-page="cogs">Cogs</a></li>
-                <li><a href="splits" data-page="splits">Split Requests</a></li>
-                <li><a href="bets" data-page="bets">Open Bets</a></li>
-                <li><a href="backups" data-page="backups">Backups</a></li>
-                <li><a href="logs" data-page="log">Bot Log</a></li>
-                <li><a href="teams" data-page="ownership">Team Ownership</a></li>
+                <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+                <li><a href="#" data-page="cogs">Cogs</a></li>
+                <li><a href="#" data-page="splits">Split Requests</a></li>
+                <li><a href="#" data-page="bets">Open Bets</a></li>
+                <li><a href="#" data-page="backups">Backups</a></li>
+                <li><a href="#" data-page="log">Bot Log</a></li>
+                <li><a href="#" data-page="ownership">Team Ownership</a></li>
             </ul>
         </nav>
         <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
@@ -29,24 +29,20 @@
 
     <div id="notify-bar"></div>
     <main>
-        <!-- DASHBOARD SECTION -->
         <section id="dashboard" class="dashboard active-section">
             <div class="grid">
-                <!-- 1. Uptime -->
                 <div class="card">
                     <div class="card-title" id="uptime-label">Uptime</div>
                     <div class="card-value-wrapper">
                         <span class="card-value" id="uptime-value">--:--:--</span>
                     </div>
                 </div>
-                <!-- 2. Ping -->
                 <div class="card">
                     <div class="card-title">Ping</div>
                     <div class="card-value-wrapper">
                         <span class="card-value" id="ping-value">-- ms</span>
                     </div>
                 </div>
-                <!-- 3. Guild Count -->
                 <div class="card">
                     <div class="card-title">Guilds</div>
                     <div class="card-value-wrapper">
@@ -54,18 +50,15 @@
                     </div>
                     <div class="guild-list-scroll" id="guild-list"></div>
                 </div>
-                <!-- 4. Bot Process -->
                 <div class="card">
                     <div class="card-title">Bot Process</div>
                     <div class="card-value-wrapper">
                         <span class="card-value" id="botstats-value">---</span>
                     </div>
                 </div>
-                <!-- 5. System Usage (Memory, CPU, Disk) -->
                 <div class="card">
                     <div class="card-title">System Usage</div>
                     <div class="gauges-flex">
-                        <!-- Memory Gauge -->
                         <div class="gauge-container">
                             <div class="gauge-label">Memory</div>
                             <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
@@ -77,7 +70,6 @@
                                 <span class="gauge-extra" id="mem-extra"></span>
                             </div>
                         </div>
-                        <!-- CPU Gauge -->
                         <div class="gauge-container">
                             <div class="gauge-label">CPU</div>
                             <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
@@ -89,7 +81,6 @@
                                 <span class="gauge-extra" id="cpu-extra"></span>
                             </div>
                         </div>
-                        <!-- Disk Gauge -->
                         <div class="gauge-container">
                             <div class="gauge-label">Disk</div>
                             <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
@@ -103,7 +94,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- 6. Bot Actions -->
                 <div class="card">
                     <div class="card-title">Bot Actions</div>
                     <div class="actions-row">
@@ -115,7 +105,6 @@
             </div>
         </section>
 
-        <!-- LOG PAGE -->
         <section id="log" class="page-section">
             <div class="card log-card">
                 <div class="log-header">
@@ -143,7 +132,6 @@
             </div>
         </section>
 
-        <!-- TEAM OWNERSHIP PAGE -->
         <section id="ownership" class="page-section">
             <div class="card ownership-card">
                 <div class="ownership-header">
@@ -164,16 +152,13 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Rows injected by JS -->
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
             <div id="ownership-modal" class="ownership-modal" style="display:none;"></div>
         </section>
 
-        <!-- COGS PAGE -->
         <section id="cogs" class="page-section">
             <div class="card cogs-card">
                 <div class="cogs-header">
@@ -189,9 +174,7 @@
                                 <th>Last Error</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Rows injected by JS -->
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -199,7 +182,6 @@
 
         <section id="json" class="page-section"></section>
         
-        <!-- SPLIT REQUEST PAGE -->
         <section id="splits" class="page-section">
             <div class="card split-requests-card">
                 <div class="split-requests-header">
@@ -218,15 +200,12 @@
                                 <th></th> 
                             </tr>
                         </thead>
-                        <tbody id="split-requests-table-body">
-                            <!-- Filled by JS -->
-                        </tbody>
+                        <tbody id="split-requests-table-body"></tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-        <!-- BETTING PAGE SECTION -->
         <section id="bets" class="page-section">
             <div class="card betting-card">
                 <div class="betting-header">
@@ -243,9 +222,7 @@
                                 <th>Settle</th>
                             </tr>
                         </thead>
-                        <tbody id="betting-table-body">
-                            <!-- Rows filled by JS -->
-                        </tbody>
+                        <tbody id="betting-table-body"></tbody>
                     </table>
                 </div>
             </div>
@@ -253,18 +230,11 @@
 
         <section id="backups" class="page-section"></section>
     </main>
-    <div id="settle-modal" class="settle-modal" style="display:none;">
-        <!-- Modal content is injected by JS -->
-    </div>
-    <div id="split-modal" class="split-modal" style="display:none;">
-        <!-- Modal content is injected by JS -->
-    </div> 
-
-    
+    <div id="settle-modal" class="settle-modal" style="display:none;"></div>
+    <div id="split-modal" class="split-modal" style="display:none;"></div> 
     <footer>
         <small>World Cup 2026 Discord Bot - Admin Panel</small>
     </footer>
-    <script src="app.js"></script>
-   
+    <script src="/app.js"></script>
 </body>
 </html>
