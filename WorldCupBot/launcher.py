@@ -198,7 +198,12 @@ def _watchdog_loop():
                 time.sleep(CRASH_BACKOFF_SEC)
 
 # ---------- Flask ----------
-app = Flask(__name__, static_folder=str(STATIC_DIR))
+app = Flask(
+    __name__,
+    static_folder=str(STATIC_DIR),   # STATIC_DIR = BASE_DIR / "static"
+    static_url_path=""               # serve static at /
+)
+
 app.secret_key = FLASK_SECRET
 
 # Provide these to route factories
