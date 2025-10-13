@@ -64,3 +64,4 @@ github_setup.sh
 worldcupbot.service
 updater.sh
 token_test.py
+config.json
