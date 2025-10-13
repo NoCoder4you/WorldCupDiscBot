@@ -1313,6 +1313,78 @@ footer {
   .backups-left { max-height: 40vh; }
 }
 
+/* === Admin UI Styling === */
+.admin-btn {
+  margin-left: .5rem;
+  font-size: 0.95rem;
+}
+.admin-badge {
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  padding:.2rem .5rem;
+  border-radius:.4rem;
+  font-weight:700;
+}
+.admin-locked {
+  background:#3b3b3b;
+  color:#ddd;
+}
+.admin-unlocked {
+  background:#27c46a;
+  color:#fff;
+}
+.admin-modal-backdrop {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+}
+.admin-modal {
+  width:min(440px,92vw);
+  background:#141414;
+  color:#eee;
+  border:1px
+  solid #2a2a2a;
+  border-radius:.6rem;
+  padding:1.1rem;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.admin-modal h3 {
+  margin:.2rem 0 1rem;
+}
+.admin-modal .row {
+  display:flex;
+  flex-direction:column;
+  gap:.4rem; margin:.6rem 0;
+}
+.admin-modal input[type="password"] {
+  width:100%;
+  padding:.6rem .7rem;
+  border-radius:.4rem;
+  border:1px solid #333;
+  background:#0f0f0f;
+  color:#fff;
+}
+.admin-modal .actions {
+  display:flex;
+  gap:.6rem;
+  justify-content:flex-end;
+  margin-top:.8rem;
+}
+.btn {
+  cursor:pointer;
+}
+.btn-outline {
+  background:transparent;
+  border:1px solid #555;
+  color:#ddd;
+  padding:.5rem .8rem;
+  border-radius:.4rem;
+}
 
 
 /* ====== HIDE SCROLLBARS (except log/guilds/ownership) ====== */
