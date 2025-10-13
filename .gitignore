@@ -29,7 +29,7 @@ Backups/
 *.gz
 
 # Config and secrets
-config.json
+
 .env
 *.key
 *.pem

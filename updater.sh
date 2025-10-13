@@ -1,8 +1,7 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_DIR="${PROJECT_DIR:-/home/pi/WorldCupDiscBot/WorldCupBot}"
+PROJECT_DIR="${PROJECT_DIR:-/home/pi/WorldCupDiscBot}"
 BRANCH="${BRANCH:-main}"
 VENV_DIR="${VENV_DIR:-/home/pi/WorldCupDiscBot/WCenv}"
 PYBIN="$VENV_DIR/bin/python"
