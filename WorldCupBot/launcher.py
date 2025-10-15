@@ -202,7 +202,7 @@ def _watchdog_loop():
 # ---------- Flask ----------
 app = Flask(
     __name__,
-    static_folder=str(BASE_DIR),   # serve files from repo root so /index.html, /style.css, /app.js resolve
+    static_folder=str(STATIC_DIR),   # serve files from /static so index.html, style.css, app.js are colocated
     static_url_path=""               # serve static at /
 )
 
