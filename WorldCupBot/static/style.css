@@ -1437,3 +1437,14 @@ body::-webkit-scrollbar, html::-webkit-scrollbar, main::-webkit-scrollbar,
 
 /* When admin enabled, add a body class for CSS hooks if needed */
 body.admin-mode .requires-admin { display:initial !important; }
+
+
+/* ===== Admin Modal action styling ===== */
+.wc-group{ margin-top:14px; }
+.wc-group h3{ margin:0 0 8px 0; font-size:16px; color:#a7f3d0; }
+.wc-flex{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.wc-modal__hint{ margin-top:6px; font-size:14px; color:#9ca3af; }
+.wc-modal__hint.error{ color:#fca5a5; }
+.wc-actions button.danger{ background:#ef4444; }
+.wc-sub{ font-size:12px; color:#9ca3af; }
+.wc-backup{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px dashed rgba(255,255,255,.1); }

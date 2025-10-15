@@ -1002,6 +1002,7 @@ async function loadBackups() {
 // ===================== Admin FAB + Modal =====================
 (function(){
   const qs = s => document.querySelector(s);
+  const qsa = s => Array.from(document.querySelectorAll(s));
   const modal = qs('#adminModal');
   const fab = qs('#adminFab');
   if(!fab || !modal) return;
@@ -1024,6 +1025,9 @@ async function loadBackups() {
       authBlock.style.display = 'none';
       actions.style.display = '';
       submitBtn.style.display = 'none';
+      renderAdminActions();
+      refreshCogs();
+      refreshBackups();
     }else{
       authBlock.style.display = '';
       actions.style.display = 'none';
@@ -1031,21 +1035,19 @@ async function loadBackups() {
     }
     const tv = qs('#toggleAdminView');
     if(tv) tv.textContent = enabled ? 'Disable admin view' : 'Enable admin view';
-    const loginBtn = document.getElementById('loginBtn');
-    if(loginBtn){ loginBtn.style.display = enabled ? 'none' : ''; }
-    const adminBadge = document.getElementById('adminBadge');
-    if(adminBadge){ adminBadge.style.opacity = enabled ? '1' : '0.5'; }
   }
 
   async function serverAdminLogin(password){
     try{
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch('/admin/auth/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ password })
       });
-      if(res.ok) return true;
-    }catch(e){ /* ignore - fallback to local */ }
+      if(res.ok){
+        return true;
+      }
+    }catch(e){}
     return false;
   }
 
@@ -1055,7 +1057,6 @@ async function loadBackups() {
     errorEl.style.display = 'none';
     passInput.value = '';
     passInput.focus();
-    // reflect current mode
     const enabled = localStorage.getItem(LS_KEY) === '1';
     setAdminMode(enabled);
   }
@@ -1088,13 +1089,191 @@ async function loadBackups() {
   });
 
   logoutBtn.addEventListener('click', async ()=>{
-    try{ await fetch('/api/admin/logout', { method:'POST' }); }catch(e){}
+    try{ await fetch('/admin/auth/logout', { method:'POST' }); }catch(e){}
     setAdminMode(false);
   });
 
-  // Restore on load
+  // ---------- UI RENDER ----------
+  function renderAdminActions(){
+    actions.innerHTML = `
+      <div class="wc-group">
+        <h3>Bot control</h3>
+        <div class="wc-actions">
+          <button id="btnStart">Start bot</button>
+          <button id="btnRestart">Restart bot</button>
+          <button id="btnStop" class="danger">Stop bot</button>
+        </div>
+        <div id="botMsg" class="wc-modal__hint"></div>
+      </div>
+
+      <div class="wc-group">
+        <h3>Cogs</h3>
+        <div class="wc-flex">
+          <select id="cogSelect"></select>
+          <div class="wc-actions">
+            <button data-cog-action="reload">Reload</button>
+            <button data-cog-action="load">Load</button>
+            <button data-cog-action="unload" class="danger">Unload</button>
+          </div>
+        </div>
+        <div id="cogMsg" class="wc-modal__hint"></div>
+      </div>
+
+      <div class="wc-group">
+        <h3>Backups</h3>
+        <div class="wc-actions">
+          <button id="btnCreateBackup">Create backup</button>
+          <button id="btnRefreshBackups">Refresh list</button>
+        </div>
+        <div id="backupList" class="wc-backups"></div>
+      </div>
+
+      <div class="wc-group">
+        <h3>Quick view</h3>
+        <div class="wc-actions">
+          <button data-nav="open-bets">Open Bets</button>
+          <button data-nav="team-ownership">Team Ownership</button>
+          <button data-nav="cogs">Cogs</button>
+          <button data-nav="dashboard">Dashboard</button>
+        </div>
+      </div>
+    `;
+
+    // Bind bot buttons
+    qs('#btnStart').addEventListener('click', ()=> callBot('/api/bot/start'));
+    qs('#btnRestart').addEventListener('click', ()=> callBot('/api/bot/restart'));
+    qs('#btnStop').addEventListener('click', ()=> callBot('/api/bot/stop'));
+
+    // Bind cog action buttons
+    qsa('[data-cog-action]').forEach(btn => {
+      btn.addEventListener('click', ()=>{
+        const cog = qs('#cogSelect').value;
+        const action = btn.getAttribute('data-cog-action');
+        if(!cog){ msg('cogMsg','Select a cog first', true); return; }
+        fetch(`/admin/cogs/${encodeURIComponent(cog)}/${action}`, { method:'POST' })
+          .then(r => r.json().catch(()=>({})).then(j=>({ok:r.ok, j})))
+          .then(({ok, j}) => {
+            msg('cogMsg', ok ? `Queued ${action} for ${cog}` : (j && j.error) || 'Error', !ok);
+            refreshCogs();
+          })
+          .catch(()=> msg('cogMsg','Network error', true));
+      });
+    });
+
+    // Bind backups
+    qs('#btnCreateBackup').addEventListener('click', ()=>{
+      fetch('/api/backups/create', { method:'POST' })
+        .then(r => r.json())
+        .then(j => { msg('backupList', `Created ${j.created || ''}`); refreshBackups(); })
+        .catch(()=> msg('backupList','Error creating backup', true));
+    });
+    qs('#btnRefreshBackups').addEventListener('click', refreshBackups);
+
+    // Bind quick nav
+    qsa('[data-nav]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const pageIdMap = {
+          'open-bets':'open-bets',
+          'team-ownership':'team-ownership',
+          'cogs':'cogs',
+          'dashboard':'dashboard'
+        };
+        const pageId = pageIdMap[b.getAttribute('data-nav')] || 'dashboard';
+        // emulate SPA switch
+        document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
+        const el = document.getElementById(pageId);
+        if(el) el.classList.add('active-section');
+        closeModal();
+      });
+    });
+  }
+
+  function msg(id, text, isErr=false){
+    const el = (id && document.getElementById(id)) || null;
+    if(!el) return;
+    if(el.classList) el.classList.toggle('error', !!isErr);
+    el.textContent = text;
+  }
+
+  function humanBytes(n){
+    if(!n && n!==0) return '';
+    const u=['B','KB','MB','GB','TB']; let i=0; let x=Math.max(0,n);
+    while(x>=1024 && i<u.length-1){ x/=1024; i++; }
+    return `${x.toFixed(1)} ${u[i]}`;
+  }
+
+  // Fetch cogs list for dropdown
+  function refreshCogs(){
+    fetch('/api/cogs')
+      .then(r => r.json())
+      .then(list => {
+        const sel = document.getElementById('cogSelect');
+        if(!sel) return;
+        sel.innerHTML = '';
+        (list || []).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.name || c;
+          opt.textContent = (c.name || c) + (c.loaded ? ' (loaded)' : '');
+          sel.appendChild(opt);
+        });
+      })
+      .catch(()=> msg('cogMsg','Failed to load cogs', true));
+  }
+
+  // Backups list with restore buttons
+  function refreshBackups(){
+    fetch('/api/backups')
+      .then(r => r.json())
+      .then(j => {
+        const host = document.getElementById('backupList');
+        if(!host) return;
+        const items = (j.backups || []);
+        if(!items.length){ host.innerHTML = '<p>No backups yet.</p>'; return; }
+        host.innerHTML = items.map(b => `
+          <div class="wc-backup">
+            <div>
+              <strong>${b.name}</strong>
+              <div class="wc-sub">${(new Date(b.ts*1000)).toLocaleString()} • ${humanBytes(b.size)}</div>
+            </div>
+            <div class="wc-actions">
+              <button data-restore="${b.name}">Restore</button>
+              <a href="/api/backups/download?name=${encodeURIComponent(b.rel)}" target="_blank">Download</a>
+            </div>
+          </div>
+        `).join('');
+
+        host.querySelectorAll('[data-restore]').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const name = btn.getAttribute('data-restore');
+            fetch('/api/backups/restore', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ name })
+            })
+            .then(r=>r.json().catch(()=>({})).then(j=>({ok:r.ok,j})))
+            .then(({ok,j})=> msg('backupList', ok ? `Restored ${name}` : (j && j.error) || 'Restore failed', !ok))
+            .catch(()=> msg('backupList','Network error', true));
+          });
+        });
+      })
+      .catch(()=> {
+        const host = document.getElementById('backupList');
+        if(host) host.innerHTML = '<p>Failed to load backups.</p>';
+      });
+  }
+
+  async function callBot(url){
+    try{
+      const r = await fetch(url, { method:'POST' });
+      const j = await r.json().catch(()=>({}));
+      msg('botMsg', r.ok ? 'Action queued' : (j.error || 'Failed'), !r.ok);
+    }catch(e){
+      msg('botMsg', 'Network error', true);
+    }
+  }
+
+  // Restore admin mode on load
   if(localStorage.getItem(LS_KEY) === '1'){
     document.body.classList.add('admin-mode');
   }
 })();
-
