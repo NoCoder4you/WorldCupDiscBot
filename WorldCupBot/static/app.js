@@ -996,3 +996,105 @@ async function loadBackups() {
 }
 
 /* ======================= END ======================= */
+
+
+
+// ===================== Admin FAB + Modal =====================
+(function(){
+  const qs = s => document.querySelector(s);
+  const modal = qs('#adminModal');
+  const fab = qs('#adminFab');
+  if(!fab || !modal) return;
+
+  const closeBtn = qs('#adminModalClose');
+  const submitBtn = qs('#adminSubmit');
+  const passInput = qs('#adminPassword');
+  const errorEl = qs('#adminError');
+  const actions = qs('#adminActions');
+  const authBlock = qs('#adminAuthBlock');
+  const toggleAdminViewBtn = qs('#toggleAdminView');
+  const logoutBtn = qs('#logoutAdmin');
+
+  const LS_KEY = 'wc_admin_enabled';
+
+  function setAdminMode(enabled){
+    document.body.classList.toggle('admin-mode', !!enabled);
+    localStorage.setItem(LS_KEY, enabled ? '1' : '0');
+    if(enabled){
+      authBlock.style.display = 'none';
+      actions.style.display = '';
+      submitBtn.style.display = 'none';
+    }else{
+      authBlock.style.display = '';
+      actions.style.display = 'none';
+      submitBtn.style.display = '';
+    }
+    const tv = qs('#toggleAdminView');
+    if(tv) tv.textContent = enabled ? 'Disable admin view' : 'Enable admin view';
+    const loginBtn = document.getElementById('loginBtn');
+    if(loginBtn){ loginBtn.style.display = enabled ? 'none' : ''; }
+    const adminBadge = document.getElementById('adminBadge');
+    if(adminBadge){ adminBadge.style.opacity = enabled ? '1' : '0.5'; }
+  }
+
+  async function serverAdminLogin(password){
+    try{
+      const res = await fetch('/api/admin/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ password })
+      });
+      if(res.ok) return true;
+    }catch(e){ /* ignore - fallback to local */ }
+    return false;
+  }
+
+  function openModal(){
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden','false');
+    errorEl.style.display = 'none';
+    passInput.value = '';
+    passInput.focus();
+    // reflect current mode
+    const enabled = localStorage.getItem(LS_KEY) === '1';
+    setAdminMode(enabled);
+  }
+  function closeModal(){
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  fab.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
+
+  submitBtn.addEventListener('click', async ()=>{
+    const pw = passInput.value.trim();
+    if(!pw){ errorEl.textContent = 'Please enter a password.'; errorEl.style.display='block'; return; }
+    const ok = await serverAdminLogin(pw);
+    if(ok){
+      setAdminMode(true);
+      errorEl.style.display='none';
+    }else{
+      errorEl.textContent = 'Invalid password.';
+      errorEl.style.display='block';
+    }
+  });
+
+  toggleAdminViewBtn.addEventListener('click', ()=>{
+    const now = localStorage.getItem(LS_KEY) === '1';
+    setAdminMode(!now);
+  });
+
+  logoutBtn.addEventListener('click', async ()=>{
+    try{ await fetch('/api/admin/logout', { method:'POST' }); }catch(e){}
+    setAdminMode(false);
+  });
+
+  // Restore on load
+  if(localStorage.getItem(LS_KEY) === '1'){
+    document.body.classList.add('admin-mode');
+  }
+})();
+
