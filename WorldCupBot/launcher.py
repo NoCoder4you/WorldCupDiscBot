@@ -102,6 +102,7 @@ def start_bot() -> bool:
         )
         _manual_stop_flag = False
         bot_last_start_ref["value"] = time.time()
+        CTX["bot_process"] = bot_process
         log_bot.info(f"Started bot.py with PID {bot_process.pid}")
         return True
     except Exception as e:
@@ -132,6 +133,7 @@ def stop_bot() -> bool:
         return False
     finally:
         bot_process = None
+        CTX["bot_process"] = None
 
 def restart_bot() -> bool:
     ok1 = stop_bot()
@@ -200,7 +202,7 @@ def _watchdog_loop():
 # ---------- Flask ----------
 app = Flask(
     __name__,
-    static_folder=str(STATIC_DIR),   # STATIC_DIR = BASE_DIR / "static"
+    static_folder=str(BASE_DIR),   # serve files from repo root so /index.html, /style.css, /app.js resolve
     static_url_path=""               # serve static at /
 )
 
@@ -214,6 +216,7 @@ CTX = {
     "stop_bot": stop_bot,
     "restart_bot": restart_bot,
     "get_bot_resource_usage": get_bot_resource_usage,
+    "get_crash_status": get_crash_status,
     "LOG_PATHS": {
         "bot": str(LOG_DIR / "bot.log"),
         "health": str(LOG_DIR / "health.log"),
