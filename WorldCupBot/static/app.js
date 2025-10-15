@@ -999,146 +999,102 @@ async function loadBackups() {
 
 
 // ===================== Admin FAB + Modal =====================
-(function(){
-  const qs = s => document.querySelector(s);
-  const qsa = s => Array.from(document.querySelectorAll(s));
-  const modal = qs('#adminModal');
-  const fab = qs('#adminFab');
-  const pop = qs('#adminLoginPopover');
-  if(!fab || !modal || !pop) return;
-
-  const closeBtn = qs('#adminModalClose');
-  const actions = qs('#adminActions');
-  const fabPass = qs('#adminFabPassword');
-  const fabLogin = qs('#adminFabLogin');
-  const fabCancel = qs('#adminFabCancel');
-  const fabError = qs('#adminFabError');
-
-  const LS_KEY = 'wc_admin_enabled';
-
-  function setAdminMode(enabled){
-    document.body.classList.toggle('admin-mode', !!enabled);
-    localStorage.setItem(LS_KEY, enabled ? '1' : '0');
-    if(enabled){
-      renderAdminActions();
-      refreshCogs();
-      refreshBackups();
-    }
-  }
-
-  async function serverAdminLogin(password){
-    const res = await fetch('/admin/auth/login', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ password })
-    });
-    if(!res.ok){
-      let j = {}; try { j = await res.json(); } catch(e){}
-      throw new Error((j && j.error) || 'Invalid password');
-    }
-    return true;
-  }
-
-  function openModal(){
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden','false');
-  }
-  function closeModal(){
-    modal.classList.remove('show');
-    modal.setAttribute('aria-hidden','true');
-  }
-  function showPopover(show){
-    pop.classList.toggle('show', !!show);
-    pop.setAttribute('aria-hidden', show ? 'false' : 'true');
-    fabError.style.display = 'none';
-    if(show){
-      fabPass.value='';
-      fabPass.focus();
-    }
-  }
-
-  fab.addEventListener('click', ()=>{
-    const unlocked = localStorage.getItem(LS_KEY) === '1';
-    if(unlocked){ openModal(); }
-    else{ showPopover(true); }
-  });
-
-  document.addEventListener('click', (e)=>{
-    if(!pop.classList.contains('show')) return;
-    const within = pop.contains(e.target) || fab.contains(e.target);
-    if(!within) showPopover(false);
-  });
-
-  fabCancel.addEventListener('click', ()=> showPopover(false));
-
-  fabLogin.addEventListener('click', async ()=>{
-    const pw = (fabPass.value || '').trim();
-    if(!pw){ fabError.textContent = 'Please enter a password.'; fabError.style.display='block'; return; }
-    fabError.style.display='none';
+(function initAdminFab(){
+  function safeInit(){
     try{
-      await serverAdminLogin(pw);
-      setAdminMode(true);
-      showPopover(false);
-      openModal();
+      const qs = s => document.querySelector(s);
+      const qsa = s => Array.from(document.querySelectorAll(s));
+      const modal = qs('#adminModal');
+      const fab = qs('#adminFab');
+      const pop = qs('#adminLoginPopover');
+      if(!fab || !modal || !pop) return;
+
+      const closeBtn = qs('#adminModalClose');
+      const actions = qs('#adminActions');
+      const fabPass = qs('#adminFabPassword');
+      const fabLogin = qs('#adminFabLogin');
+      const fabCancel = qs('#adminFabCancel');
+      const fabError = qs('#adminFabError');
+
+      const LS_KEY = 'wc_admin_enabled';
+
+      function setAdminMode(enabled){
+        document.body.classList.toggle('admin-mode', !!enabled);
+        localStorage.setItem(LS_KEY, enabled ? '1' : '0');
+      }
+
+      async function serverAdminLogin(password){
+        const res = await fetch('/admin/auth/login', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          credentials: 'same-origin',
+          body: JSON.stringify({ password })
+        });
+        if(!res.ok){
+          let j = {}; try { j = await res.json(); } catch(e){}
+          throw new Error((j && j.error) || 'Invalid password');
+        }
+        return true;
+      }
+
+      function openModal(){
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden','false');
+      }
+      function closeModal(){
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden','true');
+      }
+      function showPopover(show){
+        pop.classList.toggle('show', !!show);
+        pop.setAttribute('aria-hidden', show ? 'false' : 'true');
+        if(fabError) fabError.style.display = 'none';
+        if(show && fabPass){
+          fabPass.value='';
+          fabPass.focus();
+        }
+      }
+
+      fab.addEventListener('click', ()=>{
+        const unlocked = localStorage.getItem(LS_KEY) === '1';
+        if(unlocked){ openModal(); }
+        else{ showPopover(true); }
+      });
+
+      document.addEventListener('click', (e)=>{
+        if(!pop.classList.contains('show')) return;
+        const within = pop.contains(e.target) || fab.contains(e.target);
+        if(!within) showPopover(false);
+      });
+
+      fabCancel && fabCancel.addEventListener('click', ()=> showPopover(false));
+
+      fabLogin && fabLogin.addEventListener('click', async ()=>{
+        const pw = (fabPass && fabPass.value || '').trim();
+        if(!pw){ if(fabError){ fabError.textContent = 'Please enter a password.'; fabError.style.display='block'; } return; }
+        if(fabError) fabError.style.display='none';
+        try{
+          await serverAdminLogin(pw);
+          setAdminMode(true);
+          showPopover(false);
+          openModal();
+        }catch(err){
+          if(fabError){ fabError.textContent = err.message || 'Login failed'; fabError.style.display='block'; }
+        }
+      });
+
+      // Restore state
+      if(localStorage.getItem(LS_KEY) === '1'){
+        document.body.classList.add('admin-mode');
+      }
     }catch(err){
-      fabError.textContent = err.message || 'Login failed';
-      fabError.style.display='block';
-    }
-  });
-
-  // --- Minimal admin modal content ---
-  function renderAdminActions(){
-    actions.innerHTML = `
-      <div class="wc-group">
-        <h3>Admin</h3>
-        <div class="wc-actions">
-          <button id="btnStart">Start bot</button>
-          <button id="btnRestart">Restart bot</button>
-          <button id="btnStop" class="danger">Stop bot</button>
-          <button id="btnCreateBackup">Create backup</button>
-          <button id="btnRefreshBackups" class="refresh">Refresh</button>
-        </div>
-        <div id="botMsg" class="wc-modal__hint"></div>
-      </div>
-    `;
-    qs('#btnStart').addEventListener('click', ()=> callBot('/api/bot/start'));
-    qs('#btnRestart').addEventListener('click', ()=> callBot('/api/bot/restart'));
-    qs('#btnStop').addEventListener('click', ()=> callBot('/api/bot/stop'));
-    qs('#btnCreateBackup').addEventListener('click', ()=>{
-      fetch('/api/backups/create', { method:'POST' })
-        .then(r => r.json())
-        .then(j => { msg('botMsg', `Created ${j.created || ''}`); refreshBackups(); })
-        .catch(()=> msg('botMsg','Error creating backup', true));
-    });
-    qs('#btnRefreshBackups').addEventListener('click', refreshBackups);
-  }
-
-  function msg(id, text, isErr=false){
-    const el = document.getElementById(id);
-    if(!el) return;
-    if(el.classList) el.classList.toggle('error', !!isErr);
-    el.textContent = text;
-  }
-
-  async function callBot(url){
-    try{
-      const r = await fetch(url, { method:'POST' });
-      const j = await r.json().catch(()=>({}));
-      msg('botMsg', r.ok ? 'Action queued' : (j.error || 'Failed'), !r.ok);
-    }catch(e){
-      msg('botMsg', 'Network error', true);
+      console.error('Admin FAB init error:', err);
     }
   }
-
-  function refreshCogs(){
-    // optional: preload cogs list if needed
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', safeInit);
+  } else {
+    safeInit();
   }
-  function refreshBackups(){
-    // optional: reload backups list if you surface it in modal
-  }
-
-  // Restore state
-  if(localStorage.getItem(LS_KEY) === '1'){
-    document.body.classList.add('admin-mode');
-  }
+  window.addEventListener('pageshow', safeInit);
 })();
