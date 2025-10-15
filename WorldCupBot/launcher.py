@@ -16,6 +16,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_PATH = BASE_DIR / "config.json"
 CONFIG = {}
+ADMIN_PASSWORD = (os.getenv('ADMIN_PASSWORD') or str(CONFIG.get('admin_password', CONFIG.get('ADMIN_PASSWORD', ''))))
 if CONFIG_PATH.exists():
     try:
         CONFIG = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
