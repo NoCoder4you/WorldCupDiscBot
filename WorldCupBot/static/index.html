@@ -123,37 +123,6 @@
 
   <footer><small>World Cup 2026 Discord Bot - Admin Panel</small></footer>
 
-  <script src="app.js"></script>
-
-  <!-- Floating Admin Button and Modal -->
-  <button id="adminFab" aria-label="Admin options" title="Admin options">🔒</button>
-<div id="adminLoginPopover" class="wc-popover" aria-hidden="true">  <div class="wc-popover__card">    <div class="wc-popover__row">      <input type="password" id="adminFabPassword" placeholder="Admin password" autocomplete="current-password">    </div>    <div class="wc-popover__row wc-popover__actions">      <button id="adminFabLogin">Login</button>      <button id="adminFabCancel" class="ghost">Close</button>    </div>    <p id="adminFabError" class="wc-popover__error" style="display:none;"></p>  </div></div>
-
-  <div id="adminModal" class="wc-modal" aria-hidden="true">
-    <div class="wc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
-      <div class="wc-modal__header">
-        <h2 id="adminModalTitle">Admin options</h2>
-        <button class="wc-modal__close" id="adminModalClose" aria-label="Close">×</button>
-      </div>
-      <div class="wc-modal__body">
-        <div id="adminAuthBlock">
-          <p>Enter admin password to enable admin view.</p>
-          <input type="password" id="adminPassword" placeholder="Password" autocomplete="current-password">
-          <p class="wc-modal__error" id="adminError" style="display:none;"></p>
-        </div>
-        <div id="adminActions" style="display:none;">
-          <p>Admin mode is active. Choose an action:</p>
-          <div class="wc-actions">
-            <button id="toggleAdminView">Disable admin view</button>
-            <button id="logoutAdmin">Logout</button>
-          </div>
-        </div>
-      </div>
-      <div class="wc-modal__footer">
-        <button id="adminSubmit">Confirm</button>
-      </div>
-    </div>
-  </div>
-
+  <script src="/static/app.js"></script>
 </body>
 </html>
