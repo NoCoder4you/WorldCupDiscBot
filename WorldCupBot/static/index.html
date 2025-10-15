@@ -14,14 +14,14 @@
       <label class="menu-icon" for="menu-toggle">&#9776;</label>
       <ul class="menu" id="main-menu">
         <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
-        <li><a href="#" data-page="cogs" data-admin="true" data-admin="true" data-admin="true">Cogs</a></li>
-        <li><a href="#" data-page="splits" data-admin="true">Split Requests</a></li>
+        <li><a href="#" data-page="cogs" data-admin="true" data-admin="true" data-admin="true" data-admin="true">Cogs</a></li>
+        <li><a href="#" data-page="splits">Split Requests</a></li>
         <li><a href="#" data-page="bets">Open Bets</a></li>
-        <li><a href="#" data-page="backups" data-admin="true" data-admin="true" data-admin="true">Backups</a></li>
-        <li><a href="#" data-page="log" data-admin="true" data-admin="true" data-admin="true">Bot Log</a></li>
-        <li><a href="#" data-page="ownership" data-admin="true">Team Ownership</a></li>
+        <li><a href="#" data-page="backups" data-admin="true" data-admin="true" data-admin="true" data-admin="true">Backups</a></li>
+        <li><a href="#" data-page="log" data-admin="true" data-admin="true" data-admin="true" data-admin="true">Bot Log</a></li>
+        <li><a href="#" data-page="ownership">Team Ownership</a></li>
       </ul>
-    </nav>  <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
+    </nav>  <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
   </header>
 
   <div class="notify-bar"></div>
@@ -117,5 +117,37 @@
   <footer><small>World Cup 2026 Discord Bot - Admin Panel</small></footer>
 
   <script src="app.js"></script>
+
+  <!-- Floating Admin Button and Popover -->
+  <button id="adminFab" aria-label="Admin options" title="Admin options">⚙️</button>
+
+  <div id="adminLoginPopover" class="wc-popover" aria-hidden="true">
+    <div class="wc-popover__card">
+      <div class="wc-popover__row">
+        <input type="password" id="adminFabPassword" placeholder="Admin password" autocomplete="current-password">
+      </div>
+      <div class="wc-popover__row wc-popover__actions">
+        <button id="adminFabLogin">Login</button>
+        <button id="adminFabCancel" class="ghost">Close</button>
+      </div>
+      <p id="adminFabError" class="wc-popover__error" style="display:none;"></p>
+    </div>
+  </div>
+
+  <!-- Admin Modal -->
+  <div id="adminModal" class="wc-modal" aria-hidden="true">
+    <div class="wc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+      <div class="wc-modal__header">
+        <h2 id="adminModalTitle">Admin options</h2>
+        <button class="wc-modal__close" id="adminModalClose" aria-label="Close">×</button>
+      </div>
+      <div class="wc-modal__body">
+        <div id="adminActions">
+          <!-- Content populated by app.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

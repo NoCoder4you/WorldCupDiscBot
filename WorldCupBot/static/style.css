@@ -1406,6 +1406,7 @@ body.admin-mode .admin-only, body.admin-mode [data-admin="true"] { display:initi
 .requires-admin { display:none !important; }
 body.admin-mode .requires-admin { display:inline-flex !important; }
 
+
 /* Allow refresh buttons to be visible to everyone */
 button[id*="refresh"],
 button[class*="refresh"],
@@ -1413,3 +1414,64 @@ button:has(span:contains("Refresh")),
 button:has(:contains("Refresh")) {
   display: inline-flex !important;
 }
+
+
+/* ===== Floating Admin FAB ===== */
+#adminFab{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  border:none;
+  font-size:26px;
+  background:#10b981;
+  color:#ffffff;
+  cursor:pointer;
+  box-shadow:0 6px 14px rgba(0,0,0,.25);
+  z-index:10000;
+  transition:transform .15s ease, opacity .2s ease, background .2s ease;
+}
+#adminFab:hover{ transform:scale(1.08); }
+#adminFab:active{ transform:scale(.98); }
+
+/* ===== Popover and Modal ===== */
+.wc-popover{
+  position: fixed;
+  bottom: 86px;
+  right: 20px;
+  z-index: 10001;
+  display: none;
+}
+.wc-popover.show{ display: block; }
+.wc-popover__card{
+  min-width: 260px;
+  background: #1f2937;
+  color: #e5e7eb;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 14px 34px rgba(0,0,0,.35);
+}
+.wc-popover__row{ display: flex; gap: 8px; margin-top: 8px; }
+.wc-popover__row:first-child{ margin-top: 0; }
+.wc-popover input[type="password"]{
+  flex: 1;
+  padding: 10px 12px;
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 8px;
+  outline: none;
+}
+.wc-popover__actions{ justify-content: flex-end; }
+.wc-popover button.ghost{ background: transparent; border: 1px solid rgba(255,255,255,.16); }
+.wc-popover__error{ color:#fca5a5; margin: 6px 2px 0; font-size: 13px; }
+
+.wc-modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); z-index:10001; }
+.wc-modal.show{ display:flex; }
+.wc-modal__dialog{ width:min(520px, 94vw); background:#1f2937; color:#e5e7eb; border-radius:12px; box-shadow:0 18px 48px rgba(0,0,0,.4); overflow:hidden; border:1px solid rgba(255,255,255,.08); }
+.wc-modal__header{ display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid rgba(255,255,255,.06); }
+.wc-modal__body{ padding:18px; }
+.wc-modal__close{ background:transparent; border:none; font-size:26px; color:#e5e7eb; cursor:pointer; }
