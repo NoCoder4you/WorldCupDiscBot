@@ -1401,3 +1401,15 @@ body::-webkit-scrollbar, html::-webkit-scrollbar, main::-webkit-scrollbar,
 /* Admin visibility helpers */
 .admin-only, [data-admin="true"] { display:none !important; }
 body.admin-mode .admin-only, body.admin-mode [data-admin="true"] { display:initial !important; }
+
+/* Read-only view for public pages - hide admin actions */
+.requires-admin { display:none !important; }
+body.admin-mode .requires-admin { display:inline-flex !important; }
+
+/* Allow refresh buttons to be visible to everyone */
+button[id*="refresh"],
+button[class*="refresh"],
+button:has(span:contains("Refresh")),
+button:has(:contains("Refresh")) {
+  display: inline-flex !important;
+}
