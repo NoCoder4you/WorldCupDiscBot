@@ -1016,11 +1016,25 @@ async function loadBackups() {
   const toggleAdminViewBtn = qs('#toggleAdminView');
   const logoutBtn = qs('#logoutAdmin');
 
+  // FAB popover elements
+  const pop = qs('#adminLoginPopover');
+  const fabPass = qs('#adminFabPassword');
+  const fabLogin = qs('#adminFabLogin');
+  const fabCancel = qs('#adminFabCancel');
+  const fabError = qs('#adminFabError');
+
   const LS_KEY = 'wc_admin_enabled';
+
+  function setFabState(unlocked){
+    fab.classList.toggle('unlocked', !!unlocked);
+    fab.classList.toggle('locked', !unlocked);
+    fab.textContent = unlocked ? '⚙️' : 'Login';
+  }
 
   function setAdminMode(enabled){
     document.body.classList.toggle('admin-mode', !!enabled);
     localStorage.setItem(LS_KEY, enabled ? '1' : '0');
+    setFabState(!!enabled);
     if(enabled){
       authBlock.style.display = 'none';
       actions.style.display = '';
@@ -1044,11 +1058,12 @@ async function loadBackups() {
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ password })
       });
-      if(res.ok){
-        return true;
-      }
-    }catch(e){}
-    return false;
+      if(res.ok) return true;
+      const j = await res.json().catch(()=>({}));
+      throw new Error((j && j.error) || 'Invalid password');
+    }catch(e){
+      throw e;
+    }
   }
 
   function openModal(){
@@ -1064,8 +1079,56 @@ async function loadBackups() {
     modal.classList.remove('show');
     modal.setAttribute('aria-hidden','true');
   }
+  function showPopover(show){
+    if(!pop) return;
+    pop.classList.toggle('show', !!show);
+    pop.setAttribute('aria-hidden', show ? 'false' : 'true');
+    fabError.style.display = 'none';
+    if(show){
+      fabPass.value='';
+      fabPass.focus();
+    }
+  }
 
-  fab.addEventListener('click', openModal);
+  // FAB behavior: if locked -> show inline login popover; if unlocked -> open modal
+  fab.addEventListener('click', ()=>{
+    const unlocked = localStorage.getItem(LS_KEY) === '1';
+    if(unlocked){
+      // already admin - go straight to modal
+      openModal();
+    }else{
+      showPopover(true);
+    }
+  });
+
+  // Clicking outside popover closes it
+  document.addEventListener('click', (e)=>{
+    if(!pop || !pop.classList.contains('show')) return;
+    const within = pop.contains(e.target) || fab.contains(e.target);
+    if(!within) showPopover(false);
+  });
+
+  fabCancel && fabCancel.addEventListener('click', ()=> showPopover(false));
+
+  fabLogin && fabLogin.addEventListener('click', async ()=>{
+    const pw = (fabPass && fabPass.value || '').trim();
+    if(!pw){ fabError.textContent = 'Please enter a password.'; fabError.style.display='block'; return; }
+    fabError.style.display='none';
+    try{
+      const ok = await serverAdminLogin(pw);
+      if(ok){
+        setAdminMode(true);
+        showPopover(false);
+        // open the modal automatically after login
+        openModal();
+      }
+    }catch(err){
+      fabError.textContent = err.message || 'Login failed';
+      fabError.style.display='block';
+    }
+  });
+
+  // Keep existing modal bindings
   closeBtn.addEventListener('click', closeModal);
   modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
   document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
@@ -1073,12 +1136,14 @@ async function loadBackups() {
   submitBtn.addEventListener('click', async ()=>{
     const pw = passInput.value.trim();
     if(!pw){ errorEl.textContent = 'Please enter a password.'; errorEl.style.display='block'; return; }
-    const ok = await serverAdminLogin(pw);
-    if(ok){
-      setAdminMode(true);
-      errorEl.style.display='none';
-    }else{
-      errorEl.textContent = 'Invalid password.';
+    try{
+      const ok = await serverAdminLogin(pw);
+      if(ok){
+        setAdminMode(true);
+        errorEl.style.display='none';
+      }
+    }catch(err){
+      errorEl.textContent = err.message || 'Invalid password';
       errorEl.style.display='block';
     }
   });
@@ -1093,7 +1158,7 @@ async function loadBackups() {
     setAdminMode(false);
   });
 
-  // ---------- UI RENDER ----------
+  // ---------- UI render for modal (unchanged below) ----------
   function renderAdminActions(){
     actions.innerHTML = `
       <div class="wc-group">
@@ -1179,7 +1244,6 @@ async function loadBackups() {
           'dashboard':'dashboard'
         };
         const pageId = pageIdMap[b.getAttribute('data-nav')] || 'dashboard';
-        // emulate SPA switch
         document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
         const el = document.getElementById(pageId);
         if(el) el.classList.add('active-section');
@@ -1202,7 +1266,6 @@ async function loadBackups() {
     return `${x.toFixed(1)} ${u[i]}`;
   }
 
-  // Fetch cogs list for dropdown
   function refreshCogs(){
     fetch('/api/cogs')
       .then(r => r.json())
@@ -1220,7 +1283,6 @@ async function loadBackups() {
       .catch(()=> msg('cogMsg','Failed to load cogs', true));
   }
 
-  // Backups list with restore buttons
   function refreshBackups(){
     fetch('/api/backups')
       .then(r => r.json())
@@ -1272,8 +1334,10 @@ async function loadBackups() {
     }
   }
 
-  // Restore admin mode on load
-  if(localStorage.getItem(LS_KEY) === '1'){
+  // Restore admin state on load
+  const unlocked = localStorage.getItem(LS_KEY) === '1';
+  setFabState(unlocked);
+  if(unlocked){
     document.body.classList.add('admin-mode');
   }
 })();
