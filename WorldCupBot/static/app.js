@@ -1,13 +1,14 @@
-/* =====================================================
-   World Cup 2026 Admin Panel - MERGED APP.JS
-   - FAB-only admin auth (no header auth)
-   - Dashboard stats + bot controls
-   - Cogs, Logs, Ownership, Bets, Split Requests, Backups
-   - Read-only for non-admins. Refresh visible to all.
-   ===================================================== */
-
 /* ======================= SPA NAV + THEME ======================= */
 document.addEventListener('DOMContentLoaded', () => {
+  // Normalize sections - ensure only one visible on load
+  const sections = Array.from(document.querySelectorAll('main > section'));
+  sections.forEach((s, idx) => {
+    if (!s.classList.contains('page-section')) s.classList.add('page-section');
+  });
+  if (!sections.some(s => s.classList.contains('active-section')) && sections.length) {
+    sections[0].classList.add('active-section');
+  }
+
   // SPA navigation
   document.querySelectorAll('.menu li a').forEach(link => {
     link.addEventListener('click', function (e) {
@@ -17,8 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (page) document.getElementById(page).classList.add('active-section');
       document.querySelectorAll('.menu li a').forEach(a => a.classList.remove('active'));
       this.classList.add('active');
-      const menuTgl = document.getElementById('menu-toggle');
-      if (menuTgl) menuTgl.checked = false;
+      document.getElementById('menu-toggle').checked = false;
 
       // Lazy-load data per page
       if (page === 'cogs') loadCogs();
@@ -41,200 +41,110 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Init
-  initAdminAuthFABOnly();
+  initAdminAuth();
   wireBotButtons();
   fetchDashboard();
   setInterval(fetchDashboard, 6000);
-
-  const refBtn = document.getElementById('refresh-dashboard');
-  if (refBtn) refBtn.addEventListener('click', () => { fetchDashboard(); showNotify("Dashboard refreshed","success"); });
 });
 
 /* ======================= NOTIFY BAR ======================= */
 function showNotify(msg, type = 'success') {
-  const root = document.querySelector('.notify-bar') || document.getElementById('notify-bar');
-  if (!root) return;
+  const notify = document.getElementById('notify-bar');
+  if (!notify) return;
+  notify.innerHTML = "";
   const div = document.createElement('div');
   div.className = `notify-${type}`;
   div.textContent = msg;
-  root.appendChild(div);
-  setTimeout(() => { if (root.contains(div)) root.removeChild(div); }, 2400);
+  notify.appendChild(div);
+  setTimeout(() => { if (notify.contains(div)) notify.removeChild(div); }, 2300);
 }
 
-/* ======================= ADMIN AUTH (FAB ONLY) ======================= */
+/* ======================= ADMIN AUTH ======================= */
 let ADMIN_UNLOCKED = false;
 
-function refreshAdminUI() {
+async function refreshAdminUI() {
   document.querySelectorAll('[data-admin="true"]').forEach(el => {
     el.style.display = ADMIN_UNLOCKED ? '' : 'none';
   });
-  document.querySelectorAll('.requires-admin').forEach(el => {
-    el.style.display = ADMIN_UNLOCKED ? '' : 'none';
-  });
-  document.body.classList.toggle('admin-mode', ADMIN_UNLOCKED);
-  // Update FAB behavior hint via title
-  const fab = document.getElementById('adminFab');
-  if (fab) fab.title = ADMIN_UNLOCKED ? "Admin options" : "Admin login";
+
+  const badge = document.getElementById('admin-status');
+  const loginBtn = document.getElementById('admin-button');
+  const logoutBtn = document.getElementById('admin-logout');
+
+  if (badge) {
+    if (ADMIN_UNLOCKED) {
+      badge.textContent = "🔓 Admin";
+      badge.classList.remove('admin-locked');
+      badge.classList.add('admin-unlocked');
+    } else {
+      badge.textContent = "🔒 Admin";
+      badge.classList.add('admin-locked');
+      badge.classList.remove('admin-unlocked');
+    }
+  }
+  if (loginBtn) loginBtn.style.display = ADMIN_UNLOCKED ? 'none' : '';
+  if (logoutBtn) logoutBtn.style.display = ADMIN_UNLOCKED ? '' : 'none';
 }
 
-function initAdminAuthFABOnly() {
+function initAdminAuth() {
   // Session check
   fetch('/admin/auth/status')
     .then(r => r.ok ? r.json() : { ok:false })
     .then(d => { ADMIN_UNLOCKED = !!(d && d.ok && d.authenticated); refreshAdminUI(); })
     .catch(() => refreshAdminUI());
 
-  const fab = document.getElementById('adminFab');
-  const pop = document.getElementById('adminLoginPopover');
-  const pw  = document.getElementById('adminFabPassword');
-  const loginBtn  = document.getElementById('adminFabLogin');
-  const cancelBtn = document.getElementById('adminFabCancel');
-  const err = document.getElementById('adminFabError');
+  const openBtn = document.getElementById('admin-button');
+  const backdrop = document.getElementById('admin-login-backdrop');
+  const cancelBtn = document.getElementById('admin-cancel');
+  const submitBtn = document.getElementById('admin-submit');
+  const input = document.getElementById('admin-password');
+  const logoutBtn = document.getElementById('admin-logout');
 
-  const adminModal = document.getElementById('adminModal');
-  const adminClose = document.getElementById('adminModalClose');
-
-  function openPopover() {
-    if (!pop) return;
-    pop.classList.add('show');
-    if (pw) { pw.value = ''; pw.focus(); }
-  }
-  function closePopover() {
-    if (!pop) return;
-    pop.classList.remove('show');
-  }
-  function openAdminModal() {
-    if (!adminModal) return;
-    buildAdminModalActions(); // build each time to reflect latest state
-    adminModal.classList.add('show');
-  }
-  function closeAdminModal() {
-    if (!adminModal) return;
-    adminModal.classList.remove('show');
-  }
-
-  if (fab) fab.onclick = () => {
-    if (ADMIN_UNLOCKED) openAdminModal();
-    else openPopover();
+  if (openBtn) openBtn.onclick = () => {
+    if (input) input.value = "";
+    if (backdrop) { backdrop.style.display = 'flex'; setTimeout(() => input && input.focus(), 50); }
   };
-  if (cancelBtn) cancelBtn.onclick = () => { closePopover(); };
-  if (adminClose) adminClose.onclick = () => { closeAdminModal(); };
-  if (adminModal) {
-    adminModal.addEventListener('click', (e) => { if (e.target === adminModal) adminModal.classList.remove('show'); });
-  }
+  if (cancelBtn) cancelBtn.onclick = () => { if (backdrop) backdrop.style.display = 'none'; };
+  if (submitBtn) submitBtn.onclick = loginAdmin;
+  if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginAdmin(); });
+  if (logoutBtn) logoutBtn.onclick = async () => {
+    try {
+      const r = await fetch('/admin/auth/logout', { method:'POST' });
+      const d = await r.json();
+      if (d.ok) { ADMIN_UNLOCKED = false; showNotify('Admin locked','success'); refreshAdminUI(); }
+      else showNotify('Failed to logout','error');
+    } catch { showNotify('Failed to logout','error'); }
+  };
 
-  async function doLogin() {
-    if (!pw) return;
-    const val = pw.value;
-    if (!val || !val.trim()) { if (err){ err.style.display='block'; err.textContent='Enter password'; } return; }
-    loginBtn.disabled = true;
+  async function loginAdmin() {
+    if (!submitBtn || !input || !backdrop) return;
+    const pw = input.value;
+    submitBtn.disabled = true;
     try {
       const r = await fetch('/admin/auth/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ password: val })
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ password: pw })
       });
       const d = await r.json();
       if (d.ok) {
         ADMIN_UNLOCKED = true;
+        backdrop.style.display = 'none';
         showNotify('Admin unlocked','success');
         refreshAdminUI();
-        closePopover();
-        // Immediately open modal after successful auth
-        openAdminModal();
       } else {
-        if (err){ err.style.display='block'; err.textContent=d.error || 'Invalid password'; }
+        showNotify(d.error || 'Invalid password','error');
       }
     } catch {
-      if (err){ err.style.display='block'; err.textContent='Network error'; }
+      showNotify('Network error','error');
     } finally {
-      loginBtn.disabled = false;
+      submitBtn.disabled = false;
     }
   }
-
-  if (pw) pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
-  if (loginBtn) loginBtn.onclick = doLogin;
-}
-
-function buildAdminModalActions() {
-  const container = document.getElementById('adminActions');
-  if (!container) return;
-  container.innerHTML = `
-    <div class="card" style="margin-bottom:12px;">
-      <div class="row space-between">
-        <h3 style="margin:0;">Bot Controls</h3>
-        <div>
-          <button id="modal-start"  class="btn requires-admin">Start</button>
-          <button id="modal-restart" class="btn requires-admin btn-restart">Restart</button>
-          <button id="modal-stop" class="btn requires-admin btn-stop">Stop</button>
-        </div>
-      </div>
-    </div>
-    <div class="card" data-admin="true" style="margin-bottom:12px;">
-      <h3 style="margin-top:0;">Admin Pages</h3>
-      <div class="row" style="gap:8px;flex-wrap:wrap;">
-        <a href="#" class="btn" data-open="cogs">Cogs</a>
-        <a href="#" class="btn" data-open="backups">Backups</a>
-        <a href="#" class="btn" data-open="log">Bot Log</a>
-        <a href="#" class="btn" data-open="ownership">Ownership</a>
-        <a href="#" class="btn" data-open="splits">Split Requests</a>
-      </div>
-    </div>
-    <div class="row" style="justify-content:flex-end;">
-      <button id="modal-logout" class="btn btn-stop">Log out</button>
-    </div>
-  `;
-
-  // Wire up modal actions
-  const start = document.getElementById('modal-start');
-  const stop = document.getElementById('modal-stop');
-  const restart = document.getElementById('modal-restart');
-  if (start) start.onclick = async () => { await fetch('/api/bot/start', {method:'POST'}); showNotify('Bot start sent','success'); fetchDashboard(); };
-  if (stop) stop.onclick = async () => { await fetch('/api/bot/stop', {method:'POST'}); showNotify('Bot stop sent','success'); fetchDashboard(); };
-  if (restart) restart.onclick = async () => { await fetch('/api/bot/restart', {method:'POST'}); showNotify('Bot restart sent','success'); fetchDashboard(); };
-
-  container.querySelectorAll('[data-open]').forEach(a => {
-    a.onclick = (e) => {
-      e.preventDefault();
-      const page = a.getAttribute('data-open');
-      document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
-      const sec = document.getElementById(page);
-      if (sec) sec.classList.add('active-section');
-      document.querySelectorAll('.menu li a').forEach(x => x.classList.remove('active'));
-      const navLink = document.querySelector(`.menu li a[data-page="${page}"]`);
-      if (navLink) navLink.classList.add('active');
-      document.getElementById('adminModal')?.classList.remove('show');
-      // lazy-load
-      if (page === 'cogs') loadCogs();
-      if (page === 'log')  initLogsView();
-      if (page === 'ownership') loadOwnerships();
-      if (page === 'splits') loadSplitRequests();
-      if (page === 'bets') { setupBetsRefreshButton(); loadBets(); }
-      if (page === 'backups') initBackupsView();
-    };
-  });
-
-  const logout = document.getElementById('modal-logout');
-  if (logout) logout.onclick = async () => {
-    try {
-      const r = await fetch('/admin/auth/logout', { method:'POST' });
-      const d = await r.json();
-      if (d.ok) {
-        ADMIN_UNLOCKED = false;
-        refreshAdminUI();
-        document.getElementById('adminModal')?.classList.remove('show');
-        showNotify('Logged out','success');
-      } else showNotify('Failed to log out','error');
-    } catch { showNotify('Failed to log out','error'); }
-  };
-
-  // Ensure UI reflects current bot running state
-  fetchDashboard();
 }
 
 /* ======================= DASHBOARD ======================= */
 function setGauge(barId, textId, percent, textValue) {
-  // 180deg arc approximated to 125.66 length for compatibility with prior logic
   const arcLen = 125.66;
   let value = Math.max(0, Math.min(100, Number(percent) || 0));
   let len = (arcLen * value) / 100;
@@ -314,26 +224,26 @@ async function fetchDashboard() {
 function wireBotButtons() {
   const restartBtn = document.getElementById('restart-bot');
   if (restartBtn) restartBtn.addEventListener('click', async () => {
-    restartBtn.disabled = true; const old = restartBtn.textContent; restartBtn.textContent = "Restarting...";
+    restartBtn.disabled = true; restartBtn.textContent = "Restarting...";
     try { await fetch('/api/bot/restart', { method: 'POST' }); showNotify("Bot restarted!", "success"); }
     catch { showNotify("Failed to restart bot.", "error"); }
-    finally { restartBtn.disabled = false; restartBtn.textContent = old; fetchDashboard(); }
+    finally { restartBtn.disabled = false; restartBtn.textContent = "Restart Bot"; fetchDashboard(); }
   });
 
   const stopBtn = document.getElementById('stop-bot');
   if (stopBtn) stopBtn.addEventListener('click', async () => {
-    stopBtn.disabled = true; const old = stopBtn.textContent; stopBtn.textContent = "Stopping...";
+    stopBtn.disabled = true; stopBtn.textContent = "Stopping...";
     try { await fetch('/api/bot/stop', { method: 'POST' }); showNotify("Bot stopped!", "success"); }
     catch { showNotify("Failed to stop bot.", "error"); }
-    finally { stopBtn.disabled = false; stopBtn.textContent = old; fetchDashboard(); }
+    finally { stopBtn.disabled = false; stopBtn.textContent = "Stop Bot"; fetchDashboard(); }
   });
 
   const startBtn = document.getElementById('start-bot');
   if (startBtn) startBtn.addEventListener('click', async () => {
-    startBtn.disabled = true; const old = startBtn.textContent; startBtn.textContent = "Starting...";
+    startBtn.disabled = true; startBtn.textContent = "Starting...";
     try { await fetch('/api/bot/start', { method: 'POST' }); showNotify("Bot started!", "success"); }
     catch { showNotify("Failed to start bot.", "error"); }
-    finally { startBtn.disabled = false; startBtn.textContent = old; fetchDashboard(); }
+    finally { startBtn.disabled = false; startBtn.textContent = "Start Bot"; fetchDashboard(); }
   });
 }
 
@@ -351,7 +261,7 @@ async function loadCogs() {
       tr.innerHTML = `
         <td>${cog.name}</td>
         <td><span class="${cog.loaded ? "cog-ok" : "cog-error"}">${cog.loaded ? "Loaded" : "Not loaded"}</span></td>
-        <td data-admin="true">
+        <td>
           <button class="btn btn-restart" data-action="reload" data-cog="${cog.name}">Reload</button>
           <button class="btn btn-stop" data-action="unload" data-cog="${cog.name}">Unload</button>
           <button class="btn btn-restart" data-action="load" data-cog="${cog.name}">Load</button>
@@ -389,7 +299,7 @@ function ensureCogsTable() {
       <div class="cogs-table-scroll">
         <table class="cogs-table" id="cogs-table">
           <thead>
-            <tr><th>Cog</th><th>Status</th><th data-admin="true">Actions</th><th>Last Error</th></tr>
+            <tr><th>Cog</th><th>Status</th><th>Actions</th><th>Last Error</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -426,7 +336,7 @@ function initLogsView() {
             </select>
             <input type="text" id="log-search" placeholder="Custom filter..." style="display:none; width:120px;">
             <button id="log-download" class="btn btn-restart" title="Download Log">Download</button>
-            <button id="log-clear" class="btn btn-stop" title="Clear Log" data-admin="true">Clear</button>
+            <button id="log-clear" class="btn btn-stop" title="Clear Log">Clear</button>
             <button id="log-refresh" class="btn" title="Refresh">⟳</button>
           </div>
         </div>
@@ -445,7 +355,6 @@ function initLogsView() {
       loadLogLines(currentLogType, filterVal);
     }, 10000);
   }
-  refreshAdminUI();
 }
 function bindLogEvents() {
   document.querySelectorAll('.log-tab').forEach(tab => {
@@ -537,7 +446,6 @@ async function loadOwnerships() {
   } catch {
     showNotify("Failed to load ownerships","error");
   }
-  refreshAdminUI();
 }
 function ensureOwnershipView() {
   const section = document.getElementById('ownership');
@@ -547,7 +455,7 @@ function ensureOwnershipView() {
       <div class="card ownership-card">
         <div class="ownership-header">
           <span class="ownership-title">Team Ownership</span>
-          <div class="ownership-actions" data-admin="true">
+          <div class="ownership-actions">
             <button id="sort-abc" class="btn btn-restart">Sort A→Z</button>
             <button id="sort-cba" class="btn btn-restart">Sort Z→A</button>
             <input type="text" id="player-filter" placeholder="Filter player(s)">
@@ -556,7 +464,7 @@ function ensureOwnershipView() {
         </div>
         <div class="ownership-table-scroll">
           <table class="ownership-table" id="ownership-table">
-            <thead><tr><th>Country</th><th>Owner(s)</th><th data-admin="true">Actions</th></tr></thead>
+            <thead><tr><th>Country</th><th>Owner(s)</th><th>Actions</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -604,7 +512,6 @@ function renderOwnershipTable() {
     tr.appendChild(tdOwners);
 
     const tdActions = document.createElement("td");
-    tdActions.setAttribute('data-admin','true');
     tdActions.innerHTML =
       `<button class="btn btn-reassign" data-country="${row.country}">Reassign</button>
        <button class="btn btn-split" data-country="${row.country}">Split</button>
@@ -622,7 +529,6 @@ function renderOwnershipTable() {
     document.querySelectorAll('.btn-remove').forEach(btn =>
       btn.onclick = () => showOwnershipModal('remove', btn.dataset.country));
   }, 0);
-  refreshAdminUI();
 }
 function showOwnershipModal(action, country = null) {
   const modal = document.getElementById('ownership-modal');
@@ -741,12 +647,7 @@ function ensureBetsView() {
   if (!section.innerHTML.trim()) {
     section.innerHTML = `
       <div class="card betting-card">
-        <div class="betting-header">
-          <span class="betting-title">Open Bets</span>
-          <div>
-            <button id="bets-refresh-btn" class="btn btn-restart" title="Refresh Bets">⟳</button>
-          </div>
-        </div>
+        <div class="betting-header"><span class="betting-title">Open Bets</span></div>
         <div class="betting-table-scroll">
           <table class="betting-table">
             <thead><tr><th>Bet</th><th>Wager</th><th>Player 1</th><th>Player 2</th><th>Settle</th></tr></thead>
@@ -832,10 +733,16 @@ async function loadBets() {
   });
 }
 function setupBetsRefreshButton() {
-  const btn = document.getElementById('bets-refresh-btn');
-  if (btn && !btn._wired) {
-    btn._wired = true;
+  const header = document.querySelector('.betting-header');
+  if (!header) return;
+  if (!document.getElementById('bets-refresh-btn')) {
+    const btn = document.createElement('button');
+    btn.id = 'bets-refresh-btn';
+    btn.textContent = '⟳';
+    btn.className = 'btn btn-restart';
+    btn.style.marginLeft = '1.2em';
     btn.onclick = () => { loadBets(); showNotify("Bets refreshed!", "success"); };
+    header.appendChild(btn);
   }
 }
 function showSettleModal(
@@ -898,7 +805,7 @@ function ensureSplitsView() {
                 <th>Requester</th>
                 <th>Ownership %</th>
                 <th>Timestamp</th>
-                <th data-admin="true"></th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="split-requests-table-body"></tbody>
@@ -926,7 +833,7 @@ async function loadSplitRequests() {
         : req.status === "declined"
         ? "#e6505c"
         : "#888";
-      const dotBtn = pending ? `<button class="split-dotmenu-btn" data-id="${req.request_id}" title="Actions" data-admin="true">⋮</button>` : "";
+      const dotBtn = pending ? `<button class="split-dotmenu-btn" data-id="${req.request_id}" title="Actions">⋮</button>` : "";
       return `<tr>
         <td><span style="color:${statusColor};font-weight:800">${(req.status || '').toUpperCase()}</span></td>
         <td>${req.team || ''}</td>
@@ -973,7 +880,6 @@ async function loadSplitRequests() {
   } catch {
     showNotify("Failed to load split requests","error");
   }
-  refreshAdminUI();
 }
 function showSplitModal(requestId, action) {
   const modal = document.getElementById('split-modal');
@@ -1038,7 +944,6 @@ function ensureBackupsView() {
 function initBackupsView() {
   ensureBackupsView();
   loadBackups();
-  refreshAdminUI();
 }
 function humanBytes(b) {
   let x = Number(b) || 0;
