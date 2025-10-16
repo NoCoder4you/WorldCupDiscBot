@@ -998,103 +998,129 @@ async function loadBackups() {
 /* ======================= END ======================= */
 
 
-// ===================== Admin FAB + Modal =====================
-(function initAdminFab(){
-  function safeInit(){
-    try{
-      const qs = s => document.querySelector(s);
-      const qsa = s => Array.from(document.querySelectorAll(s));
-      const modal = qs('#adminModal');
-      const fab = qs('#adminFab');
-      const pop = qs('#adminLoginPopover');
-      if(!fab || !modal || !pop) return;
+function renderAdminActions(){
+  actions.innerHTML = `
+    <div class="wc-group">
+      <h3>Bot control</h3>
+      <div id="botControls" class="wc-actions"></div>
+      <div id="botMsg" class="wc-modal__hint"></div>
+    </div>
 
-      const closeBtn = qs('#adminModalClose');
-      const actions = qs('#adminActions');
-      const fabPass = qs('#adminFabPassword');
-      const fabLogin = qs('#adminFabLogin');
-      const fabCancel = qs('#adminFabCancel');
-      const fabError = qs('#adminFabError');
+    <div class="wc-group">
+      <h3>Cogs</h3>
+      <div class="wc-flex">
+        <select id="cogSelect"></select>
+        <div class="wc-actions">
+          <button data-cog-action="reload" class="requires-admin">Reload</button>
+          <button data-cog-action="load" class="requires-admin">Load</button>
+          <button data-cog-action="unload" class="danger requires-admin">Unload</button>
+        </div>
+      </div>
+      <div id="cogMsg" class="wc-modal__hint"></div>
+    </div>
 
-      const LS_KEY = 'wc_admin_enabled';
+    <div class="wc-group">
+      <h3>Backups</h3>
+      <div class="wc-actions">
+        <button id="btnCreateBackup" class="requires-admin">Create backup</button>
+        <button id="btnRefreshBackups" class="refresh">Refresh</button>
+      </div>
+      <div id="backupList" class="wc-backups"></div>
+    </div>
 
-      function setAdminMode(enabled){
-        document.body.classList.toggle('admin-mode', !!enabled);
-        localStorage.setItem(LS_KEY, enabled ? '1' : '0');
-      }
+    <div class="wc-group">
+      <h3>Quick view</h3>
+      <div class="wc-actions">
+        <button data-nav="open-bets">Open Bets</button>
+        <button data-nav="team-ownership">Team Ownership</button>
+        <button data-nav="cogs">Cogs</button>
+        <button data-nav="dashboard">Dashboard</button>
+      </div>
+    </div>
+  `;
 
-      async function serverAdminLogin(password){
-        const res = await fetch('/admin/auth/login', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          credentials: 'same-origin',
-          body: JSON.stringify({ password })
-        });
-        if(!res.ok){
-          let j = {}; try { j = await res.json(); } catch(e){}
-          throw new Error((j && j.error) || 'Invalid password');
-        }
-        return true;
-      }
+  // Bind cog buttons
+  qsa('[data-cog-action]').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const cog = qs('#cogSelect').value;
+      const action = btn.getAttribute('data-cog-action');
+      if(!cog){ msg('cogMsg','Select a cog first', true); return; }
+      fetch(`/admin/cogs/${encodeURIComponent(cog)}/${action}`, { method:'POST' })
+        .then(r => r.json().catch(()=>({})).then(j=>({ok:r.ok, j})))
+        .then(({ok, j}) => {
+          msg('cogMsg', ok ? `Queued ${action} for ${cog}` : (j && j.error) || 'Error', !ok);
+          refreshCogs();
+        })
+        .catch(()=> msg('cogMsg','Network error', true));
+    });
+  });
 
-      function openModal(){
-        modal.classList.add('show');
-        modal.setAttribute('aria-hidden','false');
-      }
-      function closeModal(){
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden','true');
-      }
-      function showPopover(show){
-        pop.classList.toggle('show', !!show);
-        pop.setAttribute('aria-hidden', show ? 'false' : 'true');
-        if(fabError) fabError.style.display = 'none';
-        if(show && fabPass){
-          fabPass.value='';
-          fabPass.focus();
-        }
-      }
+  // Backups
+  const cb = qs('#btnCreateBackup');
+  if(cb) cb.addEventListener('click', ()=>{
+    fetch('/api/backups/create', { method:'POST' })
+      .then(r => r.json())
+      .then(j => { msg('backupList', `Created ${j.created || ''}`); refreshBackups(); })
+      .catch(()=> msg('backupList','Error creating backup', true));
+  });
+  const rb = qs('#btnRefreshBackups');
+  if(rb) rb.addEventListener('click', refreshBackups);
 
-      fab.addEventListener('click', ()=>{
-        const unlocked = localStorage.getItem(LS_KEY) === '1';
-        if(unlocked){ openModal(); }
-        else{ showPopover(true); }
-      });
+  // Quick nav
+  qsa('[data-nav]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const pageIdMap = { 'open-bets':'open-bets', 'team-ownership':'team-ownership', 'cogs':'cogs', 'dashboard':'dashboard' };
+      const pageId = pageIdMap[b.getAttribute('data-nav')] || 'dashboard';
+      document.querySelectorAll('section').forEach(s => s.classList.remove('active-section'));
+      const el = document.getElementById(pageId);
+      if(el) el.classList.add('active-section');
+      closeModal();
+    });
+  });
 
-      document.addEventListener('click', (e)=>{
-        if(!pop.classList.contains('show')) return;
-        const within = pop.contains(e.target) || fab.contains(e.target);
-        if(!within) showPopover(false);
-      });
+  // Initial render for bot controls
+  refreshBotControls();
+}
 
-      fabCancel && fabCancel.addEventListener('click', ()=> showPopover(false));
 
-      fabLogin && fabLogin.addEventListener('click', async ()=>{
-        const pw = (fabPass && fabPass.value || '').trim();
-        if(!pw){ if(fabError){ fabError.textContent = 'Please enter a password.'; fabError.style.display='block'; } return; }
-        if(fabError) fabError.style.display='none';
-        try{
-          await serverAdminLogin(pw);
-          setAdminMode(true);
-          showPopover(false);
-          openModal();
-        }catch(err){
-          if(fabError){ fabError.textContent = err.message || 'Login failed'; fabError.style.display='block'; }
-        }
-      });
 
-      // Restore state
-      if(localStorage.getItem(LS_KEY) === '1'){
-        document.body.classList.add('admin-mode');
-      }
-    }catch(err){
-      console.error('Admin FAB init error:', err);
-    }
+let _botCtlTimer = null;
+async function getBotRunning(){
+  try{
+    const r = await fetch('/api/uptime', { cache: 'no-store' });
+    const j = await r.json();
+    return !!j.bot_running;
+  }catch(e){ return false; }
+}
+function drawBotControls(running){
+  const host = document.getElementById('botControls');
+  if(!host) return;
+  if(running){
+    host.innerHTML = `
+      <button id="btnRestart" class="btn btn-restart requires-admin">Restart</button>
+      <button id="btnStop" class="btn btn-stop requires-admin">Stop</button>
+    `;
+    document.getElementById('btnRestart').addEventListener('click', async ()=>{
+      try { await fetch('/api/bot/restart', { method: 'POST' }); msg('botMsg','Bot restarted'); }
+      catch(e){ msg('botMsg','Failed to restart', true); }
+      setTimeout(refreshBotControls, 800);
+    });
+    document.getElementById('btnStop').addEventListener('click', async ()=>{
+      try { await fetch('/api/bot/stop', { method: 'POST' }); msg('botMsg','Bot stopped'); }
+      catch(e){ msg('botMsg','Failed to stop', true); }
+      setTimeout(refreshBotControls, 800);
+    });
+  }else{
+    host.innerHTML = `<button id="btnStart" class="btn btn-restart requires-admin">Start</button>`;
+    document.getElementById('btnStart').addEventListener('click', async ()=>{
+      try { await fetch('/api/bot/start', { method: 'POST' }); msg('botMsg','Bot started'); }
+      catch(e){ msg('botMsg','Failed to start', true); }
+      setTimeout(refreshBotControls, 800);
+    });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', safeInit);
-  } else {
-    safeInit();
-  }
-  window.addEventListener('pageshow', safeInit);
-})();
+}
+async function refreshBotControls(){
+  const running = await getBotRunning();
+  drawBotControls(running);
+}
+
