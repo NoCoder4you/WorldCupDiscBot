@@ -1396,3 +1396,4 @@ body::-webkit-scrollbar, html::-webkit-scrollbar, main::-webkit-scrollbar,
 .page-section::-webkit-scrollbar, .dashboard::-webkit-scrollbar {
     display: none !important;
 }
+
