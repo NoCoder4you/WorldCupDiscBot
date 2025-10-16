@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>World Cup 2026 Bot Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">World Cup 2026 Bot Admin</div>
+    <nav class="menu">
+      <input type="checkbox" id="menu-toggle">
+      <label for="menu-toggle" class="hamburger" title="Menu">☰</label>
+      <ul>
+        <li><a data-page="dashboard" class="active">Dashboard</a></li>
+        <li><a data-page="cogs" data-admin="true">Cogs</a></li>
+        <li><a data-page="splits" data-admin="true">Split Requests</a></li>
+        <li><a data-page="bets">Open Bets</a></li>
+        <li><a data-page="backups" data-admin="true">Backups</a></li>
+        <li><a data-page="log" data-admin="true">Bot Log</a></li>
+        <li><a data-page="ownership">Team Ownership</a></li>
+      </ul>
+    </nav>
+    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
+  </header>
+
+  <main class="content">
+    <section id="dashboard" class="page-section active-section">
+      <div class="card">
+        <div class="row space-between">
+          <h2>Dashboard</h2>
+          <button id="refresh-dashboard" class="btn">Refresh</button>
+        </div>
+        <div class="stats-grid">
+          <div class="mini"><div class="mini-title" id="uptime-label">Uptime</div><div id="uptime-value" class="mini-value">--:--:--</div></div>
+          <div class="mini"><div class="mini-title">Ping</div><div id="ping-value" class="mini-value">--</div></div>
+          <div class="mini"><div class="mini-title">Guilds</div><div class="mini-value"><span id="guild-count">0</span></div><div id="guild-list" class="mini-sub"></div></div>
+          <div class="mini wide"><div class="mini-title">Bot process</div><div id="botstats-value" class="mini-value">Not running</div></div>
+        </div>
+        <div class="dash-actions">
+          <button id="start-bot" class="btn requires-admin">Start Bot</button>
+          <button id="restart-bot" class="btn requires-admin btn-restart">Restart Bot</button>
+          <button id="stop-bot" class="btn danger requires-admin btn-stop">Stop Bot</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="cogs" class="page-section" data-admin="true"></section>
+    <section id="splits" class="page-section"></section>
+    <section id="bets" class="page-section"></section>
+    <section id="backups" class="page-section" data-admin="true"></section>
+    <section id="log" class="page-section" data-admin="true"></section>
+    <section id="ownership" class="page-section"></section>
+  </main>
+
+  <div id="notify-bar"></div>
+
+  <button id="adminFab" aria-label="Admin options" title="Admin options">⚙️</button>
+  <div id="adminLoginPopover" class="wc-popover" aria-hidden="true">
+    <div class="wc-popover__card">
+      <div class="wc-popover__row">
+        <input type="password" id="adminFabPassword" placeholder="Admin password" autocomplete="current-password">
+      </div>
+      <div class="wc-popover__row wc-popover__actions">
+        <button id="adminFabLogin">Login</button>
+        <button id="adminFabCancel" class="ghost">Close</button>
+      </div>
+      <p id="adminFabError" class="wc-popover__error" style="display:none;"></p>
+    </div>
+  </div>
+
+  <div id="adminModal" class="wc-modal" aria-hidden="true">
+    <div class="wc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+      <div class="wc-modal__header">
+        <h2 id="adminModalTitle">Admin</h2>
+        <button class="wc-modal__close" id="adminModalClose" aria-label="Close">×</button>
+      </div>
+      <div class="wc-modal__body">
+        <div id="adminActions"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
