@@ -3,81 +3,117 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>World Cup 2026 Bot Admin</title>
-  <link rel="stylesheet" href="style.css">
+  <title>World Cup 2026 Admin Panel</title>
+  <link rel="stylesheet" href="style(19).css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">World Cup 2026 Bot Admin</div>
-    <nav class="menu">
-      <input type="checkbox" id="menu-toggle">
-      <label for="menu-toggle" class="hamburger" title="Menu">☰</label>
-      <ul>
-        <li><a data-page="dashboard" class="active">Dashboard</a></li>
-        <li><a data-page="cogs" data-admin="true">Cogs</a></li>
-        <li><a data-page="splits" data-admin="true">Split Requests</a></li>
-        <li><a data-page="bets">Open Bets</a></li>
-        <li><a data-page="backups" data-admin="true">Backups</a></li>
-        <li><a data-page="log" data-admin="true">Bot Log</a></li>
-        <li><a data-page="ownership">Team Ownership</a></li>
-      </ul>
-    </nav>
+  <header class="header-bar">
+    <div class="brand">World Cup 2026 Admin</div>
+
+    <label for="menu-toggle" class="menu-icon">☰</label>
+    <input type="checkbox" id="menu-toggle">
+
+    <ul class="menu">
+      <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+      <li><a href="#" data-page="ownership">Ownership</a></li>
+      <li><a href="#" data-page="splits">Splits</a></li>
+      <li><a href="#" data-page="bets">Bets</a></li>
+      <li><a href="#" data-page="backups" data-admin="true">Backups</a></li>
+      <li><a href="#" data-page="cogs" data-admin="true">Cogs</a></li>
+      <li><a href="#" data-page="log" data-admin="true">Logs</a></li>
+    </ul>
+
     <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
   </header>
 
-  <main class="content">
-    <section id="dashboard" class="page-section active-section">
-      <div class="card">
-        <div class="row space-between">
-          <h2>Dashboard</h2>
-          <button id="refresh-dashboard" class="btn">Refresh</button>
+  <main>
+    <!-- DASHBOARD needs class 'dashboard' for CSS default hide + 'active-section' to show -->
+    <section id="dashboard" class="dashboard active-section">
+      <div class="grid">
+        <div class="card">
+          <div class="card-title" id="uptime-label">Uptime</div>
+          <div class="card-value-wrapper"><span id="uptime-value" class="card-value">--:--:--</span></div>
         </div>
-        <div class="stats-grid">
-          <div class="mini"><div class="mini-title" id="uptime-label">Uptime</div><div id="uptime-value" class="mini-value">--:--:--</div></div>
-          <div class="mini"><div class="mini-title">Ping</div><div id="ping-value" class="mini-value">--</div></div>
-          <div class="mini"><div class="mini-title">Guilds</div><div class="mini-value"><span id="guild-count">0</span></div><div id="guild-list" class="mini-sub"></div></div>
-          <div class="mini wide"><div class="mini-title">Bot process</div><div id="botstats-value" class="mini-value">Not running</div></div>
+        <div class="card">
+          <div class="card-title">Ping</div>
+          <div class="card-value-wrapper"><span id="ping-value" class="card-value">--</span></div>
         </div>
-        <div class="dash-actions">
-          <button id="start-bot" class="btn requires-admin">Start Bot</button>
-          <button id="restart-bot" class="btn requires-admin btn-restart">Restart Bot</button>
-          <button id="stop-bot" class="btn danger requires-admin btn-stop">Stop Bot</button>
+        <div class="card">
+          <div class="card-title">Guilds</div>
+          <div class="card-value-wrapper"><span id="guild-count" class="card-value">0</span></div>
+          <div class="guild-list-scroll" id="guild-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">CPU</div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 100 50">
+              <path class="gauge-bg" d="M10,50 A40,40 0 0 1 90,50"/>
+              <path id="cpu-bar" class="gauge-bar" d="M10,50 A40,40 0 0 1 90,50" stroke-dasharray="0,125.66"/>
+              <text id="cpu-text" class="gauge-text" x="50" y="40" text-anchor="middle">0%</text>
+            </svg>
+            <div class="gauge-extra-scroll"><span id="cpu-extra" class="gauge-extra">–</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Memory</div>
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 100 50">
+              <path class="gauge-bg" d="M10,50 A40,40 0 0 1 90,50"/>
+              <path id="mem-bar" class="gauge-bar" d="M10,50 A40,40 0 0 1 90,50" stroke-dasharray="0,125.66"/>
+              <text id="mem-text" class="gauge-text" x="50" y="40" text-anchor="middle">0%</text>
+            </svg>
+            <div class="gauge-extra-scroll"><span id="mem-extra" class="gauge-extra">–</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Bot Process</div>
+          <div class="card-value-wrapper"><span id="botstats-value" class="card-value">Not running</span></div>
+          <div class="actions-row">
+            <button id="start-bot" class="btn requires-admin">Start Bot</button>
+            <button id="restart-bot" class="btn btn-restart requires-admin">Restart Bot</button>
+            <button id="stop-bot" class="btn btn-stop requires-admin">Stop Bot</button>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="cogs" class="page-section" data-admin="true"></section>
+    <section id="ownership" class="page-section"></section>
     <section id="splits" class="page-section"></section>
     <section id="bets" class="page-section"></section>
     <section id="backups" class="page-section" data-admin="true"></section>
+    <section id="cogs" class="page-section" data-admin="true"></section>
     <section id="log" class="page-section" data-admin="true"></section>
-    <section id="ownership" class="page-section"></section>
   </main>
 
-  <div id="notify-bar"></div>
+  <div class="notify-bar" id="notify-bar"></div>
 
+  <!-- FAB auth -->
   <button id="adminFab" aria-label="Admin options" title="Admin options">⚙️</button>
-  <div id="adminLoginPopover" class="wc-popover" aria-hidden="true">
-    <div class="wc-popover__card">
-      <div class="wc-popover__row">
+  <div id="adminLoginPopover" class="admin-modal-backdrop" style="display:none;">
+    <div class="admin-modal" role="dialog" aria-modal="true">
+      <h3>Admin Login</h3>
+      <div class="row">
+        <label for="adminFabPassword" style="font-weight:700;">Password</label>
         <input type="password" id="adminFabPassword" placeholder="Admin password" autocomplete="current-password">
       </div>
-      <div class="wc-popover__row wc-popover__actions">
-        <button id="adminFabLogin">Login</button>
-        <button id="adminFabCancel" class="ghost">Close</button>
+      <div class="actions">
+        <button id="adminFabCancel" class="btn btn-outline">Close</button>
+        <button id="adminFabLogin" class="btn btn-restart">Login</button>
       </div>
-      <p id="adminFabError" class="wc-popover__error" style="display:none;"></p>
+      <div id="adminFabError" style="color:#e6505c;display:none;margin-top:.4rem;font-weight:700;"></div>
     </div>
   </div>
 
-  <div id="adminModal" class="wc-modal" aria-hidden="true">
-    <div class="wc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
-      <div class="wc-modal__header">
-        <h2 id="adminModalTitle">Admin</h2>
-        <button class="wc-modal__close" id="adminModalClose" aria-label="Close">×</button>
-      </div>
-      <div class="wc-modal__body">
-        <div id="adminActions"></div>
+  <!-- Admin modal (logout-only after login) -->
+  <div id="adminModal" class="admin-modal-backdrop" style="display:none;">
+    <div class="admin-modal" role="dialog" aria-modal="true">
+      <h3>Admin</h3>
+      <div id="adminActions" class="row" style="justify-content:flex-end;"></div>
+      <div class="actions">
+        <button id="adminModalClose" class="btn btn-outline">Close</button>
       </div>
     </div>
   </div>

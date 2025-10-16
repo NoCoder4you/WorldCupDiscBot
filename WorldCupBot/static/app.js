@@ -1005,3 +1005,85 @@ async function loadBackups() {
 }
 
 /* ======================= END ======================= */
+
+
+/* === WC Admin - Minimal overrides appended (non-destructive) === */
+(function(){
+  let ADMIN_UNLOCKED_CACHE = null;
+
+  async function checkStatus() {
+    try {
+      const r = await fetch('/admin/auth/status', {cache:'no-store'});
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      const aut = !!(d && d.ok && d.authenticated);
+      if (aut !== ADMIN_UNLOCKED_CACHE) {
+        ADMIN_UNLOCKED_CACHE = aut;
+        document.body.classList.toggle('admin-mode', aut);
+        if (aut) {
+          const pop = document.getElementById('adminLoginPopover');
+          if (pop) pop.style.display = 'none';
+        }
+      }
+    } catch (e) {
+      // leave state as-is
+    }
+  }
+
+  function openLogoutOnlyModal() {
+    const modal = document.getElementById('adminModal');
+    const actions = document.getElementById('adminActions');
+    if (!modal || !actions) return;
+    actions.innerHTML = '<button id="modal-logout" class="btn btn-stop">Log out</button>';
+    const logout = document.getElementById('modal-logout');
+    if (logout) {
+      logout.onclick = async () => {
+        try {
+          const r = await fetch('/admin/auth/logout', { method:'POST' });
+          const d = await r.json();
+          if (d.ok) {
+            document.body.classList.remove('admin-mode');
+            modal.style.display = 'none';
+          }
+        } catch {}
+      };
+    }
+    modal.style.display = 'flex';
+  }
+
+  function wireFab() {
+    const fab = document.getElementById('adminFab');
+    const pop = document.getElementById('adminLoginPopover');
+    const cancel = document.getElementById('adminFabCancel');
+    const closeBtn = document.getElementById('adminModalClose');
+    if (fab) {
+      fab.onclick = () => {
+        if (document.body.classList.contains('admin-mode')) {
+          openLogoutOnlyModal();
+        } else {
+          if (pop) pop.style.display = 'flex';
+        }
+      };
+    }
+    if (cancel) cancel.onclick = () => { if (pop) pop.style.display = 'none'; };
+    if (closeBtn) closeBtn.onclick = () => {
+      const modal = document.getElementById('adminModal');
+      if (modal) modal.style.display = 'none';
+    };
+  }
+
+  function ensureSingleActiveSection() {
+    const sections = Array.from(document.querySelectorAll('main > section'));
+    const active = sections.filter(s => s.classList.contains('active-section'));
+    if (active.length === 0 && sections.length) {
+      sections[0].classList.add('active-section');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    wireFab();
+    ensureSingleActiveSection();
+    checkStatus();
+    setInterval(checkStatus, 3000);
+  });
+})();
