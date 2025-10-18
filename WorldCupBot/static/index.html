@@ -1,125 +1,128 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
+  <title>World Cup 2026 Bot Admin Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>World Cup 2026 Admin Panel</title>
-  <link rel="stylesheet" href="style.css">
+  <link href="style.css" rel="stylesheet">
 </head>
 <body>
   <header class="header-bar">
-    <div class="brand">World Cup 2026 Admin</div>
+    <div class="brand">World Cup 2026 Bot Admin</div>
+    <nav>
+      <input type="checkbox" id="menu-toggle" />
+      <label class="menu-icon" for="menu-toggle">&#9776;</label>
+      <ul class="menu" id="main-menu">
+        <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+        <li><a href="#" data-page="cogs" data-admin="true">Cogs</a></li>
+        <li><a href="#" data-page="splits" data-admin="true">Split Requests</a></li>
+        <li><a href="#" data-page="bets">Open Bets</a></li>
+        <li><a href="#" data-page="backups" data-admin="true">Backups</a></li>
+        <li><a href="#" data-page="log" data-admin="true">Bot Log</a></li>
+        <li><a href="#" data-page="ownership" data-admin="true">Team Ownership</a></li>
+      </ul>
+    </nav>
 
-    <label for="menu-toggle" class="menu-icon">☰</label>
-    <input type="checkbox" id="menu-toggle">
-
-    <ul class="menu">
-      <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
-      <li><a href="#" data-page="ownership">Ownership</a></li>
-      <li><a href="#" data-page="splits">Splits</a></li>
-      <li><a href="#" data-page="bets">Bets</a></li>
-      <li><a href="#" data-page="backups" data-admin="true">Backups</a></li>
-      <li><a href="#" data-page="cogs" data-admin="true">Cogs</a></li>
-      <li><a href="#" data-page="log" data-admin="true">Logs</a></li>
-    </ul>
+    <!-- Admin UI -->
+    <div id="admin-status" class="admin-badge admin-locked" title="Admin locked">🔒 Admin</div>
+    <button id="admin-button" class="btn admin-btn btn-outline" title="Unlock admin">Login</button>
+    <button id="admin-logout" class="btn admin-btn btn-outline" title="Lock admin" style="display:none;">Logout</button>
 
     <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
   </header>
 
+  <div class="notify-bar"></div>
+
   <main>
-    <!-- DASHBOARD needs class 'dashboard' for CSS default hide + 'active-section' to show -->
     <section id="dashboard" class="dashboard active-section">
       <div class="grid">
         <div class="card">
           <div class="card-title" id="uptime-label">Uptime</div>
-          <div class="card-value-wrapper"><span id="uptime-value" class="card-value">--:--:--</span></div>
+          <div class="card-value-wrapper"><span class="card-value" id="uptime-value">--:--:--</span></div>
         </div>
         <div class="card">
           <div class="card-title">Ping</div>
-          <div class="card-value-wrapper"><span id="ping-value" class="card-value">--</span></div>
+          <div class="card-value-wrapper"><span class="card-value" id="ping-value">-- ms</span></div>
         </div>
         <div class="card">
           <div class="card-title">Guilds</div>
-          <div class="card-value-wrapper"><span id="guild-count" class="card-value">0</span></div>
+          <div class="card-value-wrapper"><span class="card-value" id="guild-count">0</span></div>
           <div class="guild-list-scroll" id="guild-list"></div>
         </div>
-
-        <div class="card">
-          <div class="card-title">CPU</div>
-          <div class="gauge-container">
-            <svg class="gauge-svg" viewBox="0 0 100 50">
-              <path class="gauge-bg" d="M10,50 A40,40 0 0 1 90,50"/>
-              <path id="cpu-bar" class="gauge-bar" d="M10,50 A40,40 0 0 1 90,50" stroke-dasharray="0,125.66"/>
-              <text id="cpu-text" class="gauge-text" x="50" y="40" text-anchor="middle">0%</text>
-            </svg>
-            <div class="gauge-extra-scroll"><span id="cpu-extra" class="gauge-extra">–</span></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Memory</div>
-          <div class="gauge-container">
-            <svg class="gauge-svg" viewBox="0 0 100 50">
-              <path class="gauge-bg" d="M10,50 A40,40 0 0 1 90,50"/>
-              <path id="mem-bar" class="gauge-bar" d="M10,50 A40,40 0 0 1 90,50" stroke-dasharray="0,125.66"/>
-              <text id="mem-text" class="gauge-text" x="50" y="40" text-anchor="middle">0%</text>
-            </svg>
-            <div class="gauge-extra-scroll"><span id="mem-extra" class="gauge-extra">–</span></div>
-          </div>
-        </div>
-
         <div class="card">
           <div class="card-title">Bot Process</div>
-          <div class="card-value-wrapper"><span id="botstats-value" class="card-value">Not running</span></div>
+          <div class="card-value-wrapper"><span class="card-value" id="botstats-value">---</span></div>
+        </div>
+        <div class="card">
+          <div class="card-title">System Usage</div>
+          <div class="gauges-flex">
+            <div class="gauge-container">
+              <div class="gauge-label">Memory</div>
+              <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
+                <path class="gauge-bar" id="mem-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
+                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="mem-text">0%</text>
+              </svg>
+              <div class="gauge-extra-scroll"><span class="gauge-extra" id="mem-extra"></span></div>
+            </div>
+            <div class="gauge-container">
+              <div class="gauge-label">CPU</div>
+              <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
+                <path class="gauge-bar" id="cpu-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
+                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="cpu-text">0%</text>
+              </svg>
+              <div class="gauge-extra-scroll"><span class="gauge-extra" id="cpu-extra"></span></div>
+            </div>
+            <div class="gauge-container">
+              <div class="gauge-label">Disk</div>
+              <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
+                <path class="gauge-bar" id="disk-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
+                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="disk-text">0%</text>
+              </svg>
+              <div class="gauge-extra-scroll"><span class="gauge-extra" id="disk-extra"></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Bot Actions</div>
           <div class="actions-row">
-            <button id="start-bot" class="btn requires-admin">Start Bot</button>
-            <button id="restart-bot" class="btn btn-restart requires-admin">Restart Bot</button>
-            <button id="stop-bot" class="btn btn-stop requires-admin">Stop Bot</button>
+            <button id="restart-bot" class="btn btn-restart" data-admin="true">Restart Bot</button>
+            <button id="stop-bot" class="btn btn-stop" data-admin="true">Stop Bot</button>
+            <button id="start-bot" class="btn btn-restart" data-admin="true" style="display:none;">Start Bot</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="ownership" class="page-section"></section>
-    <section id="splits" class="page-section"></section>
+    <section id="log" class="page-section" data-admin="true"></section>
+    <section id="ownership" class="page-section" data-admin="true"></section>
+    <section id="cogs" class="page-section" data-admin="true"></section>
+    <section id="splits" class="page-section" data-admin="true"></section>
     <section id="bets" class="page-section"></section>
     <section id="backups" class="page-section" data-admin="true"></section>
-    <section id="cogs" class="page-section" data-admin="true"></section>
-    <section id="log" class="page-section" data-admin="true"></section>
   </main>
 
-  <div class="notify-bar" id="notify-bar"></div>
-
-  <!-- FAB auth -->
-  <button id="adminFab" aria-label="Admin options" title="Admin options">⚙️</button>
-  <div id="adminLoginPopover" class="admin-modal-backdrop" style="display:none;">
-    <div class="admin-modal" role="dialog" aria-modal="true">
-      <h3>Admin Login</h3>
+  <!-- Admin login modal -->
+  <div id="admin-login-backdrop" class="admin-modal-backdrop">
+    <div class="admin-modal">
+      <h3>Admin login</h3>
       <div class="row">
-        <label for="adminFabPassword" style="font-weight:700;">Password</label>
-        <input type="password" id="adminFabPassword" placeholder="Admin password" autocomplete="current-password">
+        <label for="admin-password">Password</label>
+        <input type="password" id="admin-password" placeholder="Enter admin password">
       </div>
       <div class="actions">
-        <button id="adminFabCancel" class="btn btn-outline">Close</button>
-        <button id="adminFabLogin" class="btn btn-restart">Login</button>
+        <button id="admin-cancel" class="btn btn-outline">Cancel</button>
+        <button id="admin-submit" class="btn btn-restart">Unlock</button>
       </div>
-      <div id="adminFabError" style="color:#e6505c;display:none;margin-top:.4rem;font-weight:700;"></div>
     </div>
   </div>
 
-  <!-- Admin modal (logout-only after login) -->
-  <div id="adminModal" class="admin-modal-backdrop" style="display:none;">
-    <div class="admin-modal" role="dialog" aria-modal="true">
-      <h3>Admin</h3>
-      <div id="adminActions" class="row" style="justify-content:flex-end;"></div>
-      <div class="actions">
-        <button id="adminModalClose" class="btn btn-outline">Close</button>
-      </div>
-    </div>
-  </div>
+  <div class="notify-bar"></div>
+
+  <footer><small>World Cup 2026 Discord Bot - Admin Panel</small></footer>
 
   <script src="app.js"></script>
 </body>
 </html>
-
-

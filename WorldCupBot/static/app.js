@@ -1,14 +1,5 @@
 /* ======================= SPA NAV + THEME ======================= */
 document.addEventListener('DOMContentLoaded', () => {
-  // Normalize sections - ensure only one visible on load
-  const sections = Array.from(document.querySelectorAll('main > section'));
-  sections.forEach((s, idx) => {
-    if (!s.classList.contains('page-section')) s.classList.add('page-section');
-  });
-  if (!sections.some(s => s.classList.contains('active-section')) && sections.length) {
-    sections[0].classList.add('active-section');
-  }
-
   // SPA navigation
   document.querySelectorAll('.menu li a').forEach(link => {
     link.addEventListener('click', function (e) {
@@ -1007,84 +998,147 @@ async function loadBackups() {
 /* ======================= END ======================= */
 
 
-/* === WC Admin - Minimal overrides appended (non-destructive) === */
+// ===================== Admin FAB + Modal =====================
 (function(){
-  let ADMIN_UNLOCKED_CACHE = null;
+  const qs = s => document.querySelector(s);
+  const qsa = s => Array.from(document.querySelectorAll(s));
+  const modal = qs('#adminModal');
+  const fab = qs('#adminFab');
+  const pop = qs('#adminLoginPopover');
+  if(!fab || !modal || !pop) return;
 
-  async function checkStatus() {
-    try {
-      const r = await fetch('/admin/auth/status', {cache:'no-store'});
-      if (!r.ok) throw new Error();
-      const d = await r.json();
-      const aut = !!(d && d.ok && d.authenticated);
-      if (aut !== ADMIN_UNLOCKED_CACHE) {
-        ADMIN_UNLOCKED_CACHE = aut;
-        document.body.classList.toggle('admin-mode', aut);
-        if (aut) {
-          const pop = document.getElementById('adminLoginPopover');
-          if (pop) pop.style.display = 'none';
-        }
-      }
-    } catch (e) {
-      // leave state as-is
+  const closeBtn = qs('#adminModalClose');
+  const actions = qs('#adminActions');
+  const fabPass = qs('#adminFabPassword');
+  const fabLogin = qs('#adminFabLogin');
+  const fabCancel = qs('#adminFabCancel');
+  const fabError = qs('#adminFabError');
+
+  const LS_KEY = 'wc_admin_enabled';
+
+  function setAdminMode(enabled){
+    document.body.classList.toggle('admin-mode', !!enabled);
+    localStorage.setItem(LS_KEY, enabled ? '1' : '0');
+    if(enabled){
+      renderAdminActions();
+      refreshCogs();
+      refreshBackups();
     }
   }
 
-  function openLogoutOnlyModal() {
-    const modal = document.getElementById('adminModal');
-    const actions = document.getElementById('adminActions');
-    if (!modal || !actions) return;
-    actions.innerHTML = '<button id="modal-logout" class="btn btn-stop">Log out</button>';
-    const logout = document.getElementById('modal-logout');
-    if (logout) {
-      logout.onclick = async () => {
-        try {
-          const r = await fetch('/admin/auth/logout', { method:'POST' });
-          const d = await r.json();
-          if (d.ok) {
-            document.body.classList.remove('admin-mode');
-            modal.style.display = 'none';
-          }
-        } catch {}
-      };
+  async function serverAdminLogin(password){
+    const res = await fetch('/admin/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password })
+    });
+    if(!res.ok){
+      let j = {}; try { j = await res.json(); } catch(e){}
+      throw new Error((j && j.error) || 'Invalid password');
     }
-    modal.style.display = 'flex';
+    return true;
   }
 
-  function wireFab() {
-    const fab = document.getElementById('adminFab');
-    const pop = document.getElementById('adminLoginPopover');
-    const cancel = document.getElementById('adminFabCancel');
-    const closeBtn = document.getElementById('adminModalClose');
-    if (fab) {
-      fab.onclick = () => {
-        if (document.body.classList.contains('admin-mode')) {
-          openLogoutOnlyModal();
-        } else {
-          if (pop) pop.style.display = 'flex';
-        }
-      };
-    }
-    if (cancel) cancel.onclick = () => { if (pop) pop.style.display = 'none'; };
-    if (closeBtn) closeBtn.onclick = () => {
-      const modal = document.getElementById('adminModal');
-      if (modal) modal.style.display = 'none';
-    };
+  function openModal(){
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden','false');
   }
-
-  function ensureSingleActiveSection() {
-    const sections = Array.from(document.querySelectorAll('main > section'));
-    const active = sections.filter(s => s.classList.contains('active-section'));
-    if (active.length === 0 && sections.length) {
-      sections[0].classList.add('active-section');
+  function closeModal(){
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden','true');
+  }
+  function showPopover(show){
+    pop.classList.toggle('show', !!show);
+    pop.setAttribute('aria-hidden', show ? 'false' : 'true');
+    fabError.style.display = 'none';
+    if(show){
+      fabPass.value='';
+      fabPass.focus();
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    wireFab();
-    ensureSingleActiveSection();
-    checkStatus();
-    setInterval(checkStatus, 3000);
+  fab.addEventListener('click', ()=>{
+    const unlocked = localStorage.getItem(LS_KEY) === '1';
+    if(unlocked){ openModal(); }
+    else{ showPopover(true); }
   });
-})();
 
+  document.addEventListener('click', (e)=>{
+    if(!pop.classList.contains('show')) return;
+    const within = pop.contains(e.target) || fab.contains(e.target);
+    if(!within) showPopover(false);
+  });
+
+  fabCancel.addEventListener('click', ()=> showPopover(false));
+
+  fabLogin.addEventListener('click', async ()=>{
+    const pw = (fabPass.value || '').trim();
+    if(!pw){ fabError.textContent = 'Please enter a password.'; fabError.style.display='block'; return; }
+    fabError.style.display='none';
+    try{
+      await serverAdminLogin(pw);
+      setAdminMode(true);
+      showPopover(false);
+      openModal();
+    }catch(err){
+      fabError.textContent = err.message || 'Login failed';
+      fabError.style.display='block';
+    }
+  });
+
+  // --- Minimal admin modal content ---
+  function renderAdminActions(){
+    actions.innerHTML = `
+      <div class="wc-group">
+        <h3>Admin</h3>
+        <div class="wc-actions">
+          <button id="btnStart">Start bot</button>
+          <button id="btnRestart">Restart bot</button>
+          <button id="btnStop" class="danger">Stop bot</button>
+          <button id="btnCreateBackup">Create backup</button>
+          <button id="btnRefreshBackups" class="refresh">Refresh</button>
+        </div>
+        <div id="botMsg" class="wc-modal__hint"></div>
+      </div>
+    `;
+    qs('#btnStart').addEventListener('click', ()=> callBot('/api/bot/start'));
+    qs('#btnRestart').addEventListener('click', ()=> callBot('/api/bot/restart'));
+    qs('#btnStop').addEventListener('click', ()=> callBot('/api/bot/stop'));
+    qs('#btnCreateBackup').addEventListener('click', ()=>{
+      fetch('/api/backups/create', { method:'POST' })
+        .then(r => r.json())
+        .then(j => { msg('botMsg', `Created ${j.created || ''}`); refreshBackups(); })
+        .catch(()=> msg('botMsg','Error creating backup', true));
+    });
+    qs('#btnRefreshBackups').addEventListener('click', refreshBackups);
+  }
+
+  function msg(id, text, isErr=false){
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(el.classList) el.classList.toggle('error', !!isErr);
+    el.textContent = text;
+  }
+
+  async function callBot(url){
+    try{
+      const r = await fetch(url, { method:'POST' });
+      const j = await r.json().catch(()=>({}));
+      msg('botMsg', r.ok ? 'Action queued' : (j.error || 'Failed'), !r.ok);
+    }catch(e){
+      msg('botMsg', 'Network error', true);
+    }
+  }
+
+  function refreshCogs(){
+    // optional: preload cogs list if needed
+  }
+  function refreshBackups(){
+    // optional: reload backups list if you surface it in modal
+  }
+
+  // Restore state
+  if(localStorage.getItem(LS_KEY) === '1'){
+    document.body.classList.add('admin-mode');
+  }
+})();

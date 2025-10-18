@@ -1397,3 +1397,7 @@ body::-webkit-scrollbar, html::-webkit-scrollbar, main::-webkit-scrollbar,
     display: none !important;
 }
 
+
+/* Admin visibility helpers */
+.admin-only, [data-admin="true"] { display:none !important; }
+body.admin-mode .admin-only, body.admin-mode [data-admin="true"] { display:initial !important; }
