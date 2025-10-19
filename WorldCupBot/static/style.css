@@ -46,6 +46,32 @@ body {
 	overflow: hidden
 }
 
+/* --- Center the 3-Card Logged-Out Layout --- */
+body:not(.admin) .dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  justify-content: center;     /* centers grid horizontally */
+  align-content: center;       /* centers vertically within viewport */
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 0;
+  min-height: calc(100vh - 180px); /* ensures vertical centering space */
+}
+
+/* Responsiveness */
+@media (max-width:900px){
+  body:not(.admin) .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
+}
+@media (max-width:600px){
+  body:not(.admin) .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
 header.header-bar {
 	display: flex;
 	align-items: center;
@@ -205,35 +231,44 @@ body.admin .admin-only {
 	align-items: stretch;
 }
 
-/* True dice-5 layout for admin: 3x3 grid with empty middle gutters */
-body.admin .dashboard-grid{
-  /* three equal columns, three equal rows */
-  grid-template-columns: 1fr 1fr 1fr;
-  grid-template-rows: var(--card-h) var(--card-h) var(--card-h);
-  /* positions:
-     a . b
-     . c .
-     d . e
-  */
+/* --- Equal Sizing & Balanced Spacing (Admin Mode) --- */
+body.admin .dashboard-grid {
+  display: grid;
+  place-items: stretch;
+  justify-content: center;
+  align-content: center;
+
+  /* dice-5 structure */
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  grid-template-rows: repeat(3, var(--card-h));
   grid-template-areas:
     "a . b"
     ". c ."
     "d . e";
+
+  gap: 28px;
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 24px 0;
 }
 
-/* map cards to areas (keep these if you already have them) */
-body.admin .card-a{ grid-area:a }
-body.admin .card-b{ grid-area:b }
-body.admin .card-c{ grid-area:c }  /* center card */
-body.admin .card-d{ grid-area:d }
-body.admin .card-e{ grid-area:e }
+/* Keep all cards equal size */
+body.admin .dashboard-grid .card {
+  height: var(--card-h);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
 
-/* Optional: make the dice look breathe a bit more on wide screens */
-body.admin .dashboard-grid{ gap: 22px; }
+/* Smooth alignment on large screens */
+@media (min-width:1300px){
+  body.admin .dashboard-grid { gap: 32px; }
+}
 
-/* Responsive fallback - below 1100px switch to 2-1-2 so nothing feels cramped */
+/* Fallback to 2-1-2 at smaller widths */
 @media (max-width:1100px){
-  body.admin .dashboard-grid{
+  body.admin .dashboard-grid {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto;
     grid-template-areas:
