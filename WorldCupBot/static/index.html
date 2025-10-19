@@ -53,8 +53,11 @@
         <!-- D - admin-only -->
         <div class="card card-d admin-only">
           <div class="card-title">System Usage</div>
-          <div class="gauges-flex">
-            <div class="gauge-container">
+
+          <!-- Overlapping gauges stack -->
+          <div class="gauges-flex gauges-overlap">
+            <!-- Memory -->
+            <div class="gauge-container gauge--mem">
               <div class="gauge-label">Memory</div>
               <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
                 <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
@@ -63,7 +66,9 @@
               </svg>
               <div class="gauge-extra-scroll"><span class="gauge-extra" id="mem-extra"></span></div>
             </div>
-            <div class="gauge-container">
+
+            <!-- CPU -->
+            <div class="gauge-container gauge--cpu">
               <div class="gauge-label">CPU</div>
               <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
                 <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
@@ -72,7 +77,9 @@
               </svg>
               <div class="gauge-extra-scroll"><span class="gauge-extra" id="cpu-extra"></span></div>
             </div>
-            <div class="gauge-container">
+
+            <!-- Disk -->
+            <div class="gauge-container gauge--disk">
               <div class="gauge-label">Disk</div>
               <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
                 <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
@@ -81,6 +88,13 @@
               </svg>
               <div class="gauge-extra-scroll"><span class="gauge-extra" id="disk-extra"></span></div>
             </div>
+          </div>
+
+          <!-- Compact legend for overlapping colors -->
+          <div class="gauge-legend">
+            <span class="dot dot--mem"></span><span id="mem-legend">--%</span>
+            <span class="dot dot--cpu"></span><span id="cpu-legend">--%</span>
+            <span class="dot dot--disk"></span><span id="disk-legend">--%</span>
           </div>
         </div>
 

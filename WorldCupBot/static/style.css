@@ -11,6 +11,9 @@
 	--btn: #223145;
 	--btn-hover: #2a3b55;
 	--card-h: 220px
+	--mem-c:#00d0a3;   /* teal */
+    --cpu-c:#2aa8ff;   /* blue */
+    --disk-c:#23e0c0;  /* lighter teal */
 }
 
 body.light {
@@ -331,6 +334,102 @@ body.admin .dashboard-grid .card {
 	white-space: nowrap;
 	display: inline-block;
 	animation: scroll-left 6s linear infinite
+}
+/* Slightly smaller System Usage card */
+.card.card-d {
+  padding: 14px;
+  min-height: 180px;          /* shorter than default 220px */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+/* Define distinct gauge colors */
+:root {
+  --mem-c: #00d0a3;   /* teal */
+  --cpu-c: #2aa8ff;   /* blue */
+  --disk-c: #23e0c0;  /* lighter teal */
+}
+
+/* Container for overlapping gauges */
+.gauges-overlap {
+  position: relative;
+  height: 110px;       /* smaller footprint */
+  width: 260px;        /* contained width */
+  margin: 10px auto 0 auto;
+}
+
+/* Hide original gauge labels and center stack all arcs */
+.gauges-overlap .gauge-label { display: none; }
+.gauges-overlap .gauge-text { display: none; }
+
+.gauges-overlap .gauge-container {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  opacity: 0.95;
+}
+
+/* Adjust arc sizes so they nest nicely */
+.gauge--mem .gauge-svg { width: 240px; height: 130px; }
+.gauge--cpu .gauge-svg { width: 210px; height: 115px; }
+.gauge--disk .gauge-svg { width: 180px; height: 100px; }
+
+/* Each arc gets its own color */
+.gauge--mem .gauge-bar { stroke: var(--mem-c); stroke-width: 10; }
+.gauge--cpu .gauge-bar { stroke: var(--cpu-c); stroke-width: 9; }
+.gauge--disk .gauge-bar { stroke: var(--disk-c); stroke-width: 8; }
+
+/* Subtle consistent background for all arcs */
+.gauges-overlap .gauge-bg {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 10;
+}
+
+/* Smooth transition for updates */
+.gauges-overlap .gauge-bar {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease;
+}
+
+/* Legend under the overlapping stack */
+.gauge-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--muted);
+  user-select: none;
+}
+
+.gauge-legend .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.dot--mem { background: var(--mem-c); }
+.dot--cpu { background: var(--cpu-c); }
+.dot--disk { background: var(--disk-c); }
+
+/* Tiny hover glow to match the rest of the dashboard */
+.gauge-legend .dot:hover {
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Keep equal height across all dashboard cards */
+body.admin .dashboard-grid .card {
+  height: var(--card-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 @keyframes scroll-left {

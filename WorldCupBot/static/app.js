@@ -173,23 +173,52 @@
     ['mem-text','cpu-text','disk-text'].forEach(id=>{ const el=qs('#'+id); if(el) el.textContent='--%'; });
     ['mem-extra','cpu-extra','disk-extra'].forEach(id=>{ const el=qs('#'+id); if(el) el.textContent=''; });
   }
-  function renderSystem(sys){
-    const s = sys?.system || {};
-    const memPct = Number(s.mem_percent||0);
-    qs('#mem-bar')?.setAttribute('stroke-dasharray', semicircleDash(memPct));
-    qs('#mem-text') && (qs('#mem-text').textContent = `${memPct.toFixed(0)}%`);
-    qs('#mem-extra') && (qs('#mem-extra').textContent = `Used ${Number(s.mem_used_mb||0).toFixed(0)} MB of ${Number(s.mem_total_mb||0).toFixed(0)} MB`);
+    function renderSystem(sys){
+      const s = sys?.system || {};
 
-    const cpuPct = Number(s.cpu_percent||0);
-    qs('#cpu-bar')?.setAttribute('stroke-dasharray', semicircleDash(cpuPct));
-    qs('#cpu-text') && (qs('#cpu-text').textContent = `${cpuPct.toFixed(0)}%`);
-    qs('#cpu-extra') && (qs('#cpu-extra').textContent = `CPU ${cpuPct.toFixed(1)}%`);
+      const memPct = Number(s.mem_percent || 0);
+      const cpuPct = Number(s.cpu_percent || 0);
+      const diskPct = Number(s.disk_percent || 0);
 
-    const diskPct = Number(s.disk_percent||0);
-    qs('#disk-bar')?.setAttribute('stroke-dasharray', semicircleDash(diskPct));
-    qs('#disk-text') && (qs('#disk-text').textContent = `${diskPct.toFixed(0)}%`);
-    qs('#disk-extra') && (qs('#disk-extra').textContent = `Used ${Number(s.disk_used_mb||0).toFixed(0)} MB of ${Number(s.disk_total_mb||0).toFixed(0)} MB`);
-  }
+      // Animate arcs
+      const semicircleDash = (pct) => {
+        const total = 125.66;                // arc length for our semicircle
+        const c = Math.max(0, Math.min(100, Number(pct) || 0));
+        return `${(c/100) * total},${total}`;
+      };
+
+      // Memory
+      const memBar = document.getElementById('mem-bar');
+      if (memBar) memBar.setAttribute('stroke-dasharray', semicircleDash(memPct));
+      const memText = document.getElementById('mem-text');
+      if (memText) memText.textContent = `${memPct.toFixed(0)}%`;
+      const memExtra = document.getElementById('mem-extra');
+      if (memExtra) memExtra.textContent =
+        `Used ${Number(s.mem_used_mb||0).toFixed(0)} MB of ${Number(s.mem_total_mb||0).toFixed(0)} MB`;
+      const memLegend = document.getElementById('mem-legend');
+      if (memLegend) memLegend.textContent = `${memPct.toFixed(0)}%`;
+
+      // CPU
+      const cpuBar = document.getElementById('cpu-bar');
+      if (cpuBar) cpuBar.setAttribute('stroke-dasharray', semicircleDash(cpuPct));
+      const cpuText = document.getElementById('cpu-text');
+      if (cpuText) cpuText.textContent = `${cpuPct.toFixed(0)}%`;
+      const cpuExtra = document.getElementById('cpu-extra');
+      if (cpuExtra) cpuExtra.textContent = `CPU ${cpuPct.toFixed(1)}%`;
+      const cpuLegend = document.getElementById('cpu-legend');
+      if (cpuLegend) cpuLegend.textContent = `${cpuPct.toFixed(0)}%`;
+
+      // Disk
+      const diskBar = document.getElementById('disk-bar');
+      if (diskBar) diskBar.setAttribute('stroke-dasharray', semicircleDash(diskPct));
+      const diskText = document.getElementById('disk-text');
+      if (diskText) diskText.textContent = `${diskPct.toFixed(0)}%`;
+      const diskExtra = document.getElementById('disk-extra');
+      if (diskExtra) diskExtra.textContent =
+        `Used ${Number(s.disk_used_mb||0).toFixed(0)} MB of ${Number(s.disk_total_mb||0).toFixed(0)} MB`;
+      const diskLegend = document.getElementById('disk-legend');
+      if (diskLegend) diskLegend.textContent = `${diskPct.toFixed(0)}%`;
+    }
   function renderUptime(up, running){
     qs('#uptime-label').textContent = running ? 'Uptime' : 'Downtime';
     qs('#uptime-value').textContent = running ? (up?.uptime_hms || '--:--:--') : (up?.downtime_hms || '--:--:--');
