@@ -1,21 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>World Cup 2026 Panel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="style.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="style.css" rel="stylesheet">
 </head>
 <body>
   <header class="header-bar">
     <div class="brand">World Cup 2026</div>
     <nav class="nav-wrap">
-      <input type="checkbox" id="menu-toggle" />
+      <input type="checkbox" id="menu-toggle">
       <label class="menu-icon" for="menu-toggle">&#9776;</label>
       <ul class="menu" id="main-menu">
         <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
         <li><a href="#" data-page="bets">Bets</a></li>
         <li><a href="#" data-page="ownership">Ownership</a></li>
+
         <!-- Admin-only items -->
         <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
         <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
@@ -23,37 +24,34 @@
         <li class="admin-only"><a href="#" data-page="cogs">Cogs</a></li>
       </ul>
     </nav>
-    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme">
-      <span id="theme-icon">🌙</span>
-    </button>
+    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
   </header>
 
   <main id="app-main">
-    <!-- DASHBOARD - dice-5 layout -->
+    <!-- DASHBOARD -->
     <section id="dashboard" class="page-section active-section">
-      <div class="grid dice5">
-        <div class="card" id="card-uptime">
+      <!-- Default grid is 3 equal columns for logged-out; body.admin switches to dice-5 -->
+      <div class="dashboard-grid">
+        <!-- A -->
+        <div class="card card-a">
           <div class="card-title" id="uptime-label">Uptime</div>
-          <div class="card-value-wrapper">
-            <span class="card-value" id="uptime-value">--:--:--</span>
-          </div>
+          <div class="card-value-wrapper"><span class="card-value" id="uptime-value">--:--:--</span></div>
         </div>
 
-        <div class="card" id="card-ping">
+        <!-- B -->
+        <div class="card card-b">
           <div class="card-title">Ping</div>
-          <div class="card-value-wrapper">
-            <span class="card-value" id="ping-value">-- ms</span>
-          </div>
+          <div class="card-value-wrapper"><span class="card-value" id="ping-value">-- ms</span></div>
         </div>
 
-        <div class="card" id="card-process">
+        <!-- C -->
+        <div class="card card-c">
           <div class="card-title">Bot Process</div>
-          <div class="card-value-wrapper">
-            <span class="card-value" id="botproc-value">---</span>
-          </div>
+          <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
         </div>
 
-        <div class="card" id="card-system">
+        <!-- D - admin-only -->
+        <div class="card card-d admin-only">
           <div class="card-title">System Usage</div>
           <div class="gauges-flex">
             <div class="gauge-container">
@@ -86,9 +84,10 @@
           </div>
         </div>
 
-        <div class="card" id="card-actions">
+        <!-- E - admin-only -->
+        <div class="card card-e admin-only">
           <div class="card-title">Bot Actions</div>
-          <div class="actions-row actions-stretch">
+          <div class="actions-row actions-bot" id="bot-actions">
             <button id="restart-bot" class="btn btn-restart admin-only">Restart</button>
             <button id="stop-bot" class="btn btn-stop admin-only">Stop</button>
             <button id="start-bot" class="btn btn-restart admin-only">Start</button>
@@ -116,7 +115,7 @@
     <section id="backups" class="page-section admin-only"></section>
   </main>
 
-  <!-- Floating Action Button -->
+  <!-- Floating Action Button (login/settings) -->
   <button id="fab-auth" class="fab" title="Login">
     <span id="fab-icon" aria-hidden="true">🔑</span>
   </button>
@@ -127,7 +126,7 @@
       <h3 id="modal-title">Admin login</h3>
       <div id="modal-body">
         <label for="admin-password">Password</label>
-        <input type="password" id="admin-password" placeholder="Enter admin password" />
+        <input type="password" id="admin-password" placeholder="Enter admin password">
       </div>
       <div class="modal-actions">
         <button id="auth-cancel" class="btn btn-outline">Cancel</button>
@@ -137,6 +136,7 @@
   </div>
 
   <div class="notify-bar" id="notify"></div>
+
   <footer><small>World Cup 2026 Dashboard</small></footer>
 
   <script src="app.js"></script>
