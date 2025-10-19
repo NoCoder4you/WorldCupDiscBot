@@ -205,6 +205,19 @@ body.admin .admin-only {
 	align-items: stretch;
 }
 
+/* Center the 3-card layout when logged out */
+.dashboard-grid {
+  justify-content: center;              /* centers horizontally */
+  align-content: center;                /* centers vertically if taller than viewport */
+  margin: 40px auto;                    /* breathing room top/bottom */
+  max-width: 900px;                     /* tighter width for 3 cards */
+}
+
+.dashboard-grid .card {
+  height: var(--card-h);
+}
+
+
 /* True dice-5 layout for admin: 3x3 grid with empty middle gutters */
 body.admin .dashboard-grid{
   /* three equal columns, three equal rows */
@@ -241,6 +254,21 @@ body.admin .dashboard-grid{ gap: 22px; }
       "c c"
       "d e";
   }
+}
+
+/* Equal sizing + spacing for admin dice layout */
+body.admin .dashboard-grid {
+  place-items: stretch;                 /* force all cards to fill grid cells */
+  align-items: stretch;
+  justify-items: stretch;
+  grid-auto-rows: var(--card-h);
+}
+
+body.admin .dashboard-grid .card {
+  height: 100%;                         /* each fills its cell */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 
