@@ -2,65 +2,63 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>World Cup 2026 Bot Admin Panel</title>
+  <title>World Cup 2026 Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="style.css" rel="stylesheet">
 </head>
 <body>
   <header class="header-bar">
-    <div class="brand">World Cup 2026 Bot Admin</div>
-    <nav>
-      <input type="checkbox" id="menu-toggle" />
+    <div class="brand">World Cup 2026</div>
+    <nav class="nav-wrap">
+      <input type="checkbox" id="menu-toggle">
       <label class="menu-icon" for="menu-toggle">&#9776;</label>
       <ul class="menu" id="main-menu">
         <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
-        <li><a href="#" data-page="cogs" data-admin="true">Cogs</a></li>
-        <li><a href="#" data-page="splits" data-admin="true">Split Requests</a></li>
-        <li><a href="#" data-page="bets">Open Bets</a></li>
-        <li><a href="#" data-page="backups" data-admin="true">Backups</a></li>
-        <li><a href="#" data-page="log" data-admin="true">Bot Log</a></li>
-        <li><a href="#" data-page="ownership" data-admin="true">Team Ownership</a></li>
+        <li><a href="#" data-page="bets">Bets</a></li>
+        <li><a href="#" data-page="ownership">Ownership</a></li>
+
+        <!-- Admin-only items -->
+        <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
+        <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
+        <li class="admin-only"><a href="#" data-page="log">Logs</a></li>
+        <li class="admin-only"><a href="#" data-page="cogs">Cogs</a></li>
       </ul>
     </nav>
-
-    <!-- Admin UI -->
-    <div id="admin-status" class="admin-badge admin-locked" title="Admin locked">🔒 Admin</div>
-    <button id="admin-button" class="btn admin-btn btn-outline" title="Unlock admin">Login</button>
-    <button id="admin-logout" class="btn admin-btn btn-outline" title="Lock admin" style="display:none;">Logout</button>
-
     <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
   </header>
 
-  <div class="notify-bar"></div>
-
-  <main>
-    <section id="dashboard" class="dashboard active-section">
-      <div class="grid">
-        <div class="card">
+  <main id="app-main">
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="page-section active-section">
+      <!-- Default grid is 3 equal columns for logged-out; body.admin switches to dice-5 -->
+      <div class="dashboard-grid">
+        <!-- A -->
+        <div class="card card-a">
           <div class="card-title" id="uptime-label">Uptime</div>
           <div class="card-value-wrapper"><span class="card-value" id="uptime-value">--:--:--</span></div>
         </div>
-        <div class="card">
+
+        <!-- B -->
+        <div class="card card-b">
           <div class="card-title">Ping</div>
           <div class="card-value-wrapper"><span class="card-value" id="ping-value">-- ms</span></div>
         </div>
-        <div class="card">
-          <div class="card-title">Guilds</div>
-          <div class="card-value-wrapper"><span class="card-value" id="guild-count">0</span></div>
-          <div class="guild-list-scroll" id="guild-list"></div>
-        </div>
-        <div class="card">
+
+        <!-- C -->
+        <div class="card card-c">
           <div class="card-title">Bot Process</div>
-          <div class="card-value-wrapper"><span class="card-value" id="botstats-value">---</span></div>
+          <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
         </div>
-        <div class="card">
+
+        <!-- D - admin-only -->
+        <div class="card card-d admin-only">
           <div class="card-title">System Usage</div>
           <div class="gauges-flex">
             <div class="gauge-container">
               <div class="gauge-label">Memory</div>
               <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
-                <path class="gauge-bar" id="mem-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
+                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
+                <path class="gauge-bar" id="mem-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
                 <text x="60" y="55" text-anchor="middle" class="gauge-text" id="mem-text">0%</text>
               </svg>
               <div class="gauge-extra-scroll"><span class="gauge-extra" id="mem-extra"></span></div>
@@ -68,8 +66,8 @@
             <div class="gauge-container">
               <div class="gauge-label">CPU</div>
               <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
-                <path class="gauge-bar" id="cpu-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
+                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
+                <path class="gauge-bar" id="cpu-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
                 <text x="60" y="55" text-anchor="middle" class="gauge-text" id="cpu-text">0%</text>
               </svg>
               <div class="gauge-extra-scroll"><span class="gauge-extra" id="cpu-extra"></span></div>
@@ -77,51 +75,69 @@
             <div class="gauge-container">
               <div class="gauge-label">Disk</div>
               <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"/>
-                <path class="gauge-bar" id="disk-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"/>
+                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
+                <path class="gauge-bar" id="disk-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
                 <text x="60" y="55" text-anchor="middle" class="gauge-text" id="disk-text">0%</text>
               </svg>
               <div class="gauge-extra-scroll"><span class="gauge-extra" id="disk-extra"></span></div>
             </div>
           </div>
         </div>
-        <div class="card">
+
+        <!-- E - admin-only -->
+        <div class="card card-e admin-only">
           <div class="card-title">Bot Actions</div>
-          <div class="actions-row">
-            <button id="restart-bot" class="btn btn-restart" data-admin="true">Restart Bot</button>
-            <button id="stop-bot" class="btn btn-stop" data-admin="true">Stop Bot</button>
-            <button id="start-bot" class="btn btn-restart" data-admin="true" style="display:none;">Start Bot</button>
+          <div class="actions-row actions-bot" id="bot-actions">
+            <button id="restart-bot" class="btn btn-restart admin-only">Restart</button>
+            <button id="stop-bot" class="btn btn-stop admin-only">Stop</button>
+            <button id="start-bot" class="btn btn-restart admin-only">Start</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="log" class="page-section" data-admin="true"></section>
-    <section id="ownership" class="page-section" data-admin="true"></section>
-    <section id="cogs" class="page-section" data-admin="true"></section>
-    <section id="splits" class="page-section" data-admin="true"></section>
+    <!-- LOGS -->
+    <section id="log" class="page-section admin-only"></section>
+
+    <!-- OWNERSHIP -->
+    <section id="ownership" class="page-section"></section>
+
+    <!-- COGS -->
+    <section id="cogs" class="page-section admin-only"></section>
+
+    <!-- SPLITS -->
+    <section id="splits" class="page-section admin-only"></section>
+
+    <!-- BETS -->
     <section id="bets" class="page-section"></section>
-    <section id="backups" class="page-section" data-admin="true"></section>
+
+    <!-- BACKUPS -->
+    <section id="backups" class="page-section admin-only"></section>
   </main>
 
-  <!-- Admin login modal -->
-  <div id="admin-login-backdrop" class="admin-modal-backdrop">
-    <div class="admin-modal">
-      <h3>Admin login</h3>
-      <div class="row">
+  <!-- Floating Action Button (login/settings) -->
+  <button id="fab-auth" class="fab" title="Login">
+    <span id="fab-icon" aria-hidden="true">🔑</span>
+  </button>
+
+  <!-- Modal -->
+  <div id="auth-backdrop" class="modal-backdrop">
+    <div class="modal">
+      <h3 id="modal-title">Admin login</h3>
+      <div id="modal-body">
         <label for="admin-password">Password</label>
         <input type="password" id="admin-password" placeholder="Enter admin password">
       </div>
-      <div class="actions">
-        <button id="admin-cancel" class="btn btn-outline">Cancel</button>
-        <button id="admin-submit" class="btn btn-restart">Unlock</button>
+      <div class="modal-actions">
+        <button id="auth-cancel" class="btn btn-outline">Cancel</button>
+        <button id="auth-submit" class="btn btn-restart">Unlock</button>
       </div>
     </div>
   </div>
 
-  <div class="notify-bar"></div>
+  <div class="notify-bar" id="notify"></div>
 
-  <footer><small>World Cup 2026 Discord Bot - Admin Panel</small></footer>
+  <footer><small>World Cup 2026 Dashboard</small></footer>
 
   <script src="app.js"></script>
 </body>
