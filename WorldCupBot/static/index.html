@@ -30,7 +30,7 @@
   <main id="app-main">
     <!-- DASHBOARD -->
     <section id="dashboard" class="page-section active-section">
-      <!-- Default grid is 3 equal columns for logged-out; body.admin switches to dice-5 -->
+      <!-- Default: 3 equal cards. When admin: dice-5 (2-1-2). -->
       <div class="dashboard-grid">
         <!-- A -->
         <div class="card card-a">
@@ -88,9 +88,10 @@
         <div class="card card-e admin-only">
           <div class="card-title">Bot Actions</div>
           <div class="actions-row actions-bot" id="bot-actions">
-            <button id="restart-bot" class="btn btn-restart admin-only">Restart</button>
-            <button id="stop-bot" class="btn btn-stop admin-only">Stop</button>
-            <button id="start-bot" class="btn btn-restart admin-only">Start</button>
+            <!-- Buttons are NOT admin-only; JS toggles them by bot state -->
+            <button id="restart-bot" class="btn btn-restart">Restart</button>
+            <button id="stop-bot" class="btn btn-stop">Stop</button>
+            <button id="start-bot" class="btn btn-restart">Start</button>
           </div>
         </div>
       </div>

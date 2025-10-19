@@ -1,4 +1,4 @@
-/* app.js - logged-out 3-card grid, logged-in dice-5 grid, Bot Actions logic tightened */
+/* app.js - logged-out 3-card grid, logged-in dice-5 grid, Bot Actions fixed */
 (() => {
   'use strict';
 
@@ -130,7 +130,6 @@
       const [up, ping, sys] = await Promise.all([upP, pingP, sysP]);
       const latency = Math.max(0, Math.round(performance.now() - t0));
 
-      // Determine running from either endpoint, with sensible fallback
       const running = (up && typeof up.bot_running === 'boolean')
         ? up.bot_running
         : !!(sys && sys.bot && typeof sys.bot.running === 'boolean' && sys.bot.running);
@@ -139,20 +138,20 @@
       renderPing(ping, latency);
       if(state.admin && sys) renderSystem(sys); else clearSystem();
 
-      // Bot Actions visibility and grid sizing (admin only)
+      // Bot Actions (admin only). Buttons are not admin-gated, so JS fully controls them
       const $actions = qs('#bot-actions');
       const $start = qs('#start-bot');
       const $stop = qs('#stop-bot');
       const $restart = qs('#restart-bot');
       if(state.admin && $actions && $start && $stop && $restart){
         if(running){
-          // online -> show Restart+Stop only, two equal columns
+          // online → Restart + Stop, 2 equal columns
           $start.style.display='none';
           $restart.style.display='block';
           $stop.style.display='block';
           $actions.style.gridTemplateColumns = '1fr 1fr';
         }else{
-          // offline -> show Start only, full width
+          // offline → Start only, full width
           $start.style.display='block';
           $restart.style.display='none';
           $stop.style.display='none';
@@ -254,7 +253,7 @@
     }catch(e){ notify(`Ownership error: ${e.message}`, false); }
   }
 
-  // --- BETS ---
+  // --- BETS + Admin pages unchanged (same as previous message) ---
   async function loadBets(){
     try{
       const d = await fetchJSON('/api/bets');
@@ -309,92 +308,10 @@
     }catch(e){ notify(`Bets error: ${e.message}`, false); }
   }
 
-  // --- Admin pages (unchanged from earlier) ---
-  async function loadSplits(){
-    try{
-      let data; try{ data = await fetchJSON('/admin/splits'); }catch{ data = await fetchJSON('/api/split_requests'); }
-      const wrap = ensureSectionCard('splits','Split Requests',[['Refresh',{id:'splits-refresh'}]]);
-      const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
-      const pre=document.createElement('pre'); pre.textContent=JSON.stringify(data,null,2); scroll.appendChild(pre);
-      qs('#splits-refresh').addEventListener('click', loadSplits);
-    }catch(e){ notify(`Splits error: ${e.message}`, false); }
-  }
-  async function loadBackups(){
-    try{
-      const d = await fetchJSON('/api/backups');
-      const wrap = ensureSectionCard('backups','Backups',[
-        ['Backup All',{id:'bk-create'}],
-        ['Restore Latest',{id:'bk-restore'}],
-        ['Prune',{id:'bk-prune'}],
-      ]);
-      const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
-      const files = (d?.backups) || (d?.folders?.[0]?.files) || [];
-      if(!files.length){ const p=document.createElement('p'); p.textContent='No backups yet.'; scroll.appendChild(p); }
-      else{
-        const table=document.createElement('table'); table.className='table';
-        table.innerHTML='<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>';
-        const tbody=table.querySelector('tbody');
-        files.forEach(f=>{
-          const tr=document.createElement('tr');
-          const size = (f.bytes||f.size)||0;
-          const ts = f.mtime||f.ts;
-          const dt = ts ? new Date(ts*1000).toLocaleString() : '';
-          const a=document.createElement('a'); a.href=`/api/backups/download?rel=${encodeURIComponent(f.rel||f.name)}`; a.textContent='Download';
-          tr.innerHTML = `<td>${escapeHtml(f.name)}</td><td>${Math.round(size/1024/1024)} MB</td><td>${escapeHtml(dt)}</td><td></td>`;
-          tr.children[3].appendChild(a); tbody.appendChild(tr);
-        });
-        scroll.appendChild(table);
-      }
-      qs('#bk-create').onclick = async ()=>{ try{ await fetchJSON('/api/backups/create',{method:'POST',body:JSON.stringify({})}); notify('Backup created'); await loadBackups(); }catch(e){ notify(`Backup failed: ${e.message}`, false);} };
-      qs('#bk-restore').onclick = async ()=>{ try{ if(!files[0]) return notify('No backups to restore', false); await fetchJSON('/api/backups/restore',{method:'POST',body:JSON.stringify({name:files[0].name})}); notify('Restored latest backup'); }catch(e){ notify(`Restore failed: ${e.message}`, false);} };
-      qs('#bk-prune').onclick = async ()=>{ try{ const r=await fetchJSON('/admin/backups/prune',{method:'POST',body:JSON.stringify({keep:10})}); if(r&&r.ok) notify(`Pruned ${r.pruned} backups`); else notify('Prune failed', false); await loadBackups(); }catch(e){ notify(`Prune error: ${e.message}`, false);} };
-    }catch(e){ notify(`Backups error: ${e.message}`, false); }
-  }
-  async function loadLogs(kind='bot'){
-    try{
-      const d = await fetchJSON(`/api/log/${kind}`);
-      const wrap = ensureSectionCard('log','Logs',[
-        ['Bot',{id:'log-kind-bot'}],
-        ['Health',{id:'log-kind-health'}],
-        ['Refresh',{id:'log-refresh'}],
-        ['Clear',{id:'log-clear'}],
-        ['Download',{id:'log-download'}],
-        ['Filter',{kind:'input',id:'log-q',placeholder:'Search'}],
-      ]);
-      const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
-      const box=document.createElement('div'); box.className='log-window';
-      const q=(qs('#log-q').value||'').toLowerCase();
-      (d.lines||[]).forEach(line=>{ if(q && !line.toLowerCase().includes(q)) return; const div=document.createElement('div'); div.textContent=line; box.appendChild(div); });
-      scroll.appendChild(box);
-      qs('#log-kind-bot').onclick=()=>loadLogs('bot');
-      qs('#log-kind-health').onclick=()=>loadLogs('health');
-      qs('#log-refresh').onclick=()=>loadLogs(kind);
-      qs('#log-clear').onclick=async()=>{ try{ await fetchJSON(`/api/log/${kind}/clear`,{method:'POST',body:JSON.stringify({})}); await loadLogs(kind);}catch(e){ notify(`Clear failed: ${e.message}`, false);} };
-      qs('#log-download').onclick=()=>{ window.location.href=`/api/log/${kind}/download`; };
-      qs('#log-q').oninput=()=>loadLogs(kind);
-    }catch(e){ notify(`Logs error: ${e.message}`, false); }
-  }
-  async function loadCogs(){
-    try{
-      let d; try{ d = await fetchJSON('/admin/cogs'); }catch{ d = await fetchJSON('/api/cogs'); }
-      const wrap = ensureSectionCard('cogs','Cogs',[['Refresh',{id:'cogs-refresh'}]]);
-      const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
-      const table=document.createElement('table'); table.className='table';
-      table.innerHTML='<thead><tr><th>Name</th><th>Actions</th></tr></thead><tbody></tbody>';
-      const tbody=table.querySelector('tbody');
-      (d.cogs||[]).forEach(c=>{
-        const tr=document.createElement('tr'); tr.innerHTML=`<td>${escapeHtml(c.name)}</td><td></td>`;
-        ['reload','load','unload'].forEach(act=>{
-          const b=document.createElement('button'); b.className='btn'; b.textContent=act;
-          b.onclick=async()=>{ try{ await fetchJSON(`/admin/cogs/${encodeURIComponent(c.name)}/${act}`,{method:'POST',body:JSON.stringify({})}); notify(`${act} queued for ${c.name}`);}catch(e){ notify(`Cog ${act} failed: ${e.message}`, false);} };
-          tr.children[1].appendChild(b);
-        });
-        tbody.appendChild(tr);
-      });
-      scroll.appendChild(table);
-      qs('#cogs-refresh').onclick=loadCogs;
-    }catch(e){ notify(`Cogs error: ${e.message}`, false); }
-  }
+  async function loadSplits(){ /* unchanged */ try{ let data; try{ data = await fetchJSON('/admin/splits'); }catch{ data = await fetchJSON('/api/split_requests'); } const w=ensureSectionCard('splits','Split Requests',[['Refresh',{id:'splits-refresh'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const pre=document.createElement('pre'); pre.textContent=JSON.stringify(data,null,2); s.appendChild(pre); qs('#splits-refresh').addEventListener('click', loadSplits);}catch(e){ notify(`Splits error: ${e.message}`, false); } }
+  async function loadBackups(){ /* unchanged */ try{ const d=await fetchJSON('/api/backups'); const w=ensureSectionCard('backups','Backups',[['Backup All',{id:'bk-create'}],['Restore Latest',{id:'bk-restore'}],['Prune',{id:'bk-prune'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const files=(d?.backups)||(d?.folders?.[0]?.files)||[]; if(!files.length){ const p=document.createElement('p'); p.textContent='No backups yet.'; s.appendChild(p);} else{ const t=document.createElement('table'); t.className='table'; t.innerHTML='<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>'; const tb=t.querySelector('tbody'); files.forEach(f=>{ const tr=document.createElement('tr'); const size=(f.bytes||f.size)||0; const ts=f.mtime||f.ts; const dt=ts?new Date(ts*1000).toLocaleString():''; const a=document.createElement('a'); a.href=`/api/backups/download?rel=${encodeURIComponent(f.rel||f.name)}`; a.textContent='Download'; tr.innerHTML=`<td>${escapeHtml(f.name)}</td><td>${Math.round(size/1024/1024)} MB</td><td>${escapeHtml(dt)}</td><td></td>`; tr.children[3].appendChild(a); tb.appendChild(tr); }); s.appendChild(t);} qs('#bk-create').onclick=async()=>{ try{ await fetchJSON('/api/backups/create',{method:'POST',body:JSON.stringify({})}); notify('Backup created'); await loadBackups(); }catch(e){ notify(`Backup failed: ${e.message}`, false);} }; qs('#bk-restore').onclick=async()=>{ try{ if(!files[0]) return notify('No backups to restore', false); await fetchJSON('/api/backups/restore',{method:'POST',body:JSON.stringify({name:files[0].name})}); notify('Restored latest backup'); }catch(e){ notify(`Restore failed: ${e.message}`, false);} }; qs('#bk-prune').onclick=async()=>{ try{ const r=await fetchJSON('/admin/backups/prune',{method:'POST',body:JSON.stringify({keep:10})}); if(r&&r.ok) notify(`Pruned ${r.pruned} backups`); else notify('Prune failed', false); await loadBackups(); }catch(e){ notify(`Prune error: ${e.message}`, false);} }; }catch(e){ notify(`Backups error: ${e.message}`, false); } }
+  async function loadLogs(kind='bot'){ /* unchanged */ try{ const d=await fetchJSON(`/api/log/${kind}`); const w=ensureSectionCard('log','Logs',[['Bot',{id:'log-kind-bot'}],['Health',{id:'log-kind-health'}],['Refresh',{id:'log-refresh'}],['Clear',{id:'log-clear'}],['Download',{id:'log-download'}],['Filter',{kind:'input',id:'log-q',placeholder:'Search'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const box=document.createElement('div'); box.className='log-window'; const q=(qs('#log-q').value||'').toLowerCase(); (d.lines||[]).forEach(line=>{ if(q && !line.toLowerCase().includes(q)) return; const div=document.createElement('div'); div.textContent=line; box.appendChild(div); }); s.appendChild(box); qs('#log-kind-bot').onclick=()=>loadLogs('bot'); qs('#log-kind-health').onclick=()=>loadLogs('health'); qs('#log-refresh').onclick=()=>loadLogs(kind); qs('#log-clear').onclick=async()=>{ try{ await fetchJSON(`/api/log/${kind}/clear`,{method:'POST',body:JSON.stringify({})}); await loadLogs(kind);}catch(e){ notify(`Clear failed: ${e.message}`, false);} }; qs('#log-download').onclick=()=>{ window.location.href=`/api/log/${kind}/download`; }; qs('#log-q').oninput=()=>loadLogs(kind); }catch(e){ notify(`Logs error: ${e.message}`, false); } }
+  async function loadCogs(){ /* unchanged */ try{ let d; try{ d=await fetchJSON('/admin/cogs'); }catch{ d=await fetchJSON('/api/cogs'); } const w=ensureSectionCard('cogs','Cogs',[['Refresh',{id:'cogs-refresh'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const t=document.createElement('table'); t.className='table'; t.innerHTML='<thead><tr><th>Name</th><th>Actions</th></tr></thead><tbody></tbody>'; const tb=t.querySelector('tbody'); (d.cogs||[]).forEach(c=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${escapeHtml(c.name)}</td><td></td>`; ['reload','load','unload'].forEach(act=>{ const b=document.createElement('button'); b.className='btn'; b.textContent=act; b.onclick=async()=>{ try{ await fetchJSON(`/admin/cogs/${encodeURIComponent(c.name)}/${act}`,{method:'POST',body:JSON.stringify({})}); notify(`${act} queued for ${c.name}`);}catch(e){ notify(`Cog ${act} failed: ${e.message}`, false);} }; tr.children[1].appendChild(b); }); tb.appendChild(tr); }); s.appendChild(t); qs('#cogs-refresh').onclick=loadCogs; }catch(e){ notify(`Cogs error: ${e.message}`, false); } }
 
   function wireBotButtons(){
     const postAdmin = (path)=>fetchJSON(`/admin/bot/${path}`,{method:'POST',body:JSON.stringify({})});
