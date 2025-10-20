@@ -1,93 +1,227 @@
-from flask import Blueprint, jsonify, request, session
-import os, json, time, glob
+# routes_admin.py
+# Flask admin blueprint for the World Cup 2026 panel.
+# - Auth (login/logout/status)
+# - Config exposure (webhook only)
+# - Cog list/status/actions
+# - Bot controls + backups via command queue
+# Compatible with separate bot process (preferred) or in-process (optional)
+
+import os
 import sys
+import json
+import time
+import glob
+from flask import Blueprint, jsonify, request, session, current_app
 
-def _cmd_queue_path(base_dir):
-    return os.path.join(base_dir, "runtime", "bot_commands.jsonl")
+# -----------------------------
+# Helpers
+# -----------------------------
 
-def _enqueue_command(base_dir, cmd: dict):
-    os.makedirs(os.path.dirname(_cmd_queue_path(base_dir)), exist_ok=True)
-    cmd["ts"] = int(time.time())
-    with open(_cmd_queue_path(base_dir), "a", encoding="utf-8") as f:
-        f.write(json.dumps(cmd) + "\n")
+def _base_dir(ctx):
+    return ctx.get("BASE_DIR", os.getcwd())
 
-def _scan_cogs(base_dir, bot=None):
-    cogs_dir = os.path.join(base_dir, "COGS")
+def _runtime_dir(ctx):
+    rd = os.path.join(_base_dir(ctx), "runtime")
+    os.makedirs(rd, exist_ok=True)
+    return rd
+
+def _config_path(ctx):
+    return os.path.join(_base_dir(ctx), "config.json")
+
+def _load_config(ctx):
+    try:
+        with open(_config_path(ctx), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _commands_path(ctx):
+    return os.path.join(_runtime_dir(ctx), "bot_commands.jsonl")
+
+def _enqueue_command(ctx, kind, payload=None):
+    """Append a one-line JSON command for the bot process to consume."""
+    cmd = {
+        "ts": int(time.time()),
+        "kind": kind,
+        "data": payload or {}
+    }
+    line = json.dumps(cmd, separators=(",", ":"))
+    with open(_commands_path(ctx), "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+def _cogs_dir(ctx):
+    # Your cogs live in the "COGS" folder
+    return os.path.join(_base_dir(ctx), "COGS")
+
+def _cogs_state_path(ctx):
+    # File written by the bot with list of loaded extensions
+    return os.path.join(_runtime_dir(ctx), "cogs_status.json")
+
+def _read_cogs_state(ctx):
+    fp = _cogs_state_path(ctx)
+    if not os.path.isfile(fp):
+        return set()
+    try:
+        with open(fp, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and isinstance(data.get("loaded"), list):
+            return set(data["loaded"])
+    except Exception:
+        pass
+    return set()
+
+def _scan_cogs(ctx, bot=None):
+    """
+    Scan the COGS directory. The 'loaded' flag is determined primarily
+    by runtime/cogs_status.json (written by the bot process). If that file
+    doesn't exist, we fall back to in-process checks (if a bot is attached).
+    """
     results = []
-    if not os.path.isdir(cogs_dir):
+    cdir = _cogs_dir(ctx)
+    if not os.path.isdir(cdir):
         return results
 
-    loaded_names = set()
-    if bot and getattr(bot, "extensions", None):
-        # discord.py keeps loaded extensions here as "COGS.Name"
-        loaded_names = set(bot.extensions.keys())
+    # Preferred: state written by the bot
+    loaded_exts = _read_cogs_state(ctx)
 
-    for path in sorted(glob.glob(os.path.join(cogs_dir, "*.py"))):
-        name = os.path.splitext(os.path.basename(path))[0]
+    # Fallback: in-process bot (if you ever run bot in same process)
+    if not loaded_exts and bot is not None:
+        try:
+            if getattr(bot, "extensions", None):
+                loaded_exts = set(bot.extensions.keys())
+        except Exception:
+            loaded_exts = set()
+
+    # Last-ditch fallback: sys.modules
+    sysmods = set(sys.modules.keys())
+
+    for py in sorted(glob.glob(os.path.join(cdir, "*.py"))):
+        name = os.path.splitext(os.path.basename(py))[0]
         if name.startswith("_"):
             continue
         module_name = f"COGS.{name}"
-        is_loaded = module_name in loaded_names or module_name in sys.modules
+        is_loaded = (
+            (module_name in loaded_exts) or
+            (not loaded_exts and module_name in sysmods)
+        )
         results.append({"name": name, "loaded": bool(is_loaded)})
 
     return results
 
+# -----------------------------
+# Auth helpers
+# -----------------------------
+
+SESSION_KEY = "wc_admin"
+
+def _password_from_config(cfg):
+    for k in ("PANEL_PASSWORD", "ADMIN_PASSWORD", "ADMIN_PASS", "ADMIN"):
+        if cfg.get(k):
+            return str(cfg[k])
+    return None
+
+def require_admin():
+    if session.get(SESSION_KEY) is True:
+        return None
+    return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+# -----------------------------
+# Blueprint factory
+# -----------------------------
+
 def create_admin_routes(ctx):
+    """
+    Factory that returns the /admin blueprint.
+    Expects ctx to contain at least:
+      - BASE_DIR: project root
+      - (optional) bot: a discord.py bot instance if running in-process
+    """
     bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-    ADMIN_PASSWORD = ctx.get("ADMIN_PASSWORD", "")
-
     # ---------- Auth ----------
-    @bp.get("/auth/status")
-    def auth_status():
-        return jsonify({ "ok": True, "unlocked": bool(session.get("admin_unlocked")) })
-
     @bp.post("/auth/login")
     def auth_login():
         data = request.get_json(silent=True) or {}
-        pw = (data.get("password") or "").strip()
-        if not ADMIN_PASSWORD:
-            return jsonify({ "ok": False, "error": "admin password not set" }), 400
-        if pw != ADMIN_PASSWORD:
-            return jsonify({ "ok": False, "error": "invalid password" }), 403
-        session["admin_unlocked"] = True
-        return jsonify({ "ok": True, "unlocked": True })
+        pw = str(data.get("password") or "")
+        cfg = _load_config(ctx)
+        expected = _password_from_config(cfg)
+        if expected and pw and pw == expected:
+            session[SESSION_KEY] = True
+            return jsonify({"ok": True, "unlocked": True})
+        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
     @bp.post("/auth/logout")
     def auth_logout():
-        session["admin_unlocked"] = False
-        return jsonify({ "ok": True, "unlocked": False })
+        session.pop(SESSION_KEY, None)
+        return jsonify({"ok": True, "unlocked": False})
 
-    def require_admin():
-        if not session.get("admin_unlocked"):
-            return jsonify({ "ok": False, "error": "admin required" }), 403
-        return None
+    @bp.get("/auth/status")
+    def auth_status():
+        return jsonify({"ok": True, "unlocked": bool(session.get(SESSION_KEY))})
 
-    # ---------- Bot control ----------
-    @bp.get("/bot/status")
-    def bot_status():
-        return jsonify({ "ok": True, "running": bool(ctx["is_bot_running"]()) })
+    # ---------- Config (webhook only) ----------
+    @bp.get("/config")
+    def admin_config():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        cfg = _load_config(ctx)
+        return jsonify({
+            "DISCORD_WEBHOOK_URL": cfg.get("DISCORD_WEBHOOK_URL")
+        })
 
+    # ---------- Bot controls ----------
     @bp.post("/bot/start")
     def bot_start():
         resp = require_admin()
-        if resp is not None: return resp
-        ok = ctx["start_bot"]()
-        return jsonify({ "ok": bool(ok) })
+        if resp is not None:
+            return resp
+        _enqueue_command(ctx, "bot_start", {})
+        return jsonify({"ok": True})
 
     @bp.post("/bot/stop")
     def bot_stop():
         resp = require_admin()
-        if resp is not None: return resp
-        ok = ctx["stop_bot"]()
-        return jsonify({ "ok": bool(ok) })
+        if resp is not None:
+            return resp
+        _enqueue_command(ctx, "bot_stop", {})
+        return jsonify({"ok": True})
 
     @bp.post("/bot/restart")
     def bot_restart():
         resp = require_admin()
-        if resp is not None: return resp
-        ok = ctx["restart_bot"]()
-        return jsonify({ "ok": bool(ok) })
+        if resp is not None:
+            return resp
+        _enqueue_command(ctx, "bot_restart", {})
+        return jsonify({"ok": True})
+
+    # ---------- Backups ----------
+    @bp.post("/backups/create")
+    def backups_create():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        _enqueue_command(ctx, "backup_create", {})
+        return jsonify({"ok": True, "message": "Backup requested"})
+
+    @bp.post("/backups/restore")
+    def backups_restore():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        data = request.get_json(silent=True) or {}
+        _enqueue_command(ctx, "backup_restore", {"name": data.get("name")})
+        return jsonify({"ok": True, "message": "Restore requested"})
+
+    @bp.post("/backups/prune")
+    def backups_prune():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        data = request.get_json(silent=True) or {}
+        keep = int(data.get("keep") or 10)
+        _enqueue_command(ctx, "backup_prune", {"keep": keep})
+        return jsonify({"ok": True, "message": f"Prune keeping {keep}"})
 
     # ---------- Cogs ----------
     @bp.get("/cogs")
@@ -95,85 +229,49 @@ def create_admin_routes(ctx):
         resp = require_admin()
         if resp is not None:
             return resp
-
-        base = ctx.get("BASE_DIR", "")
-        bot = ctx.get("bot")  # ok if None
+        bot = ctx.get("bot")
         try:
-            return jsonify({"ok": True, "cogs": _scan_cogs(base, bot)})
+            items = _scan_cogs(ctx, bot)
+            return jsonify({"ok": True, "cogs": items})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
-
-    @bp.post("/cogs/<cog>/<action>")
-    def cogs_action(cog, action):
-        resp = require_admin()
-        if resp is not None: return resp
-        base = ctx.get("BASE_DIR", "")
-        action = (action or "").lower().strip()
-        if action not in ("load","unload","reload"):
-            return jsonify({ "ok": False, "error": "invalid action" }), 400
-        _enqueue_command(base, { "kind": "cog", "action": action, "cog": cog })
-        return jsonify({ "ok": True, "queued": { "cog": cog, "action": action } })
 
     @bp.get("/cogs/<cog>/status")
     def cogs_status(cog):
         resp = require_admin()
         if resp is not None:
             return resp
-
-        base = ctx.get("BASE_DIR", "")
         bot = ctx.get("bot")
-        for entry in _scan_cogs(base, bot):
+        for entry in _scan_cogs(ctx, bot):
             if entry["name"].lower() == cog.lower():
                 return jsonify(entry)
         return jsonify({"name": cog, "loaded": None}), 404
 
-    # ---------- Backups maintenance ----------
-    @bp.post("/backups/prune")
-    def backups_prune():
-        resp = require_admin()
-        if resp is not None: return resp
-        base = ctx.get("BASE_DIR", "")
-        bdir = os.path.join(base, "Backups")
-        keep = int((request.get_json(silent=True) or {}).get("keep", 10))
-        if not os.path.isdir(bdir):
-            return jsonify({ "ok": True, "pruned": 0 })
-        files = sorted(
-            (os.path.join(bdir, f) for f in os.listdir(bdir)),
-            key=lambda p: os.path.getmtime(p),
-            reverse=True
-        )
-        removed = 0
-        for fp in files[keep:]:
-            try:
-                os.remove(fp)
-                removed += 1
-            except Exception:
-                pass
-        return jsonify({ "ok": True, "pruned": removed })
+    def _enqueue_cog(cog, action):
+        _enqueue_command(ctx, f"cog_{action}", {"name": cog})
 
-    # ---------- Config (for front-end webhook) ----------
-    @bp.get("/config")
-    def admin_config():
-        """Return safe config values for the front-end (no secrets except webhook)."""
+    @bp.post("/cogs/<cog>/load")
+    def cogs_load(cog):
         resp = require_admin()
         if resp is not None:
             return resp
+        _enqueue_cog(cog, "load")
+        return jsonify({"ok": True})
 
-        try:
-            base = ctx.get("BASE_DIR", "")
-            cfg_path = os.path.join(base, "config.json")
-            if not os.path.isfile(cfg_path):
-                return jsonify({ "error": "config.json not found" }), 404
+    @bp.post("/cogs/<cog>/unload")
+    def cogs_unload(cog):
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        _enqueue_cog(cog, "unload")
+        return jsonify({"ok": True})
 
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            # Only return the webhook
-            safe = {
-                "DISCORD_WEBHOOK_URL": data.get("DISCORD_WEBHOOK_URL")
-            }
-            return jsonify(safe)
-        except Exception as e:
-            return jsonify({ "error": str(e) }), 500
+    @bp.post("/cogs/<cog>/reload")
+    def cogs_reload(cog):
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        _enqueue_cog(cog, "reload")
+        return jsonify({"ok": True})
 
     return bp
