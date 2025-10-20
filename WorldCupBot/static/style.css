@@ -179,13 +179,9 @@ main {
 	display: none !important
 }
 
-/* Page router controls visibility */
-.page-section { display: none; }
-.page-section.active-section { display: block; }
-
-.admin-only { display: none; }
-body.admin .admin-only { display: block; }
-
+body.admin .admin-only {
+	display: initial !important
+}
 
 /* Cards */
 .card {
