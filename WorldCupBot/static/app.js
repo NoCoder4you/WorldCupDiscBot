@@ -388,7 +388,6 @@ async function postWebhookMessage(text){
   }catch{/* non-fatal */}
 }
 
-// --- COGS page with webhook message: "wc {action} {COG_NAME}" ---
 async function loadCogs(){
   try{
     let data;
@@ -400,45 +399,94 @@ async function loadCogs(){
     ]);
     const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
 
-    const table=document.createElement('table'); table.className='table';
-    table.innerHTML='<thead><tr><th>Name</th><th>Actions</th></tr></thead><tbody></tbody>';
-    const tbody=table.querySelector('tbody');
+    const table = document.createElement('table'); table.className='table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
     scroll.appendChild(table);
 
     const rows = data?.cogs || [];
-    rows.forEach(cog=>{
-      const name = cog?.name || '';
-      const tr   = document.createElement('tr');
-      const tdN  = document.createElement('td'); tdN.textContent = name;
-      const tdA  = document.createElement('td');
 
-      const group = document.createElement('div'); group.className='chip-group';
+    const buildRow = async (name, loadedHint) => {
+      const tr = document.createElement('tr');
+      const tdN = document.createElement('td'); tdN.textContent = name;
+      const tdS = document.createElement('td');
+      const tdA = document.createElement('td');
 
-      const makeChip = (label, cls, action) => {
+      // status pill
+      const pill = document.createElement('span');
+      pill.className = 'pill pill-wait';
+      pill.textContent = '…';
+      tdS.appendChild(pill);
+
+      const setPill = (loaded) => {
+        pill.className = 'pill ' + (loaded ? 'pill-ok' : 'pill-off');
+        pill.textContent = loaded ? 'Loaded' : 'Unloaded';
+      };
+
+      // resolve status (fast path: use hint if provided)
+      if (typeof loadedHint === 'boolean') setPill(loadedHint);
+      else {
+        getCogStatus(name).then(v => {
+          if (typeof v === 'boolean') setPill(v);
+          else { pill.className='pill pill-off'; pill.textContent='Unknown'; }
+        });
+      }
+
+      // actions
+      const group = document.createElement('div'); group.className = 'chip-group';
+      const mk = (label, cls, action) => {
         const b = document.createElement('button');
         b.className = `btn-chip ${cls}`;
         b.textContent = label;
         b.onclick = async () => {
           try{
-            await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/${action}`, { method:'POST', body:JSON.stringify({}) });
+            // show pending state
+            pill.className = 'pill pill-wait';
+            pill.textContent = 'Applying…';
+
+            await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/${action}`, {
+              method:'POST', body: JSON.stringify({})
+            });
             notify(`${action} queued for ${name}`);
-            // webhook format exactly as requested: wc load {COG_NAME}
             postWebhookMessage(`wc ${action} ${name}`);
+
+            // small delay then re-check status
+            setTimeout(async () => {
+              const v = await getCogStatus(name);
+              if (typeof v === 'boolean') setPill(v);
+              else { pill.className='pill pill-off'; pill.textContent='Unknown'; }
+            }, 800);
           }catch(e){
             notify(`Cog ${action} failed: ${e.message}`, false);
+            // revert to a safe state read
+            const v = await getCogStatus(name);
+            if (typeof v === 'boolean') setPill(v);
+            else { pill.className='pill pill-off'; pill.textContent='Unknown'; }
           }
         };
         return b;
       };
 
-      group.appendChild(makeChip('reload','chip-reload','reload'));
-      group.appendChild(makeChip('load','chip-load','load'));
-      group.appendChild(makeChip('unload','chip-unload','unload'));
+      group.appendChild(mk('reload','chip-reload','reload'));
+      group.appendChild(mk('load','chip-load','load'));
+      group.appendChild(mk('unload','chip-unload','unload'));
 
       tdA.appendChild(group);
-      tr.appendChild(tdN); tr.appendChild(tdA);
+      tr.appendChild(tdN); tr.appendChild(tdS); tr.appendChild(tdA);
       tbody.appendChild(tr);
-    });
+    };
+
+    for (const cog of rows) {
+      await buildRow(cog.name || '', typeof cog.loaded === 'boolean' ? cog.loaded : undefined);
+    }
 
     const r = document.getElementById('cogs-refresh');
     if (r) r.onclick = loadCogs;
@@ -446,6 +494,26 @@ async function loadCogs(){
   }catch(e){
     notify(`Cogs error: ${e.message}`, false);
   }
+}
+
+
+async function getCogStatus(name){
+  // prefer a per-cog status endpoint; fall back to list that includes `loaded`
+  try {
+    const s = await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/status`);
+    if (typeof s?.loaded === 'boolean') return s.loaded;
+  } catch {}
+  try {
+    const list = await fetchJSON('/admin/cogs');
+    const row = (list?.cogs || []).find(c => c.name === name);
+    if (typeof row?.loaded === 'boolean') return row.loaded;
+  } catch {}
+  // public fallback (if exposed)
+  try {
+    const s = await fetchJSON(`/api/cogs/${encodeURIComponent(name)}/status`);
+    if (typeof s?.loaded === 'boolean') return s.loaded;
+  } catch {}
+  return null; // unknown
 }
 
 
