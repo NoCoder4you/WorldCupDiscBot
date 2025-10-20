@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -9,13 +8,14 @@ from discord.ext import commands
 
 # -------------------- Paths & Config --------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-JSON_DIR = os.path.join(BASE_DIR, "JSON")
 COGS_DIR = os.path.join(BASE_DIR, "COGS")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "WC.log")
-COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
 
-os.makedirs(JSON_DIR, exist_ok=True)
+RUNTIME_DIR = os.path.join(BASE_DIR, "runtime")
+COGS_STATUS_PATH = os.path.join(RUNTIME_DIR, "cogs_status.json")
+
+os.makedirs(RUNTIME_DIR, exist_ok=True)
 os.makedirs(COGS_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
@@ -41,9 +41,8 @@ def load_config() -> dict:
 CONFIG = load_config()
 BOT_TOKEN = CONFIG.get("BOT_TOKEN", "").strip()
 
-# No hardcoded defaults here - must be configured in config.json
-ADMIN_CATEGORY_NAME: str = str(CONFIG.get("ADMIN_CATEGORY_NAME", "") or "")
-ADMIN_ROLE_NAME: str = str(CONFIG.get("ADMIN_ROLE_NAME", "") or "")
+ADMIN_CATEGORY_NAME = str(CONFIG.get("ADMIN_CATEGORY_NAME", "") or "")
+ADMIN_ROLE_NAME = str(CONFIG.get("ADMIN_ROLE_NAME", "") or "")
 _admin_ids_raw = CONFIG.get("ADMIN_LOG_CHANNEL_IDS", [])
 ADMIN_LOG_CHANNEL_IDS: List[int] = []
 for x in _admin_ids_raw:
@@ -62,28 +61,24 @@ intents = discord.Intents.all()
 # -------------------- Bot --------------------
 class WorldCupBot(commands.Bot):
     def __init__(self):
-        super().__init__(
-            command_prefix="wc ",
-            intents=intents,
-            help_command=None
-        )
+        super().__init__(command_prefix="wc ", intents=intents, help_command=None)
         self.loaded_exts: List[str] = []
 
-    async def setup_hook(self) -> None:
+    async def setup_hook(self):
         await self.load_all_cogs()
         log.info("setup_hook completed.")
 
     async def on_ready(self):
         log.info("Logged in as %s (%s)", self.user, self.user.id if self.user else "?")
-        # Post config report inside Discord for each guild
         await self._post_config_report()
 
     async def _post_config_report(self):
         for guild in self.guilds:
-            msgs = []
-            msgs.append("WorldCupBot is online.")
-            msgs.append(f"Config - ADMIN_ROLE_NAME: {ADMIN_ROLE_NAME or 'MISSING'}")
-            msgs.append(f"Config - ADMIN_CATEGORY_NAME: {ADMIN_CATEGORY_NAME or 'MISSING'}")
+            msgs = [
+                "WorldCupBot is online.",
+                f"Config - ADMIN_ROLE_NAME: {ADMIN_ROLE_NAME or 'MISSING'}",
+                f"Config - ADMIN_CATEGORY_NAME: {ADMIN_CATEGORY_NAME or 'MISSING'}",
+            ]
             if ADMIN_LOG_CHANNEL_IDS:
                 parts = []
                 for cid in ADMIN_LOG_CHANNEL_IDS:
@@ -93,16 +88,14 @@ class WorldCupBot(commands.Bot):
             else:
                 msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: none set (will use fallback)")
 
-            # Warnings if missing
             warn = []
             if not ADMIN_ROLE_NAME:
-                warn.append("ADMIN_ROLE_NAME not set - admin commands will be blocked.")
+                warn.append("ADMIN_ROLE_NAME not set - admin commands blocked.")
             if not ADMIN_CATEGORY_NAME:
-                warn.append("ADMIN_CATEGORY_NAME not set - admin commands will be blocked.")
+                warn.append("ADMIN_CATEGORY_NAME not set - admin commands blocked.")
             if warn:
                 msgs.append("⚠️ " + " ".join(warn))
 
-            # Send to admin log channels or fallback
             await send_discord_log(guild, "\n".join(msgs))
 
     # --------------- Cog Helpers ---------------
@@ -121,7 +114,7 @@ class WorldCupBot(commands.Bot):
         self.loaded_exts = loaded
         self._write_cogs_status(loaded)
 
-    async def reload_cog(self, short_name: str) -> str:
+    async def reload_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         try:
             await self.unload_extension(ext)
@@ -131,23 +124,25 @@ class WorldCupBot(commands.Bot):
         self._mark_cog_loaded(short_name, True)
         return f"Reloaded {short_name}"
 
-    async def load_cog(self, short_name: str) -> str:
+    async def load_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
         return f"Loaded {short_name}"
 
-    async def unload_cog(self, short_name: str) -> str:
+    async def unload_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.unload_extension(ext)
         self._mark_cog_loaded(short_name, False)
         return f"Unloaded {short_name}"
 
+    # --- JSON status tracking (shared with Flask) ---
     def _write_cogs_status(self, loaded_exts):
         data = {"loaded": list(loaded_exts)}
         try:
             with open(COGS_STATUS_PATH, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
+            log.info("Updated %s with %d loaded cogs.", COGS_STATUS_PATH, len(loaded_exts))
         except Exception as e:
             log.warning("Failed to write cogs_status.json: %s", e)
 
@@ -167,6 +162,7 @@ class WorldCupBot(commands.Bot):
             cur.discard(ext)
         data["loaded"] = sorted(cur)
         try:
+            os.makedirs(RUNTIME_DIR, exist_ok=True)
             with open(COGS_STATUS_PATH, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
@@ -174,7 +170,7 @@ class WorldCupBot(commands.Bot):
 
 bot = WorldCupBot()
 
-# -------------------- Helpers: Role and Category checks --------------------
+# -------------------- Helpers --------------------
 def member_has_role(member: discord.Member, role_name: str) -> bool:
     if not role_name:
         return False
@@ -183,19 +179,12 @@ def member_has_role(member: discord.Member, role_name: str) -> bool:
 def in_admin_category(channel: discord.abc.GuildChannel, category_name: str) -> bool:
     if not category_name:
         return False
-    # Handle threads
     if isinstance(channel, discord.Thread):
         parent = channel.parent
-        if parent and parent.category and parent.category.name == category_name:
-            return True
-        return False
-    # Normal text channel
-    if hasattr(channel, "category") and channel.category and channel.category.name == category_name:
-        return True
-    return False
+        return bool(parent and parent.category and parent.category.name == category_name)
+    return bool(getattr(channel, "category", None) and channel.category.name == category_name)
 
 async def get_fallback_log_channels(guild: discord.Guild) -> List[discord.abc.Messageable]:
-    # If explicit ADMIN_LOG_CHANNEL_IDS exist, use them
     chans: List[discord.abc.Messageable] = []
     if ADMIN_LOG_CHANNEL_IDS:
         for cid in ADMIN_LOG_CHANNEL_IDS:
@@ -204,20 +193,14 @@ async def get_fallback_log_channels(guild: discord.Guild) -> List[discord.abc.Me
                 chans.append(ch)
         if chans:
             return chans
-
-    # Else, try to find any channel under the admin category
     if ADMIN_CATEGORY_NAME:
         for ch in guild.text_channels:
             if ch.category and ch.category.name == ADMIN_CATEGORY_NAME and ch.permissions_for(guild.me).send_messages:
                 chans.append(ch)
         if chans:
             return chans
-
-    # Else, fall back to system channel if possible
     if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
         return [guild.system_channel]
-
-    # Else, nothing
     return []
 
 async def send_discord_log(guild: discord.Guild, message: str):
@@ -238,11 +221,11 @@ def admin_only_context():
             await ctx.reply("Must be used in a server.", delete_after=5)
             return False
         if not ADMIN_ROLE_NAME:
-            await send_discord_log(ctx.guild, "Admin command blocked - ADMIN_ROLE_NAME not configured in config.json")
+            await send_discord_log(ctx.guild, "Admin role not configured in config.json")
             await ctx.reply("Admin role not configured.", delete_after=8)
             return False
         if not ADMIN_CATEGORY_NAME:
-            await send_discord_log(ctx.guild, "Admin command blocked - ADMIN_CATEGORY_NAME not configured in config.json")
+            await send_discord_log(ctx.guild, "Admin category not configured in config.json")
             await ctx.reply("Admin category not configured.", delete_after=8)
             return False
         if not member_has_role(ctx.author, ADMIN_ROLE_NAME):
@@ -254,7 +237,7 @@ def admin_only_context():
         return True
     return commands.check(predicate)
 
-# -------------------- Text Commands (prefix: 'wc') --------------------
+# -------------------- Commands --------------------
 @bot.command(name="ping", help="Check latency")
 @admin_only_context()
 async def cmd_ping(ctx: commands.Context):
