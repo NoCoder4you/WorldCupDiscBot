@@ -1,11 +1,9 @@
 /* ===========================
    World Cup 2026 Panel - style.css
-   Dark + light themes, responsive nav,
-   Dice-5 admin dashboard, centered logged-out dashboard,
-   Overlapping system gauges, polished buttons/modals/tables
+   Fixed version: proper admin gating + single active section
    =========================== */
 
-/* Theme tokens */
+/* ===== THEME COLORS ===== */
 :root {
 	--bg: #0f141a;
 	--card: #182231;
@@ -19,18 +17,15 @@
 	--btn-hover: #2a3b55;
 	--card-h: 220px;
 
-	/* Overlapping gauge colors */
+	/* Gauge colors */
 	--mem-c: #00d0a3;
-	/* teal */
 	--cpu-c: #2aa8ff;
-	/* blue */
 	--disk-c: #23e0c0;
-	/* light teal */
 }
 
 body.light {
 	--bg: #f7fafc;
-	--card: #ffffff;
+	--card: #fff;
 	--text: #1c2634;
 	--muted: #5a6a82;
 	--accent: #00b386;
@@ -41,7 +36,7 @@ body.light {
 	--btn-hover: #d6e7f7;
 }
 
-/* Resets */
+/* ===== BASE ===== */
 * {
 	box-sizing: border-box
 }
@@ -52,7 +47,6 @@ body {
 	margin: 0
 }
 
-/* Base layout */
 body {
 	font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
 	background: var(--bg);
@@ -63,7 +57,7 @@ body {
 	overflow: hidden;
 }
 
-/* Header + Nav */
+/* ===== HEADER ===== */
 .header-bar {
 	display: flex;
 	align-items: center;
@@ -107,7 +101,7 @@ body {
 	width: 100%;
 	max-width: 1200px;
 	justify-content: space-evenly;
-	align-items: center
+	align-items: center;
 }
 
 .menu a {
@@ -116,7 +110,7 @@ body {
 	border-radius: 8px;
 	text-decoration: none;
 	color: inherit;
-	font-weight: 700
+	font-weight: 700;
 }
 
 .menu a.active,
@@ -143,7 +137,7 @@ body {
 		padding: 10px 12px;
 		border-bottom: 1px solid var(--border);
 		display: none;
-		flex-wrap: wrap
+		flex-wrap: wrap;
 	}
 
 	#menu-toggle:checked~.menu {
@@ -159,31 +153,44 @@ body {
 	cursor: pointer
 }
 
-/* Main */
+/* ===== MAIN & PAGE VISIBILITY ===== */
 main {
 	flex: 1;
 	overflow: auto;
 	padding: 12px
 }
 
-/* Page router visibility */
-.page-section {
+/* Only the active page shows */
+section.page-section {
 	display: none;
 }
-.page-section.active-section {
+
+section.page-section.active-section {
 	display: block;
 }
 
-/* Admin gate - only controls whether admin pages are accessible,
-   not their visibility relative to other pages */
-.admin-only {
+/* Admin gating */
+body:not(.admin) section.page-section.admin-only {
 	display: none;
 }
-body.admin .admin-only {
-	display: block;
+
+.card.admin-only {
+	display: none;
 }
 
-/* Cards */
+body.admin .card.admin-only {
+	display: flex;
+}
+
+li.admin-only {
+	display: none;
+}
+
+body.admin li.admin-only {
+	display: list-item;
+}
+
+/* ===== CARDS ===== */
 .card {
 	background: var(--card);
 	border: 1px solid var(--border);
@@ -194,21 +201,6 @@ body.admin .admin-only {
 	flex-direction: column;
 	height: var(--card-h);
 }
-
-
-
-/* Entire admin-only pages (splits, backups, logs, cogs) */
-section.page-section.admin-only { display: none !important; }
-body.admin section.page-section.admin-only { display: block !important; }
-
-/* Admin-only cards inside pages (System Usage, Bot Actions) */
-.card.admin-only { display: none !important; }
-body.admin .card.admin-only { display: flex !important; }
-
-/* Admin-only navbar items */
-li.admin-only { display: none !important; }
-body.admin li.admin-only { display: list-item !important; }
-
 
 .card-title {
 	color: var(--accent);
@@ -228,17 +220,14 @@ body.admin li.admin-only { display: list-item !important; }
 	font-weight: 900
 }
 
-/* ===========================
-   DASHBOARD GRIDS
-   =========================== */
+/* ===== DASHBOARD GRIDS ===== */
 
-/* Logged-out grid: 3 equal cards, centered */
+/* Logged-out grid (3 centered cards) */
 .dashboard-grid {
 	display: grid;
 	gap: 16px;
 	max-width: 900px;
 	margin: 40px auto;
-	/* center the 3-card layout */
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	grid-auto-rows: var(--card-h);
 	justify-content: center;
@@ -259,7 +248,7 @@ body.admin li.admin-only { display: list-item !important; }
 	}
 }
 
-/* Admin: true dice-5 (3x3) with equal sizing */
+/* Admin dice-5 grid */
 body.admin .dashboard-grid {
 	max-width: 1200px;
 	margin: 16px auto;
@@ -295,7 +284,6 @@ body.admin .card-e {
 	grid-area: e
 }
 
-/* keep equal height inside dice layout */
 body.admin .dashboard-grid .card {
 	height: var(--card-h);
 	display: flex;
@@ -303,7 +291,6 @@ body.admin .dashboard-grid .card {
 	justify-content: space-between;
 }
 
-/* Fallback to 2-1-2 below 1100px */
 @media (max-width:1100px) {
 	body.admin .dashboard-grid {
 		grid-template-columns: 1fr 1fr;
@@ -315,9 +302,7 @@ body.admin .dashboard-grid .card {
 	}
 }
 
-/* ===========================
-   GAUGES (base)
-   =========================== */
+/* ===== GAUGES ===== */
 .gauges-flex {
 	display: flex;
 	gap: 8px;
@@ -377,9 +362,7 @@ body.admin .dashboard-grid .card {
 	}
 }
 
-/* ===========================
-   SYSTEM USAGE - Overlapping fan
-   =========================== */
+/* ===== SYSTEM USAGE (Overlapping Gauges) ===== */
 .card.card-d {
 	padding: 14px;
 	min-height: 180px;
@@ -389,11 +372,10 @@ body.admin .dashboard-grid .card {
 	align-items: center;
 }
 
-/* Overlapping stack */
+/* Overlap stack */
 .gauges-overlap {
 	position: relative;
 	height: 110px;
-	/* compact footprint */
 	width: 260px;
 	margin: 10px auto 0 auto;
 }
@@ -414,7 +396,6 @@ body.admin .dashboard-grid .card {
 	opacity: .95;
 }
 
-/* Size tiers to nest arcs */
 .gauge--mem .gauge-svg {
 	width: 230px;
 	height: 130px
@@ -432,7 +413,6 @@ body.admin .dashboard-grid .card {
 	transform: translateY(20px)
 }
 
-/* Colors + tiny glow */
 .gauge--mem .gauge-bar {
 	stroke: var(--mem-c);
 	stroke-width: 10;
@@ -456,7 +436,6 @@ body.admin .dashboard-grid .card {
 	stroke-width: 10
 }
 
-/* Remove old scrolling lines inside overlap mode */
 .gauges-overlap .gauge-extra-scroll {
 	display: none
 }
@@ -502,9 +481,7 @@ body.admin .dashboard-grid .card {
 	box-shadow: 0 0 6px currentColor
 }
 
-/* ===========================
-   Buttons
-   =========================== */
+/* ===== BUTTONS ===== */
 .actions-row {
 	display: grid;
 	gap: 12px
@@ -514,7 +491,7 @@ body.admin .dashboard-grid .card {
 	grid-template-columns: 1fr
 }
 
-/* JS flips to 1fr 1fr when online */
+/* JS toggles to 1fr 1fr when online */
 .actions-bot .btn {
 	width: 100%
 }
@@ -523,8 +500,6 @@ body.admin .dashboard-grid .card {
 	display: none
 }
 
-/* hidden by default; JS shows when offline */
-
 .btn {
 	background: var(--btn);
 	color: var(--text);
@@ -532,7 +507,7 @@ body.admin .dashboard-grid .card {
 	padding: 10px 14px;
 	border-radius: 10px;
 	font-weight: 800;
-	cursor: pointer
+	cursor: pointer;
 }
 
 .btn:hover {
@@ -549,9 +524,7 @@ body.admin .dashboard-grid .card {
 	color: #fff
 }
 
-/* ===========================
-   Tables
-   =========================== */
+/* ===== TABLES ===== */
 .table-wrap {
 	background: var(--card);
 	border: 1px solid var(--border);
@@ -559,7 +532,7 @@ body.admin .dashboard-grid .card {
 	padding: 0;
 	max-width: 1200px;
 	margin: 16px auto;
-	overflow: hidden
+	overflow: hidden;
 }
 
 .table-head {
@@ -568,7 +541,7 @@ body.admin .dashboard-grid .card {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	justify-content: space-between
+	justify-content: space-between;
 }
 
 .table-title {
@@ -588,7 +561,7 @@ body.admin .dashboard-grid .card {
 	color: var(--text);
 	border: 1px solid var(--border);
 	border-radius: 8px;
-	padding: 8px 10px
+	padding: 8px 10px;
 }
 
 .table-scroll {
@@ -619,9 +592,7 @@ body.admin .dashboard-grid .card {
 	background: rgba(255, 255, 255, .03)
 }
 
-/* ===========================
-   Modal, FAB, notifications
-   =========================== */
+/* ===== MODAL, FAB, NOTIFY ===== */
 .fab {
 	position: fixed;
 	right: 16px;
@@ -638,7 +609,7 @@ body.admin .dashboard-grid .card {
 	justify-content: center;
 	font-size: 22px;
 	cursor: pointer;
-	z-index: 60
+	z-index: 60;
 }
 
 .fab:hover {
@@ -652,7 +623,7 @@ body.admin .dashboard-grid .card {
 	display: none;
 	align-items: center;
 	justify-content: center;
-	z-index: 80
+	z-index: 80;
 }
 
 .modal {
@@ -661,7 +632,7 @@ body.admin .dashboard-grid .card {
 	color: #fff;
 	border: 1px solid #2a3242;
 	border-radius: 12px;
-	padding: 16px
+	padding: 16px;
 }
 
 .modal h3 {
@@ -681,7 +652,7 @@ body.admin .dashboard-grid .card {
 	border-radius: 8px;
 	border: 1px solid #2a3242;
 	background: #0e1520;
-	color: #fff
+	color: #fff;
 }
 
 .modal-actions {
@@ -699,7 +670,7 @@ body.admin .dashboard-grid .card {
 	display: flex;
 	justify-content: center;
 	pointer-events: none;
-	z-index: 90
+	z-index: 90;
 }
 
 .notice {
@@ -707,7 +678,7 @@ body.admin .dashboard-grid .card {
 	padding: 10px 16px;
 	border-radius: 10px;
 	font-weight: 900;
-	box-shadow: 0 8px 30px rgba(0, 0, 0, .35)
+	box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
 }
 
 .notice.ok {
@@ -720,10 +691,10 @@ body.admin .dashboard-grid .card {
 	color: #fff
 }
 
-/* Footer */
+/* ===== FOOTER ===== */
 footer {
 	text-align: center;
 	color: var(--muted);
 	padding: 10px 12px;
-	border-top: 1px solid var(--border)
+	border-top: 1px solid var(--border);
 }

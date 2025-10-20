@@ -102,29 +102,35 @@
     });
   }
 
-  function setPage(p){
-    // Remember page
+  function setPage(p) {
+      // Resolve target element
+    let target = document.getElementById(p);
+    if (!target) return;
+
+      // Admin gate: if target is admin-only but user isn't admin, fall back
+    if (target.classList.contains('admin-only') && !state.admin) {
+      p = 'dashboard';
+      target = document.getElementById(p);
+      if (!target) return;
+    }
+
+      // Persist
     state.currentPage = p;
     localStorage.setItem('wc:lastPage', p);
 
-    // Update nav highlight
-    qsa('#main-menu a').forEach(a =>
-      a.classList.toggle('active', a.dataset.page === p)
-    );
-
-      // Hide *all* sections first
-    qsa('section.page-section').forEach(sec => {
-      sec.classList.remove('active-section');
-      sec.style.display = 'none';
+      // Nav highlight
+    qsa('#main-menu a').forEach(a => {
+      a.classList.toggle('active', a.dataset.page === p);
     });
 
-      // Show only the chosen section
-    const active = qs(`#${p}`);
-    if (active) {
-      active.classList.add('active-section');
-      active.style.display = 'block';
-    }
+      // Clear any legacy inline styles (from earlier patches) once
+    qsa('section.page-section').forEach(sec => sec.removeAttribute('style'));
+
+      // Show exactly one section
+    qsa('section.page-section').forEach(sec => sec.classList.remove('active-section'));
+    target.classList.add('active-section');
   }
+
 
 
   function wireNav(){
