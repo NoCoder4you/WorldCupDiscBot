@@ -195,17 +195,6 @@ body.admin .admin-only {
 	height: var(--card-h);
 }
 
-/* Page router visibility */
-.page-section{ display:none; opacity:0; transform:translateY(6px); }
-.page-section.active-section{ display:block; }
-
-/* Fade-in states */
-.page-section.fade-enter{ display:block; opacity:0; transform:translateY(6px); }
-.page-section.fade-enter-active{
-  opacity:1;
-  transform:translateY(0);
-  transition: opacity 180ms ease, transform 180ms ease;
-}
 
 
 /* Entire admin-only pages (splits, backups, logs, cogs) */

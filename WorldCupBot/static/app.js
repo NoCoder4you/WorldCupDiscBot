@@ -112,40 +112,20 @@
       a.classList.toggle('active', a.dataset.page === p)
     );
 
-    // Find current and next sections
-    const all = qsa('section.page-section');
-    const prev = qs('section.page-section.active-section');
-    const next = qs(`#${p}`);
+      // Hide *all* sections first
+    qsa('section.page-section').forEach(sec => {
+      sec.classList.remove('active-section');
+      sec.style.display = 'none';
+    });
 
-    // If there's a previous active section, hide it cleanly
-    if (prev && prev !== next){
-      prev.classList.remove('active-section', 'fade-enter', 'fade-enter-active');
-      // No inline display toggles; CSS handles display via classes
+      // Show only the chosen section
+    const active = qs(`#${p}`);
+    if (active) {
+      active.classList.add('active-section');
+      active.style.display = 'block';
     }
-
-    if (!next) return;
-
-    // Prepare next for fade-in
-    next.classList.remove('fade-enter', 'fade-enter-active'); // reset in case of rapid nav
-    next.classList.add('active-section', 'fade-enter');
-
-    // Kick off the animation on the next frame to ensure the transition applies
-    requestAnimationFrame(() => {
-      next.classList.add('fade-enter-active');
-    });
-
-    // After transition, clean up the helper classes (keep active-section)
-    const onDone = () => {
-      next.classList.remove('fade-enter', 'fade-enter-active');
-      next.removeEventListener('transitionend', onDone);
-    };
-    next.addEventListener('transitionend', onDone);
-
-    // Ensure all other sections are not marked active
-    all.forEach(sec => {
-      if (sec !== next) sec.classList.remove('active-section', 'fade-enter', 'fade-enter-active');
-    });
   }
+
 
   function wireNav(){
     $menu.addEventListener('click', e=>{
