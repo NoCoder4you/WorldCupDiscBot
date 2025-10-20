@@ -119,4 +119,29 @@ def create_admin_routes(ctx):
                 pass
         return jsonify({ "ok": True, "pruned": removed })
 
+    # ---------- Config (for front-end webhook) ----------
+    @bp.get("/config")
+    def admin_config():
+        """Return safe config values for the front-end (no secrets except webhook)."""
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        try:
+            base = ctx.get("BASE_DIR", "")
+            cfg_path = os.path.join(base, "config.json")
+            if not os.path.isfile(cfg_path):
+                return jsonify({ "error": "config.json not found" }), 404
+
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Only return the webhook
+            safe = {
+                "DISCORD_WEBHOOK_URL": data.get("DISCORD_WEBHOOK_URL")
+            }
+            return jsonify(safe)
+        except Exception as e:
+            return jsonify({ "error": str(e) }), 500
+
     return bp

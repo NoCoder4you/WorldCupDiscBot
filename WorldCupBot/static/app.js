@@ -368,14 +368,18 @@
 
 // --- helpers (keep once in your file) ---
 let _wcWebhookUrl = null;
-async function resolveWebhook(){
+
+async function resolveWebhook() {
   if (_wcWebhookUrl !== null) return _wcWebhookUrl;
-  // If you prefer to inject it from HTML, set window.WC_WEBHOOK and this returns it.
-  if (window.WC_WEBHOOK) { _wcWebhookUrl = window.WC_WEBHOOK; return _wcWebhookUrl; }
-  try { const a = await fetchJSON('/admin/config'); _wcWebhookUrl = a?.DISCORD_WEBHOOK_URL || null; if (_wcWebhookUrl) return _wcWebhookUrl; } catch {}
-  try { const b = await fetchJSON('/api/config');   _wcWebhookUrl = b?.DISCORD_WEBHOOK_URL || null; } catch { _wcWebhookUrl = null; }
+  try {
+    const cfg = await fetchJSON('/admin/config');
+    _wcWebhookUrl = cfg?.DISCORD_WEBHOOK_URL || null;
+  } catch {
+    _wcWebhookUrl = null;
+  }
   return _wcWebhookUrl;
 }
+
 async function postWebhookMessage(text){
   try{
     const url = await resolveWebhook();
