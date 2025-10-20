@@ -718,13 +718,19 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   grid-template-columns: 1fr;
 }
 
-/* Buttons sized proportionally to card */
+/* --- Refined Bot Action Buttons for balanced card fit --- */
 #bot-actions .btn {
   width: 100%;
-  font-size: 1.5rem;
-  padding: 55px 0;
-  border-radius: 8px;
+  font-size: 1.5rem;          /* subtle size bump, not giant */
+  padding: 50px 0;            /* fills height without looking oversized */
+  border-radius: 10px;
   font-weight: 800;
+  transition: all 0.2s ease;
+}
+
+#bot-actions .btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
 }
 
 /* Space distribution fix for equal halves */
