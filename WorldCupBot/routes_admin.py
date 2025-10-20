@@ -10,16 +10,35 @@ def _enqueue_command(base_dir, cmd: dict):
     with open(_cmd_queue_path(base_dir), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd) + "\n")
 
-def _scan_cogs(base_dir):
-    cdir = os.path.join(base_dir, "COGS")
-    found = []
-    if os.path.isdir(cdir):
-        for py in sorted(glob.glob(os.path.join(cdir, "*.py"))):
-            name = os.path.splitext(os.path.basename(py))[0]
-            if name.startswith("_"):
-                continue
-            found.append({ "name": name, "loaded": None })
-    return found
+def _scan_cogs(base_dir, bot=None):
+    cogs_dir = os.path.join(base_dir, "COGS")
+    results = []
+    if not os.path.isdir(cogs_dir):
+        return results
+
+    # Preferred source of truth if you have a bot instance in ctx
+    loaded_names = set()
+    if bot and getattr(bot, "cogs", None):
+        # discord.py keeps cogs in bot.cogs dict keyed by Cog class name
+        # and extensions in bot.extensions keyed by "COGS.ModuleName"
+        loaded_names = set(bot.extensions.keys())  # e.g. "COGS.Betting", "COGS.ReactionRole"
+
+    for path in sorted(glob.glob(os.path.join(cogs_dir, "*.py"))):
+        name = os.path.splitext(os.path.basename(path))[0]
+        if name.startswith("_"):
+            continue
+
+        module_name = f"COGS.{name}"
+
+        # First try the bot.extensions list (exact truth), else fall back to sys.modules
+        is_loaded = False
+        if loaded_names:
+            is_loaded = module_name in loaded_names
+        else:
+            is_loaded = module_name in sys.modules
+
+        results.append({"name": name, "loaded": bool(is_loaded)})
+
 
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -81,8 +100,16 @@ def create_admin_routes(ctx):
     # ---------- Cogs ----------
     @bp.get("/cogs")
     def cogs_list():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
         base = ctx.get("BASE_DIR", "")
-        return jsonify({ "ok": True, "cogs": _scan_cogs(base) })
+        bot = ctx.get("bot")  # ok if None
+        try:
+            return jsonify({"ok": True, "cogs": _scan_cogs(base, bot)})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
 
     @bp.post("/cogs/<cog>/<action>")
     def cogs_action(cog, action):
@@ -94,6 +121,19 @@ def create_admin_routes(ctx):
             return jsonify({ "ok": False, "error": "invalid action" }), 400
         _enqueue_command(base, { "kind": "cog", "action": action, "cog": cog })
         return jsonify({ "ok": True, "queued": { "cog": cog, "action": action } })
+
+    @bp.get("/cogs/<cog>/status")
+    def cogs_status(cog):
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        base = ctx.get("BASE_DIR", "")
+        bot = ctx.get("bot")
+        for entry in _scan_cogs(base, bot):
+            if entry["name"].lower() == cog.lower():
+                return jsonify(entry)
+        return jsonify({"name": cog, "loaded": None}), 404
 
     # ---------- Backups maintenance ----------
     @bp.post("/backups/prune")
