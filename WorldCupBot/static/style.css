@@ -196,6 +196,19 @@ body.admin .admin-only {
 	height: var(--card-h);
 }
 
+/* Entire admin-only pages (splits, backups, logs, cogs) */
+section.page-section.admin-only { display: none !important; }
+body.admin section.page-section.admin-only { display: block !important; }
+
+/* Admin-only cards inside pages (System Usage, Bot Actions) */
+.card.admin-only { display: none !important; }
+body.admin .card.admin-only { display: flex !important; }
+
+/* Admin-only navbar items */
+li.admin-only { display: none !important; }
+body.admin li.admin-only { display: list-item !important; }
+
+
 .card-title {
 	color: var(--accent);
 	font-weight: 800;
