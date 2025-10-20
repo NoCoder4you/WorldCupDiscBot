@@ -54,8 +54,7 @@ def _cogs_dir(ctx):
     return os.path.join(_base_dir(ctx), "COGS")
 
 def _cogs_state_path(ctx):
-    # File written by the bot with list of loaded extensions
-    return os.path.join(_runtime_dir(ctx), "cogs_status.json")
+    return os.path.join(_base_dir(ctx), "JSON", "cogs_status.json")
 
 def _read_cogs_state(ctx):
     fp = _cogs_state_path(ctx)

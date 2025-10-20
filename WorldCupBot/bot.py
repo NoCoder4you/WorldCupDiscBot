@@ -12,10 +12,10 @@ COGS_DIR = os.path.join(BASE_DIR, "COGS")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_PATH = os.path.join(BASE_DIR, "WC.log")
 
-RUNTIME_DIR = os.path.join(BASE_DIR, "runtime")
-COGS_STATUS_PATH = os.path.join(RUNTIME_DIR, "cogs_status.json")
+JSON_DIR = os.path.join(BASE_DIR, "JSON")
+COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
 
-os.makedirs(RUNTIME_DIR, exist_ok=True)
+os.makedirs(JSON_DIR, exist_ok=True)
 os.makedirs(COGS_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
@@ -162,7 +162,7 @@ class WorldCupBot(commands.Bot):
             cur.discard(ext)
         data["loaded"] = sorted(cur)
         try:
-            os.makedirs(RUNTIME_DIR, exist_ok=True)
+            os.makedirs(JSON_DIR, exist_ok=True)
             with open(COGS_STATUS_PATH, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
         except Exception as e:
