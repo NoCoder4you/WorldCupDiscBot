@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, session
 import os, json, time, glob
+import sys
 
 def _cmd_queue_path(base_dir):
     return os.path.join(base_dir, "runtime", "bot_commands.jsonl")
@@ -16,29 +17,20 @@ def _scan_cogs(base_dir, bot=None):
     if not os.path.isdir(cogs_dir):
         return results
 
-    # Preferred source of truth if you have a bot instance in ctx
     loaded_names = set()
-    if bot and getattr(bot, "cogs", None):
-        # discord.py keeps cogs in bot.cogs dict keyed by Cog class name
-        # and extensions in bot.extensions keyed by "COGS.ModuleName"
-        loaded_names = set(bot.extensions.keys())  # e.g. "COGS.Betting", "COGS.ReactionRole"
+    if bot and getattr(bot, "extensions", None):
+        # discord.py keeps loaded extensions here as "COGS.Name"
+        loaded_names = set(bot.extensions.keys())
 
     for path in sorted(glob.glob(os.path.join(cogs_dir, "*.py"))):
         name = os.path.splitext(os.path.basename(path))[0]
         if name.startswith("_"):
             continue
-
         module_name = f"COGS.{name}"
-
-        # First try the bot.extensions list (exact truth), else fall back to sys.modules
-        is_loaded = False
-        if loaded_names:
-            is_loaded = module_name in loaded_names
-        else:
-            is_loaded = module_name in sys.modules
-
+        is_loaded = module_name in loaded_names or module_name in sys.modules
         results.append({"name": name, "loaded": bool(is_loaded)})
 
+    return results
 
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
