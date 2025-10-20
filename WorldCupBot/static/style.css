@@ -179,9 +179,14 @@ main {
 	display: none !important
 }
 
-body.admin .admin-only {
-	display: initial !important
-}
+/* Page visibility */
+.page-section{display:block}                         /* default */
+.page-section:not(.active-section){display:none}     /* hide everything except the active page */
+
+/* Admin gating (does not override the router) */
+.admin-only{display:none}
+body.admin .admin-only{display:block}
+
 
 /* Cards */
 .card {
