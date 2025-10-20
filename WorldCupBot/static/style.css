@@ -18,9 +18,9 @@
 	--card-h: 220px;
 
 	/* Gauge colors */
-	--mem-c: #00d0a3;
-	--cpu-c: #2aa8ff;
-	--disk-c: #23e0c0;
+	--mem-c: #0096C8;
+	--cpu-c: #10B487;
+	--disk-c: #00C832;
 }
 
 body.light {
@@ -701,4 +701,34 @@ footer {
 	color: var(--muted);
 	padding: 10px 12px;
 	border-top: 1px solid var(--border);
+}
+
+/* --- Bot Action Buttons (scaled to fill card nicely) --- */
+#bot-actions {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr 1fr;    /* for Restart + Stop */
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+}
+
+/* When offline (JS sets 1 column) */
+body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
+  grid-template-columns: 1fr;
+}
+
+/* Buttons sized proportionally to card */
+#bot-actions .btn {
+  width: 100%;
+  font-size: 1.05rem;                /* slightly larger text */
+  padding: 14px 0;                   /* taller */
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+/* Space distribution fix for equal halves */
+#bot-actions .btn-restart,
+#bot-actions .btn-stop {
+  flex: 1;
 }
