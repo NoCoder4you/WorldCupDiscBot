@@ -273,4 +273,38 @@ def create_admin_routes(ctx):
         _enqueue_cog(cog, "reload")
         return jsonify({"ok": True})
 
+    # ---------- Split Requests ----------
+    def _splits_path():
+        return os.path.join(_base_dir(ctx), "JSON", "splits.json")
+
+    @bp.get("/splits")
+    def splits_get():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        try:
+            path = _splits_path()
+            if not os.path.isfile(path):
+                # default empty shape
+                return jsonify({"pending": [], "resolved": []})
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f) or {}
+            # normalize shape
+            return jsonify({
+                "pending": data.get("pending", []) or [],
+                "resolved": data.get("resolved", []) or []
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    @bp.post("/splits/refresh")
+    def splits_refresh():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        _enqueue_command(ctx, "splits_refresh", {})
+        return jsonify({"ok": True})
+
+
+
     return bp
