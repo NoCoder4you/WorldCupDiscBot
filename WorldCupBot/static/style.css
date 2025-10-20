@@ -721,8 +721,8 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Buttons sized proportionally to card */
 #bot-actions .btn {
   width: 100%;
-  font-size: 1.05rem;                /* slightly larger text */
-  padding: 14px 0;                   /* taller */
+  font-size: 1.5rem;
+  padding: 55px 0;
   border-radius: 8px;
   font-weight: 800;
 }
