@@ -179,13 +179,12 @@ main {
 	display: none !important
 }
 
-/* Page visibility */
-.page-section{display:block}                         /* default */
-.page-section:not(.active-section){display:none}     /* hide everything except the active page */
+/* Page router controls visibility */
+.page-section { display: none; }
+.page-section.active-section { display: block; }
 
-/* Admin gating (does not override the router) */
-.admin-only{display:none}
-body.admin .admin-only{display:block}
+.admin-only { display: none; }
+body.admin .admin-only { display: block; }
 
 
 /* Cards */
