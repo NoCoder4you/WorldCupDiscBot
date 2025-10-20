@@ -166,22 +166,23 @@ main {
 	padding: 12px
 }
 
+/* Page router visibility */
 .page-section {
-	display: none
+	display: none;
+}
+.page-section.active-section {
+	display: block;
 }
 
-.active-section {
-	display: block
-}
-
-/* Admin gate: only gate whole sections, not inner buttons */
+/* Admin gate - only controls whether admin pages are accessible,
+   not their visibility relative to other pages */
 .admin-only {
-	display: none !important
+	display: none;
+}
+body.admin .admin-only {
+	display: block;
 }
 
-body.admin .admin-only {
-	display: initial !important
-}
 
 /* Cards */
 .card {
