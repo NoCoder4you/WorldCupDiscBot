@@ -57,6 +57,10 @@ body {
 	overflow: hidden;
 }
 
+body:not(.admin) section.page-section.admin-only { display: none !important; }
+body:not(.admin) .card.admin-only { display: none !important; }
+body:not(.admin) li.admin-only { display: none !important; }
+
 /* ===== HEADER ===== */
 .header-bar {
 	display: flex;
