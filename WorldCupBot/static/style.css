@@ -738,3 +738,29 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #bot-actions .btn-stop {
   flex: 1;
 }
+
+/* --- Cogs chip buttons --- */
+.chip-group{ display:flex; gap:8px; align-items:center; justify-content:flex-start }
+.btn-chip{
+  --bg: var(--btn);
+  --bg-h: var(--btn-hover);
+  --fg: var(--text);
+  background: var(--bg);
+  color: var(--fg);
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+  text-transform: lowercase;
+  letter-spacing: .3px;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0,0,0,.15);
+  transition: transform .05s ease, filter .15s ease, background .15s ease;
+}
+.btn-chip:active{ transform: translateY(1px) }
+.btn-chip:hover{ filter: brightness(1.05) }
+
+/* variants */
+.chip-reload{ --bg: var(--accent); --bg-h:#02b889; --fg: #09131f }
+.chip-load  { --bg: var(--accent-2); --bg-h:#1975d1; --fg: #07111c }
+.chip-unload{ --bg: var(--danger); --bg-h:#cf3e49; --fg: #fff }

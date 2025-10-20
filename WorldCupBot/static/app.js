@@ -366,102 +366,76 @@
   async function loadBackups(){ /* unchanged */ try{ const d=await fetchJSON('/api/backups'); const w=ensureSectionCard('backups','Backups',[['Backup All',{id:'bk-create'}],['Restore Latest',{id:'bk-restore'}],['Prune',{id:'bk-prune'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const files=(d?.backups)||(d?.folders?.[0]?.files)||[]; if(!files.length){ const p=document.createElement('p'); p.textContent='No backups yet.'; s.appendChild(p);} else{ const t=document.createElement('table'); t.className='table'; t.innerHTML='<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>'; const tb=t.querySelector('tbody'); files.forEach(f=>{ const tr=document.createElement('tr'); const size=(f.bytes||f.size)||0; const ts=f.mtime||f.ts; const dt=ts?new Date(ts*1000).toLocaleString():''; const a=document.createElement('a'); a.href=`/api/backups/download?rel=${encodeURIComponent(f.rel||f.name)}`; a.textContent='Download'; tr.innerHTML=`<td>${escapeHtml(f.name)}</td><td>${Math.round(size/1024/1024)} MB</td><td>${escapeHtml(dt)}</td><td></td>`; tr.children[3].appendChild(a); tb.appendChild(tr); }); s.appendChild(t);} qs('#bk-create').onclick=async()=>{ try{ await fetchJSON('/api/backups/create',{method:'POST',body:JSON.stringify({})}); notify('Backup created'); await loadBackups(); }catch(e){ notify(`Backup failed: ${e.message}`, false);} }; qs('#bk-restore').onclick=async()=>{ try{ if(!files[0]) return notify('No backups to restore', false); await fetchJSON('/api/backups/restore',{method:'POST',body:JSON.stringify({name:files[0].name})}); notify('Restored latest backup'); }catch(e){ notify(`Restore failed: ${e.message}`, false);} }; qs('#bk-prune').onclick=async()=>{ try{ const r=await fetchJSON('/admin/backups/prune',{method:'POST',body:JSON.stringify({keep:10})}); if(r&&r.ok) notify(`Pruned ${r.pruned} backups`); else notify('Prune failed', false); await loadBackups(); }catch(e){ notify(`Prune error: ${e.message}`, false);} }; }catch(e){ notify(`Backups error: ${e.message}`, false); } }
   async function loadLogs(kind='bot'){ /* unchanged */ try{ const d=await fetchJSON(`/api/log/${kind}`); const w=ensureSectionCard('log','Logs',[['Bot',{id:'log-kind-bot'}],['Health',{id:'log-kind-health'}],['Refresh',{id:'log-refresh'}],['Clear',{id:'log-clear'}],['Download',{id:'log-download'}],['Filter',{kind:'input',id:'log-q',placeholder:'Search'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const box=document.createElement('div'); box.className='log-window'; const q=(qs('#log-q').value||'').toLowerCase(); (d.lines||[]).forEach(line=>{ if(q && !line.toLowerCase().includes(q)) return; const div=document.createElement('div'); div.textContent=line; box.appendChild(div); }); s.appendChild(box); qs('#log-kind-bot').onclick=()=>loadLogs('bot'); qs('#log-kind-health').onclick=()=>loadLogs('health'); qs('#log-refresh').onclick=()=>loadLogs(kind); qs('#log-clear').onclick=async()=>{ try{ await fetchJSON(`/api/log/${kind}/clear`,{method:'POST',body:JSON.stringify({})}); await loadLogs(kind);}catch(e){ notify(`Clear failed: ${e.message}`, false);} }; qs('#log-download').onclick=()=>{ window.location.href=`/api/log/${kind}/download`; }; qs('#log-q').oninput=()=>loadLogs(kind); }catch(e){ notify(`Logs error: ${e.message}`, false); } }
 
+// --- helpers (keep once in your file) ---
 let _wcWebhookUrl = null;
 async function resolveWebhook(){
   if (_wcWebhookUrl !== null) return _wcWebhookUrl;
-  try {
-    // Try admin-side config first, then public. Ignore if not present.
-    const a = await fetchJSON('/admin/config');
-    _wcWebhookUrl = a?.DISCORD_WEBHOOK_URL || null;
-    if (_wcWebhookUrl) return _wcWebhookUrl;
-  } catch {}
-  try {
-    const b = await fetchJSON('/api/config');
-    _wcWebhookUrl = b?.DISCORD_WEBHOOK_URL || null;
-  } catch { _wcWebhookUrl = null; }
+  // If you prefer to inject it from HTML, set window.WC_WEBHOOK and this returns it.
+  if (window.WC_WEBHOOK) { _wcWebhookUrl = window.WC_WEBHOOK; return _wcWebhookUrl; }
+  try { const a = await fetchJSON('/admin/config'); _wcWebhookUrl = a?.DISCORD_WEBHOOK_URL || null; if (_wcWebhookUrl) return _wcWebhookUrl; } catch {}
+  try { const b = await fetchJSON('/api/config');   _wcWebhookUrl = b?.DISCORD_WEBHOOK_URL || null; } catch { _wcWebhookUrl = null; }
   return _wcWebhookUrl;
 }
-
 async function postWebhookMessage(text){
   try{
     const url = await resolveWebhook();
     if(!url) return; // silently skip if not exposed
-    await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ content: text })
-    });
-  }catch{ /* non-fatal */ }
+    await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ content: text }) });
+  }catch{/* non-fatal */}
 }
 
+// --- COGS page with webhook message: "wc {action} {COG_NAME}" ---
 async function loadCogs(){
   try{
-    // Prefer admin list; fall back to public list if exposed
     let data;
     try { data = await fetchJSON('/admin/cogs'); }
     catch { data = await fetchJSON('/api/cogs'); }
 
-    // Build the table shell
     const wrap = ensureSectionCard('cogs','Cogs',[
       ['Refresh',{id:'cogs-refresh'}]
     ]);
-    const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML = '';
+    const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
 
-    const table = document.createElement('table'); table.className='table';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>`;
-    const tbody = table.querySelector('tbody');
+    const table=document.createElement('table'); table.className='table';
+    table.innerHTML='<thead><tr><th>Name</th><th>Actions</th></tr></thead><tbody></tbody>';
+    const tbody=table.querySelector('tbody');
     scroll.appendChild(table);
 
-    const rows = (data?.cogs) || [];
-    rows.forEach(cog => {
+    const rows = data?.cogs || [];
+    rows.forEach(cog=>{
       const name = cog?.name || '';
-      const tr = document.createElement('tr');
-      const tdName = document.createElement('td');
-      const tdAct  = document.createElement('td');
-      tdName.textContent = name;
+      const tr   = document.createElement('tr');
+      const tdN  = document.createElement('td'); tdN.textContent = name;
+      const tdA  = document.createElement('td');
 
-      const group = document.createElement('div');
-      group.className = 'chip-group';
+      const group = document.createElement('div'); group.className='chip-group';
 
-      // helper to make a chip button
-      const chip = (label, cls, action) => {
+      const makeChip = (label, cls, action) => {
         const b = document.createElement('button');
         b.className = `btn-chip ${cls}`;
         b.textContent = label;
-        b.addEventListener('click', async () => {
+        b.onclick = async () => {
           try{
-            await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/${action}`, {
-              method:'POST',
-              body: JSON.stringify({})
-            });
+            await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/${action}`, { method:'POST', body:JSON.stringify({}) });
             notify(`${action} queued for ${name}`);
-            // optional webhook notification
-            postWebhookMessage(`**Cogs:** \`${action}\` requested for \`${name}\``);
+            // webhook format exactly as requested: wc load {COG_NAME}
+            postWebhookMessage(`wc ${action} ${name}`);
           }catch(e){
             notify(`Cog ${action} failed: ${e.message}`, false);
           }
-        });
+        };
         return b;
       };
 
-      group.appendChild(chip('reload','chip-reload','reload'));
-      group.appendChild(chip('load','chip-load','load'));
-      group.appendChild(chip('unload','chip-unload','unload'));
+      group.appendChild(makeChip('reload','chip-reload','reload'));
+      group.appendChild(makeChip('load','chip-load','load'));
+      group.appendChild(makeChip('unload','chip-unload','unload'));
 
-      tdAct.appendChild(group);
-      tr.appendChild(tdName);
-      tr.appendChild(tdAct);
+      tdA.appendChild(group);
+      tr.appendChild(tdN); tr.appendChild(tdA);
       tbody.appendChild(tr);
     });
 
-    // Refresh hook
     const r = document.getElementById('cogs-refresh');
     if (r) r.onclick = loadCogs;
 
