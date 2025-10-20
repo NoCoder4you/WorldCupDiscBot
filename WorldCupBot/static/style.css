@@ -57,9 +57,17 @@ body {
 	overflow: hidden;
 }
 
-body:not(.admin) section.page-section.admin-only { display: none !important; }
-body:not(.admin) .card.admin-only { display: none !important; }
-body:not(.admin) li.admin-only { display: none !important; }
+body:not(.admin) section.page-section.admin-only {
+	display: none !important;
+}
+
+body:not(.admin) .card.admin-only {
+	display: none !important;
+}
+
+body:not(.admin) li.admin-only {
+	display: none !important;
+}
 
 /* ===== HEADER ===== */
 .header-bar {
@@ -705,81 +713,162 @@ footer {
 
 /* --- Bot Action Buttons (scaled to fill card nicely) --- */
 #bot-actions {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 1fr 1fr;    /* for Restart + Stop */
-  align-items: center;
-  justify-content: center;
-  padding: 12px 8px;
+	display: grid;
+	gap: 14px;
+	grid-template-columns: 1fr 1fr;
+	/* for Restart + Stop */
+	align-items: center;
+	justify-content: center;
+	padding: 12px 8px;
 }
 
 /* When offline (JS sets 1 column) */
 body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
-  grid-template-columns: 1fr;
+	grid-template-columns: 1fr;
 }
 
 /* --- Refined Bot Action Buttons for balanced card fit --- */
 #bot-actions .btn {
-  width: 100%;
-  font-size: 1.5rem;          /* subtle size bump, not giant */
-  padding: 50px 0;            /* fills height without looking oversized */
-  border-radius: 10px;
-  font-weight: 800;
-  transition: all 0.2s ease;
+	width: 100%;
+	font-size: 1.5rem;
+	/* subtle size bump, not giant */
+	padding: 50px 0;
+	/* fills height without looking oversized */
+	border-radius: 10px;
+	font-weight: 800;
+	transition: all 0.2s ease;
 }
 
 #bot-actions .btn:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.1);
+	transform: translateY(-1px);
+	filter: brightness(1.1);
 }
 
 /* Space distribution fix for equal halves */
 #bot-actions .btn-restart,
 #bot-actions .btn-stop {
-  flex: 1;
+	flex: 1;
 }
 
 /* --- Cogs chip buttons --- */
-.chip-group{ display:flex; gap:8px; align-items:center; justify-content:flex-start }
-.btn-chip{
-  --bg: var(--btn);
-  --bg-h: var(--btn-hover);
-  --fg: var(--text);
-  background: var(--bg);
-  color: var(--fg);
-  border: 0;
-  padding: 8px 14px;
-  border-radius: 12px;
-  font-weight: 800;
-  text-transform: lowercase;
-  letter-spacing: .3px;
-  cursor: pointer;
-  box-shadow: 0 2px 0 rgba(0,0,0,.15);
-  transition: transform .05s ease, filter .15s ease, background .15s ease;
+.chip-group {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: flex-start
 }
-.btn-chip:active{ transform: translateY(1px) }
-.btn-chip:hover{ filter: brightness(1.05) }
 
-.chip-reload{ --bg: var(--accent-2); --bg-h:#02b889; --fg: #09131f }
-.chip-load  { --bg: var(--accent); --bg-h:#1975d1; --fg: #07111c }
-.chip-unload{ --bg: var(--danger); --bg-h:#cf3e49; --fg: #fff }
+.btn-chip {
+	--bg: var(--btn);
+	--bg-h: var(--btn-hover);
+	--fg: var(--text);
+	background: var(--bg);
+	color: var(--fg);
+	border: 0;
+	padding: 8px 14px;
+	border-radius: 12px;
+	font-weight: 800;
+	text-transform: lowercase;
+	letter-spacing: .3px;
+	cursor: pointer;
+	box-shadow: 0 2px 0 rgba(0, 0, 0, .15);
+	transition: transform .05s ease, filter .15s ease, background .15s ease;
+}
+
+.btn-chip:active {
+	transform: translateY(1px)
+}
+
+.btn-chip:hover {
+	filter: brightness(1.05)
+}
+
+.chip-reload {
+	--bg: var(--accent-2);
+	--bg-h: #02b889;
+	--fg: #09131f
+}
+
+.chip-load {
+	--bg: var(--accent);
+	--bg-h: #1975d1;
+	--fg: #07111c
+}
+
+.chip-unload {
+	--bg: var(--danger);
+	--bg-h: #cf3e49;
+	--fg: #fff
+}
 
 /* --- Cog Status Pill --- */
 .pill {
-  display: inline-flex;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-weight: 800;
+	font-size: 0.85rem;
+	letter-spacing: 0.2px;
+	min-width: 84px;
+	text-align: center;
+	box-sizing: border-box;
+	white-space: nowrap;
+	transition: background 0.2s ease, color 0.2s ease;
+}
+
+.pill-ok {
+	background: var(--accent);
+	color: #08131d;
+}
+
+.pill-off {
+	background: #334154;
+	color: var(--text);
+}
+
+.pill-wait {
+	background: #8a95a6;
+	color: #0b1320;
+	opacity: 0.85;
+}
+
+/* Split Requests styling */
+.split-wrap { display: grid; gap: 16px; }
+.split-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px 12px;
+}
+.split-head {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 4px 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.split-title { font-weight: 900; color: var(--accent); }
+.split-count.badge {
+  background: #2a3b55;
+  color: var(--text);
   padding: 4px 10px;
   border-radius: 999px;
   font-weight: 800;
-  font-size: 0.85rem;
-  letter-spacing: 0.2px;
-  min-width: 84px;
-  text-align: center;
-  box-sizing: border-box;
-  white-space: nowrap;
-  transition: background 0.2s ease, color 0.2s ease;
 }
-.pill-ok   { background: var(--accent); color:#08131d; }
-.pill-off  { background: #334154;       color: var(--text); }
-.pill-wait { background: #8a95a6;       color:#0b1320; }
+.split-empty {
+  padding: 14px 10px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* reuse your pill system + add warn */
+.pill { display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:999px; font-weight:800; font-size:.85rem; letter-spacing:.2px; min-width:84px; text-align:center; white-space:nowrap; }
+.pill-ok   { background: var(--accent);   color:#08131d; }
+.pill-off  { background: #334154;         color: var(--text); }
+.pill-warn { background: #a1a63e;         color:#0b1320; }
+
+/* small utility */
+.mono   { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.muted  { color: var(--muted); }

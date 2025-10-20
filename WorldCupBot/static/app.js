@@ -362,7 +362,164 @@
     }catch(e){ notify(`Bets error: ${e.message}`, false); }
   }
 
-  async function loadSplits(){ /* unchanged */ try{ let data; try{ data = await fetchJSON('/admin/splits'); }catch{ data = await fetchJSON('/api/split_requests'); } const w=ensureSectionCard('splits','Split Requests',[['Refresh',{id:'splits-refresh'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const pre=document.createElement('pre'); pre.textContent=JSON.stringify(data,null,2); s.appendChild(pre); qs('#splits-refresh').addEventListener('click', loadSplits);}catch(e){ notify(`Splits error: ${e.message}`, false); } }
+// Pretty Split Requests view
+// Expects /admin/splits -> { pending: [...], resolved: [...] }
+async function loadSplits() {
+  try {
+    const data = await fetchJSON('/admin/splits'); // admin-only
+
+    const wrap = ensureSectionCard('splits', 'Split Requests', [
+      ['Refresh', { id: 'splits-refresh' }]
+    ]);
+    const scroller = wrap.querySelector('.table-scroll');
+    scroller.innerHTML = '';
+
+    // build content shell
+    const container = document.createElement('div');
+    container.className = 'split-wrap';
+
+    // Helper: safe read & normalize list
+    const pending = Array.isArray(data?.pending) ? data.pending : [];
+    const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
+
+    // Build sections
+    container.appendChild(buildSplitSection('Pending', pending, 'pending'));
+    container.appendChild(buildSplitSection('Resolved', resolved, 'resolved'));
+
+    scroller.appendChild(container);
+
+    // wire refresh
+    const btn = document.getElementById('splits-refresh');
+    if (btn) btn.onclick = loadSplits;
+
+  } catch (e) {
+    notify(`Failed to fetch splits: ${e.message}`, false);
+  }
+}
+
+// helpers for Split Requests
+function buildSplitSection(title, rows, kind) {
+  const box = document.createElement('div');
+  box.className = 'split-section';
+
+  const head = document.createElement('div');
+  head.className = 'split-head';
+  head.innerHTML = `
+    <div class="split-title">${title}</div>
+    <div class="split-count badge">${rows.length}</div>
+  `;
+  box.appendChild(head);
+
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'split-empty';
+    empty.textContent = kind === 'pending'
+      ? 'No pending requests.'
+      : 'No resolved requests yet.';
+    box.appendChild(empty);
+    return box;
+  }
+
+  // table
+  const table = document.createElement('table');
+  table.className = 'table';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Team</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Share</th>
+        <th>Status</th>
+        <th>When</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+
+  // sort: newest first if we can
+  const sorted = rows.slice().sort((a, b) => {
+    const ta = +new Date(a?.created_at || a?.time || 0);
+    const tb = +new Date(b?.created_at || b?.time || 0);
+    return tb - ta;
+  });
+
+  for (const r of sorted) {
+    const tr = document.createElement('tr');
+
+    const id = r.id ?? r.request_id ?? '-';
+    const team = r.team ?? r.country ?? r.country_name ?? '-';
+    const from = r.from ?? r.owner_from ?? r.requester ?? '-';
+    const to = r.to ?? r.owner_to ?? r.receiver ?? '-';
+    const share = (r.share ?? r.percent ?? r.percentage ?? r.split)?.toString?.() ?? '-';
+
+    const statusRaw =
+      r.status ??
+      (kind === 'pending' ? 'pending' : (r.approved ? 'approved' : (r.denied ? 'denied' : 'resolved')));
+    const status = (statusRaw || '').toString().toLowerCase();
+
+    const when =
+      r.created_at ??
+      r.time ??
+      r.resolved_at ??
+      r.updated_at ??
+      null;
+
+    tr.innerHTML = `
+      <td class="mono">${escapeHTML(id)}</td>
+      <td>${escapeHTML(team)}</td>
+      <td>${escapeHTML(from)}</td>
+      <td>${escapeHTML(to)}</td>
+      <td>${escapeHTML(share)}${share !== '-' ? '%' : ''}</td>
+      <td>${splitStatusPill(status)}</td>
+      <td class="muted">${when ? fmtDateTime(when) : '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  box.appendChild(table);
+  return box;
+}
+
+function splitStatusPill(status) {
+  const map = {
+    pending: 'pill-warn',
+    approved: 'pill-ok',
+    accepted: 'pill-ok',
+    resolved: 'pill-ok',
+    denied: 'pill-off',
+    rejected: 'pill-off'
+  };
+  const cls = map[status] || 'pill-off';
+  const label =
+    status === 'pending' ? 'Pending' :
+    status === 'approved' ? 'Approved' :
+    status === 'accepted' ? 'Accepted' :
+    status === 'resolved' ? 'Resolved' :
+    status === 'denied' ? 'Denied' :
+    status === 'rejected' ? 'Rejected' :
+    (status ? status[0].toUpperCase() + status.slice(1) : 'Unknown');
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
+// util: simple HTML escape
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// util: date formatting to "YYYY-MM-DD HH:mm:ss"
+function fmtDateTime(x) {
+  const d = new Date(x);
+  if (Number.isNaN(d.getTime())) return '-';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
   async function loadBackups(){ /* unchanged */ try{ const d=await fetchJSON('/api/backups'); const w=ensureSectionCard('backups','Backups',[['Backup All',{id:'bk-create'}],['Restore Latest',{id:'bk-restore'}],['Prune',{id:'bk-prune'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const files=(d?.backups)||(d?.folders?.[0]?.files)||[]; if(!files.length){ const p=document.createElement('p'); p.textContent='No backups yet.'; s.appendChild(p);} else{ const t=document.createElement('table'); t.className='table'; t.innerHTML='<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>'; const tb=t.querySelector('tbody'); files.forEach(f=>{ const tr=document.createElement('tr'); const size=(f.bytes||f.size)||0; const ts=f.mtime||f.ts; const dt=ts?new Date(ts*1000).toLocaleString():''; const a=document.createElement('a'); a.href=`/api/backups/download?rel=${encodeURIComponent(f.rel||f.name)}`; a.textContent='Download'; tr.innerHTML=`<td>${escapeHtml(f.name)}</td><td>${Math.round(size/1024/1024)} MB</td><td>${escapeHtml(dt)}</td><td></td>`; tr.children[3].appendChild(a); tb.appendChild(tr); }); s.appendChild(t);} qs('#bk-create').onclick=async()=>{ try{ await fetchJSON('/api/backups/create',{method:'POST',body:JSON.stringify({})}); notify('Backup created'); await loadBackups(); }catch(e){ notify(`Backup failed: ${e.message}`, false);} }; qs('#bk-restore').onclick=async()=>{ try{ if(!files[0]) return notify('No backups to restore', false); await fetchJSON('/api/backups/restore',{method:'POST',body:JSON.stringify({name:files[0].name})}); notify('Restored latest backup'); }catch(e){ notify(`Restore failed: ${e.message}`, false);} }; qs('#bk-prune').onclick=async()=>{ try{ const r=await fetchJSON('/admin/backups/prune',{method:'POST',body:JSON.stringify({keep:10})}); if(r&&r.ok) notify(`Pruned ${r.pruned} backups`); else notify('Prune failed', false); await loadBackups(); }catch(e){ notify(`Prune error: ${e.message}`, false);} }; }catch(e){ notify(`Backups error: ${e.message}`, false); } }
   async function loadLogs(kind='bot'){ /* unchanged */ try{ const d=await fetchJSON(`/api/log/${kind}`); const w=ensureSectionCard('log','Logs',[['Bot',{id:'log-kind-bot'}],['Health',{id:'log-kind-health'}],['Refresh',{id:'log-refresh'}],['Clear',{id:'log-clear'}],['Download',{id:'log-download'}],['Filter',{kind:'input',id:'log-q',placeholder:'Search'}]]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const box=document.createElement('div'); box.className='log-window'; const q=(qs('#log-q').value||'').toLowerCase(); (d.lines||[]).forEach(line=>{ if(q && !line.toLowerCase().includes(q)) return; const div=document.createElement('div'); div.textContent=line; box.appendChild(div); }); s.appendChild(box); qs('#log-kind-bot').onclick=()=>loadLogs('bot'); qs('#log-kind-health').onclick=()=>loadLogs('health'); qs('#log-refresh').onclick=()=>loadLogs(kind); qs('#log-clear').onclick=async()=>{ try{ await fetchJSON(`/api/log/${kind}/clear`,{method:'POST',body:JSON.stringify({})}); await loadLogs(kind);}catch(e){ notify(`Clear failed: ${e.message}`, false);} }; qs('#log-download').onclick=()=>{ window.location.href=`/api/log/${kind}/download`; }; qs('#log-q').oninput=()=>loadLogs(kind); }catch(e){ notify(`Logs error: ${e.message}`, false); } }
 
