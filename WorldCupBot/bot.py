@@ -41,6 +41,8 @@ def load_config() -> dict:
 CONFIG = load_config()
 BOT_TOKEN = CONFIG.get("BOT_TOKEN", "").strip()
 
+WEBHOOK_HELPER_CATEGORY = "Webhook Helpers"
+
 ADMIN_CATEGORY_NAME = str(CONFIG.get("ADMIN_CATEGORY_NAME", "") or "")
 ADMIN_ROLE_NAME = str(CONFIG.get("ADMIN_ROLE_NAME", "") or "")
 _admin_ids_raw = CONFIG.get("ADMIN_LOG_CHANNEL_IDS", [])
@@ -237,6 +239,13 @@ def admin_only_context():
         return True
     return commands.check(predicate)
 
+def in_webhook_helpers(ctx):
+    """Allow commands only inside the 'Webhook Helpers' category."""
+    if not in_admin_category(ctx.channel, WEBHOOK_HELPER_CATEGORY):
+        return False
+    return True
+
+
 # -------------------- Commands --------------------
 @bot.command(name="ping", help="Check latency")
 @admin_only_context()
@@ -247,6 +256,9 @@ async def cmd_ping(ctx: commands.Context):
 @bot.command(name="load", help="Load a cog by name")
 @admin_only_context()
 async def cmd_load(ctx: commands.Context, name: str):
+    if not in_webhook_helpers(ctx):
+        await ctx.reply(f"Use this command inside the '{WEBHOOK_HELPER_CATEGORY}' category.", delete_after=6)
+        return
     try:
         msg = await bot.load_cog(name)
         await ctx.reply(msg)
@@ -258,6 +270,9 @@ async def cmd_load(ctx: commands.Context, name: str):
 @bot.command(name="unload", help="Unload a cog by name")
 @admin_only_context()
 async def cmd_unload(ctx: commands.Context, name: str):
+    if not in_webhook_helpers(ctx):
+        await ctx.reply(f"Use this command inside the '{WEBHOOK_HELPER_CATEGORY}' category.", delete_after=6)
+        return
     try:
         msg = await bot.unload_cog(name)
         await ctx.reply(msg)
@@ -269,6 +284,9 @@ async def cmd_unload(ctx: commands.Context, name: str):
 @bot.command(name="reload", help="Reload a cog by name")
 @admin_only_context()
 async def cmd_reload(ctx: commands.Context, name: str):
+    if not in_webhook_helpers(ctx):
+        await ctx.reply(f"Use this command inside the '{WEBHOOK_HELPER_CATEGORY}' category.", delete_after=6)
+        return
     try:
         msg = await bot.reload_cog(name)
         await ctx.reply(msg)
