@@ -817,7 +817,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	padding: 4px 10px;
 	border-radius: 999px;
 	font-weight: 800;
-	font-size: 0.85rem;
+	font-size: 0.65rem;
 	letter-spacing: 0.2px;
 	min-width: 84px;
 	text-align: center;
