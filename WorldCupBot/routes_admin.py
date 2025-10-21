@@ -279,14 +279,12 @@ def create_admin_routes(ctx):
 
     @bp.get("/splits")
     def splits_get():
-        # admin auth
         resp = require_admin()
         if resp is not None:
             return resp
 
         path = _split_requests_path()
         if not os.path.isfile(path):
-            # Safe empty shape
             return jsonify({"pending": [], "resolved": []})
 
         try:
@@ -295,35 +293,27 @@ def create_admin_routes(ctx):
         except Exception as e:
             return jsonify({"error": f"failed to read split_requests.json: {e}"}), 500
 
-        # --- Normalize to { pending: [], resolved: [] } no matter the file’s shape ---
-        pending, resolved = [], []
-
+        # File is a dict keyed by composite id -> object
+        pending = []
         if isinstance(raw, dict):
-            # Common shapes we might see
-            if "pending" in raw or "resolved" in raw:
-                pending = raw.get("pending", []) or []
-                resolved = raw.get("resolved", []) or []
-            elif "requests" in raw and isinstance(raw["requests"], list):
-                for r in raw["requests"]:
-                    status = str(r.get("status", "")).lower()
-                    (resolved if status in {"resolved", "approved", "accepted", "denied", "rejected"} else pending).append(r)
-            else:
-                # Unknown dict – try to split by status if present
-                items = raw.get("items", []) if isinstance(raw.get("items"), list) else []
-                for r in items:
-                    status = str(r.get("status", "")).lower()
-                    (resolved if status in {"resolved", "approved", "accepted", "denied", "rejected"} else pending).append(r)
+            for key, v in raw.items():
+                if not isinstance(v, dict):
+                    continue
+                pending.append({
+                    "id": key,
+                    "team": v.get("team"),
+                    # normalize to names your frontend understands
+                    "requester": v.get("requester_id"),
+                    "requester_id": v.get("requester_id"),
+                    "main_owner_id": v.get("main_owner_id"),
+                    "to": v.get("main_owner_id"),        # mapped as "to" for UI
+                    "status": "pending",
+                    "expires_at": v.get("expires_at")
+                })
 
-        elif isinstance(raw, list):
-            # Top-level array of requests
-            for r in raw:
-                status = str(r.get("status", "")).lower() if isinstance(r, dict) else ""
-                (resolved if status in {"resolved", "approved", "accepted", "denied", "rejected"} else pending).append(r)
+        # This file only tracks open requests. Resolved will come from the log/history file.
+        return jsonify({"pending": pending, "resolved": []})
 
-        return jsonify({
-            "pending": pending,
-            "resolved": resolved
-        })
 
 
     @bp.post("/splits/refresh")

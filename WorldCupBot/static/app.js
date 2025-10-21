@@ -426,7 +426,6 @@ async function loadSplits() {
   }
 }
 
-/* Build a single section (Pending or Resolved) */
 function buildSplitSection(title, rows, kind) {
   const box = document.createElement('div');
   box.className = 'split-section';
@@ -465,26 +464,35 @@ function buildSplitSection(title, rows, kind) {
   `;
   const tbody = table.querySelector('tbody');
 
+  // newest first by whatever timestamp we can find
   const sorted = rows.slice().sort((a, b) => {
-    const ta = +new Date(a?.created_at || a?.time || 0);
-    const tb = +new Date(b?.created_at || b?.time || 0);
+    const ta = +new Date(a?.expires_at || a?.created_at || a?.time || 0);
+    const tb = +new Date(b?.expires_at || b?.created_at || b?.time || 0);
     return tb - ta;
   });
 
   for (const r of sorted) {
     const id = r.id ?? r.request_id ?? '-';
     const team = r.team ?? r.country ?? r.country_name ?? '-';
-    const from = r.from ?? r.owner_from ?? r.requester ?? '-';
-    const to = r.to ?? r.owner_to ?? r.receiver ?? '-';
+
+    // map your fields
+    const from = r.from ?? r.owner_from ?? r.requester ?? r.requester_id ?? '-';
+    const to   = r.to   ?? r.owner_to   ?? r.receiver  ?? r.main_owner_id ?? '-';
+
+    // optional, many files won’t have share
     const shareVal = r.share ?? r.percent ?? r.percentage ?? r.split;
     const share = shareVal == null ? '-' : `${shareVal}%`;
 
+    // normalize status text
     const statusRaw =
       r.status ??
-      (kind === 'pending' ? 'pending' : (r.approved ? 'approved' : (r.denied ? 'denied' : 'resolved')));
+      (kind === 'pending' ? 'pending'
+       : (r.approved ? 'approved'
+       : (r.denied ? 'denied' : 'resolved')));
     const status = (statusRaw || '').toString().toLowerCase();
 
-    const when = r.created_at ?? r.time ?? r.resolved_at ?? r.updated_at ?? null;
+    // prefer your expiry for “When”
+    const when = r.expires_at ?? r.created_at ?? r.time ?? r.resolved_at ?? r.updated_at ?? null;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -502,7 +510,6 @@ function buildSplitSection(title, rows, kind) {
   box.appendChild(table);
   return box;
 }
-
 /* History loader (reads /admin/splits/history -> JSON/split_requests_log.json) */
 async function loadSplitHistoryOnce() {
   try {
