@@ -102,6 +102,9 @@ def _scan_cogs(ctx, bot=None):
 
     return results
 
+
+
+
 # -----------------------------
 # Auth helpers
 # -----------------------------
@@ -131,6 +134,52 @@ def create_admin_routes(ctx):
       - (optional) bot: a discord.py bot instance if running in-process
     """
     bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+    # ---- Username resolution helpers (use players.json) ----
+    def _players_path():
+        return os.path.join(_base_dir(ctx), "JSON", "players.json")
+
+    def _read_players():
+        path = _players_path()
+        if not os.path.isfile(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f) or {}
+            # normalize: always map "id" -> "username"
+            players = {}
+            for pid, pdata in data.items():
+                name = pdata.get("name") or pdata.get("username") or pdata.get("display_name") or str(pid)
+                players[str(pid)] = str(name)
+            return players
+        except Exception:
+            return {}
+
+    def _resolve_names(ctx, ids):
+        """Merge players.json with bot cache; bot cache wins."""
+        ids = {str(i) for i in ids if i is not None}
+        players = _read_players()
+        botnames = {}
+        bot = ctx.get("bot")
+        if bot:
+            for raw in ids:
+                try:
+                    uid = int(raw)
+                except Exception:
+                    continue
+                u = bot.get_user(uid)
+                if u:
+                    botnames[str(uid)] = str(u)
+        # bot wins over players.json
+        out = {}
+        for i in ids:
+            if i in botnames:
+                out[i] = botnames[i]
+            elif i in players:
+                out[i] = players[i]
+            else:
+                out[i] = i
+        return out
 
     # ---------- Auth ----------
     @bp.post("/auth/login")
@@ -269,54 +318,9 @@ def create_admin_routes(ctx):
         return jsonify({"ok": True})
 
     # ---------- Split Requests (reads JSON/split_requests.json) ----------
-    def _split_requests_path():
-        return os.path.join(_base_dir(ctx), "JSON", "split_requests.json")
-
-    def _get_usernames(bot, user_ids):
-        """Try to resolve usernames from cached Discord members."""
-        names = {}
-        if not bot or not hasattr(bot, "get_user"):
-            return names
-        for uid in user_ids:
-            try:
-                uid_int = int(uid)
-            except Exception:
-                continue
-            user = bot.get_user(uid_int)
-            if user:
-                names[str(uid_int)] = str(user)
-        return names
-
-    def _resolve_usernames(bot, ids):
-        """Return {str(id): username} by peeking bot cache and guild members."""
-        names = {}
-        if not bot:
-            return names
-        for raw in ids:
-            if raw is None:
-                continue
-            try:
-                uid = int(raw)
-            except Exception:
-                continue
-
-            # 1) direct user cache
-            u = bot.get_user(uid)
-            if u:
-                names[str(uid)] = str(u) if hasattr(u, "discriminator") else u.name
-                continue
-
-            # 2) search member caches for display names
-            for g in getattr(bot, "guilds", []):
-                m = g.get_member(uid)
-                if m:
-                    names[str(uid)] = m.display_name or m.name
-                    break
-        return names
-
     @bp.get("/splits")
     def splits_get():
-        """Return all pending split requests with usernames resolved."""
+        """Return all pending split requests with usernames from players.json."""
         resp = require_admin()
         if resp is not None:
             return resp
@@ -332,31 +336,30 @@ def create_admin_routes(ctx):
             return jsonify({"error": f"failed to read split_requests.json: {e}"}), 500
 
         pending = []
+        id_bucket = set()
+
         if isinstance(raw, dict):
-            all_ids = set()
             for key, v in raw.items():
                 if not isinstance(v, dict):
                     continue
-                all_ids.add(str(v.get("requester_id")))
-                all_ids.add(str(v.get("main_owner_id")))
-
-            usernames = _get_usernames(ctx.get("bot"), all_ids)
-
-            for key, v in raw.items():
-                if not isinstance(v, dict):
-                    continue
-                req_id = str(v.get("requester_id"))
-                owner_id = str(v.get("main_owner_id"))
+                req_id = v.get("requester_id")
+                owner_id = v.get("main_owner_id")
+                id_bucket.update({str(req_id), str(owner_id)})
                 pending.append({
                     "id": key,
                     "team": v.get("team"),
                     "requester_id": req_id,
                     "main_owner_id": owner_id,
-                    "from_username": usernames.get(req_id, f"User {req_id}"),
-                    "to_username": usernames.get(owner_id, f"User {owner_id}"),
                     "expires_at": v.get("expires_at"),
                     "status": "pending"
                 })
+
+        names = _resolve_names(ctx, id_bucket)
+        for p in pending:
+            rid = str(p.get("requester_id"))
+            oid = str(p.get("main_owner_id"))
+            p["from_username"] = names.get(rid, rid)
+            p["to_username"] = names.get(oid, oid)
 
         return jsonify({"pending": pending})
 
@@ -370,11 +373,9 @@ def create_admin_routes(ctx):
         return jsonify({"ok": True})
 
     # ---------- Split Requests (History from JSON/split_requests_log.json) ----------
-    def _split_requests_log_path():
-        return os.path.join(_base_dir(ctx), "JSON", "split_requests_log.json")
-
     @bp.get("/splits/history")
     def splits_history():
+        """Return split history with usernames from players.json."""
         resp = require_admin()
         if resp is not None:
             return resp
@@ -389,7 +390,6 @@ def create_admin_routes(ctx):
         except Exception as e:
             return jsonify({"error": f"failed to read split_requests_log.json: {e}"}), 500
 
-        # Normalize to a list of dicts
         if isinstance(raw, dict) and isinstance(raw.get("events"), list):
             events = raw["events"]
         elif isinstance(raw, list):
@@ -397,42 +397,36 @@ def create_admin_routes(ctx):
         else:
             events = [raw]
 
-        # Collect candidate IDs for name resolution
-        id_set = set()
+        id_bucket = set()
         for ev in events:
             if not isinstance(ev, dict):
                 continue
-            for key in ("from", "requester_id", "requester", "from_id"):
-                if ev.get(key) is not None:
-                    id_set.add(str(ev.get(key)))
-            for key in ("to", "main_owner_id", "receiver", "to_id"):
-                if ev.get(key) is not None:
-                    id_set.add(str(ev.get(key)))
+            for k in ("requester_id", "from", "from_id", "requester", "main_owner_id", "to", "to_id", "receiver"):
+                if ev.get(k):
+                    id_bucket.add(str(ev.get(k)))
 
-        names = _resolve_usernames(ctx.get("bot"), id_set)
+        names = _resolve_names(ctx, id_bucket)
 
-        # Attach resolved names (leave IDs as fallback)
         norm = []
         for ev in events:
             if not isinstance(ev, dict):
                 continue
+            ev_out = dict(ev)
+
             req_id = (
                     ev.get("from_username") or ev.get("requester_id") or
-                    ev.get("requester") or ev.get("from_id") or ev.get("from")
+                    ev.get("from_id") or ev.get("from") or ev.get("requester")
             )
             rec_id = (
                     ev.get("to_username") or ev.get("main_owner_id") or
-                    ev.get("receiver") or ev.get("to_id") or ev.get("to")
+                    ev.get("to_id") or ev.get("to") or ev.get("receiver")
             )
 
-            ev_out = dict(ev)  # shallow copy
-            if req_id is not None:
-                ev_out["from_username"] = names.get(str(req_id), str(req_id))
-            if rec_id is not None:
-                ev_out["to_username"] = names.get(str(rec_id), str(rec_id))
+            ev_out["from_username"] = names.get(str(req_id), str(req_id))
+            ev_out["to_username"] = names.get(str(rec_id), str(rec_id))
+
             norm.append(ev_out)
 
-        # Optional limit
         try:
             limit = int(request.args.get("limit", "200"))
         except Exception:
