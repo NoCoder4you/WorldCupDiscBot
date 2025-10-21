@@ -484,8 +484,8 @@ function buildPendingSplits(rows) {
         <div class="action-cell">
           <button type="button" class="pill pill-warn pill-click">Pending</button>
           <div class="chip-group--split hidden">
-            <button class="btn-split split-accept" data-action="accept" data-id="${escapeHTML(realId)}">force accept</button>
-            <button class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">force decline</button>
+            <button class="btn-split split-accept" data-action="accept" data-id="${escapeHTML(realId)}">Accept</button>
+            <button class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
           </div>
         </div>
       </td>
