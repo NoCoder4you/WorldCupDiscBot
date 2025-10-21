@@ -948,3 +948,13 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .btn-chip.chip-decline { background: var(--danger); color: #fff; }
 .btn-chip:disabled { opacity: .6; cursor: not-allowed; }
 
+/* hide/show helpers */
+.hidden { display: none !important; }
+
+/* clickable pill */
+.pill-click { cursor: pointer; }
+
+/* action cell layout */
+.action-cell { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.chip-group { display: flex; gap: 8px; }
+

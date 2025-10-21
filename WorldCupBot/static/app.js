@@ -554,6 +554,18 @@ async function submitSplitAction(action, id) {
 }
 
 
+/* POST helper for force accept/decline – matches routes_admin.py */
+async function submitSplitAction(action, id) {
+  const url = action === 'accept' ? '/admin/splits/accept' : '/admin/splits/decline';
+  const res = await fetchJSON(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  return res; // { ok, pending_count, history_count, event }
+}
+
+
 // History loader - simplified columns (When, Action, Team, From, To)
 // Reads /admin/splits/history -> JSON/split_requests_log.json
 async function loadSplitHistoryOnce() {
