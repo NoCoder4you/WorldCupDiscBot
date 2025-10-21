@@ -258,7 +258,7 @@
     qs('#ping-value').textContent = isFinite(ms) ? `${ms} ms` : '-- ms';
   }
 
-  // --- OWNERSHIP (no CSV export) ---
+  // --- OWNERSHIP ---
   function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
   function ensureSectionCard(id, title, controls){
     const sec = qs(`#${id}`); sec.innerHTML='';
@@ -442,20 +442,21 @@ function buildPendingSplits(rows) {
   }
 
   const table = document.createElement('table');
-  table.className = 'table';
-  table.innerHTML = `
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Team</th>
-        <th>From</th>
-        <th>To</th>
-        <th>Status</th>
-        <th>Expires</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  `;
+    table.className = 'table splits';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th class="col-id">ID</th>
+          <th class="col-team">TEAM</th>
+          <th class="col-user">FROM</th>
+          <th class="col-user">TO</th>
+          <th class="col-status">STATUS</th>
+          <th class="col-when">EXPIRES</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+
   const tbody = table.querySelector('tbody');
 
   const sorted = rows.slice().sort((a, b) => {
@@ -506,7 +507,7 @@ async function loadSplitHistoryOnce() {
       return;
     }
 
-    // newest first
+    // Sort newest first
     const sorted = events.slice().sort((a, b) => {
       const ta = +new Date(a?.created_at || a?.time || a?.timestamp || 0);
       const tb = +new Date(b?.created_at || b?.time || b?.timestamp || 0);
@@ -514,15 +515,15 @@ async function loadSplitHistoryOnce() {
     });
 
     const table = document.createElement('table');
-    table.className = 'table';
+    table.className = 'table splits';
     table.innerHTML = `
       <thead>
         <tr>
-          <th>When</th>
-          <th>Action</th>
-          <th>Team</th>
-          <th>From</th>
-          <th>To</th>
+          <th class="col-when">WHEN</th>
+          <th class="col-status">ACTION</th>
+          <th class="col-team">TEAM</th>
+          <th class="col-user">FROM</th>
+          <th class="col-user">TO</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -532,31 +533,19 @@ async function loadSplitHistoryOnce() {
     for (const ev of sorted) {
       const when = ev.created_at || ev.time || ev.timestamp || null;
       const actionRaw = (ev.action || ev.status || '').toString().toLowerCase();
-
       const team = ev.team || ev.country || ev.country_name || '-';
-
-      // Prefer resolved usernames if present, else fall back to ids/labels
       const fromUser =
-        ev.from_username ||
-        ev.requester_username ||
-        ev.from ||
-        ev.requester_id ||
-        '-';
-
+        ev.from_username || ev.requester_username || ev.from || ev.requester_id || '-';
       const toUser =
-        ev.to_username ||
-        ev.receiver_username ||
-        ev.to ||
-        ev.main_owner_id ||
-        '-';
+        ev.to_username || ev.receiver_username || ev.to || ev.main_owner_id || '-';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="mono">${when ? fmtDateTime(when) : '-'}</td>
-        <td>${splitStatusPill(actionRaw)}</td>
-        <td>${escapeHTML(team)}</td>
-        <td>${escapeHTML(String(fromUser))}</td>
-        <td>${escapeHTML(String(toUser))}</td>
+        <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
+        <td class="col-status">${splitStatusPill(actionRaw)}</td>
+        <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
+        <td class="col-user"><span class="clip" title="${escapeHTML(String(fromUser))}">${escapeHTML(String(fromUser))}</span></td>
+        <td class="col-user"><span class="clip" title="${escapeHTML(String(toUser))}">${escapeHTML(String(toUser))}</span></td>
       `;
       tbody.appendChild(tr);
     }
@@ -565,8 +554,8 @@ async function loadSplitHistoryOnce() {
     body.appendChild(table);
 
   } catch (e) {
-    // Non-fatal; keep last known history
-    // notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
+    // Non-fatal: keep last known history
+    notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
   }
 }
 

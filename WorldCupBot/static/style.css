@@ -880,3 +880,54 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   flex-direction: column;
   gap: 20px;
 }
+
+/* Uniform table layout for Splits */
+.table.splits {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.table.splits th,
+.table.splits td {
+  vertical-align: middle;
+  height: 44px;
+}
+
+/* Column sizing (works with table-layout: fixed) */
+.col-id     { width: 30%; }
+.col-team   { width: 16%; }
+.col-user   { width: 18%; }  /* used for From and To */
+.col-status { width: 12%; text-align: center; }
+.col-when   { width: 24%; text-align: right; }
+
+/* Long text handling (IDs etc.) */
+.clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Make section headers consistent */
+.split-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Pill width so text swap doesn't move layout */
+.pill {
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:4px 10px; border-radius:999px; font-weight:800; font-size:.85rem;
+  letter-spacing:.2px; min-width:92px; white-space:nowrap; box-sizing:border-box;
+}
+.pill-ok   { background: var(--accent); color:#08131d; }
+.pill-off  { background: #334154;   color: var(--text); }
+.pill-warn { background: #a1a63e;   color:#0b1320; }
+
+/* Subtle zebra to help scan */
+.table.splits tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02);
+}
+

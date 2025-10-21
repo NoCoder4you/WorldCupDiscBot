@@ -183,11 +183,11 @@ class ConfirmChoiceView(discord.ui.View):
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        flag_url = get_flag_url(team)
+        flag_url = get_flag_url(self.team)
         embed = discord.Embed(
-            title=f"Split Request - {team}",
+            title=f"Split Request - {self.team}",
             description=(
-                f"{interaction.user.mention} has requested to split ownership of **{team}** with you.\n"
+                f"{interaction.user.mention} has requested to split ownership of **{self.team}** with you.\n"
                 f"*You have 48 hours to accept or decline this request before it expires.*\n"
                 "**This action cannot be undone and your decision is final.**\n\n"
                 "**Any winnings will be divided equally between all owners of the team.**"
