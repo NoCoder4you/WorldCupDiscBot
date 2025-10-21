@@ -442,23 +442,23 @@ function buildPendingSplits(rows) {
   }
 
   const table = document.createElement('table');
-    table.className = 'table splits';
-    table.innerHTML = `
-      <thead>
-        <tr>
-          <th class="col-id">ID</th>
-          <th class="col-team">TEAM</th>
-          <th class="col-user">FROM</th>
-          <th class="col-user">TO</th>
-          <th class="col-status">STATUS</th>
-          <th class="col-when">EXPIRES</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    `;
-
+  table.className = 'table splits';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-id">ID</th>
+        <th class="col-team">TEAM</th>
+        <th class="col-user">FROM</th>
+        <th class="col-user">TO</th>
+        <th class="col-when">EXPIRES</th>
+        <th class="col-status">ACTION</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
   const tbody = table.querySelector('tbody');
 
+  // newest expiry first
   const sorted = rows.slice().sort((a, b) => {
     const ta = +new Date(a?.expires_at || 0);
     const tb = +new Date(b?.expires_at || 0);
@@ -470,17 +470,17 @@ function buildPendingSplits(rows) {
     const team = r.team ?? '-';
     const from = r.from_username ?? r.requester_id ?? '-';
     const to = r.to_username ?? r.main_owner_id ?? '-';
-    const status = (r.status || 'pending').toLowerCase();
     const when = r.expires_at ?? null;
+    const action = (r.status || 'pending').toLowerCase();
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="mono">${escapeHTML(id)}</td>
-      <td>${escapeHTML(team)}</td>
-      <td>${escapeHTML(from)}</td>
-      <td>${escapeHTML(to)}</td>
-      <td>${splitStatusPill(status)}</td>
-      <td class="muted">${when ? fmtDateTime(when) : '-'}</td>
+      <td class="col-id"><span class="clip" title="${escapeHTML(id)}">${escapeHTML(id)}</span></td>
+      <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
+      <td class="col-user"><span class="clip" title="${escapeHTML(String(from))}">${escapeHTML(String(from))}</span></td>
+      <td class="col-user"><span class="clip" title="${escapeHTML(String(to))}">${escapeHTML(String(to))}</span></td>
+      <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
+      <td class="col-status">${splitStatusPill(action)}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -488,7 +488,6 @@ function buildPendingSplits(rows) {
   box.appendChild(table);
   return box;
 }
-
 
 // History loader - simplified columns (When, Action, Team, From, To)
 // Reads /admin/splits/history -> JSON/split_requests_log.json
@@ -507,7 +506,7 @@ async function loadSplitHistoryOnce() {
       return;
     }
 
-    // Sort newest first
+    // newest first
     const sorted = events.slice().sort((a, b) => {
       const ta = +new Date(a?.created_at || a?.time || a?.timestamp || 0);
       const tb = +new Date(b?.created_at || b?.time || b?.timestamp || 0);
@@ -519,11 +518,12 @@ async function loadSplitHistoryOnce() {
     table.innerHTML = `
       <thead>
         <tr>
-          <th class="col-when">WHEN</th>
-          <th class="col-status">ACTION</th>
+          <th class="col-id">ID</th>
           <th class="col-team">TEAM</th>
           <th class="col-user">FROM</th>
           <th class="col-user">TO</th>
+          <th class="col-when">WHEN</th>
+          <th class="col-status">ACTION</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -531,21 +531,23 @@ async function loadSplitHistoryOnce() {
     const tbody = table.querySelector('tbody');
 
     for (const ev of sorted) {
-      const when = ev.created_at || ev.time || ev.timestamp || null;
-      const actionRaw = (ev.action || ev.status || '').toString().toLowerCase();
+      const id = ev.id ?? ev.request_id ?? ''; // history may not have an ID; blank keeps alignment
       const team = ev.team || ev.country || ev.country_name || '-';
       const fromUser =
         ev.from_username || ev.requester_username || ev.from || ev.requester_id || '-';
       const toUser =
         ev.to_username || ev.receiver_username || ev.to || ev.main_owner_id || '-';
+      const when = ev.created_at || ev.time || ev.timestamp || null;
+      const actionRaw = (ev.action || ev.status || '').toString().toLowerCase();
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
-        <td class="col-status">${splitStatusPill(actionRaw)}</td>
+        <td class="col-id"><span class="clip" title="${escapeHTML(String(id))}">${escapeHTML(String(id))}</span></td>
         <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
         <td class="col-user"><span class="clip" title="${escapeHTML(String(fromUser))}">${escapeHTML(String(fromUser))}</span></td>
         <td class="col-user"><span class="clip" title="${escapeHTML(String(toUser))}">${escapeHTML(String(toUser))}</span></td>
+        <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
+        <td class="col-status">${splitStatusPill(actionRaw)}</td>
       `;
       tbody.appendChild(tr);
     }
@@ -554,7 +556,7 @@ async function loadSplitHistoryOnce() {
     body.appendChild(table);
 
   } catch (e) {
-    // Non-fatal: keep last known history
+    // Non-fatal; keep last known history
     notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
   }
 }
