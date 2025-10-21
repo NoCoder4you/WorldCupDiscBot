@@ -935,3 +935,16 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   background: rgba(255,255,255,0.02);
 }
 
+/* Inline action chips for Pending */
+.chip-accept {
+  --bg: var(--accent);
+  --fg: #07111c;
+}
+.chip-decline {
+  --bg: var(--danger);
+  --fg: #fff;
+}
+.btn-chip.chip-accept { background: var(--accent); color: #07111c; }
+.btn-chip.chip-decline { background: var(--danger); color: #fff; }
+.btn-chip:disabled { opacity: .6; cursor: not-allowed; }
+

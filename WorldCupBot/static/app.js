@@ -421,6 +421,7 @@ async function loadSplits() {
   }
 }
 
+// Pending table with Force Accept/Decline actions
 function buildPendingSplits(rows) {
   const box = document.createElement('div');
   box.className = 'split-section';
@@ -429,7 +430,7 @@ function buildPendingSplits(rows) {
   head.className = 'split-head';
   head.innerHTML = `
     <div class="split-title">Pending</div>
-    <div class="split-count badge">${rows.length}</div>
+    <div class="split-count badge" id="pending-count">${rows.length}</div>
   `;
   box.appendChild(head);
 
@@ -466,28 +467,92 @@ function buildPendingSplits(rows) {
   });
 
   for (const r of sorted) {
-    const id = r.id ?? '-';
+    const realId = r.id ?? '-';
+    const idShort = shortId(realId);
     const team = r.team ?? '-';
     const from = r.from_username ?? r.requester_id ?? '-';
     const to = r.to_username ?? r.main_owner_id ?? '-';
     const when = r.expires_at ?? null;
-    const action = (r.status || 'pending').toLowerCase();
 
     const tr = document.createElement('tr');
+    tr.dataset.sid = realId;
     tr.innerHTML = `
-      <td class="col-id" title="${escapeHTML(id)}">${shortId(id)}</td>
+      <td class="col-id" title="${escapeHTML(realId)}">${idShort}</td>
       <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(from))}">${escapeHTML(String(from))}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(to))}">${escapeHTML(String(to))}</span></td>
       <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
-      <td class="col-status">${splitStatusPill(action)}</td>
+      <td class="col-status">
+        <div class="chip-group">
+          <button class="btn-chip chip-accept" data-action="accept" data-id="${escapeHTML(realId)}">force accept</button>
+          <button class="btn-chip chip-decline" data-action="decline" data-id="${escapeHTML(realId)}">force decline</button>
+        </div>
+      </td>
     `;
     tbody.appendChild(tr);
   }
 
+  // delegate chip clicks
+  table.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-chip[data-action]');
+    if (!btn) return;
+
+    const action = btn.getAttribute('data-action');   // "accept" | "decline"
+    const sid = btn.getAttribute('data-id');
+    const row = btn.closest('tr');
+
+    // optimistic disable
+    row.querySelectorAll('.btn-chip').forEach(b => b.disabled = true);
+
+    try {
+      const res = await submitSplitAction(action, sid); // { ok, pending_count, history_count, event }
+      if (!res || res.ok === false) {
+        throw new Error(res?.error || 'unknown error');
+      }
+
+      // remove row locally for snappy feel
+      row.remove();
+
+      // update the pending counter
+      const countEl = document.getElementById('pending-count');
+      if (countEl && typeof res.pending_count === 'number') {
+        countEl.textContent = res.pending_count;
+      }
+
+      // if no rows left, show the empty state
+      if (!tbody.children.length) {
+        const empty = document.createElement('div');
+        empty.className = 'split-empty';
+        empty.textContent = 'No pending requests.';
+        // replace table with empty
+        table.replaceWith(empty);
+      }
+
+      // refresh history in background so the new event appears
+      loadSplitHistoryOnce();
+
+      notify(`Split ${action}ed`, true);
+    } catch (err) {
+      notify(`Failed to ${action} split: ${err.message || err}`, false);
+      row.querySelectorAll('.btn-chip').forEach(b => b.disabled = false);
+    }
+  });
+
   box.appendChild(table);
   return box;
 }
+
+/* POST helper for force accept/decline – matches routes_admin.py */
+async function submitSplitAction(action, id) {
+  const url = action === 'accept' ? '/admin/splits/accept' : '/admin/splits/decline';
+  const res = await fetchJSON(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  return res; // { ok, pending_count, history_count, event }
+}
+
 
 // History loader - simplified columns (When, Action, Team, From, To)
 // Reads /admin/splits/history -> JSON/split_requests_log.json

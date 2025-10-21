@@ -32,6 +32,9 @@ class AdminControl(commands.Cog):
             if len(parts) == 3:
                 action, cog = parts[1], parts[2]
                 try:
+                    if action in {"unload"} and cog == "AdminControl":
+                        await message.channel.send("Nice try. I’m the ladder you’re standing on.")
+                        return
                     if action == "reload":
                         await self.bot.reload_extension(f"COGS.{cog}")
                         update_cogs_status(self.bot)

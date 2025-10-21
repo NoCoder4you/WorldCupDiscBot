@@ -127,12 +127,6 @@ def require_admin():
 # -----------------------------
 
 def create_admin_routes(ctx):
-    """
-    Factory that returns the /admin blueprint.
-    Expects ctx to contain at least:
-      - BASE_DIR: project root
-      - (optional) bot: a discord.py bot instance if running in-process
-    """
     bp = Blueprint("admin", __name__, url_prefix="/admin")
 
     # ---- Username resolution helpers (use players.json) ----
@@ -180,6 +174,93 @@ def create_admin_routes(ctx):
             else:
                 out[i] = i
         return out
+
+    # ========= Split JSON file utilities =========
+    def _split_requests_path():
+        return os.path.join(_base_dir(ctx), "JSON", "split_requests.json")
+
+    def _split_requests_log_path():
+        return os.path.join(_base_dir(ctx), "JSON", "split_requests_log.json")
+
+    def _players_path():
+        return os.path.join(_base_dir(ctx), "JSON", "players.json")
+
+    def _read_json(path, default):
+        try:
+            if not os.path.isfile(path):
+                return default
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default
+
+    def _write_json_atomic(path, data):
+        tmp = path + ".tmp"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, path)
+
+    def _read_players():
+        data = _read_json(_players_path(), {})
+        players = {}
+        if isinstance(data, dict):
+            for pid, pdata in data.items():
+                name = ""
+                if isinstance(pdata, dict):
+                    name = pdata.get("name") or pdata.get("username") or pdata.get("display_name") or str(pid)
+                else:
+                    name = str(pdata)
+                players[str(pid)] = str(name)
+        return players
+
+    def _resolve_names(ctx, ids):
+        # players.json first, then bot cache override (if available)
+        ids = {str(i) for i in ids if i is not None}
+        players = _read_players()
+        bot = ctx.get("bot")
+        botnames = {}
+        if bot:
+            for i in ids:
+                try:
+                    uid = int(i)
+                except Exception:
+                    continue
+                u = bot.get_user(uid)
+                if u:
+                    botnames[i] = str(u)
+        out = {}
+        for i in ids:
+            if i in botnames:
+                out[i] = botnames[i]
+            elif i in players:
+                out[i] = players[i]
+            else:
+                out[i] = i
+        return out
+
+    def _now_iso():
+        import datetime as _dt
+        return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+    def _append_split_history(event):
+        """
+        History file format:
+        Either a list [...events] or a dict {"events":[...]}
+        We preserve whichever format exists, and append one event.
+        """
+        path = _split_requests_log_path()
+        raw = _read_json(path, [])
+        if isinstance(raw, dict):
+            events = raw.get("events", [])
+            events.append(event)
+            raw["events"] = events
+            _write_json_atomic(path, raw)
+            return len(events)
+        else:
+            raw.append(event)
+            _write_json_atomic(path, raw)
+            return len(raw)
 
     # ---------- Auth ----------
     @bp.post("/auth/login")
@@ -372,6 +453,109 @@ def create_admin_routes(ctx):
         _enqueue_command(ctx, "splits_refresh", {})
         return jsonify({"ok": True})
 
+    @bp.post("/splits/accept")
+    def splits_accept():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        data = request.get_json(silent=True) or {}
+        sid = data.get("id")
+        reason = data.get("reason") or ""
+        if not sid:
+            return jsonify({"ok": False, "error": "missing id"}), 400
+
+        # Load pending (dict: composite_id -> entry)
+        req_path = _split_requests_path()
+        pending_raw = _read_json(req_path, {})
+        if not isinstance(pending_raw, dict):
+            pending_raw = {}
+
+        entry = pending_raw.pop(sid, None)
+        if not isinstance(entry, dict):
+            return jsonify({"ok": False, "error": "not found"}), 404
+
+        # Persist removal
+        _write_json_atomic(req_path, pending_raw)
+
+        # Build history event with usernames
+        req_id = str(entry.get("requester_id"))
+        own_id = str(entry.get("main_owner_id"))
+        names = _resolve_names(ctx, {req_id, own_id})
+        event = {
+            "id": sid,
+            "action": "accepted",
+            "team": entry.get("team"),
+            "requester_id": req_id,
+            "main_owner_id": own_id,
+            "from_username": names.get(req_id, req_id),
+            "to_username": names.get(own_id, own_id),
+            "reason": reason,
+            "timestamp": _now_iso(),
+        }
+        hist_count = _append_split_history(event)
+
+        # Let the bot actually perform the transfer
+        _enqueue_command(ctx, "split_accept", {"id": sid, "reason": reason})
+
+        return jsonify({
+            "ok": True,
+            "pending_count": len(pending_raw),
+            "history_count": hist_count,
+            "event": event
+        })
+
+    @bp.post("/splits/decline")
+    def splits_decline():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        data = request.get_json(silent=True) or {}
+        sid = data.get("id")
+        reason = data.get("reason") or ""
+        if not sid:
+            return jsonify({"ok": False, "error": "missing id"}), 400
+
+        # Load pending
+        req_path = _split_requests_path()
+        pending_raw = _read_json(req_path, {})
+        if not isinstance(pending_raw, dict):
+            pending_raw = {}
+
+        entry = pending_raw.pop(sid, None)
+        if not isinstance(entry, dict):
+            return jsonify({"ok": False, "error": "not found"}), 404
+
+        # Persist removal
+        _write_json_atomic(req_path, pending_raw)
+
+        # History event
+        req_id = str(entry.get("requester_id"))
+        own_id = str(entry.get("main_owner_id"))
+        names = _resolve_names(ctx, {req_id, own_id})
+        event = {
+            "id": sid,
+            "action": "declined",
+            "team": entry.get("team"),
+            "requester_id": req_id,
+            "main_owner_id": own_id,
+            "from_username": names.get(req_id, req_id),
+            "to_username": names.get(own_id, own_id),
+            "reason": reason,
+            "timestamp": _now_iso(),
+        }
+        hist_count = _append_split_history(event)
+
+        # Let the bot know as well
+        _enqueue_command(ctx, "split_decline", {"id": sid, "reason": reason})
+
+        return jsonify({
+            "ok": True,
+            "pending_count": len(pending_raw),
+            "history_count": hist_count,
+            "event": event
+        })
     # ---------- Split Requests (History from JSON/split_requests_log.json) ----------
     @bp.get("/splits/history")
     def splits_history():
