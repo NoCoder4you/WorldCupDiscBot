@@ -759,28 +759,36 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .btn-chip {
-	--bg: var(--btn);
-	--bg-h: var(--btn-hover);
-	--fg: var(--text);
-	background: var(--bg);
-	color: var(--fg);
-	border: 0;
-	padding: 8px 14px;
-	border-radius: 12px;
-	font-weight: 800;
-	text-transform: lowercase;
-	letter-spacing: .3px;
-	cursor: pointer;
-	box-shadow: 0 2px 0 rgba(0, 0, 0, .15);
-	transition: transform .05s ease, filter .15s ease, background .15s ease;
-}
-
-.btn-chip:active {
-	transform: translateY(1px);
+  --bg: var(--btn);
+  --bg-h: var(--btn-hover);
+  --fg: var(--text);
+  background: var(--bg);
+  color: var(--fg);
+  border: none;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: lowercase;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  line-height: 1.1;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
+  transition: transform 0.05s ease, filter 0.15s ease, background 0.15s ease;
 }
 
 .btn-chip:hover {
-	filter: brightness(1.05);
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.btn-chip:active {
+  transform: translateY(0);
+}
+
+.btn-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .chip-reload {
@@ -956,8 +964,10 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 /* used for From and To */
 .col-status {
-	width: 12%;
-	text-align: center;
+  width: 85px;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .col-when {
@@ -1018,13 +1028,12 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 /* Inline action chips for Pending */
 .chip-accept {
-	--bg: var(--accent);
-	--fg: #07111c;
+  background: var(--accent);
+  color: #08131d;
 }
-
 .chip-decline {
-	--bg: var(--danger);
-	--fg: #fff;
+  background: #c34242;
+  color: #fff;
 }
 
 .btn-chip.chip-accept {
@@ -1061,6 +1070,9 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .chip-group {
-	display: flex;
-	gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
 }
