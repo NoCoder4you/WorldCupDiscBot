@@ -475,7 +475,7 @@ function buildPendingSplits(rows) {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="col-id"><span class="clip" title="${escapeHTML(id)}">${escapeHTML(id)}</span></td>
+      <td class="col-id" title="${escapeHTML(id)}">${shortId(id)}</td>
       <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(from))}">${escapeHTML(String(from))}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(to))}">${escapeHTML(String(to))}</span></td>
@@ -542,7 +542,7 @@ async function loadSplitHistoryOnce() {
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="col-id"><span class="clip" title="${escapeHTML(String(id))}">${escapeHTML(String(id))}</span></td>
+        <td class="col-id" title="${escapeHTML(String(id))}">${shortId(id)}</td>
         <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
         <td class="col-user"><span class="clip" title="${escapeHTML(String(fromUser))}">${escapeHTML(String(fromUser))}</span></td>
         <td class="col-user"><span class="clip" title="${escapeHTML(String(toUser))}">${escapeHTML(String(toUser))}</span></td>
