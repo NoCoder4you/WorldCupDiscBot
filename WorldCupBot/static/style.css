@@ -874,3 +874,9 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* small utility */
 .mono   { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 .muted  { color: var(--muted); }
+
+.split-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

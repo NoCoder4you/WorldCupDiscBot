@@ -70,11 +70,6 @@ def _read_cogs_state(ctx):
     return set()
 
 def _scan_cogs(ctx, bot=None):
-    """
-    Scan the COGS directory. The 'loaded' flag is determined primarily
-    by runtime/cogs_status.json (written by the bot process). If that file
-    doesn't exist, we fall back to in-process checks (if a bot is attached).
-    """
     results = []
     cdir = _cogs_dir(ctx)
     if not os.path.isdir(cdir):
@@ -277,15 +272,32 @@ def create_admin_routes(ctx):
     def _split_requests_path():
         return os.path.join(_base_dir(ctx), "JSON", "split_requests.json")
 
+    def _get_usernames(bot, user_ids):
+        """Try to resolve usernames from cached Discord members."""
+        names = {}
+        if not bot or not hasattr(bot, "get_user"):
+            return names
+        for uid in user_ids:
+            try:
+                uid_int = int(uid)
+            except Exception:
+                continue
+            user = bot.get_user(uid_int)
+            if user:
+                names[str(uid_int)] = str(user)
+        return names
+
+
     @bp.get("/splits")
     def splits_get():
+        """Return all pending split requests with usernames resolved."""
         resp = require_admin()
         if resp is not None:
             return resp
 
-        path = _split_requests_path()
+        path = os.path.join(_base_dir(ctx), "JSON", "split_requests.json")
         if not os.path.isfile(path):
-            return jsonify({"pending": [], "resolved": []})
+            return jsonify({"pending": []})
 
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -293,27 +305,34 @@ def create_admin_routes(ctx):
         except Exception as e:
             return jsonify({"error": f"failed to read split_requests.json: {e}"}), 500
 
-        # File is a dict keyed by composite id -> object
         pending = []
         if isinstance(raw, dict):
+            all_ids = set()
             for key, v in raw.items():
                 if not isinstance(v, dict):
                     continue
+                all_ids.add(str(v.get("requester_id")))
+                all_ids.add(str(v.get("main_owner_id")))
+
+            usernames = _get_usernames(ctx.get("bot"), all_ids)
+
+            for key, v in raw.items():
+                if not isinstance(v, dict):
+                    continue
+                req_id = str(v.get("requester_id"))
+                owner_id = str(v.get("main_owner_id"))
                 pending.append({
                     "id": key,
                     "team": v.get("team"),
-                    # normalize to names your frontend understands
-                    "requester": v.get("requester_id"),
-                    "requester_id": v.get("requester_id"),
-                    "main_owner_id": v.get("main_owner_id"),
-                    "to": v.get("main_owner_id"),        # mapped as "to" for UI
-                    "status": "pending",
-                    "expires_at": v.get("expires_at")
+                    "requester_id": req_id,
+                    "main_owner_id": owner_id,
+                    "from_username": usernames.get(req_id, f"User {req_id}"),
+                    "to_username": usernames.get(owner_id, f"User {owner_id}"),
+                    "expires_at": v.get("expires_at"),
+                    "status": "pending"
                 })
 
-        # This file only tracks open requests. Resolved will come from the log/history file.
-        return jsonify({"pending": pending, "resolved": []})
-
+        return jsonify({"pending": pending})
 
 
     @bp.post("/splits/refresh")

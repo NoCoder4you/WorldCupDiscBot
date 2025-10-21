@@ -380,7 +380,7 @@ if (state.splitsHistoryTimer) {
 
 async function loadSplits() {
   try {
-    const data = await fetchJSON('/admin/splits'); // {pending:[], resolved:[]}
+    const data = await fetchJSON('/admin/splits'); // { pending: [] }
 
     const wrap = ensureSectionCard('splits', 'Split Requests', [
       ['Refresh', { id: 'splits-refresh' }]
@@ -393,12 +393,9 @@ async function loadSplits() {
     container.className = 'split-wrap';
 
     const pending = Array.isArray(data?.pending) ? data.pending : [];
-    const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
+    container.appendChild(buildPendingSplits(pending));
 
-    container.appendChild(buildSplitSection('Pending', pending, 'pending'));
-    container.appendChild(buildSplitSection('Resolved', resolved, 'resolved'));
-
-    // History section shell
+    // history section (from log file)
     const historyBox = document.createElement('div');
     historyBox.className = 'split-section';
     historyBox.innerHTML = `
@@ -412,11 +409,9 @@ async function loadSplits() {
 
     scroller.appendChild(container);
 
-    // refresh button
+    // refresh and polling
     const btn = document.getElementById('splits-refresh');
     if (btn) btn.onclick = () => { clearInterval(state.splitsHistoryTimer); loadSplits(); };
-
-    // initial history fetch + start polling while on this page
     await loadSplitHistoryOnce();
     clearInterval(state.splitsHistoryTimer);
     state.splitsHistoryTimer = setInterval(loadSplitHistoryOnce, 10000);
@@ -426,14 +421,14 @@ async function loadSplits() {
   }
 }
 
-function buildSplitSection(title, rows, kind) {
+function buildPendingSplits(rows) {
   const box = document.createElement('div');
   box.className = 'split-section';
 
   const head = document.createElement('div');
   head.className = 'split-head';
   head.innerHTML = `
-    <div class="split-title">${escapeHTML(title)}</div>
+    <div class="split-title">Pending</div>
     <div class="split-count badge">${rows.length}</div>
   `;
   box.appendChild(head);
@@ -441,7 +436,7 @@ function buildSplitSection(title, rows, kind) {
   if (!rows.length) {
     const empty = document.createElement('div');
     empty.className = 'split-empty';
-    empty.textContent = kind === 'pending' ? 'No pending requests.' : 'No resolved requests yet.';
+    empty.textContent = 'No pending requests.';
     box.appendChild(empty);
     return box;
   }
@@ -455,44 +450,27 @@ function buildSplitSection(title, rows, kind) {
         <th>Team</th>
         <th>From</th>
         <th>To</th>
-        <th>Share</th>
         <th>Status</th>
-        <th>When</th>
+        <th>Expires</th>
       </tr>
     </thead>
     <tbody></tbody>
   `;
   const tbody = table.querySelector('tbody');
 
-  // newest first by whatever timestamp we can find
   const sorted = rows.slice().sort((a, b) => {
-    const ta = +new Date(a?.expires_at || a?.created_at || a?.time || 0);
-    const tb = +new Date(b?.expires_at || b?.created_at || b?.time || 0);
+    const ta = +new Date(a?.expires_at || 0);
+    const tb = +new Date(b?.expires_at || 0);
     return tb - ta;
   });
 
   for (const r of sorted) {
-    const id = r.id ?? r.request_id ?? '-';
-    const team = r.team ?? r.country ?? r.country_name ?? '-';
-
-    // map your fields
-    const from = r.from ?? r.owner_from ?? r.requester ?? r.requester_id ?? '-';
-    const to   = r.to   ?? r.owner_to   ?? r.receiver  ?? r.main_owner_id ?? '-';
-
-    // optional, many files won’t have share
-    const shareVal = r.share ?? r.percent ?? r.percentage ?? r.split;
-    const share = shareVal == null ? '-' : `${shareVal}%`;
-
-    // normalize status text
-    const statusRaw =
-      r.status ??
-      (kind === 'pending' ? 'pending'
-       : (r.approved ? 'approved'
-       : (r.denied ? 'denied' : 'resolved')));
-    const status = (statusRaw || '').toString().toLowerCase();
-
-    // prefer your expiry for “When”
-    const when = r.expires_at ?? r.created_at ?? r.time ?? r.resolved_at ?? r.updated_at ?? null;
+    const id = r.id ?? '-';
+    const team = r.team ?? '-';
+    const from = r.from_username ?? r.requester_id ?? '-';
+    const to = r.to_username ?? r.main_owner_id ?? '-';
+    const status = (r.status || 'pending').toLowerCase();
+    const when = r.expires_at ?? null;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -500,7 +478,6 @@ function buildSplitSection(title, rows, kind) {
       <td>${escapeHTML(team)}</td>
       <td>${escapeHTML(from)}</td>
       <td>${escapeHTML(to)}</td>
-      <td>${escapeHTML(share)}</td>
       <td>${splitStatusPill(status)}</td>
       <td class="muted">${when ? fmtDateTime(when) : '-'}</td>
     `;
@@ -510,7 +487,10 @@ function buildSplitSection(title, rows, kind) {
   box.appendChild(table);
   return box;
 }
-/* History loader (reads /admin/splits/history -> JSON/split_requests_log.json) */
+
+
+// History loader - simplified columns (When, Action, Team, From, To)
+// Reads /admin/splits/history -> JSON/split_requests_log.json
 async function loadSplitHistoryOnce() {
   try {
     const { events = [] } = await fetchJSON('/admin/splits/history?limit=200');
@@ -526,6 +506,7 @@ async function loadSplitHistoryOnce() {
       return;
     }
 
+    // newest first
     const sorted = events.slice().sort((a, b) => {
       const ta = +new Date(a?.created_at || a?.time || a?.timestamp || 0);
       const tb = +new Date(b?.created_at || b?.time || b?.timestamp || 0);
@@ -542,9 +523,6 @@ async function loadSplitHistoryOnce() {
           <th>Team</th>
           <th>From</th>
           <th>To</th>
-          <th>Share</th>
-          <th>By</th>
-          <th>Note</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -554,24 +532,31 @@ async function loadSplitHistoryOnce() {
     for (const ev of sorted) {
       const when = ev.created_at || ev.time || ev.timestamp || null;
       const actionRaw = (ev.action || ev.status || '').toString().toLowerCase();
+
       const team = ev.team || ev.country || ev.country_name || '-';
-      const from = ev.from || ev.owner_from || ev.requester || '-';
-      const to = ev.to || ev.owner_to || ev.receiver || '-';
-      const shareVal = ev.share ?? ev.percent ?? ev.percentage ?? ev.split;
-      const share = shareVal == null ? '-' : `${shareVal}%`;
-      const actor = ev.actor || ev.by || ev.moderator || ev.user || '';
-      const note = ev.note || ev.reason || ev.message || '';
+
+      // Prefer resolved usernames if present, else fall back to ids/labels
+      const fromUser =
+        ev.from_username ||
+        ev.requester_username ||
+        ev.from ||
+        ev.requester_id ||
+        '-';
+
+      const toUser =
+        ev.to_username ||
+        ev.receiver_username ||
+        ev.to ||
+        ev.main_owner_id ||
+        '-';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="mono">${when ? fmtDateTime(when) : '-'}</td>
         <td>${splitStatusPill(actionRaw)}</td>
         <td>${escapeHTML(team)}</td>
-        <td>${escapeHTML(from)}</td>
-        <td>${escapeHTML(to)}</td>
-        <td>${escapeHTML(share)}</td>
-        <td>${escapeHTML(actor)}</td>
-        <td class="muted">${escapeHTML(note)}</td>
+        <td>${escapeHTML(String(fromUser))}</td>
+        <td>${escapeHTML(String(toUser))}</td>
       `;
       tbody.appendChild(tr);
     }
@@ -580,8 +565,8 @@ async function loadSplitHistoryOnce() {
     body.appendChild(table);
 
   } catch (e) {
-    // optional: surface once
-    // notify(`History refresh failed: ${e.message || e}`, false);
+    // Non-fatal; keep last known history
+    // notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
   }
 }
 
