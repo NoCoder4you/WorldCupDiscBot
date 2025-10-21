@@ -814,12 +814,12 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	padding: 4px 10px;
+	padding: 4px 6px;
 	border-radius: 999px;
 	font-weight: 800;
 	font-size: 0.65rem;
 	letter-spacing: 0.2px;
-	min-width: 84px;
+	min-width: 60px;
 	text-align: center;
 	box-sizing: border-box;
 	white-space: nowrap;
