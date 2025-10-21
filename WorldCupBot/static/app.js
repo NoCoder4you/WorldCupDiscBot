@@ -421,7 +421,6 @@ async function loadSplits() {
   }
 }
 
-// Pending table with Force Accept/Decline actions
 function buildPendingSplits(rows) {
   const box = document.createElement('div');
   box.className = 'split-section';
@@ -483,64 +482,94 @@ function buildPendingSplits(rows) {
       <td class="col-user"><span class="clip" title="${escapeHTML(String(to))}">${escapeHTML(String(to))}</span></td>
       <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
       <td class="col-status">
-        <div class="chip-group">
-          <button class="btn-chip chip-accept" data-action="accept" data-id="${escapeHTML(realId)}">force accept</button>
-          <button class="btn-chip chip-decline" data-action="decline" data-id="${escapeHTML(realId)}">force decline</button>
+        <div class="action-cell">
+          <button type="button" class="pill pill-warn pill-click">Pending</button>
+          <div class="chip-group hidden">
+            <button class="btn-chip chip-accept" data-action="accept" data-id="${escapeHTML(realId)}">force accept</button>
+            <button class="btn-chip chip-decline" data-action="decline" data-id="${escapeHTML(realId)}">force decline</button>
+          </div>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
   }
 
-  // delegate chip clicks
+  // collapse any open chip groups
+  function collapseAll() {
+    table.querySelectorAll('.action-cell').forEach(cell => {
+      cell.querySelector('.pill-click')?.classList.remove('hidden');
+      cell.querySelector('.chip-group')?.classList.add('hidden');
+    });
+  }
+
+  // delegate clicks
   table.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.btn-chip[data-action]');
-    if (!btn) return;
-
-    const action = btn.getAttribute('data-action');   // "accept" | "decline"
-    const sid = btn.getAttribute('data-id');
-    const row = btn.closest('tr');
-
-    // optimistic disable
-    row.querySelectorAll('.btn-chip').forEach(b => b.disabled = true);
-
-    try {
-      const res = await submitSplitAction(action, sid); // { ok, pending_count, history_count, event }
-      if (!res || res.ok === false) {
-        throw new Error(res?.error || 'unknown error');
+    const pill = e.target.closest('.pill-click');
+    if (pill) {
+      // toggle current row, collapse others
+      const cell = pill.closest('.action-cell');
+      const chips = cell.querySelector('.chip-group');
+      const isOpen = !chips.classList.contains('hidden');
+      collapseAll();
+      if (!isOpen) {
+        pill.classList.add('hidden');
+        chips.classList.remove('hidden');
       }
+      return;
+    }
 
-      // remove row locally for snappy feel
-      row.remove();
+    const chip = e.target.closest('.btn-chip[data-action]');
+    if (chip) {
+      const action = chip.getAttribute('data-action');   // "accept" | "decline"
+      const sid = chip.getAttribute('data-id');
+      const row = chip.closest('tr');
 
-      // update the pending counter
-      const countEl = document.getElementById('pending-count');
-      if (countEl && typeof res.pending_count === 'number') {
-        countEl.textContent = res.pending_count;
+      // disable buttons during request
+      row.querySelectorAll('.btn-chip').forEach(b => b.disabled = true);
+
+      try {
+        const res = await submitSplitAction(action, sid); // { ok, pending_count, history_count, event }
+        if (!res || res.ok === false) {
+          throw new Error(res?.error || 'unknown error');
+        }
+
+        // remove row for snappy feel
+        row.remove();
+
+        // update counter
+        const countEl = document.getElementById('pending-count');
+        if (countEl && typeof res.pending_count === 'number') {
+          countEl.textContent = res.pending_count;
+        }
+
+        // show empty state if none left
+        if (!tbody.children.length) {
+          const empty = document.createElement('div');
+          empty.className = 'split-empty';
+          empty.textContent = 'No pending requests.';
+          table.replaceWith(empty);
+        }
+
+        // refresh history so the new event appears
+        loadSplitHistoryOnce();
+
+        notify(`Split ${action}ed`, true);
+      } catch (err) {
+        notify(`Failed to ${action} split: ${err.message || err}`, false);
+        row.querySelectorAll('.btn-chip').forEach(b => b.disabled = false);
       }
-
-      // if no rows left, show the empty state
-      if (!tbody.children.length) {
-        const empty = document.createElement('div');
-        empty.className = 'split-empty';
-        empty.textContent = 'No pending requests.';
-        // replace table with empty
-        table.replaceWith(empty);
-      }
-
-      // refresh history in background so the new event appears
-      loadSplitHistoryOnce();
-
-      notify(`Split ${action}ed`, true);
-    } catch (err) {
-      notify(`Failed to ${action} split: ${err.message || err}`, false);
-      row.querySelectorAll('.btn-chip').forEach(b => b.disabled = false);
     }
   });
+
+  // click-away to collapse
+  document.addEventListener('click', (ev) => {
+    if (!table.contains(ev.target)) collapseAll();
+  }, { once: true });
 
   box.appendChild(table);
   return box;
 }
+
 
 /* POST helper for force accept/decline – matches routes_admin.py */
 async function submitSplitAction(action, id) {
