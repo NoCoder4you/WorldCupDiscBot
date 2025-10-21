@@ -362,145 +362,137 @@
     }catch(e){ notify(`Bets error: ${e.message}`, false); }
   }
 
-    async function loadSplits() {
-      try {
-        const data = await fetchJSON('/admin/splits'); // admin-only
+// --- Splits Page with History (reads split_requests_log.json via /admin/splits/history) ---
 
-        const wrap = ensureSectionCard('splits', 'Split Requests', [
-          ['Refresh', { id: 'splits-refresh' }]
-        ]);
-        const scroller = wrap.querySelector('.table-scroll');
-        scroller.innerHTML = '';
+// keep a page-local timer so we stop refreshing when we leave the page
+if (!window.state) window.state = {};
+state.splitsHistoryTimer && clearInterval(state.splitsHistoryTimer);
 
-        // build content shell
-        const container = document.createElement('div');
-        container.className = 'split-wrap';
+async function loadSplits() {
+  try {
+    // main data
+    const data = await fetchJSON('/admin/splits'); // { pending:[], resolved:[] }
+    const wrap = ensureSectionCard('splits', 'Split Requests', [
+      ['Refresh', { id: 'splits-refresh' }]
+    ]);
+    const scroller = wrap.querySelector('.table-scroll');
+    scroller.innerHTML = '';
 
-        // Helper: safe read & normalize list
-        const pending = Array.isArray(data?.pending) ? data.pending : [];
-        const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
+    // container
+    const container = document.createElement('div');
+    container.className = 'split-wrap';
 
-        // Build sections
-        container.appendChild(buildSplitSection('Pending', pending, 'pending'));
-        container.appendChild(buildSplitSection('Resolved', resolved, 'resolved'));
+    const pending = Array.isArray(data?.pending) ? data.pending : [];
+    const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
 
-        scroller.appendChild(container);
+    container.appendChild(buildSplitSection('Pending', pending, 'pending'));
+    container.appendChild(buildSplitSection('Resolved', resolved, 'resolved'));
 
-        // wire refresh
-        const btn = document.getElementById('splits-refresh');
-        if (btn) btn.onclick = loadSplits;
+    // history shell
+    const historyBox = document.createElement('div');
+    historyBox.className = 'split-section';
+    historyBox.innerHTML = `
+      <div class="split-head">
+        <div class="split-title">History</div>
+        <div class="split-count badge" id="split-hist-count">0</div>
+      </div>
+      <div id="split-history-body"></div>
+    `;
+    container.appendChild(historyBox);
 
-      } catch (e) {
-        notify(`Failed to fetch splits: ${e.message}`, false);
-      }
+    scroller.appendChild(container);
+
+    // buttons
+    const btn = document.getElementById('splits-refresh');
+    if (btn) btn.onclick = () => { clearInterval(state.splitsHistoryTimer); loadSplits(); };
+
+    // initial history load + polling
+    await loadSplitHistoryOnce();
+    clearInterval(state.splitsHistoryTimer);
+    state.splitsHistoryTimer = setInterval(loadSplitHistoryOnce, 10000);
+
+  } catch (e) {
+    notify(`Failed to fetch splits: ${e.status || ''} ${e.message}`, false);
+  }
+}
+
+async function loadSplitHistoryOnce() {
+  try {
+    const { events = [] } = await fetchJSON('/admin/splits/history?limit=200');
+
+    const body = document.getElementById('split-history-body');
+    const count = document.getElementById('split-hist-count');
+    if (!body) return;
+
+    count && (count.textContent = events.length);
+
+    if (!events.length) {
+      body.innerHTML = `<div class="split-empty">No history recorded yet.</div>`;
+      return;
     }
 
-    // helpers for Split Requests
-    function buildSplitSection(title, rows, kind) {
-      const box = document.createElement('div');
-      box.className = 'split-section';
+    // newest first
+    const sorted = events.slice().sort((a, b) => {
+      const ta = +new Date(a?.created_at || a?.time || a?.timestamp || 0);
+      const tb = +new Date(b?.created_at || b?.time || b?.timestamp || 0);
+      return tb - ta;
+    });
 
-      const head = document.createElement('div');
-      head.className = 'split-head';
-      head.innerHTML = `
-        <div class="split-title">${title}</div>
-        <div class="split-count badge">${rows.length}</div>
+    const table = document.createElement('table');
+    table.className = 'table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Action</th>
+          <th>Team</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Share</th>
+          <th>By</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+
+    for (const ev of sorted) {
+      const when = ev.created_at || ev.time || ev.timestamp || null;
+      const actionRaw = (ev.action || ev.status || '').toString().toLowerCase();
+      const team = ev.team || ev.country || ev.country_name || '-';
+      const from = ev.from || ev.owner_from || ev.requester || '-';
+      const to = ev.to || ev.owner_to || ev.receiver || '-';
+      const share = ev.share ?? ev.percent ?? ev.percentage ?? ev.split;
+
+      const actor = ev.actor || ev.by || ev.moderator || ev.user || '';
+      const note = ev.note || ev.reason || ev.message || '';
+
+      const actionPill = splitStatusPill(actionRaw);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="mono">${when ? fmtDateTime(when) : '-'}</td>
+        <td>${actionPill}</td>
+        <td>${escapeHTML(team)}</td>
+        <td>${escapeHTML(from)}</td>
+        <td>${escapeHTML(to)}</td>
+        <td>${share == null ? '-' : escapeHTML(String(share)) + '%'}</td>
+        <td>${escapeHTML(actor)}</td>
+        <td class="muted">${escapeHTML(note)}</td>
       `;
-      box.appendChild(head);
-
-      if (!rows.length) {
-        const empty = document.createElement('div');
-        empty.className = 'split-empty';
-        empty.textContent = kind === 'pending'
-          ? 'No pending requests.'
-          : 'No resolved requests yet.';
-        box.appendChild(empty);
-        return box;
-      }
-
-      // table
-      const table = document.createElement('table');
-      table.className = 'table';
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Team</th>
-            <th>From</th>
-            <th>To</th>
-            <th>Share</th>
-            <th>Status</th>
-            <th>When</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      `;
-      const tbody = table.querySelector('tbody');
-
-      // sort: newest first if we can
-      const sorted = rows.slice().sort((a, b) => {
-        const ta = +new Date(a?.created_at || a?.time || 0);
-        const tb = +new Date(b?.created_at || b?.time || 0);
-        return tb - ta;
-      });
-
-      for (const r of sorted) {
-        const tr = document.createElement('tr');
-
-        const id = r.id ?? r.request_id ?? '-';
-        const team = r.team ?? r.country ?? r.country_name ?? '-';
-        const from = r.from ?? r.owner_from ?? r.requester ?? '-';
-        const to = r.to ?? r.owner_to ?? r.receiver ?? '-';
-        const share = (r.share ?? r.percent ?? r.percentage ?? r.split)?.toString?.() ?? '-';
-
-        const statusRaw =
-          r.status ??
-          (kind === 'pending' ? 'pending' : (r.approved ? 'approved' : (r.denied ? 'denied' : 'resolved')));
-        const status = (statusRaw || '').toString().toLowerCase();
-
-        const when =
-          r.created_at ??
-          r.time ??
-          r.resolved_at ??
-          r.updated_at ??
-          null;
-
-        tr.innerHTML = `
-          <td class="mono">${escapeHTML(id)}</td>
-          <td>${escapeHTML(team)}</td>
-          <td>${escapeHTML(from)}</td>
-          <td>${escapeHTML(to)}</td>
-          <td>${escapeHTML(share)}${share !== '-' ? '%' : ''}</td>
-          <td>${splitStatusPill(status)}</td>
-          <td class="muted">${when ? fmtDateTime(when) : '-'}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-
-      box.appendChild(table);
-      return box;
+      tbody.appendChild(tr);
     }
 
-    function splitStatusPill(status) {
-      const map = {
-        pending: 'pill-warn',
-        approved: 'pill-ok',
-        accepted: 'pill-ok',
-        resolved: 'pill-ok',
-        denied: 'pill-off',
-        rejected: 'pill-off'
-      };
-      const cls = map[status] || 'pill-off';
-      const label =
-        status === 'pending' ? 'Pending' :
-        status === 'approved' ? 'Approved' :
-        status === 'accepted' ? 'Accepted' :
-        status === 'resolved' ? 'Resolved' :
-        status === 'denied' ? 'Denied' :
-        status === 'rejected' ? 'Rejected' :
-        (status ? status[0].toUpperCase() + status.slice(1) : 'Unknown');
-      return `<span class="pill ${cls}">${label}</span>`;
-    }
+    body.innerHTML = '';
+    body.appendChild(table);
+
+  } catch (e) {
+    // Non-fatal; keep last known history
+    // Optionally surface a toast once:
+    // notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
+  }
+}
 
     // util: simple HTML escape
     function escapeHTML(s) {

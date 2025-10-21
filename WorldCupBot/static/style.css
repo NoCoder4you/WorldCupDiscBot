@@ -862,6 +862,8 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   color: var(--muted);
   font-weight: 700;
 }
+/* History body spacing */
+#split-history-body { padding: 10px 0 0; }
 
 /* reuse your pill system + add warn */
 .pill { display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:999px; font-weight:800; font-size:.85rem; letter-spacing:.2px; min-width:84px; text-align:center; white-space:nowrap; }

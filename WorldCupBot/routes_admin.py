@@ -273,29 +273,58 @@ def create_admin_routes(ctx):
         _enqueue_cog(cog, "reload")
         return jsonify({"ok": True})
 
-    # ---------- Split Requests ----------
-    def _splits_path():
-        return os.path.join(_base_dir(ctx), "JSON", "splits.json")
+    # ---------- Split Requests (reads JSON/split_requests.json) ----------
+    def _split_requests_path():
+        return os.path.join(_base_dir(ctx), "JSON", "split_requests.json")
 
     @bp.get("/splits")
     def splits_get():
+        # admin auth
         resp = require_admin()
         if resp is not None:
             return resp
+
+        path = _split_requests_path()
+        if not os.path.isfile(path):
+            # Safe empty shape
+            return jsonify({"pending": [], "resolved": []})
+
         try:
-            path = _splits_path()
-            if not os.path.isfile(path):
-                # default empty shape
-                return jsonify({"pending": [], "resolved": []})
             with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f) or {}
-            # normalize shape
-            return jsonify({
-                "pending": data.get("pending", []) or [],
-                "resolved": data.get("resolved", []) or []
-            })
+                raw = json.load(f) or {}
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": f"failed to read split_requests.json: {e}"}), 500
+
+        # --- Normalize to { pending: [], resolved: [] } no matter the file’s shape ---
+        pending, resolved = [], []
+
+        if isinstance(raw, dict):
+            # Common shapes we might see
+            if "pending" in raw or "resolved" in raw:
+                pending = raw.get("pending", []) or []
+                resolved = raw.get("resolved", []) or []
+            elif "requests" in raw and isinstance(raw["requests"], list):
+                for r in raw["requests"]:
+                    status = str(r.get("status", "")).lower()
+                    (resolved if status in {"resolved", "approved", "accepted", "denied", "rejected"} else pending).append(r)
+            else:
+                # Unknown dict – try to split by status if present
+                items = raw.get("items", []) if isinstance(raw.get("items"), list) else []
+                for r in items:
+                    status = str(r.get("status", "")).lower()
+                    (resolved if status in {"resolved", "approved", "accepted", "denied", "rejected"} else pending).append(r)
+
+        elif isinstance(raw, list):
+            # Top-level array of requests
+            for r in raw:
+                status = str(r.get("status", "")).lower() if isinstance(r, dict) else ""
+                (resolved if status in {"resolved", "approved", "accepted", "denied", "rejected"} else pending).append(r)
+
+        return jsonify({
+            "pending": pending,
+            "resolved": resolved
+        })
+
 
     @bp.post("/splits/refresh")
     def splits_refresh():
@@ -304,6 +333,45 @@ def create_admin_routes(ctx):
             return resp
         _enqueue_command(ctx, "splits_refresh", {})
         return jsonify({"ok": True})
+
+    # ---------- Split Requests (History from JSON/split_requests_log.json) ----------
+    def _split_requests_log_path():
+        return os.path.join(_base_dir(ctx), "JSON", "split_requests_log.json")
+
+    @bp.get("/splits/history")
+    def splits_history():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        path = _split_requests_log_path()
+        if not os.path.isfile(path):
+            return jsonify({"events": []})
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                raw = json.load(f) or []
+        except Exception as e:
+            return jsonify({"error": f"failed to read split_requests_log.json: {e}"}), 500
+
+        # Normalize into a list of events
+        events = []
+        if isinstance(raw, list):
+            events = raw
+        elif isinstance(raw, dict) and isinstance(raw.get("events"), list):
+            events = raw["events"]
+        else:
+            # Unknown shape -> wrap once so frontend still shows something
+            events = [raw]
+
+        # Optional limiting via query param ?limit=200
+        try:
+            limit = int(request.args.get("limit", "200"))
+        except Exception:
+            limit = 200
+        events = events[-abs(limit):]
+
+        return jsonify({"events": events})
 
 
 
