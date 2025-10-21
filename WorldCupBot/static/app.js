@@ -458,7 +458,6 @@ function buildPendingSplits(rows) {
   `;
   const tbody = table.querySelector('tbody');
 
-  // newest expiry first
   const sorted = rows.slice().sort((a, b) => {
     const ta = +new Date(a?.expires_at || 0);
     const tb = +new Date(b?.expires_at || 0);
@@ -484,9 +483,9 @@ function buildPendingSplits(rows) {
       <td class="col-status">
         <div class="action-cell">
           <button type="button" class="pill pill-warn pill-click">Pending</button>
-          <div class="chip-group hidden">
-            <button class="btn-chip chip-accept" data-action="accept" data-id="${escapeHTML(realId)}">Accept</button>
-            <button class="btn-chip chip-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
+          <div class="chip-group--split hidden">
+            <button class="btn-split split-accept" data-action="accept" data-id="${escapeHTML(realId)}">force accept</button>
+            <button class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">force decline</button>
           </div>
         </div>
       </td>
@@ -498,7 +497,7 @@ function buildPendingSplits(rows) {
   function collapseAll() {
     table.querySelectorAll('.action-cell').forEach(cell => {
       cell.querySelector('.pill-click')?.classList.remove('hidden');
-      cell.querySelector('.chip-group')?.classList.add('hidden');
+      cell.querySelector('.chip-group--split')?.classList.add('hidden');
     });
   }
 
@@ -506,9 +505,8 @@ function buildPendingSplits(rows) {
   table.addEventListener('click', async (e) => {
     const pill = e.target.closest('.pill-click');
     if (pill) {
-      // toggle current row, collapse others
       const cell = pill.closest('.action-cell');
-      const chips = cell.querySelector('.chip-group');
+      const chips = cell.querySelector('.chip-group--split');
       const isOpen = !chips.classList.contains('hidden');
       collapseAll();
       if (!isOpen) {
@@ -518,31 +516,23 @@ function buildPendingSplits(rows) {
       return;
     }
 
-    const chip = e.target.closest('.btn-chip[data-action]');
+    const chip = e.target.closest('.btn-split[data-action]');
     if (chip) {
       const action = chip.getAttribute('data-action');   // "accept" | "decline"
       const sid = chip.getAttribute('data-id');
       const row = chip.closest('tr');
 
-      // disable buttons during request
-      row.querySelectorAll('.btn-chip').forEach(b => b.disabled = true);
+      row.querySelectorAll('.btn-split').forEach(b => b.disabled = true);
 
       try {
         const res = await submitSplitAction(action, sid); // { ok, pending_count, history_count, event }
-        if (!res || res.ok === false) {
-          throw new Error(res?.error || 'unknown error');
-        }
+        if (!res || res.ok === false) throw new Error(res?.error || 'unknown error');
 
-        // remove row for snappy feel
+        // remove row; update counter
         row.remove();
-
-        // update counter
         const countEl = document.getElementById('pending-count');
-        if (countEl && typeof res.pending_count === 'number') {
-          countEl.textContent = res.pending_count;
-        }
+        if (countEl && typeof res.pending_count === 'number') countEl.textContent = res.pending_count;
 
-        // show empty state if none left
         if (!tbody.children.length) {
           const empty = document.createElement('div');
           empty.className = 'split-empty';
@@ -550,18 +540,15 @@ function buildPendingSplits(rows) {
           table.replaceWith(empty);
         }
 
-        // refresh history so the new event appears
-        loadSplitHistoryOnce();
-
+        loadSplitHistoryOnce(); // refresh history to show event
         notify(`Split ${action}ed`, true);
       } catch (err) {
         notify(`Failed to ${action} split: ${err.message || err}`, false);
-        row.querySelectorAll('.btn-chip').forEach(b => b.disabled = false);
+        row.querySelectorAll('.btn-split').forEach(b => b.disabled = false);
       }
     }
   });
 
-  // click-away to collapse
   document.addEventListener('click', (ev) => {
     if (!table.contains(ev.target)) collapseAll();
   }, { once: true });
@@ -569,7 +556,6 @@ function buildPendingSplits(rows) {
   box.appendChild(table);
   return box;
 }
-
 
 /* POST helper for force accept/decline – matches routes_admin.py */
 async function submitSplitAction(action, id) {
@@ -782,46 +768,42 @@ async function loadCogs(){
         });
       }
 
-      // actions
-      const group = document.createElement('div'); group.className = 'chip-group';
-      const mk = (label, cls, action) => {
-        const b = document.createElement('button');
-        b.className = `btn-chip ${cls}`;
-        b.textContent = label;
-        b.onclick = async () => {
-          try{
-            // show pending state
-            pill.className = 'pill pill-wait';
-            pill.textContent = 'Applying…';
+        // actions
+        const group = document.createElement('div');
+        group.className = 'chip-group--cog';
 
-            await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/${action}`, {
-              method:'POST', body: JSON.stringify({})
-            });
-            notify(`${action} queued for ${name}`);
-            postWebhookMessage(`wc ${action} ${name}`);
-
-            // small delay then re-check status
-            setTimeout(async () => {
+        const mk = (label, cls, action) => {
+          const b = document.createElement('button');
+          b.className = `btn-cog ${cls}`;
+          b.textContent = label;
+          b.onclick = async () => {
+            try{
+              pill.className = 'pill pill-wait';
+              pill.textContent = 'Applying…';
+              await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/${action}`, {
+                method:'POST', body: JSON.stringify({})
+              });
+              notify(`${action} queued for ${name}`);
+              postWebhookMessage(`wc ${action} ${name}`);
+              setTimeout(async () => {
+                const v = await getCogStatus(name);
+                if (typeof v === 'boolean') setPill(v);
+                else { pill.className='pill pill-off'; pill.textContent='Unknown'; }
+              }, 800);
+            }catch(e){
+              notify(`Cog ${action} failed: ${e.message}`, false);
               const v = await getCogStatus(name);
               if (typeof v === 'boolean') setPill(v);
               else { pill.className='pill pill-off'; pill.textContent='Unknown'; }
-            }, 800);
-          }catch(e){
-            notify(`Cog ${action} failed: ${e.message}`, false);
-            // revert to a safe state read
-            const v = await getCogStatus(name);
-            if (typeof v === 'boolean') setPill(v);
-            else { pill.className='pill pill-off'; pill.textContent='Unknown'; }
-          }
+            }
+          };
+          return b;
         };
-        return b;
-      };
 
-      group.appendChild(mk('reload','chip-reload','reload'));
-      group.appendChild(mk('load','chip-load','load'));
-      group.appendChild(mk('unload','chip-unload','unload'));
-
-      tdA.appendChild(group);
+        group.appendChild(mk('reload','cog-reload','reload'));
+        group.appendChild(mk('load','cog-load','load'));
+        group.appendChild(mk('unload','cog-unload','unload'));
+        tdA.appendChild(group);
       tr.appendChild(tdN); tr.appendChild(tdS); tr.appendChild(tdA);
       tbody.appendChild(tr);
     };

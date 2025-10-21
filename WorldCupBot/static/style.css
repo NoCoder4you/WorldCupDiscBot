@@ -1,3 +1,4 @@
+/* Source: :contentReference[oaicite:0]{index=0} */
 /* ===========================
    World Cup 2026 Panel - style.css
    Fixed version: proper admin gating + single active section
@@ -1064,3 +1065,61 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	display: flex;
 	gap: 8px;
 }
+
+/* ---------- SPLITS action chips (small, pill-sized) ---------- */
+.chip-group--split {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-split {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, transform 0.08s ease;
+}
+.btn-split:active { transform: scale(0.96); }
+.btn-split:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* color variants for splits */
+.split-accept { background: var(--accent); color: #07111c; }
+.split-decline { background: #c34242; color: #fff; }
+
+/* Keep splits cell compact */
+.col-status { width: 130px; text-align: center; white-space: nowrap; }
+
+/* ---------- COGS action chips (medium, comfy) ---------- */
+.chip-group--cog {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-cog {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: opacity 0.15s ease, transform 0.08s ease;
+}
+.btn-cog:active { transform: scale(0.97); }
+.btn-cog:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* color variants for cogs */
+.cog-reload  { background: #355789; color: #eaf1ff; }
+.cog-load    { background: var(--accent); color: #07111c; }
+.cog-unload  { background: #334154; color: var(--text); }
