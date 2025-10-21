@@ -287,6 +287,32 @@ def create_admin_routes(ctx):
                 names[str(uid_int)] = str(user)
         return names
 
+    def _resolve_usernames(bot, ids):
+        """Return {str(id): username} by peeking bot cache and guild members."""
+        names = {}
+        if not bot:
+            return names
+        for raw in ids:
+            if raw is None:
+                continue
+            try:
+                uid = int(raw)
+            except Exception:
+                continue
+
+            # 1) direct user cache
+            u = bot.get_user(uid)
+            if u:
+                names[str(uid)] = str(u) if hasattr(u, "discriminator") else u.name
+                continue
+
+            # 2) search member caches for display names
+            for g in getattr(bot, "guilds", []):
+                m = g.get_member(uid)
+                if m:
+                    names[str(uid)] = m.display_name or m.name
+                    break
+        return names
 
     @bp.get("/splits")
     def splits_get():
@@ -353,7 +379,7 @@ def create_admin_routes(ctx):
         if resp is not None:
             return resp
 
-        path = _split_requests_log_path()
+        path = os.path.join(_base_dir(ctx), "JSON", "split_requests_log.json")
         if not os.path.isfile(path):
             return jsonify({"events": []})
 
@@ -363,25 +389,56 @@ def create_admin_routes(ctx):
         except Exception as e:
             return jsonify({"error": f"failed to read split_requests_log.json: {e}"}), 500
 
-        # Normalize into a list of events
-        events = []
-        if isinstance(raw, list):
-            events = raw
-        elif isinstance(raw, dict) and isinstance(raw.get("events"), list):
+        # Normalize to a list of dicts
+        if isinstance(raw, dict) and isinstance(raw.get("events"), list):
             events = raw["events"]
+        elif isinstance(raw, list):
+            events = raw
         else:
-            # Unknown shape -> wrap once so frontend still shows something
             events = [raw]
 
-        # Optional limiting via query param ?limit=200
+        # Collect candidate IDs for name resolution
+        id_set = set()
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            for key in ("from", "requester_id", "requester", "from_id"):
+                if ev.get(key) is not None:
+                    id_set.add(str(ev.get(key)))
+            for key in ("to", "main_owner_id", "receiver", "to_id"):
+                if ev.get(key) is not None:
+                    id_set.add(str(ev.get(key)))
+
+        names = _resolve_usernames(ctx.get("bot"), id_set)
+
+        # Attach resolved names (leave IDs as fallback)
+        norm = []
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            req_id = (
+                    ev.get("from_username") or ev.get("requester_id") or
+                    ev.get("requester") or ev.get("from_id") or ev.get("from")
+            )
+            rec_id = (
+                    ev.get("to_username") or ev.get("main_owner_id") or
+                    ev.get("receiver") or ev.get("to_id") or ev.get("to")
+            )
+
+            ev_out = dict(ev)  # shallow copy
+            if req_id is not None:
+                ev_out["from_username"] = names.get(str(req_id), str(req_id))
+            if rec_id is not None:
+                ev_out["to_username"] = names.get(str(rec_id), str(rec_id))
+            norm.append(ev_out)
+
+        # Optional limit
         try:
             limit = int(request.args.get("limit", "200"))
         except Exception:
             limit = 200
-        events = events[-abs(limit):]
+        norm = norm[-abs(limit):]
 
-        return jsonify({"events": events})
-
-
+        return jsonify({"events": norm})
 
     return bp

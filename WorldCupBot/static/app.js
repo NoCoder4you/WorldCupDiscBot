@@ -584,9 +584,15 @@ function escapeHTML(s) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function fmtDateTime(x) {
-  const d = new Date(x);
+  let t = x;
+  if (typeof t === 'string' && /^\d+(\.\d+)?$/.test(t)) t = Number(t);
+  if (typeof t === 'number') {
+    // if it's likely seconds (<= 10^12), convert to ms
+    if (t < 1e12) t = t * 1000;
+  }
+  const d = new Date(t);
   if (Number.isNaN(d.getTime())) return '-';
-  const pad = n => String(n).padStart(2,'0');
+  const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
