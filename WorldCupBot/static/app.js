@@ -145,13 +145,13 @@
   }
 
 
-    // ===== Admin state helpers (REPLACE your existing adminUnlocked helpers with this) =====
-    let adminUnlocked = false;
+    // ===== Admin state (single source of truth) =====
+    window.adminUnlocked = false;
 
     function setAdminUI(unlocked) {
-      adminUnlocked = !!unlocked;
-      document.body.classList.toggle('admin', adminUnlocked);
-      // Re-render Ownership so admin-only bits refresh
+      window.adminUnlocked = !!unlocked;
+      document.body.classList.toggle('admin', window.adminUnlocked);
+      // If on Ownership, re-render so admin-only bits refresh
       if (document.querySelector('#ownership')?.classList.contains('active-section') && window.sortMerged) {
         sortMerged((window.ownershipState && ownershipState.lastSort) || 'country');
       }
@@ -169,7 +169,7 @@
       }
     }
 
-    // Call this once on load so a refresh keeps you logged in
+    // keep session in sync after refresh
     document.addEventListener('DOMContentLoaded', fetchAdminStatus);
 
     // Existing UI elements (works with your current modal + buttons)
@@ -353,7 +353,7 @@
 
   // --- OWNERSHIP ---
 
-    // ===== Load verified users from /api/verified (works with discord_id/habbo_name) =====
+    // ===== Load verified users from /api/verified =====
     function parseVerifiedPayload(payload) {
       if (!payload) return [];
       if (Array.isArray(payload)) return payload;
@@ -386,9 +386,11 @@
         });
         return list;
       } catch {
+        // if this throws, /api/verified is not returning JSON
         return [];
       }
     }
+
 
 
 
@@ -641,42 +643,39 @@ document.addEventListener('click', function (e) {
   document.getElementById('reassign-backdrop').style.display = 'flex';
 });
 
-    // ===== Reassign flow (REPLACE your existing handlers with this) =====
+    // ===== Reassign flow (gated, 2-step confirm) =====
     const reassignBackdrop = document.getElementById('reassign-backdrop');
     const reassignTeamInp  = document.getElementById('reassign-team');
     const reassignSelect   = document.getElementById('reassign-select');
     const reassignIdInp    = document.getElementById('reassign-id');
 
-    // 1) Open modal only if admin really unlocked (verify with server first)
+    // Open only if really admin (verify with server BEFORE opening)
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest?.('.reassign-btn');
       if (!btn) return;
 
-      // guard BEFORE opening modal
-      if (!adminUnlocked) {
-        const unlocked = await fetchAdminStatus();
-        if (!unlocked) {
-          notify('Admin required', false);
-          return; // do not open modal
-        }
+      // Re-sync session; if still locked, do not open modal
+      const unlocked = await fetchAdminStatus();
+      if (!unlocked) {
+        notify('Admin required', false);
+        return;
       }
 
-      const team = btn.getAttribute('data-team') || '';
-      reassignTeamInp.value = team;
+      reassignTeamInp.value = btn.getAttribute('data-team') || '';
       reassignIdInp.value = '';
       reassignSelect.value = '';
 
-      await loadVerifiedOptions();           // fill select from verified.json
+      await loadVerifiedOptions();      // populate select from /api/verified
       reassignBackdrop.style.display = 'flex';
     });
 
-    // 2) Keep manual ID in sync with the dropdown
+    // keep select and manual id in sync
     reassignSelect?.addEventListener('change', () => {
       const v = reassignSelect.value;
       if (v) reassignIdInp.value = v;
     });
 
-    // 3) Close/cancel
+    // close/cancel
     document.getElementById('reassign-close')?.addEventListener('click', () => {
       reassignBackdrop.style.display = 'none';
     });
@@ -684,13 +683,10 @@ document.addEventListener('click', function (e) {
       reassignBackdrop.style.display = 'none';
     });
 
-    // 4) Submit with a second-stage confirmation
+    // submit with second-stage confirmation
     document.getElementById('reassign-submit')?.addEventListener('click', async () => {
-      // double-check admin at submit
-      if (!adminUnlocked) {
-        const unlocked = await fetchAdminStatus();
-        if (!unlocked) return notify('Admin required', false);
-      }
+      const unlocked = await fetchAdminStatus();
+      if (!unlocked) return notify('Admin required', false);
 
       const team  = (reassignTeamInp.value || '').trim();
       const newId = (reassignIdInp.value  || '').trim();
@@ -715,7 +711,6 @@ document.addEventListener('click', function (e) {
 
         notify('Reassigned', true);
         reassignBackdrop.style.display = 'none';
-
         // refresh Ownership table
         if (window.initOwnership) {
           window.ownershipState.loaded = false;

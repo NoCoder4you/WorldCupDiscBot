@@ -327,7 +327,7 @@ def create_public_routes(ctx):
                 if owners is None: owners = []
                 if isinstance(owners, str): owners = [owners]
                 ownerships.append({"country": country, "owners": owners})
-        verified = _json_load(_verified_users_path(base), [])
+        verified = _json_load(_verified_path(base), [])
         return jsonify({"ownerships": ownerships, "verified_users": verified})
 
     # ---------- NEW: Ownership derived from players.json ----------
@@ -335,7 +335,7 @@ def create_public_routes(ctx):
     def api_player_names():
         base = ctx.get("BASE_DIR", "")
         players = _json_load(_players_path(base), {})
-        verified = _json_load(_verified_users_path(base), [])
+        verified = _json_load(_verified_path(base), [])
 
         out = {}
         if isinstance(players, dict):
@@ -497,7 +497,7 @@ def create_public_routes(ctx):
     @api.get("/verified")
     def verified_list():
         base = ctx.get("BASE_DIR","")
-        users = _json_load(_verified_users_path(base), [])
+        users = _json_load(_verified_path(base), [])
         return jsonify(users)
 
     # ---------- Split requests ----------
