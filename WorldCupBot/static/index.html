@@ -118,28 +118,61 @@
     <section id="ownership" class="page-section">
       <div class="ownership-card">
         <div class="ownership-header">
-          <div class="ownership-title">Team Ownership (from players.json)</div>
+          <div class="ownership-title">Team Ownership</div>
           <div class="ownership-actions">
-            <select id="player-filter">
-              <option value="">All players</option>
-            </select>
+            <button id="sort-country" class="btn btn-outline sm">Country A-Z</button>
+            <button id="sort-player" class="btn btn-outline sm">Player A-Z</button>
           </div>
         </div>
+
         <div class="ownership-table-scroll">
           <table class="ownership-table" id="ownership-table">
             <thead>
               <tr>
                 <th>Team</th>
-                <th>Main owner</th>
+                <th>Owner</th>
                 <th>Split with</th>
-                <th>Total owners</th>
+                <th class="admin-col" data-admin="true">Action</th>
               </tr>
             </thead>
             <tbody id="ownership-tbody"></tbody>
           </table>
         </div>
       </div>
+
+      <!-- Reassign Modal -->
+      <div class="modal-backdrop" id="reassign-backdrop">
+        <div class="modal">
+          <div class="modal-head">
+            <h3>Reassign Team</h3>
+            <button class="modal-x" id="reassign-close" aria-label="Close">✖</button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <label>Team</label>
+              <input id="reassign-team" type="text" readonly>
+            </div>
+
+            <div class="row">
+              <label for="reassign-select">Pick known player</label>
+              <select id="reassign-select">
+                <option value="">-- Select a player --</option>
+              </select>
+            </div>
+
+            <div class="row">
+              <label for="reassign-id">Or enter Discord ID</label>
+              <input id="reassign-id" type="text" placeholder="123456789012345678">
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" id="reassign-cancel">Cancel</button>
+            <button class="btn btn-restart" id="reassign-submit">Reassign</button>
+          </div>
+        </div>
+      </div>
     </section>
+
 
 
     <!-- COGS -->
