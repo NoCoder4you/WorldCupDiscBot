@@ -244,11 +244,6 @@ def create_admin_routes(ctx):
         return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
     def _append_split_history(event):
-        """
-        History file format:
-        Either a list [...events] or a dict {"events":[...]}
-        We preserve whichever format exists, and append one event.
-        """
         path = _split_requests_log_path()
         raw = _read_json(path, [])
         if isinstance(raw, dict):
@@ -281,7 +276,10 @@ def create_admin_routes(ctx):
 
     @bp.get("/auth/status")
     def auth_status():
-        return jsonify({"ok": True, "unlocked": bool(session.get(SESSION_KEY))})
+        resp = require_admin()
+        if resp is not None:
+            return jsonify({"unlocked": False})
+        return jsonify({"unlocked": True})
 
     # ---------- Config (webhook only) ----------
     @bp.get("/config")

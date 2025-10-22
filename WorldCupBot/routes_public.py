@@ -41,7 +41,7 @@ def _enqueue_command(base_dir, cmd: dict):
 
 def _bets_path(base_dir): return os.path.join(_json_dir(base_dir), "bets.json")
 def _ownership_path(base_dir): return os.path.join(_json_dir(base_dir), "ownership.json")
-def _verified_users_path(base_dir): return os.path.join(_json_dir(base_dir), "verified_users.json")
+def _verified_path(base_dir): return os.path.join(_json_dir(base_dir), "verified.json")
 def _guilds_path(base_dir): return os.path.join(_json_dir(base_dir), "guilds.json")
 def _split_requests_path(base_dir): return os.path.join(_json_dir(base_dir), "split_requests.json")
 def _players_path(base_dir): return os.path.join(_json_dir(base_dir), "players.json")
@@ -581,5 +581,11 @@ def create_public_routes(ctx):
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
         return jsonify({"ok": True, "restored": name})
+
+    @api.get("/verified")
+    def api_verified():
+        base = ctx.get("BASE_DIR", "")
+        data = _json_load(_verified_path(base), [])
+        return jsonify(data if data is not None else [])
 
     return [root, api]
