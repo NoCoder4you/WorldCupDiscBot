@@ -619,4 +619,94 @@ def create_admin_routes(ctx):
 
         return jsonify({"events": norm})
 
+    
+    # ---------- Ownership Reassign (admin) ----------
+    @bp.post("/ownership/reassign")
+    def ownership_reassign():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        data = request.get_json(silent=True) or {}
+        team = str(data.get("team") or "").strip()
+        new_owner_id = str(data.get("new_owner_id") or "").strip()
+        if not team or not new_owner_id:
+            return jsonify({"ok": False, "error": "team and new_owner_id required"}), 400
+
+        # Load players.json
+        players_path = _players_path()
+        raw = _read_json(players_path, {})
+        if not isinstance(raw, dict):
+            raw = {}
+
+        # Helper to normalize a team entry
+        def _mk_team_entry(owner_id):
+            return {
+                "team": team,
+                "ownership": {
+                    "main_owner": owner_id,
+                    "split_with": []
+                }
+            }
+
+        # Track if new owner already has an entry
+        found_on_new_owner = False
+
+        # 1) Update every occurrence of this team across all players:
+        #    - set main_owner to new_owner_id
+        #    - ensure split arrays do not include the new owner redundantly
+        for uid, pdata in list(raw.items()):
+            if not isinstance(pdata, dict):
+                continue
+            teams = pdata.get("teams") or []
+            changed = False
+            for entry in teams:
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("team")) != team:
+                    continue
+
+                own = entry.get("ownership") or {}
+                own["main_owner"] = new_owner_id
+
+                # Clean split list
+                splits = []
+                for sid in (own.get("split_with") or []):
+                    sid_s = str(sid)
+                    if sid_s and sid_s != new_owner_id:
+                        splits.append(sid_s)
+                own["split_with"] = splits
+                entry["ownership"] = own
+                changed = True
+
+                if str(uid) == new_owner_id:
+                    found_on_new_owner = True
+
+            if changed:
+                pdata["teams"] = teams
+                raw[str(uid)] = pdata
+
+        # 2) Ensure the new owner has a team entry; create if missing
+        if new_owner_id not in raw:
+            raw[new_owner_id] = {"username": raw.get(new_owner_id, {}).get("username") or str(new_owner_id), "teams": []}
+        if not found_on_new_owner:
+            pdata = raw.get(new_owner_id, {})
+            if not isinstance(pdata, dict):
+                pdata = {"username": str(new_owner_id)}
+            teams_list = pdata.get("teams") or []
+            # Check again to avoid duplicates
+            exists = any(isinstance(e, dict) and str(e.get("team")) == team for e in teams_list)
+            if not exists:
+                teams_list.append(_mk_team_entry(new_owner_id))
+            pdata["teams"] = teams_list
+            raw[new_owner_id] = pdata
+
+        # 3) Persist
+        _write_json_atomic(players_path, raw)
+
+        # 4) Queue a bot notification (optional)
+        _enqueue_command(ctx, "ownership_reassign", {"team": team, "new_owner_id": new_owner_id})
+
+        return jsonify({"ok": True, "team": team, "new_owner_id": new_owner_id})
+
     return bp

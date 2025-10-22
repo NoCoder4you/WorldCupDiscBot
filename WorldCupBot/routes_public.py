@@ -45,6 +45,7 @@ def _verified_users_path(base_dir): return os.path.join(_json_dir(base_dir), "ve
 def _guilds_path(base_dir): return os.path.join(_json_dir(base_dir), "guilds.json")
 def _split_requests_path(base_dir): return os.path.join(_json_dir(base_dir), "split_requests.json")
 def _players_path(base_dir): return os.path.join(_json_dir(base_dir), "players.json")
+def _teams_path(base_dir): return os.path.join(_json_dir(base_dir), "teams.json")
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
@@ -237,6 +238,16 @@ def create_public_routes(ctx):
             "ts": int(now)
         })
 
+    
+    @api.get("/teams")
+    def api_teams():
+        base = ctx.get("BASE_DIR","")
+        data = _json_load(_teams_path(base), [])
+        # Accept either list of strings or dict with key "teams"
+        if isinstance(data, dict) and "teams" in data:
+            return jsonify(data["teams"])
+        return jsonify(data if isinstance(data, list) else [])
+
     @api.get("/guilds")
     def api_guilds():
         data = _json_load(_guilds_path(ctx.get("BASE_DIR","")), {"guild_count": 0, "guilds": []})
@@ -371,29 +382,6 @@ def create_public_routes(ctx):
             })
 
         return jsonify({"rows": rows, "count": len(rows)})
-
-    @api.post("/ownership/update")
-    def ownership_update():
-        base = ctx.get("BASE_DIR","")
-        body = request.get_json(silent=True) or {}
-        country = (body.get("country") or "").strip()
-        owners = body.get("owners")
-        action = (body.get("action") or "reassign").lower()
-        if not country or owners is None:
-            return jsonify({"ok": False, "error": "country and owners required"}), 400
-        data = _json_load(_ownership_path(base), {})
-        if action == "reassign":
-            data[country] = owners
-        elif action == "split":
-            cur = data.get(country, [])
-            if isinstance(cur, str): cur = [cur]
-            for o in owners:
-                if o not in cur: cur.append(o)
-            data[country] = cur
-        else:
-            data[country] = owners
-        _json_save(_ownership_path(base), data)
-        return jsonify({"ok": True})
 
     @api.get("/verified")
     def verified_list():
