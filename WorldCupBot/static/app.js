@@ -390,35 +390,57 @@ function sortMerged(by) {
 
 async function initOwnership() {
   try {
-    const [rowsObj, teams, names] = await Promise.all([
-      fetchOwnershipRows(),
-      fetchTeamsList(),
-      fetch('/api/player_names').then(r => r.ok ? r.json() : {}).catch(() => ({}))
-    ]);
-    playerNames = names || {};
-    ownershipState.rows = rowsObj.rows || [];
-    ownershipState.teams = teams;
+    // 1) Try merged endpoint first
+    let merged = null;
+    try {
+      const r = await fetch('/api/ownership_merged');
+      if (r.ok) {
+        const j = await r.json();
+        merged = Array.isArray(j.rows) ? j.rows : null;
+      }
+    } catch (_) { /* ignore; we will fall back */ }
 
-    const mergedData = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
+    // 2) Fallback to old two-call flow
+    if (!merged) {
+      const [rowsObj, teams] = await Promise.all([
+        fetchOwnershipRows(),     // GET /api/ownership_from_players
+        fetchTeamsList()          // GET /api/teams (or infer)
+      ]);
+      merged = mergeTeamsWithOwnership(teams, rowsObj.rows || []);
+    }
 
-    // Fill in missing usernames using playerNames
-    mergedData.merged.forEach(r => {
-      if (r.main_owner && !r.main_owner.username) {
-        r.main_owner.username = playerNames[r.main_owner.id] || r.main_owner.id;
+    // Optional: hydrate names if endpoint exists
+    let names = {};
+    try {
+      const nr = await fetch('/api/player_names');
+      if (nr.ok) names = await nr.json();
+    } catch (_) {}
+
+    // Normalize to one array "list"
+    const list = Array.isArray(merged.merged) ? merged.merged : merged;
+
+    list.forEach(r => {
+      if (r.main_owner) {
+        r.main_owner.username = r.main_owner.username || names[r.main_owner.id] || r.main_owner.id;
       }
       (r.split_with || []).forEach(s => {
-        if (!s.username) s.username = playerNames[s.id] || s.id;
+        s.username = s.username || names[s.id] || s.id;
       });
     });
 
-    ownershipState.merged = mergedData.merged;
-    ownershipState.playerList = mergedData.playerList.length
-      ? mergedData.playerList
-      : Object.entries(playerNames).map(([id, username]) => ({ id, username }));
+    ownershipState.merged = list;
     ownershipState.loaded = true;
 
-    sortMerged('country');
-    fillReassignSelect(ownershipState.playerList);
+    sortMerged(ownershipState.lastSort || 'country');
+    // if you populate a reassign select:
+    if (typeof fillReassignSelect === 'function') {
+      const uniqueNames = {};
+      list.forEach(r => {
+        if (r.main_owner) uniqueNames[r.main_owner.id] = r.main_owner.username;
+        (r.split_with || []).forEach(s => uniqueNames[s.id] = s.username);
+      });
+      fillReassignSelect(Object.entries(uniqueNames).map(([id, username]) => ({ id, username })));
+    }
   } catch (e) {
     console.error('[ownership:init]', e);
     notify('Failed to load ownership data', false);
