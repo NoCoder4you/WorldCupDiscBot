@@ -258,54 +258,102 @@
     qs('#ping-value').textContent = isFinite(ms) ? `${ms} ms` : '-- ms';
   }
 
-  // --- OWNERSHIP ---
-  function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
-  function ensureSectionCard(id, title, controls){
-    const sec = qs(`#${id}`); sec.innerHTML='';
-    const wrap = document.createElement('div'); wrap.className='table-wrap';
-    const head = document.createElement('div'); head.className='table-head';
-    head.innerHTML = `<div class="table-title">${title}</div><div class="table-actions"></div>`;
-    const actions = head.querySelector('.table-actions');
-    (controls||[]).forEach(([label, meta])=>{
-      if(meta && meta.kind==='input'){
-        const inp = document.createElement('input'); inp.type='text'; inp.id=meta.id; inp.placeholder=meta.placeholder||'';
-        actions.appendChild(inp);
-      }else if(meta && meta.kind==='select'){
-        const sel=document.createElement('select'); sel.id=meta.id;
-        (meta.items||[]).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-        actions.appendChild(sel);
-      }else{
-        const btn = document.createElement('button'); btn.className='btn'; if(meta?.id) btn.id=meta.id; btn.textContent=label; actions.appendChild(btn);
-      }
+// ---------- Ownership (players.json) ----------
+let ownershipCache = null;
+let ownershipLoaded = false;
+
+// Renders the ownership table
+function renderOwnership(rows) {
+  const tbody = qs('#ownership-tbody');
+  tbody.innerHTML = '';
+  const filterVal = qs('#player-filter').value.trim().toLowerCase();
+
+  // Loop through each ownership row
+  rows.forEach(row => {
+    const main = row.main_owner;
+    const splits = row.split_with || [];
+
+    // Optional player filtering
+    if (filterVal) {
+      const hay = [
+        main?.username || '', main?.id || '',
+        ...splits.map(s => s.username || ''),
+        ...splits.map(s => s.id || '')
+      ].join(' ').toLowerCase();
+      if (!hay.includes(filterVal)) return;
+    }
+
+    // Build table row
+    const tr = document.createElement('tr');
+    if (!main?.id) tr.classList.add('row-unassigned');
+
+    const splitStr = splits.length
+      ? splits.map(s => s.username || s.id).join(', ')
+      : '—';
+
+    tr.innerHTML = `
+      <td>${row.country}</td>
+      <td class="owners">${
+        main?.username
+          ? `${main.username} <span class="muted">(${main.id})</span>`
+          : '<span class="muted">Unassigned</span>'
+      }</td>
+      <td>${splitStr}</td>
+      <td>${row.owners_count}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Populates the player filter dropdown
+function populateFilter(rows) {
+  const select = qs('#player-filter');
+  const set = new Set();
+
+  rows.forEach(r => {
+    if (r.main_owner?.username) set.add(`${r.main_owner.username}`);
+    (r.split_with || []).forEach(s => {
+      if (s.username) set.add(`${s.username}`);
     });
-    const scroll = document.createElement('div'); scroll.className='table-scroll';
-    wrap.appendChild(head); wrap.appendChild(scroll); sec.appendChild(wrap);
-    return wrap;
+  });
+
+  const options = Array.from(set)
+    .sort()
+    .map(n => `<option value="${n}">${n}</option>`)
+    .join('');
+
+  select.innerHTML = `<option value="">All players</option>${options}`;
+  select.addEventListener('change', () => renderOwnership(ownershipCache.rows));
+}
+
+// Fetches ownership data from the backend
+async function fetchOwnership() {
+  try {
+    const r = await fetch('/api/ownership_from_players');
+    const j = await r.json();
+    ownershipCache = j;
+    ownershipLoaded = true;
+    populateFilter(j.rows);
+    renderOwnership(j.rows);
+  } catch (e) {
+    notify('Failed to load ownership', false);
   }
-  async function loadOwnershipPage(){
-    try{
-      const d = await fetchJSON('/api/ownerships');
-      const wrap = ensureSectionCard('ownership','Ownership',[
-        ['Filter',{kind:'input',id:'own-filter',placeholder:'Search name, id, country'}],
-      ]);
-      const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
-      const table=document.createElement('table'); table.className='table';
-      table.innerHTML='<thead><tr><th>Country</th><th>Owners</th></tr></thead><tbody></tbody>';
-      scroll.appendChild(table);
-      const filter=qs('#own-filter'); filter.value = localStorage.getItem('wc:ownQ') || '';
-      function draw(){
-        const q=(filter.value||'').toLowerCase();
-        localStorage.setItem('wc:ownQ', q);
-        const tbody=table.querySelector('tbody'); tbody.innerHTML='';
-        (d.ownerships||[]).forEach(r=>{
-          const country=r.country||''; const owners=(r.owners||[]).join(', ');
-          const hay=(country+' '+owners).toLowerCase(); if(q && !hay.includes(q)) return;
-          const tr=document.createElement('tr'); tr.innerHTML=`<td>${escapeHtml(country)}</td><td>${escapeHtml(owners)}</td>`; tbody.appendChild(tr);
-        });
-      }
-      filter.oninput=draw; draw();
-    }catch(e){ notify(`Ownership error: ${e.message}`, false); }
-  }
+}
+
+// Router hook - triggers ownership fetch only on first visit
+function showPage(id) {
+  qsa('section.page-section, section.dashboard')
+    .forEach(s => s.classList.remove('active-section'));
+  const sec = qs(`#${id}`);
+  if (sec) sec.classList.add('active-section');
+  qsa('.menu a').forEach(a =>
+    a.classList.toggle('active', a.dataset.page === id)
+  );
+
+  // Fetch ownership when visiting page for the first time
+  if (id === 'ownership' && !ownershipLoaded) fetchOwnership();
+}
+
 
   // --- BETS + Admin pages unchanged (same as previous message) ---
   async function loadBets(){

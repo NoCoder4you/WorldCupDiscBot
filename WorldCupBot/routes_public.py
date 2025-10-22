@@ -44,6 +44,7 @@ def _ownership_path(base_dir): return os.path.join(_json_dir(base_dir), "ownersh
 def _verified_users_path(base_dir): return os.path.join(_json_dir(base_dir), "verified_users.json")
 def _guilds_path(base_dir): return os.path.join(_json_dir(base_dir), "guilds.json")
 def _split_requests_path(base_dir): return os.path.join(_json_dir(base_dir), "split_requests.json")
+def _players_path(base_dir): return os.path.join(_json_dir(base_dir), "players.json")
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
@@ -306,7 +307,7 @@ def create_public_routes(ctx):
         _enqueue_command(base, {"kind": "bet_settle", "bet_id": bet_id, "winner_id": str(winner_id)})
         return jsonify({"ok": True})
 
-    # ---------- Ownerships and verification ----------
+    # ---------- Ownerships and verification (legacy ownership.json) ----------
     @api.get("/ownerships")
     def ownerships_get():
         base = ctx.get("BASE_DIR","")
@@ -319,6 +320,57 @@ def create_public_routes(ctx):
                 ownerships.append({"country": country, "owners": owners})
         verified = _json_load(_verified_users_path(base), [])
         return jsonify({"ownerships": ownerships, "verified_users": verified})
+
+    # ---------- NEW: Ownership derived from players.json ----------
+    @api.get("/ownership_from_players")
+    def ownership_from_players():
+        base = ctx.get("BASE_DIR","")
+        players = _json_load(_players_path(base), {})
+        # Build quick id->username
+        id_to_name = {}
+        for uid, pdata in players.items():
+            name = pdata.get("username") or uid
+            id_to_name[str(uid)] = name
+
+        # country -> {main_owner: id, split_with:[ids]}
+        country_map = {}
+        for uid, pdata in players.items():
+            for entry in pdata.get("teams", []):
+                if isinstance(entry, dict):
+                    team = entry.get("team")
+                    own = (entry.get("ownership") or {})
+                    main_owner = own.get("main_owner")
+                    split_with = own.get("split_with") or []
+                    if team:
+                        rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
+                        # Prefer the entry whose main_owner matches this uid
+                        if main_owner is not None:
+                            if rec["main_owner"] is None or str(main_owner) == str(uid):
+                                rec["main_owner"] = main_owner
+                        # merge splits
+                        for sid in split_with:
+                            s = str(sid)
+                            if s not in [str(x) for x in rec["split_with"]]:
+                                rec["split_with"].append(sid)
+
+        # Build rows
+        rows = []
+        for team, rec in sorted(country_map.items(), key=lambda x: x[0].lower()):
+            main_id = rec.get("main_owner")
+            split_ids = [str(x) for x in rec.get("split_with") or []]
+            rows.append({
+                "country": team,
+                "main_owner": {
+                    "id": str(main_id) if main_id is not None else None,
+                    "username": id_to_name.get(str(main_id)) if main_id is not None else None
+                },
+                "split_with": [
+                    {"id": sid, "username": id_to_name.get(sid)} for sid in split_ids if sid and sid != str(main_id)
+                ],
+                "owners_count": 1 + len([sid for sid in split_ids if sid and sid != str(main_id)])
+            })
+
+        return jsonify({"rows": rows, "count": len(rows)})
 
     @api.post("/ownership/update")
     def ownership_update():

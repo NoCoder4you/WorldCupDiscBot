@@ -115,7 +115,34 @@
     <section id="log" class="page-section admin-only"></section>
 
     <!-- OWNERSHIP -->
-    <section id="ownership" class="page-section"></section>
+    
+    <!-- OWNERSHIP -->
+    <section id="ownership" class="page-section">
+      <div class="ownership-card">
+        <div class="ownership-header">
+          <div class="ownership-title">Team Ownership (from players.json)</div>
+          <div class="ownership-actions">
+            <select id="player-filter">
+              <option value="">All players</option>
+            </select>
+          </div>
+        </div>
+        <div class="ownership-table-scroll">
+          <table class="ownership-table" id="ownership-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>Main owner</th>
+                <th>Split with</th>
+                <th>Total owners</th>
+              </tr>
+            </thead>
+            <tbody id="ownership-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
 
     <!-- COGS -->
     <section id="cogs" class="page-section admin-only"></section>
