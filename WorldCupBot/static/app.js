@@ -145,19 +145,18 @@
   }
 
 
-    // ---------- ADMIN LOGIN / LOGOUT ----------
+    // ===== Admin state helpers (REPLACE your existing adminUnlocked helpers with this) =====
     let adminUnlocked = false;
 
     function setAdminUI(unlocked) {
       adminUnlocked = !!unlocked;
       document.body.classList.toggle('admin', adminUnlocked);
-      // re-render Ownership so ID parentheses appear/disappear for admins
+      // Re-render Ownership so admin-only bits refresh
       if (document.querySelector('#ownership')?.classList.contains('active-section') && window.sortMerged) {
         sortMerged((window.ownershipState && ownershipState.lastSort) || 'country');
       }
     }
 
-    // query server to sync admin session state
     async function fetchAdminStatus() {
       try {
         const r = await fetch('/admin/auth/status', { credentials: 'include' });
@@ -169,6 +168,9 @@
         return false;
       }
     }
+
+    // Call this once on load so a refresh keeps you logged in
+    document.addEventListener('DOMContentLoaded', fetchAdminStatus);
 
     // Existing UI elements (works with your current modal + buttons)
     const loginBtn  = document.querySelector('#admin-button');          // login/open modal button
@@ -351,23 +353,18 @@
 
   // --- OWNERSHIP ---
 
-// ===== Verified users loader (supports multiple shapes) =====
+    // ===== Load verified users from /api/verified (works with discord_id/habbo_name) =====
     function parseVerifiedPayload(payload) {
-      // Accept: {verified_users:[{discord_id,habbo_name}, ...]}
-      // or a raw list of objects with id/username/display_name
       if (!payload) return [];
       if (Array.isArray(payload)) return payload;
       if (payload.verified_users && Array.isArray(payload.verified_users)) return payload.verified_users;
       return [];
     }
-
     function normalizeVerifiedItem(item) {
-      // Map to { id, name }
-      const id  = item.discord_id || item.id || item.user_id || item.discordId || item.uid || '';
-      const nm  = item.habbo_name || item.username || item.display_name || item.name || String(id);
+      const id = item.discord_id || item.id || item.user_id || item.discordId || item.uid || '';
+      const nm = item.habbo_name || item.username || item.display_name || item.name || String(id);
       return id ? { id: String(id), name: String(nm) } : null;
     }
-
     async function loadVerifiedOptions() {
       try {
         const r = await fetch('/api/verified', { credentials: 'include' });
@@ -380,12 +377,11 @@
         const sel = document.getElementById('reassign-select');
         if (!sel) return list;
 
-        // Rebuild options
         sel.innerHTML = '<option value="">-- Select a player --</option>';
         list.forEach(({id, name}) => {
           const opt = document.createElement('option');
           opt.value = id;
-          opt.textContent = name + ' (' + id + ')';
+          opt.textContent = `${name} (${id})`;
           sel.appendChild(opt);
         });
         return list;
@@ -393,6 +389,7 @@
         return [];
       }
     }
+
 
 
   function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
@@ -644,21 +641,24 @@ document.addEventListener('click', function (e) {
   document.getElementById('reassign-backdrop').style.display = 'flex';
 });
 
-    // ===== Reassign flow =====
+    // ===== Reassign flow (REPLACE your existing handlers with this) =====
     const reassignBackdrop = document.getElementById('reassign-backdrop');
     const reassignTeamInp  = document.getElementById('reassign-team');
     const reassignSelect   = document.getElementById('reassign-select');
     const reassignIdInp    = document.getElementById('reassign-id');
 
-    // Open modal when clicking any Reassign button
+    // 1) Open modal only if admin really unlocked (verify with server first)
     document.addEventListener('click', async (e) => {
       const btn = e.target.closest?.('.reassign-btn');
       if (!btn) return;
 
-      // Ensure admin session is truly unlocked
+      // guard BEFORE opening modal
       if (!adminUnlocked) {
         const unlocked = await fetchAdminStatus();
-        if (!unlocked) return notify('Admin required', false);
+        if (!unlocked) {
+          notify('Admin required', false);
+          return; // do not open modal
+        }
       }
 
       const team = btn.getAttribute('data-team') || '';
@@ -666,17 +666,17 @@ document.addEventListener('click', function (e) {
       reassignIdInp.value = '';
       reassignSelect.value = '';
 
-      await loadVerifiedOptions();              // populate the select from /api/verified
-      reassignBackdrop.style.display = 'flex';  // show modal
+      await loadVerifiedOptions();           // fill select from verified.json
+      reassignBackdrop.style.display = 'flex';
     });
 
-    // keep select and manual id input in sync
+    // 2) Keep manual ID in sync with the dropdown
     reassignSelect?.addEventListener('change', () => {
       const v = reassignSelect.value;
       if (v) reassignIdInp.value = v;
     });
 
-    // modal close/cancel
+    // 3) Close/cancel
     document.getElementById('reassign-close')?.addEventListener('click', () => {
       reassignBackdrop.style.display = 'none';
     });
@@ -684,8 +684,9 @@ document.addEventListener('click', function (e) {
       reassignBackdrop.style.display = 'none';
     });
 
-    // submit reassignment with second-stage confirm
+    // 4) Submit with a second-stage confirmation
     document.getElementById('reassign-submit')?.addEventListener('click', async () => {
+      // double-check admin at submit
       if (!adminUnlocked) {
         const unlocked = await fetchAdminStatus();
         if (!unlocked) return notify('Admin required', false);
@@ -698,8 +699,8 @@ document.addEventListener('click', function (e) {
       if (!team || !newId) return notify('Team and new owner ID required', false);
 
       const question =
-        'Reassign "' + team + '" to ' + (name || newId) + '?\n\n' +
-        'This will set a new main owner and clear all splits for this team.';
+        `Reassign "${team}" to ${name || newId}?\n\n` +
+        `This will set a new main owner and clear all splits for this team.`;
       if (!window.confirm(question)) return;
 
       try {
@@ -724,6 +725,7 @@ document.addEventListener('click', function (e) {
         notify('Network error', false);
       }
     });
+
 
 // Back-compat shim
 function loadOwnershipPage() {
