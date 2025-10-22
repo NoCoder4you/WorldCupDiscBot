@@ -1368,3 +1368,83 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 /* consistent row height */
 #ownership .ownership-table tbody tr { height: 48px; }
+
+/* === Ownership layout fix (final header alignment) === */
+#ownership .ownership-card {
+  width: 100%;
+  max-width: 1320px;
+  margin: 24px auto;
+  overflow: hidden;
+}
+
+#ownership .ownership-table-scroll {
+  width: 100%;
+  overflow-x: auto;          /* scroll wrapper handles overflow again */
+}
+
+#ownership .ownership-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* --- Columns --- */
+#ownership .ownership-table th:nth-child(1),
+#ownership .ownership-table td:nth-child(1) { width: 30%; }
+#ownership .ownership-table th:nth-child(2),
+#ownership .ownership-table td:nth-child(2) { width: 36%; }
+#ownership .ownership-table th:nth-child(3),
+#ownership .ownership-table td:nth-child(3) { width: 24%; }
+#ownership .ownership-table th:nth-child(4),
+#ownership .ownership-table td:nth-child(4) { width: 10%; }
+
+/* --- Cells --- */
+#ownership .ownership-table th,
+#ownership .ownership-table td {
+  padding: 10px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--border);
+}
+
+#ownership .ownership-table th {
+  text-align: left;
+  font-weight: 900;
+  color: var(--muted);
+  background: rgba(8,14,22,0.96);
+  backdrop-filter: saturate(1.2) blur(4px);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* --- Column-specific --- */
+#ownership .ownership-table td:first-child,
+#ownership .ownership-table th:first-child { padding-left: 16px; }
+#ownership .ownership-table td:nth-child(4),
+#ownership .ownership-table th:nth-child(4) {
+  text-align: right;
+  padding-right: 16px;
+}
+
+#ownership .ownership-table td:nth-child(3) { color: var(--muted); }
+
+/* --- Misc --- */
+#ownership .ownership-table tbody tr { height: 46px; }
+#ownership .ownership-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+#ownership .ownership-table tbody tr:hover { background: rgba(77,164,255,0.08); }
+
+#ownership .reassign-btn.btn.xs { min-width: 88px; }
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  #ownership .ownership-table th:nth-child(1),
+  #ownership .ownership-table td:nth-child(1) { width: 34%; }
+  #ownership .ownership-table th:nth-child(2),
+  #ownership .ownership-table td:nth-child(2) { width: 42%; }
+  #ownership .ownership-table th:nth-child(3),
+  #ownership .ownership-table td:nth-child(3) { width: 14%; }
+  #ownership .ownership-table th:nth-child(4),
+  #ownership .ownership-table td:nth-child(4) { width: 10%; }
+}
