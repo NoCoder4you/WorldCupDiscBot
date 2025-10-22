@@ -63,23 +63,99 @@
   }
   function wireTheme(){ $themeToggle.addEventListener('click', ()=>setTheme(state.theme==='light'?'dark':'light')); }
 
-  function setAdminMode(on){
-    state.admin = on;
-    document.body.classList.toggle('admin', on);
-    $fabIcon.textContent = on ? '⚙️' : '🔑';
-    const title = qs('#modal-title');
-    const body = qs('#modal-body');
-    const btn = $btnSubmit;
-    if(on){
-      title.textContent = 'Admin';
-      body.innerHTML = '<p>You are logged in.</p>';
-      btn.textContent = 'Logout'; btn.dataset.action='logout';
-    }else{
-      title.textContent = 'Admin login';
-      body.innerHTML = '<label for="admin-password">Password</label><input type="password" id="admin-password" placeholder="Enter admin password">';
-      btn.textContent = 'Unlock'; btn.dataset.action='login';
+// ===== Admin auth state + modal wiring =====
+    let adminUnlocked = false;
+
+    function setAdminUI(unlocked) {
+      adminUnlocked = !!unlocked;
+      document.body.classList.toggle('admin', adminUnlocked);
+      // re-render ownership so IDs appear/disappear for admins
+      if (document.querySelector('#ownership').classList.contains('active-section') && window.sortMerged) {
+        sortMerged((window.ownershipState && ownershipState.lastSort) || 'country');
+      }
     }
-  }
+
+    async function fetchAdminStatus() {
+      try {
+        const r = await fetch('/admin/auth/status', { credentials: 'include' });
+        const j = await r.json();
+        setAdminUI(!!j.unlocked);
+        return !!j.unlocked;
+      } catch {
+        setAdminUI(false);
+        return false;
+      }
+    }
+
+    // Floating auth button + modal
+    const fabAuth    = document.getElementById('fab-auth');
+    const authBack   = document.getElementById('auth-backdrop');
+    const authCancel = document.getElementById('auth-cancel');
+    const authSubmit = document.getElementById('auth-submit');
+    const authPw     = document.getElementById('admin-password');
+    const fabIcon    = document.getElementById('fab-icon');
+
+    function notify(msg, ok = false) {
+      const bar = document.getElementById('notify');
+      const el = document.createElement('div');
+      el.className = 'notice ' + (ok ? 'ok' : 'err');
+      el.textContent = msg;
+      bar.appendChild(el);
+      setTimeout(() => el.remove(), 2200);
+    }
+
+    fabAuth?.addEventListener('click', async () => {
+      // If already unlocked, clicking the key will lock
+      if (adminUnlocked) {
+        try {
+          const r = await fetch('/admin/auth/logout', { method: 'POST', credentials: 'include' });
+          if (r.ok) {
+            setAdminUI(false);
+            notify('Locked', true);
+            fabIcon.textContent = '🔑';
+          } else {
+            notify('Logout failed', false);
+          }
+        } catch {
+          notify('Network error', false);
+        }
+        return;
+      }
+      // else open login modal
+      authBack.style.display = 'flex';
+      authPw.value = '';
+      authPw.focus();
+    });
+
+    authCancel?.addEventListener('click', () => {
+      authBack.style.display = 'none';
+    });
+
+    authSubmit?.addEventListener('click', async () => {
+      try {
+        const r = await fetch('/admin/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ password: authPw.value || '' })
+        });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j.ok) {
+          setAdminUI(true);
+          notify('Admin unlocked', true);
+          authBack.style.display = 'none';
+          fabIcon.textContent = '🔓';
+        } else {
+          notify(j.error || 'Invalid credentials', false);
+        }
+      } catch {
+        notify('Network error', false);
+      }
+    });
+
+    // Check session on load so admin state survives a refresh
+    document.addEventListener('DOMContentLoaded', fetchAdminStatus);
+
 
   function openModal(){ $backdrop.style.display='flex'; if(!state.admin){ const i=qs('#admin-password'); i&&setTimeout(()=>i.focus(),50);} }
   function closeModal(){ $backdrop.style.display='none'; }
@@ -330,6 +406,51 @@
   }
 
   // --- OWNERSHIP ---
+
+// ===== Verified users loader (supports multiple shapes) =====
+    function parseVerifiedPayload(payload) {
+      // Accept: {verified_users:[{discord_id,habbo_name}, ...]}
+      // or a raw list of objects with id/username/display_name
+      if (!payload) return [];
+      if (Array.isArray(payload)) return payload;
+      if (payload.verified_users && Array.isArray(payload.verified_users)) return payload.verified_users;
+      return [];
+    }
+
+    function normalizeVerifiedItem(item) {
+      // Map to { id, name }
+      const id  = item.discord_id || item.id || item.user_id || item.discordId || item.uid || '';
+      const nm  = item.habbo_name || item.username || item.display_name || item.name || String(id);
+      return id ? { id: String(id), name: String(nm) } : null;
+    }
+
+    async function loadVerifiedOptions() {
+      try {
+        const r = await fetch('/api/verified', { credentials: 'include' });
+        const raw = await r.json();
+        const list = parseVerifiedPayload(raw)
+          .map(normalizeVerifiedItem)
+          .filter(Boolean)
+          .sort((a,b) => a.name.localeCompare(b.name));
+
+        const sel = document.getElementById('reassign-select');
+        if (!sel) return list;
+
+        // Rebuild options
+        sel.innerHTML = '<option value="">-- Select a player --</option>';
+        list.forEach(({id, name}) => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = name + ' (' + id + ')';
+          sel.appendChild(opt);
+        });
+        return list;
+      } catch {
+        return [];
+      }
+    }
+
+
   function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
   function ensureSectionCard(id, title, controls){
     const sec = qs(`#${id}`); sec.innerHTML='';
@@ -543,36 +664,93 @@ document.addEventListener('click', function (e) {
   document.getElementById('reassign-backdrop').style.display = 'flex';
 });
 
-// Modal close + helpers
-var rb = document.getElementById('reassign-backdrop');
-var rclose = document.getElementById('reassign-close');
-var rcancel = document.getElementById('reassign-cancel');
-if (rclose) rclose.addEventListener('click', function () { rb.style.display = 'none'; });
-if (rcancel) rcancel.addEventListener('click', function () { rb.style.display = 'none'; });
-if (rb) rb.addEventListener('click', function (e) { if (e.target && e.target.id === 'reassign-backdrop') rb.style.display = 'none'; });
-var rselect = document.getElementById('reassign-select');
-if (rselect) rselect.addEventListener('change', function () {
-  var v = rselect.value;
-  if (v) document.getElementById('reassign-id').value = v;
+// ===== Reassign flow =====
+const reassignBackdrop = document.getElementById('reassign-backdrop');
+const reassignTeamInp  = document.getElementById('reassign-team');
+const reassignSelect   = document.getElementById('reassign-select');
+const reassignIdInp    = document.getElementById('reassign-id');
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest?.('.reassign-btn');
+  if (!btn) return;
+
+  // If we *think* you’re logged out, recheck with the server before blocking you
+  if (!adminUnlocked) {
+    const unlocked = await fetchAdminStatus();
+    if (!unlocked) {
+      notify('Admin required', false);
+      return;
+    }
+  }
+
+  // Open modal and prefill
+  const team = btn.getAttribute('data-team') || '';
+  reassignTeamInp.value = team;
+  reassignIdInp.value = '';
+  reassignSelect.value = '';
+
+  // Load verified users into the select
+  await loadVerifiedOptions();
+
+  reassignBackdrop.style.display = 'flex';
 });
-var rsubmit = document.getElementById('reassign-submit');
-if (rsubmit) rsubmit.addEventListener('click', function () {
-  if (!window.adminUnlocked) return notify('Admin required', false);
-  var team = (document.getElementById('reassign-team').value || '').trim();
-  var newId = (document.getElementById('reassign-id').value || '').trim();
-  if (!team || !newId) return notify('Team and new owner ID required', false);
-  fetch('/admin/ownership/reassign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ team: team, new_owner_id: newId })
-  }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, body: j }; }); })
-    .then(function (res) {
-      if (!res.ok || res.body.ok === false) return notify(res.body.error || 'Reassign failed', false);
-      notify('Reassigned', true);
-      document.getElementById('reassign-backdrop').style.display = 'none';
-      ownershipState.loaded = false;
-      initOwnership();
-    }).catch(function () { notify('Network error', false); });
+
+// keep select and id in sync
+reassignSelect?.addEventListener('change', () => {
+  const v = reassignSelect.value;
+  if (v) reassignIdInp.value = v;
+});
+
+document.getElementById('reassign-close')?.addEventListener('click', () => {
+  reassignBackdrop.style.display = 'none';
+});
+document.getElementById('reassign-cancel')?.addEventListener('click', () => {
+  reassignBackdrop.style.display = 'none';
+});
+
+document.getElementById('reassign-submit')?.addEventListener('click', async () => {
+  if (!adminUnlocked) {
+    const unlocked = await fetchAdminStatus();
+    if (!unlocked) return notify('Admin required', false);
+  }
+
+  const team  = (reassignTeamInp.value || '').trim();
+  const newId = (reassignIdInp.value || '').trim();
+  const name  = (reassignSelect.selectedOptions[0]?.textContent || '').trim();
+
+  if (!team || !newId) {
+    notify('Team and new owner ID required', false);
+    return;
+  }
+
+  // 2nd stage confirm
+  const question =
+    `Reassign "${team}" to ${name || newId}?\n\n` +
+    `This will set a new main owner and clear all splits for this team.`;
+  if (!window.confirm(question)) return;
+
+  try {
+    const r = await fetch('/admin/ownership/reassign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ team, new_owner_id: newId })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) {
+      notify(j.error || 'Reassign failed', false);
+      return;
+    }
+    notify('Reassigned', true);
+    reassignBackdrop.style.display = 'none';
+    // Refresh the ownership table
+    if (window.initOwnership) {
+      window.ownershipState.loaded = false;
+      await window.initOwnership();
+    }
+  } catch {
+    notify('Network error', false);
+  }
 });
 
 // Back-compat shim
