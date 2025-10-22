@@ -684,7 +684,7 @@ document.addEventListener('click', function (e) {
     });
 
     document.getElementById('reassign-submit')?.addEventListener('click', async () => {
-      // check admin
+      // verify admin
       const unlocked = await fetchAdminStatus();
       if (!unlocked) return notify('Admin required', false);
 
@@ -710,7 +710,7 @@ document.addEventListener('click', function (e) {
           return;
         }
 
-        // success: close modal, toast, refresh Ownership table
+        // Close modal, toast success, and refresh the table content
         document.getElementById('reassign-backdrop').style.display = 'none';
         notify(`Reassigned ${team} to ${name || newId}`, true);
         await refreshOwnershipNow();
@@ -721,19 +721,69 @@ document.addEventListener('click', function (e) {
 
 
 
-// Refresh Ownership table after mutations
+
+// ---- Hard refresh of the Ownership table (self-contained) ----
 async function refreshOwnershipNow() {
-  // optional: disable buttons briefly to prevent double clicks
-  document.querySelectorAll('.reassign-btn').forEach(b => b.disabled = true);
   try {
-    if (window.ownershipState) ownershipState.loaded = false;
-    if (window.initOwnership) await initOwnership(); // this re-sorts using lastSort
-    // broadcast for any other widgets that might care
-    document.dispatchEvent(new CustomEvent('ownership:updated'));
+    // Disable buttons briefly to avoid double clicks
+    document.querySelectorAll('.reassign-btn').forEach(b => b.disabled = true);
+
+    // 1) Get merged rows (all countries, owners, splits)
+    const r = await fetch('/api/ownership_merged', { credentials: 'include' });
+    const merged = r.ok ? (await r.json()).rows : null;
+
+    if (!Array.isArray(merged)) {
+      // Fallback to old two-call path if merged endpoint is unavailable
+      const [rowsObj, teamsResp] = await Promise.all([
+        fetch('/api/ownership_from_players', { credentials: 'include' }).then(x => x.json()),
+        fetch('/api/teams', { credentials: 'include' }).then(x => x.json())
+      ]);
+      const teams = Array.isArray(teamsResp) ? teamsResp : (Array.isArray(teamsResp?.teams) ? teamsResp.teams : []);
+      // minimal merge
+      const byTeam = {};
+      (rowsObj.rows || []).forEach(row => { byTeam[String(row.country).toLowerCase()] = row; });
+      ownershipState.merged = teams.map(team => {
+        const m = byTeam[String(team).toLowerCase()];
+        if (!m) return { country: team, main_owner: null, split_with: [], owners_count: 0 };
+        return {
+          country: team,
+          main_owner: m.main_owner ? { id: String(m.main_owner.id), username: m.main_owner.username || null } : null,
+          split_with: (m.split_with || []).map(s => ({ id: String(s.id), username: s.username || null })),
+          owners_count: m.owners_count || 0
+        };
+      });
+    } else {
+      ownershipState.merged = merged;
+    }
+
+    // 2) Hydrate id->name map so we show names not raw IDs
+    let names = {};
+    try {
+      const nr = await fetch('/api/player_names', { credentials: 'include' });
+      if (nr.ok) names = await nr.json();
+    } catch {}
+
+    ownershipState.merged.forEach(row => {
+      if (row.main_owner) {
+        const id = row.main_owner.id;
+        row.main_owner.username = row.main_owner.username || names[id] || id;
+      }
+      (row.split_with || []).forEach(s => {
+        s.username = s.username || names[s.id] || s.id;
+      });
+    });
+
+    // 3) Mark loaded and re-render using last sort
+    ownershipState.loaded = true;
+    sortMerged(ownershipState.lastSort || 'country');
+  } catch (e) {
+    console.error('[ownership:refresh]', e);
+    notify('Failed to refresh ownership', false);
   } finally {
     document.querySelectorAll('.reassign-btn').forEach(b => b.disabled = false);
   }
 }
+
 
 
 
