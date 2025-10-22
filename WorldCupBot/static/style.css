@@ -1256,72 +1256,85 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   .ownership-actions { gap: 6px; }
 }
 
-/* === Ownership layout fix === */
+/* === Ownership layout fix (aligned headings) === */
 #ownership .ownership-card {
   width: 100%;
-  max-width: 1320px;   /* was ~1200 - give it more room */
-  margin: 24px auto;   /* center the card */
+  max-width: 1320px;
+  margin: 24px auto;
 }
 
+/* Remove inner scroll wrapper – let the table scroll itself */
 #ownership .ownership-table-scroll {
-  width: 100%;
-  overflow: auto;
+  overflow: visible; /* no scroll container here */
 }
 
-/* Make the table actually use the width */
+/* Make the table control layout and scroll */
 #ownership .ownership-table {
   width: 100%;
-  table-layout: fixed;    /* predictable column sizing */
   border-collapse: collapse;
+  border-spacing: 0;
+  table-layout: fixed; /* ensures all columns sync */
+  display: block;      /* allows table itself to scroll */
+  overflow-x: auto;
 }
 
-/* Allocate columns: Team, Owner, Splits, Action */
-#ownership .ownership-table thead th:nth-child(1),
-#ownership .ownership-table tbody td:nth-child(1) { width: 30%; }
-#ownership .ownership-table thead th:nth-child(2),
-#ownership .ownership-table tbody td:nth-child(2) { width: 36%; }
-#ownership .ownership-table thead th:nth-child(3),
-#ownership .ownership-table tbody td:nth-child(3) { width: 24%; }
-#ownership .ownership-table thead th:nth-child(4),
-#ownership .ownership-table tbody td:nth-child(4) { width: 10%; }
+/* Match widths across head/body */
+#ownership .ownership-table thead,
+#ownership .ownership-table tbody,
+#ownership .ownership-table tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
 
-/* Keep text readable when table-layout: fixed is on */
-#ownership .ownership-table td,
-#ownership .ownership-table th {
+/* Column widths */
+#ownership .ownership-table th:nth-child(1),
+#ownership .ownership-table td:nth-child(1) { width: 30%; }
+#ownership .ownership-table th:nth-child(2),
+#ownership .ownership-table td:nth-child(2) { width: 36%; }
+#ownership .ownership-table th:nth-child(3),
+#ownership .ownership-table td:nth-child(3) { width: 24%; }
+#ownership .ownership-table th:nth-child(4),
+#ownership .ownership-table td:nth-child(4) { width: 10%; }
+
+/* Keep content tidy */
+#ownership .ownership-table th,
+#ownership .ownership-table td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 10px 12px;
 }
 
-/* Action column alignment */
-#ownership .ownership-table td:nth-child(4),
-#ownership .ownership-table th:nth-child(4) {
+/* Action column */
+#ownership .ownership-table th:nth-child(4),
+#ownership .ownership-table td:nth-child(4) {
   text-align: center;
 }
 
-/* Slightly wider buttons so they don't feel cramped */
-#ownership .reassign-btn.btn.xs {
-  min-width: 88px;
-}
-
-/* Header polish still sticky, but full width */
+/* Sticky header */
 #ownership .ownership-table thead th {
   position: sticky;
   top: 0;
   background: rgba(8,14,22,0.92);
   backdrop-filter: saturate(1.2) blur(4px);
-  z-index: 2;
+  z-index: 5;
 }
 
-/* Responsive tweak - stack more space to Owner on small screens */
+/* Buttons */
+#ownership .reassign-btn.btn.xs {
+  min-width: 88px;
+}
+
+/* Responsive tweak */
 @media (max-width: 900px) {
   #ownership .ownership-card { max-width: 100%; margin: 12px auto; }
-  #ownership .ownership-table thead th:nth-child(1),
-  #ownership .ownership-table tbody td:nth-child(1) { width: 34%; }
-  #ownership .ownership-table thead th:nth-child(2),
-  #ownership .ownership-table tbody td:nth-child(2) { width: 42%; }
-  #ownership .ownership-table thead th:nth-child(3),
-  #ownership .ownership-table tbody td:nth-child(3) { width: 14%; }
-  #ownership .ownership-table thead th:nth-child(4),
-  #ownership .ownership-table tbody td:nth-child(4) { width: 10%; }
+  #ownership .ownership-table th:nth-child(1),
+  #ownership .ownership-table td:nth-child(1) { width: 34%; }
+  #ownership .ownership-table th:nth-child(2),
+  #ownership .ownership-table td:nth-child(2) { width: 42%; }
+  #ownership .ownership-table th:nth-child(3),
+  #ownership .ownership-table td:nth-child(3) { width: 14%; }
+  #ownership .ownership-table th:nth-child(4),
+  #ownership .ownership-table td:nth-child(4) { width: 10%; }
 }
