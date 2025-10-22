@@ -417,7 +417,7 @@ function renderOwnershipTable(list) {
     if (!row.main_owner) tr.classList.add('row-unassigned');
     else tr.classList.add('row-assigned');
 
-    // Prefer name; show the numeric ID only for admins
+    // Prefer username; show numeric ID only if admin
     const label = row.main_owner?.username || row.main_owner?.id || '';
     const showId = adminUnlocked && row.main_owner?.id && label !== row.main_owner.id;
 
