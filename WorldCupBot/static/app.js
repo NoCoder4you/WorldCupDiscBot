@@ -258,22 +258,21 @@
     qs('#ping-value').textContent = isFinite(ms) ? `${ms} ms` : '-- ms';
   }
 
-// ---------- Ownership (players.json) ----------
+// -------- OWNERSHIP (combined) --------
 let ownershipCache = null;
 let ownershipLoaded = false;
+let currentSort = 'country'; // 'country' or 'player'
 
-// Renders the ownership table
 function renderOwnership(rows) {
   const tbody = qs('#ownership-tbody');
   tbody.innerHTML = '';
-  const filterVal = qs('#player-filter').value.trim().toLowerCase();
+  const filterVal = (qs('#player-filter')?.value || '').trim().toLowerCase();
 
-  // Loop through each ownership row
   rows.forEach(row => {
     const main = row.main_owner;
     const splits = row.split_with || [];
 
-    // Optional player filtering
+    // Optional filter by player name or id
     if (filterVal) {
       const hay = [
         main?.username || '', main?.id || '',
@@ -283,53 +282,54 @@ function renderOwnership(rows) {
       if (!hay.includes(filterVal)) return;
     }
 
-    // Build table row
     const tr = document.createElement('tr');
-    if (!main?.id) tr.classList.add('row-unassigned');
+    if (row.unassigned) tr.classList.add('row-unassigned');
 
     const splitStr = splits.length
       ? splits.map(s => s.username || s.id).join(', ')
       : '—';
 
+    const ownerCell = main?.username
+      ? `${main.username} <span class="muted">(${main.id})</span>`
+      : '<span class="warn">⚠️ Unassigned</span>';
+
+    const actionBtn = adminUnlocked
+      ? `<button class="btn btn-outline btn-reassign" data-country="${row.country}">Reassign</button>`
+      : '';
+
     tr.innerHTML = `
       <td>${row.country}</td>
-      <td class="owners">${
-        main?.username
-          ? `${main.username} <span class="muted">(${main.id})</span>`
-          : '<span class="muted">Unassigned</span>'
-      }</td>
+      <td class="owners">${ownerCell}</td>
       <td>${splitStr}</td>
       <td>${row.owners_count}</td>
+      <td class="admin-only" ${adminUnlocked ? '' : 'style="display:none"'}>${actionBtn}</td>
     `;
     tbody.appendChild(tr);
   });
+
+  // Bind reassign buttons (admin only)
+  qsa('.btn-reassign', tbody).forEach(btn => {
+    btn.addEventListener('click', () => openReassign(btn.dataset.country));
+  });
 }
 
-// Populates the player filter dropdown
 function populateFilter(rows) {
   const select = qs('#player-filter');
+  if (!select) return;
   const set = new Set();
-
   rows.forEach(r => {
     if (r.main_owner?.username) set.add(`${r.main_owner.username}`);
-    (r.split_with || []).forEach(s => {
-      if (s.username) set.add(`${s.username}`);
-    });
+    (r.split_with||[]).forEach(s => { if (s.username) set.add(`${s.username}`); });
   });
-
-  const options = Array.from(set)
-    .sort()
-    .map(n => `<option value="${n}">${n}</option>`)
-    .join('');
-
+  const options = Array.from(set).sort().map(n => `<option value="${n}">${n}</option>`).join('');
   select.innerHTML = `<option value="">All players</option>${options}`;
-  select.addEventListener('change', () => renderOwnership(ownershipCache.rows));
+  select.addEventListener('change', ()=> renderOwnership(ownershipCache.rows));
 }
 
-// Fetches ownership data from the backend
-async function fetchOwnership() {
+async function fetchOwnership(sort='country') {
   try {
-    const r = await fetch('/api/ownership_from_players');
+    currentSort = sort;
+    const r = await fetch(`/api/ownership_combined?sort=${encodeURIComponent(sort)}`);
     const j = await r.json();
     ownershipCache = j;
     ownershipLoaded = true;
@@ -340,20 +340,52 @@ async function fetchOwnership() {
   }
 }
 
-// Router hook - triggers ownership fetch only on first visit
-function showPage(id) {
-  qsa('section.page-section, section.dashboard')
-    .forEach(s => s.classList.remove('active-section'));
-  const sec = qs(`#${id}`);
-  if (sec) sec.classList.add('active-section');
-  qsa('.menu a').forEach(a =>
-    a.classList.toggle('active', a.dataset.page === id)
-  );
+// Sorting buttons
+qs('#sort-country')?.addEventListener('click', () => fetchOwnership('country'));
+qs('#sort-player')?.addEventListener('click', () => fetchOwnership('player'));
 
-  // Fetch ownership when visiting page for the first time
-  if (id === 'ownership' && !ownershipLoaded) fetchOwnership();
+// -------- Reassign modal (admin only) --------
+const reassModal = qs('#reassign-backdrop');
+const reassCountry = qs('#reassign-country');
+const reassUserId = qs('#reassign-userid');
+const reassCancel = qs('#reassign-cancel');
+const reassSubmit = qs('#reassign-submit');
+
+function openReassign(country) {
+  if (!adminUnlocked) return notify('Admin required', false);
+  reassCountry.value = country;
+  reassUserId.value = '';
+  reassModal.style.display = 'flex';
+  reassUserId.focus();
 }
 
+reassCancel?.addEventListener('click', () => {
+  reassModal.style.display = 'none';
+});
+
+reassSubmit?.addEventListener('click', async () => {
+  if (!adminUnlocked) return notify('Admin required', false);
+  const country = reassCountry.value.trim();
+  const uid = reassUserId.value.trim();
+  if (!country || !uid) return notify('Country and user ID required', false);
+  try {
+    const r = await fetch('/admin/ownership/reassign', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ country, user_id: uid })
+    });
+    const j = await r.json();
+    if (j.ok) {
+      notify(`Reassigned ${country}`);
+      reassModal.style.display = 'none';
+      fetchOwnership(currentSort);
+    } else {
+      notify(j.error || 'Reassign failed', false);
+    }
+  } catch (e) {
+    notify('Network error', false);
+  }
+});
 
   // --- BETS + Admin pages unchanged (same as previous message) ---
   async function loadBets(){

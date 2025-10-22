@@ -17,6 +17,7 @@
 	--btn: #223145;
 	--btn-hover: #2a3b55;
 	--card-h: 220px;
+	 --warn: #f6c343;
 
 	/* Gauge colors */
 	--mem-c: #0096C8;
@@ -1152,12 +1153,24 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   font-weight: 900;
 }
 
+.ownership-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ownership-actions select,
+.ownership-actions .btn {
+  height: 36px;
+}
+
 .ownership-actions select {
   background: #0e1520;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 6px 10px;
 }
 
 .ownership-table-scroll {
@@ -1176,6 +1189,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   border-bottom: 1px solid var(--border);
   padding: 10px 12px;
   text-align: left;
+  vertical-align: middle;
 }
 
 .ownership-table th {
@@ -1192,8 +1206,54 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   font-size: 0.9em;
 }
 
+.warn {
+  color: var(--warn);
+  font-weight: 700;
+}
+
 .row-unassigned td {
   color: var(--muted);
+}
+
+.admin-only { /* hidden by JS for public users; style exists for admin view */
+  white-space: nowrap;
+}
+
+.btn-reassign {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.btn-reassign:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+/* Reassign modal tweaks */
+#reassign-backdrop {
+  display: none; /* toggled via JS */
+}
+
+#reassign-backdrop .admin-modal {
+  width: min(420px, 92vw);
+}
+
+#reassign-backdrop .row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+#reassign-backdrop input {
+  background: #0e1520;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
 }
 
 @media (max-width: 700px) {
@@ -1202,7 +1262,11 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     align-items: stretch;
     gap: 8px;
   }
-  .ownership-actions select {
+  .ownership-actions {
+    justify-content: flex-start;
+  }
+  .ownership-actions select,
+  .ownership-actions .btn {
     width: 100%;
   }
 }
