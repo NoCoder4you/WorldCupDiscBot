@@ -683,21 +683,19 @@ document.addEventListener('click', function (e) {
       reassignBackdrop.style.display = 'none';
     });
 
-    // submit with second-stage confirmation
     document.getElementById('reassign-submit')?.addEventListener('click', async () => {
+      // check admin
       const unlocked = await fetchAdminStatus();
       if (!unlocked) return notify('Admin required', false);
 
-      const team  = (reassignTeamInp.value || '').trim();
-      const newId = (reassignIdInp.value  || '').trim();
-      const name  = (reassignSelect.selectedOptions[0]?.textContent || '').trim();
+      const team  = (document.getElementById('reassign-team').value || '').trim();
+      const newId = (document.getElementById('reassign-id').value  || '').trim();
+      const name  = (document.getElementById('reassign-select').selectedOptions[0]?.textContent || '').trim();
 
-      if (!team || !newId) return notify('Team and new owner ID required', false);
-
-      const question =
-        `Reassign "${team}" to ${name || newId}?\n\n` +
-        `This will set a new main owner and clear all splits for this team.`;
-      if (!window.confirm(question)) return;
+      if (!team || !newId) {
+        notify('Team and new owner ID required', false);
+        return;
+      }
 
       try {
         const r = await fetch('/admin/ownership/reassign', {
@@ -707,19 +705,36 @@ document.addEventListener('click', function (e) {
           body: JSON.stringify({ team, new_owner_id: newId })
         });
         const j = await r.json().catch(() => ({}));
-        if (!r.ok || j.ok === false) return notify(j.error || 'Reassign failed', false);
-
-        notify('Reassigned', true);
-        reassignBackdrop.style.display = 'none';
-        // refresh Ownership table
-        if (window.initOwnership) {
-          window.ownershipState.loaded = false;
-          await window.initOwnership();
+        if (!r.ok || j.ok === false) {
+          notify(j.error || 'Reassign failed', false);
+          return;
         }
+
+        // success: close modal, toast, refresh Ownership table
+        document.getElementById('reassign-backdrop').style.display = 'none';
+        notify(`Reassigned ${team} to ${name || newId}`, true);
+        await refreshOwnershipNow();
       } catch {
         notify('Network error', false);
       }
     });
+
+
+
+// Refresh Ownership table after mutations
+async function refreshOwnershipNow() {
+  // optional: disable buttons briefly to prevent double clicks
+  document.querySelectorAll('.reassign-btn').forEach(b => b.disabled = true);
+  try {
+    if (window.ownershipState) ownershipState.loaded = false;
+    if (window.initOwnership) await initOwnership(); // this re-sorts using lastSort
+    // broadcast for any other widgets that might care
+    document.dispatchEvent(new CustomEvent('ownership:updated'));
+  } finally {
+    document.querySelectorAll('.reassign-btn').forEach(b => b.disabled = false);
+  }
+}
+
 
 
 // Back-compat shim
