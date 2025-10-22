@@ -282,79 +282,62 @@
     wrap.appendChild(head); wrap.appendChild(scroll); sec.appendChild(wrap);
     return wrap;
   }
-// =========================
-// Ownership (teams.json + players.json)
-// =========================
 
+
+// ===== OWNERSHIP (teams.json + players.json) =====
 let ownershipState = {
-  teams: [],            // from /api/teams (or fallback)
-  rows: [],             // from /api/ownership_from_players
-  merged: [],           // merged view for table
-  playerList: [],       // known players [{id, username}]
+  teams: [],
+  rows: [],
+  merged: [],
   loaded: false,
-  lastSort: 'country'   // 'country' | 'player'
+  lastSort: 'country'
 };
 
-// Merge utility - returns full list including unassigned
-function mergeTeamsWithOwnership(teams, rows) {
-  const byTeam = new Map(rows.map(r => [String(r.country).toLowerCase(), r]));
-
-  // Build player list
-  const players = new Map();
-  rows.forEach(r => {
-    if (r.main_owner?.id) players.set(String(r.main_owner.id), r.main_owner.username || r.main_owner.id);
-    (r.split_with || []).forEach(s => {
-      if (s.id) players.set(String(s.id), s.username || s.id);
-    });
-  });
-
-  const merged = teams.map(team => {
-    const key = String(team).toLowerCase();
-    const r = byTeam.get(key);
-    const main = r?.main_owner || null;
-    const splits = r?.split_with || [];
-    return {
-      country: team,
-      main_owner: main && main.id ? { id: String(main.id), username: main.username || null } : null,
-      split_with: splits.map(s => ({ id: String(s.id), username: s.username || null })),
-      owners_count: (main && main.id ? 1 : 0) +
-                    splits.filter(s => s.id && String(s.id) !== String(main?.id)).length
-    };
-  });
-
-  return {
-    merged,
-    playerList: Array.from(players.entries())
-      .map(([id, username]) => ({ id, username }))
-      .sort((a, b) => (a.username || '').localeCompare(b.username || ''))
-  };
-}
-
-async function fetchTeamsList() {
-  // Preferred: backend route reading teams.json
-  try {
-    const r = await fetch('/api/teams');
-    if (r.ok) {
-      const j = await r.json();
-      if (Array.isArray(j)) return j;
-      if (Array.isArray(j.teams)) return j.teams;
-    }
-  } catch (e) { /* ignore */ }
-  // Fallback: infer from ownership rows (still works sans endpoint)
-  if (ownershipState.rows?.length) {
-    return ownershipState.rows.map(r => r.country).sort((a, b) => a.localeCompare(b));
-  }
-  return [];
+function logErr(where, e) {
+  console.error(`[ownership:${where}]`, e);
 }
 
 async function fetchOwnershipRows() {
   const r = await fetch('/api/ownership_from_players');
-  if (!r.ok) throw new Error('Failed to load ownership');
-  return await r.json(); // { rows: [...] }
+  if (!r.ok) throw new Error(`GET /api/ownership_from_players ${r.status}`);
+  return r.json(); // { rows: [...] }
+}
+
+async function fetchTeamsList() {
+  try {
+    const r = await fetch('/api/teams');
+    if (!r.ok) throw new Error(`GET /api/teams ${r.status}`);
+    const j = await r.json();
+    return Array.isArray(j) ? j : (Array.isArray(j.teams) ? j.teams : []);
+  } catch (e) {
+    logErr('fetchTeamsList', e);
+    // Fallback: infer from players if available
+    if (ownershipState.rows?.length) {
+      return ownershipState.rows.map(r => r.country).sort((a, b) => a.localeCompare(b));
+    }
+    return [];
+  }
+}
+
+function mergeTeamsWithOwnership(teams, rows) {
+  const byTeam = new Map(rows.map(r => [String(r.country).toLowerCase(), r]));
+  return teams.map(team => {
+    const match = byTeam.get(String(team).toLowerCase());
+    if (!match) {
+      return { country: team, main_owner: null, split_with: [], owners_count: 0 };
+    }
+    const main = match.main_owner && match.main_owner.id
+      ? { id: String(match.main_owner.id), username: match.main_owner.username || null }
+      : null;
+    const splits = (match.split_with || []).map(s => ({ id: String(s.id), username: s.username || null }));
+    const ownersCnt = (main ? 1 : 0) + splits.filter(s => s.id !== (main?.id || '')).length;
+    return { country: team, main_owner: main, split_with: splits, owners_count: ownersCnt };
+  });
 }
 
 function renderOwnershipTable(list) {
-  const tbody = qs('#ownership-tbody');
+  const tbody = document.querySelector('#ownership-tbody');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   list.forEach(row => {
@@ -380,9 +363,13 @@ function renderOwnershipTable(list) {
     tbody.appendChild(tr);
   });
 
-  // Wire up admin-only buttons
-  qsa('.reassign-btn').forEach(btn => {
-    btn.addEventListener('click', () => openReassignModal(btn.dataset.team));
+  // Admin button wiring (safe if admin-gated)
+  document.querySelectorAll('.reassign-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (typeof openReassignModal === 'function') {
+        openReassignModal(btn.dataset.team);
+      }
+    });
   });
 }
 
@@ -407,99 +394,42 @@ async function initOwnership() {
     ownershipState.rows = rowsObj.rows || [];
     ownershipState.teams = teams;
 
-    const mergedData = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
-    ownershipState.merged = mergedData.merged;
-    ownershipState.playerList = mergedData.playerList;
+    ownershipState.merged = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
     ownershipState.loaded = true;
 
-    // initial render sorted by country
+    // Initial render sorted by country
     sortMerged('country');
-
-    // prepare reassign selector data
-    fillReassignSelect(ownershipState.playerList);
   } catch (e) {
-    notify('Failed to load ownership data', false);
+    logErr('initOwnership', e);
+    if (typeof notify === 'function') notify('Failed to load ownership data', false);
   }
 }
 
-// ------- Reassign modal (admin only) -------
-const reassignBackdrop = qs('#reassign-backdrop');
-const reassignClose = qs('#reassign-close');
-const reassignCancel = qs('#reassign-cancel');
-const reassignSubmit = qs('#reassign-submit');
-const reassignTeamInput = qs('#reassign-team');
-const reassignSelect = qs('#reassign-select');
-const reassignIdInput = qs('#reassign-id');
+// Buttons
+document.querySelector('#sort-country')?.addEventListener('click', () => sortMerged('country'));
+document.querySelector('#sort-player')?.addEventListener('click', () => sortMerged('player'));
 
-function fillReassignSelect(players) {
-  reassignSelect.innerHTML = `<option value="">-- Select a player --</option>` +
-    players.map(p => `<option value="${p.id}">${p.username || p.id} (${p.id})</option>`).join('');
-}
-
-function openReassignModal(team) {
-  if (!adminUnlocked) {
-    notify('Admin required', false);
-    return;
+// Make sure router triggers initialization on first show
+const _origShowPage = typeof showPage === 'function' ? showPage : null;
+window.showPage = function(id) {
+  if (_origShowPage) _origShowPage(id);
+  else {
+    // simple fallback visibility if you don't have a router:
+    document.querySelectorAll('section.page-section, section.dashboard')
+      .forEach(s => s.classList.remove('active-section'));
+    document.getElementById(id)?.classList.add('active-section');
   }
-  reassignTeamInput.value = team;
-  reassignSelect.value = '';
-  reassignIdInput.value = '';
-  reassignBackdrop.style.display = 'flex';
-}
-
-function closeReassignModal() {
-  reassignBackdrop.style.display = 'none';
-}
-
-reassignClose?.addEventListener('click', closeReassignModal);
-reassignCancel?.addEventListener('click', closeReassignModal);
-reassignBackdrop?.addEventListener('click', (e) => { if (e.target === reassignBackdrop) closeReassignModal(); });
-
-// keep ID in sync when a known player is chosen
-reassignSelect?.addEventListener('change', () => {
-  if (reassignSelect.value) reassignIdInput.value = reassignSelect.value;
-});
-
-reassignSubmit?.addEventListener('click', async () => {
-  try {
-    if (!adminUnlocked) return notify('Admin required', false);
-    const team = reassignTeamInput.value.trim();
-    const newId = reassignIdInput.value.trim();
-    if (!team || !newId) return notify('Team and new owner ID required', false);
-
-    const r = await fetch('/admin/ownership/reassign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ team, new_owner_id: newId })
-    });
-
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.ok === false) {
-      return notify(j.error || 'Reassign failed', false);
-    }
-
-    notify('Reassigned', true);
-    closeReassignModal();
-    // Refresh ownership data after change
-    ownershipState.loaded = false;
-    await initOwnership();
-  } catch (e) {
-    notify('Network error', false);
-  }
-});
-
-// ------- Wire controls & router hook -------
-qs('#sort-country')?.addEventListener('click', () => sortMerged('country'));
-qs('#sort-player')?.addEventListener('click', () => sortMerged('player'));
-
-// Router: show page and lazy-init ownership
-function showPage(id) {
-  qsa('section.page-section, section.dashboard').forEach(s => s.classList.remove('active-section'));
-  const sec = qs('#' + id);
-  if (sec) sec.classList.add('active-section');
-  qsa('.menu a').forEach(a => a.classList.toggle('active', a.dataset.page === id));
   if (id === 'ownership' && !ownershipState.loaded) initOwnership();
-}
+};
+
+// Hard-init as a safety net (if router didn’t run yet)
+document.addEventListener('DOMContentLoaded', () => {
+  // If Ownership page is already visible, init immediately
+  const visible = document.querySelector('#ownership.page-section.active-section');
+  if (visible && !ownershipState.loaded) initOwnership();
+  // Otherwise no-op; router will call it when you click the tab
+});
+
 
 
   // --- BETS + Admin pages unchanged (same as previous message) ---

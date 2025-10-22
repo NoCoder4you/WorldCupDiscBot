@@ -238,12 +238,10 @@ def create_public_routes(ctx):
             "ts": int(now)
         })
 
-    
     @api.get("/teams")
     def api_teams():
-        base = ctx.get("BASE_DIR","")
+        base = ctx.get("BASE_DIR", "")
         data = _json_load(_teams_path(base), [])
-        # Accept either list of strings or dict with key "teams"
         if isinstance(data, dict) and "teams" in data:
             return jsonify(data["teams"])
         return jsonify(data if isinstance(data, list) else [])
