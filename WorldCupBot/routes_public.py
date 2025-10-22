@@ -331,56 +331,6 @@ def create_public_routes(ctx):
         return jsonify({"ownerships": ownerships, "verified_users": verified})
 
     # ---------- NEW: Ownership derived from players.json ----------
-    @api.get("/ownership_from_players")
-    def ownership_from_players():
-        base = ctx.get("BASE_DIR","")
-        players = _json_load(_players_path(base), {})
-        # Build quick id->username
-        id_to_name = {}
-        for uid, pdata in players.items():
-            name = pdata.get("username") or uid
-            id_to_name[str(uid)] = name
-
-        # country -> {main_owner: id, split_with:[ids]}
-        country_map = {}
-        for uid, pdata in players.items():
-            for entry in pdata.get("teams", []):
-                if isinstance(entry, dict):
-                    team = entry.get("team")
-                    own = (entry.get("ownership") or {})
-                    main_owner = own.get("main_owner")
-                    split_with = own.get("split_with") or []
-                    if team:
-                        rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
-                        # Prefer the entry whose main_owner matches this uid
-                        if main_owner is not None:
-                            if rec["main_owner"] is None or str(main_owner) == str(uid):
-                                rec["main_owner"] = main_owner
-                        # merge splits
-                        for sid in split_with:
-                            s = str(sid)
-                            if s not in [str(x) for x in rec["split_with"]]:
-                                rec["split_with"].append(sid)
-
-        # Build rows
-        rows = []
-        for team, rec in sorted(country_map.items(), key=lambda x: x[0].lower()):
-            main_id = rec.get("main_owner")
-            split_ids = [str(x) for x in rec.get("split_with") or []]
-            rows.append({
-                "country": team,
-                "main_owner": {
-                    "id": str(main_id) if main_id is not None else None,
-                    "username": id_to_name.get(str(main_id)) if main_id is not None else None
-                },
-                "split_with": [
-                    {"id": sid, "username": id_to_name.get(sid)} for sid in split_ids if sid and sid != str(main_id)
-                ],
-                "owners_count": 1 + len([sid for sid in split_ids if sid and sid != str(main_id)])
-            })
-
-        return jsonify({"rows": rows, "count": len(rows)})
-
     @api.get("/player_names")
     def api_player_names():
         base = ctx.get("BASE_DIR", "")
@@ -388,20 +338,17 @@ def create_public_routes(ctx):
         verified = _json_load(_verified_users_path(base), [])
 
         out = {}
-
-        # players.json can be { "id": { "username"/"name"/"display_name": "..." }, ... }
         if isinstance(players, dict):
             for uid, pdata in players.items():
                 if isinstance(pdata, dict):
                     name = (
-                            pdata.get("username")
+                            pdata.get("display_name")
+                            or pdata.get("username")
                             or pdata.get("name")
-                            or pdata.get("display_name")
                     )
                     if name:
                         out[str(uid)] = str(name)
 
-        # verified_users.json might be a list of {id, username/display_name} or a dict map
         if isinstance(verified, list):
             for v in verified:
                 if isinstance(v, dict):
@@ -410,19 +357,78 @@ def create_public_routes(ctx):
                     if vid and vname:
                         out[str(vid)] = str(vname)
         elif isinstance(verified, dict):
-            # support dict maps like { "123": "Alice", "456": "Bob" }
             for vid, vname in verified.items():
                 if vname:
                     out[str(vid)] = str(vname)
 
         return jsonify(out)
 
+    @api.get("/ownership_from_players")
+    def ownership_from_players():
+        base = ctx.get("BASE_DIR", "")
+        players = _json_load(_players_path(base), {})
+        # Build quick id->username with display_name support
+        id_to_name = {}
+        if isinstance(players, dict):
+            for uid, pdata in players.items():
+                if isinstance(pdata, dict):
+                    name = (
+                            pdata.get("display_name")
+                            or pdata.get("username")
+                            or pdata.get("name")
+                            or str(uid)
+                    )
+                else:
+                    name = str(uid)
+                id_to_name[str(uid)] = str(name)
+
+        # country -> {main_owner: id, split_with:[ids]}
+        country_map = {}
+        if isinstance(players, dict):
+            for uid, pdata in players.items():
+                if not isinstance(pdata, dict):
+                    continue
+                for entry in pdata.get("teams", []):
+                    if not isinstance(entry, dict):
+                        continue
+                    team = entry.get("team")
+                    own = (entry.get("ownership") or {})
+                    main_owner = own.get("main_owner")
+                    split_with = own.get("split_with") or []
+                    if not team:
+                        continue
+
+                    rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
+                    # Prefer the entry whose main_owner matches this uid
+                    if main_owner is not None:
+                        if rec["main_owner"] is None or str(main_owner) == str(uid):
+                            rec["main_owner"] = str(main_owner)
+                    # merge splits (as strings, unique)
+                    for sid in split_with:
+                        s = str(sid)
+                        if s and s not in rec["split_with"]:
+                            rec["split_with"].append(s)
+
+        # Build rows (sorted by country)
+        rows = []
+        for team in sorted(country_map.keys(), key=lambda x: x.lower()):
+            rec = country_map[team]
+            main_id = rec.get("main_owner")
+            split_ids = [sid for sid in rec.get("split_with", []) if sid and sid != str(main_id)]
+            rows.append({
+                "country": team,
+                "main_owner": None if main_id is None else {
+                    "id": str(main_id),
+                    "username": id_to_name.get(str(main_id))
+                },
+                "split_with": [{"id": sid, "username": id_to_name.get(sid)} for sid in split_ids],
+                "owners_count": (1 if main_id else 0) + len(split_ids)
+            })
+
+        return jsonify({"rows": rows, "count": len(rows)})
+
     @api.get("/ownership_merged")
     def api_ownership_merged():
-        """
-        Server-side merge of teams.json + players.json.
-        Always returns every country; fills owner names when available.
-        """
         base = ctx.get("BASE_DIR", "")
         teams_raw = _json_load(_teams_path(base), [])
         teams = teams_raw["teams"] if isinstance(teams_raw, dict) and "teams" in teams_raw else teams_raw
@@ -430,35 +436,48 @@ def create_public_routes(ctx):
             teams = []
 
         players = _json_load(_players_path(base), {})
-        id_to_name = {}
-        country_map = {}  # team -> {main_owner: id or None, split_with: [ids]}
 
+        # id -> best available name (display_name > username > name > id)
+        id_to_name = {}
         if isinstance(players, dict):
             for uid, pdata in players.items():
                 if isinstance(pdata, dict):
-                    name = pdata.get("username") or pdata.get("name") or str(uid)
-                    id_to_name[str(uid)] = name
-                    for entry in pdata.get("teams", []):
-                        if not isinstance(entry, dict):
-                            continue
-                        team = entry.get("team")
-                        own = entry.get("ownership") or {}
-                        main_owner = own.get("main_owner")
-                        split_with = [str(x) for x in (own.get("split_with") or [])]
-                        if not team:
-                            continue
-                        rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
-                        # prefer records whose main_owner matches the current uid
-                        if main_owner is not None:
-                            if rec["main_owner"] is None or str(main_owner) == str(uid):
-                                rec["main_owner"] = str(main_owner)
-                        # merge unique splits
-                        for sid in split_with:
-                            if sid and sid not in rec["split_with"]:
-                                rec["split_with"].append(sid)
+                    nm = (
+                            pdata.get("display_name")
+                            or pdata.get("username")
+                            or pdata.get("name")
+                            or str(uid)
+                    )
+                else:
+                    nm = str(uid)
+                id_to_name[str(uid)] = str(nm)
 
+        # Build country map
+        country_map = {}  # team -> {main_owner: id or None, split_with: [ids]}
+        if isinstance(players, dict):
+            for uid, pdata in players.items():
+                if not isinstance(pdata, dict):
+                    continue
+                for entry in (pdata.get("teams") or []):
+                    if not isinstance(entry, dict):
+                        continue
+                    team = entry.get("team")
+                    if not team:
+                        continue
+                    own = entry.get("ownership") or {}
+                    main_owner = own.get("main_owner")
+                    split_with = [str(x) for x in (own.get("split_with") or [])]
+
+                    rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
+                    if main_owner is not None:
+                        if rec["main_owner"] is None or str(main_owner) == str(uid):
+                            rec["main_owner"] = str(main_owner)
+                    for sid in split_with:
+                        if sid and sid not in rec["split_with"]:
+                            rec["split_with"].append(sid)
+
+        # Emit rows for ALL teams (even unassigned)
         rows = []
-        # include ALL teams from teams.json, with fallbacks for unassigned
         for team in sorted([str(t) for t in teams], key=lambda s: s.lower()):
             rec = country_map.get(team, {"main_owner": None, "split_with": []})
             main_id = rec.get("main_owner")
