@@ -408,7 +408,7 @@ function mergeTeamsWithOwnership(teams, rows) {
 }
 
 function renderOwnershipTable(list) {
-  const tbody = document.querySelector('#ownership-tbody');
+  const tbody = qs('#ownership-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
@@ -417,17 +417,19 @@ function renderOwnershipTable(list) {
     if (!row.main_owner) tr.classList.add('row-unassigned');
     else tr.classList.add('row-assigned');
 
-    const ownerLabel = r.main_owner?.username || r.main_owner?.id || '';
-    const showId = adminUnlocked && r.main_owner?.id && ownerLabel !== r.main_owner.id;
-    const ownerCell = r.main_owner
-      ? `<span class="owner-name" title="${r.main_owner.id}">${ownerLabel}</span>${showId ? ` <span class="muted">(${r.main_owner.id})</span>` : ''}`
+    // Prefer name; show the numeric ID only for admins
+    const label = row.main_owner?.username || row.main_owner?.id || '';
+    const showId = adminUnlocked && row.main_owner?.id && label !== row.main_owner.id;
+
+    const ownerCell = row.main_owner
+      ? `<span class="owner-name" title="${row.main_owner.id}">${label}</span>${
+          showId ? ` <span class="muted">(${row.main_owner.id})</span>` : ''
+        }`
       : `Unassigned <span class="warn-icon" title="No owner">⚠️</span>`;
 
-
-    const splitStr = (r.split_with && r.split_with.length)
-      ? r.split_with.map(s => s.username || s.id).join(', ')
+    const splitStr = (row.split_with && row.split_with.length)
+      ? row.split_with.map(s => s.username || s.id).join(', ')
       : '—';
-
 
     tr.innerHTML = `
       <td>${row.country}</td>
@@ -439,6 +441,8 @@ function renderOwnershipTable(list) {
     `;
     tbody.appendChild(tr);
   });
+}
+
 
   // Admin button wiring (safe if admin-gated)
   document.querySelectorAll('.reassign-btn').forEach(btn => {
