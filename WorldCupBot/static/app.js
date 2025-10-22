@@ -1139,4 +1139,4 @@ async function getCogStatus(name){
     startPolling();
   }
   window.addEventListener('load', init);
-})();
+}();
