@@ -417,14 +417,17 @@ function renderOwnershipTable(list) {
     if (!row.main_owner) tr.classList.add('row-unassigned');
     else tr.classList.add('row-assigned');
 
-    const ownerLabel = row.main_owner?.username || row.main_owner?.id || '';
-    const ownerCell = row.main_owner
-      ? `<span class="owner-name">${ownerLabel}</span> <span class="muted">(${row.main_owner.id})</span>`
+    const ownerLabel = r.main_owner?.username || r.main_owner?.id || '';
+    const showId = adminUnlocked && r.main_owner?.id && ownerLabel !== r.main_owner.id;
+    const ownerCell = r.main_owner
+      ? `<span class="owner-name" title="${r.main_owner.id}">${ownerLabel}</span>${showId ? ` <span class="muted">(${r.main_owner.id})</span>` : ''}`
       : `Unassigned <span class="warn-icon" title="No owner">⚠️</span>`;
 
-    const splitStr = row.split_with && row.split_with.length
-      ? row.split_with.map(s => s.username || s.id).join(', ')
+
+    const splitStr = (r.split_with && r.split_with.length)
+      ? r.split_with.map(s => s.username || s.id).join(', ')
       : '—';
+
 
     tr.innerHTML = `
       <td>${row.country}</td>

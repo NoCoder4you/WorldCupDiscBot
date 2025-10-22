@@ -384,20 +384,37 @@ def create_public_routes(ctx):
     @api.get("/player_names")
     def api_player_names():
         base = ctx.get("BASE_DIR", "")
-        data = _json_load(_players_path(base), {})
+        players = _json_load(_players_path(base), {})
+        verified = _json_load(_verified_users_path(base), [])
+
         out = {}
-        if isinstance(data, dict):
-            for uid, pdata in data.items():
-                try:
+
+        # players.json can be { "id": { "username"/"name"/"display_name": "..." }, ... }
+        if isinstance(players, dict):
+            for uid, pdata in players.items():
+                if isinstance(pdata, dict):
                     name = (
-                            (pdata or {}).get("username")
-                            or (pdata or {}).get("name")
-                            or (pdata or {}).get("display_name")
+                            pdata.get("username")
+                            or pdata.get("name")
+                            or pdata.get("display_name")
                     )
                     if name:
                         out[str(uid)] = str(name)
-                except Exception:
-                    continue
+
+        # verified_users.json might be a list of {id, username/display_name} or a dict map
+        if isinstance(verified, list):
+            for v in verified:
+                if isinstance(v, dict):
+                    vid = v.get("id") or v.get("user_id")
+                    vname = v.get("username") or v.get("display_name") or v.get("name")
+                    if vid and vname:
+                        out[str(vid)] = str(vname)
+        elif isinstance(verified, dict):
+            # support dict maps like { "123": "Alice", "456": "Bob" }
+            for vid, vname in verified.items():
+                if vname:
+                    out[str(vid)] = str(vname)
+
         return jsonify(out)
 
     @api.get("/ownership_merged")
