@@ -1338,3 +1338,33 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   #ownership .ownership-table th:nth-child(4),
   #ownership .ownership-table td:nth-child(4) { width: 10%; }
 }
+
+/* Header polish - remove top band and keep widths stable */
+#ownership .ownership-table {
+  scrollbar-gutter: stable;           /* reserve space for scrollbar to avoid header/body shift */
+}
+
+#ownership .ownership-table thead {
+  border-top: 0;                      /* no extra band above header */
+}
+
+#ownership .ownership-table thead th {
+  background: rgba(8,14,22,0.96);     /* match row color closely */
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04); /* subtle bottom line to separate */
+}
+
+/* make first column left-padded a touch more to align visually with card edge */
+#ownership .ownership-table td:first-child,
+#ownership .ownership-table th:first-child {
+  padding-left: 16px;
+}
+
+/* keep last column tidy and right-anchored */
+#ownership .ownership-table td:nth-child(4),
+#ownership .ownership-table th:nth-child(4) {
+  text-align: right;
+  padding-right: 16px;
+}
+
+/* consistent row height */
+#ownership .ownership-table tbody tr { height: 48px; }
