@@ -1249,5 +1249,3 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   .ownership-table td { padding: 10px; }
   .ownership-actions { gap: 6px; }
 }
-body:not(.admin-mode) .admin-col,
-body:not(.admin-mode) [data-admin="true"] { display: none; }
