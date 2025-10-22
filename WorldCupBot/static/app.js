@@ -355,67 +355,18 @@
   }
 
 
-// ===== OWNERSHIP (teams.json + players.json) =====
-let playerNames = {}; // id -> username
-let ownershipState = {
-  teams: [],
-  rows: [],
-  merged: [],
-  loaded: false,
-  lastSort: 'country'
-};
-
-function logErr(where, e) {
-  console.error(`[ownership:${where}]`, e);
-}
-
-async function fetchOwnershipRows() {
-  const r = await fetch('/api/ownership_from_players');
-  if (!r.ok) throw new Error(`GET /api/ownership_from_players ${r.status}`);
-  return r.json(); // { rows: [...] }
-}
-
-async function fetchTeamsList() {
-  try {
-    const r = await fetch('/api/teams');
-    if (!r.ok) throw new Error(`GET /api/teams ${r.status}`);
-    const j = await r.json();
-    return Array.isArray(j) ? j : (Array.isArray(j.teams) ? j.teams : []);
-  } catch (e) {
-    logErr('fetchTeamsList', e);
-    // Fallback: infer from players if available
-    if (ownershipState.rows?.length) {
-      return ownershipState.rows.map(r => r.country).sort((a, b) => a.localeCompare(b));
-    }
-    return [];
-  }
-}
-
-function mergeTeamsWithOwnership(teams, rows) {
-  const byTeam = new Map(rows.map(r => [String(r.country).toLowerCase(), r]));
-  return teams.map(team => {
-    const match = byTeam.get(String(team).toLowerCase());
-    if (!match) {
-      return { country: team, main_owner: null, split_with: [], owners_count: 0 };
-    }
-    const main = match.main_owner && match.main_owner.id
-      ? { id: String(match.main_owner.id), username: match.main_owner.username || null }
-      : null;
-    const splits = (match.split_with || []).map(s => ({ id: String(s.id), username: s.username || null }));
-    const ownersCnt = (main ? 1 : 0) + splits.filter(s => s.id !== (main?.id || '')).length;
-    return { country: team, main_owner: main, split_with: splits, owners_count: ownersCnt };
-  });
-}
+// -------------------- OWNERSHIP (teams.json + players.json) --------------------
+var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
+var playerNames = {}; // id -> username
 
 function renderOwnershipTable(list) {
-  const tbody = document.querySelector('#ownership-tbody');
+  var tbody = document.querySelector('#ownership-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  list.forEach(function(row) {
-    const tr = document.createElement('tr');
-    if (!row.main_owner) tr.classList.add('row-unassigned');
-    else tr.classList.add('row-assigned');
+  list.forEach(function (row) {
+    var tr = document.createElement('tr');
+    if (!row.main_owner) tr.classList.add('row-unassigned'); else tr.classList.add('row-assigned');
 
     // prefer name; only show numeric ID to admins
     var label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
@@ -433,7 +384,7 @@ function renderOwnershipTable(list) {
 
     var splitStr = '—';
     if (row.split_with && row.split_with.length) {
-      splitStr = row.split_with.map(function(s) {
+      splitStr = row.split_with.map(function (s) {
         return s.username || s.id;
       }).join(', ');
     }
@@ -450,83 +401,177 @@ function renderOwnershipTable(list) {
   });
 }
 
-
-  // Admin button wiring (safe if admin-gated)
-  document.querySelectorAll('.reassign-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (typeof openReassignModal === 'function') {
-        openReassignModal(btn.dataset.team);
-      }
-    });
-  });
-}
-
 function sortMerged(by) {
   ownershipState.lastSort = by;
-  const list = [...ownershipState.merged];
+  var list = ownershipState.merged.slice();
   if (by === 'country') {
-    list.sort((a, b) => a.country.localeCompare(b.country));
+    list.sort(function (a, b) { return a.country.localeCompare(b.country); });
   } else if (by === 'player') {
-    const name = r => (r.main_owner?.username || r.main_owner?.id || 'zzzz~unassigned').toLowerCase();
-    list.sort((a, b) => name(a).localeCompare(name(b)));
+    var name = function (r) {
+      var n = (r.main_owner && (r.main_owner.username || r.main_owner.id)) || 'zzzz~unassigned';
+      return n.toLowerCase();
+    };
+    list.sort(function (a, b) { return name(a).localeCompare(name(b)); });
   }
   renderOwnershipTable(list);
 }
 
-async function initOwnership() {
-  try {
-    // 1) Try merged endpoint first
-    let merged = null;
-    try {
-      const r = await fetch('/api/ownership_merged');
-      if (r.ok) {
-        const j = await r.json();
-        merged = Array.isArray(j.rows) ? j.rows : null;
-      }
-    } catch (_) { /* ignore; we will fall back */ }
+function fetchOwnershipRows() {
+  return fetch('/api/ownership_from_players').then(function (r) {
+    if (!r.ok) throw new Error('GET /api/ownership_from_players ' + r.status);
+    return r.json();
+  });
+}
 
-    // 2) Fallback to old two-call flow
-    if (!merged) {
-      const [rowsObj, teams] = await Promise.all([
-        fetchOwnershipRows(),     // GET /api/ownership_from_players
-        fetchTeamsList()          // GET /api/teams (or infer)
-      ]);
-      merged = mergeTeamsWithOwnership(teams, rowsObj.rows || []);
+function fetchTeamsList() {
+  return fetch('/api/teams').then(function (r) {
+    if (!r.ok) return null;
+    return r.json();
+  }).then(function (j) {
+    if (!j) {
+      if (ownershipState.rows && ownershipState.rows.length) {
+        return ownershipState.rows.map(function (r) { return r.country; })
+          .sort(function (a, b) { return a.localeCompare(b); });
+      }
+      return [];
     }
+    return Array.isArray(j) ? j : (Array.isArray(j.teams) ? j.teams : []);
+  }).catch(function () {
+    if (ownershipState.rows && ownershipState.rows.length) {
+      return ownershipState.rows.map(function (r) { return r.country; })
+        .sort(function (a, b) { return a.localeCompare(b); });
+    }
+    return [];
+  });
+}
 
-    // Fetch id->name map and hydrate missing usernames
-    let names = {};
-    try {
-      const nr = await fetch('/api/player_names');
-      if (nr.ok) names = await nr.json();
-    } catch (_) {}
+function mergeTeamsWithOwnership(teams, rows) {
+  var byTeam = {};
+  rows.forEach(function (r) { byTeam[String(r.country).toLowerCase()] = r; });
 
-    const list = Array.isArray(merged?.merged) ? merged.merged : merged; // supports both shapes
-    list.forEach(r => {
-      if (r.main_owner) {
-        r.main_owner.username = r.main_owner.username || names[r.main_owner.id] || r.main_owner.id;
-      }
-      (r.split_with || []).forEach(s => {
-        s.username = s.username || names[s.id] || s.id;
-      });
+  return teams.map(function (team) {
+    var key = String(team).toLowerCase();
+    var m = byTeam[key];
+    if (!m) return { country: team, main_owner: null, split_with: [], owners_count: 0 };
+
+    var main = (m.main_owner && m.main_owner.id)
+      ? { id: String(m.main_owner.id), username: m.main_owner.username || null }
+      : null;
+
+    var splits = (m.split_with || []).map(function (s) {
+      return { id: String(s.id), username: s.username || null };
     });
 
-    ownershipState.merged = list;
-    sortMerged(ownershipState.lastSort || 'country');
-    // if you populate a reassign select:
-    if (typeof fillReassignSelect === 'function') {
-      const uniqueNames = {};
-      list.forEach(r => {
-        if (r.main_owner) uniqueNames[r.main_owner.id] = r.main_owner.username;
-        (r.split_with || []).forEach(s => uniqueNames[s.id] = s.username);
+    var ownersCnt = (main ? 1 : 0) + splits.filter(function (s) { return s.id !== (main ? main.id : ''); }).length;
+
+    return { country: team, main_owner: main, split_with: splits, owners_count: ownersCnt };
+  });
+}
+
+function initOwnership() {
+  // Try merged endpoint first, then fallback
+  var mergedPromise = fetch('/api/ownership_merged').then(function (r) {
+    if (!r.ok) return null;
+    return r.json();
+  }).then(function (j) {
+    return (j && Array.isArray(j.rows)) ? j.rows : null;
+  }).catch(function () { return null; });
+
+  mergedPromise.then(function (list) {
+    if (list) return list;
+
+    // Fallback: two-call flow
+    return Promise.all([fetchOwnershipRows(), fetchTeamsList()]).then(function (arr) {
+      var rowsObj = arr[0] || {};
+      var teams = arr[1] || [];
+      ownershipState.rows = rowsObj.rows || [];
+      ownershipState.teams = teams;
+      return mergeTeamsWithOwnership(teams, ownershipState.rows);
+    });
+  }).then(function (list) {
+    // Hydrate id->name
+    return fetch('/api/player_names').then(function (r) {
+      return r.ok ? r.json() : {};
+    }).catch(function () { return {}; }).then(function (names) {
+      playerNames = names || {};
+      list.forEach(function (r) {
+        if (r.main_owner) {
+          r.main_owner.username = r.main_owner.username || playerNames[r.main_owner.id] || r.main_owner.id;
+        }
+        (r.split_with || []).forEach(function (s) {
+          s.username = s.username || playerNames[s.id] || s.id;
+        });
       });
-      fillReassignSelect(Object.entries(uniqueNames).map(([id, username]) => ({ id, username })));
-    }
-  } catch (e) {
+      return list;
+    });
+  }).then(function (list) {
+    ownershipState.merged = list;
+    ownershipState.loaded = true;
+    sortMerged(ownershipState.lastSort || 'country');
+  }).catch(function (e) {
     console.error('[ownership:init]', e);
     notify('Failed to load ownership data', false);
-  }
+  });
 }
+
+// Sort buttons
+var sortCountryBtn = document.querySelector('#sort-country');
+var sortPlayerBtn = document.querySelector('#sort-player');
+if (sortCountryBtn) sortCountryBtn.addEventListener('click', function () { sortMerged('country'); });
+if (sortPlayerBtn) sortPlayerBtn.addEventListener('click', function () { sortMerged('player'); });
+
+// Delegated Reassign button
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest ? e.target.closest('.reassign-btn') : null;
+  if (!btn) return;
+  if (!window.adminUnlocked) return notify('Admin required', false);
+  var team = btn.getAttribute('data-team') || '';
+  if (!team) return;
+  document.getElementById('reassign-team').value = team;
+  document.getElementById('reassign-select').value = '';
+  document.getElementById('reassign-id').value = '';
+  document.getElementById('reassign-backdrop').style.display = 'flex';
+});
+
+// Modal close + helpers
+var rb = document.getElementById('reassign-backdrop');
+var rclose = document.getElementById('reassign-close');
+var rcancel = document.getElementById('reassign-cancel');
+if (rclose) rclose.addEventListener('click', function () { rb.style.display = 'none'; });
+if (rcancel) rcancel.addEventListener('click', function () { rb.style.display = 'none'; });
+if (rb) rb.addEventListener('click', function (e) { if (e.target && e.target.id === 'reassign-backdrop') rb.style.display = 'none'; });
+var rselect = document.getElementById('reassign-select');
+if (rselect) rselect.addEventListener('change', function () {
+  var v = rselect.value;
+  if (v) document.getElementById('reassign-id').value = v;
+});
+var rsubmit = document.getElementById('reassign-submit');
+if (rsubmit) rsubmit.addEventListener('click', function () {
+  if (!window.adminUnlocked) return notify('Admin required', false);
+  var team = (document.getElementById('reassign-team').value || '').trim();
+  var newId = (document.getElementById('reassign-id').value || '').trim();
+  if (!team || !newId) return notify('Team and new owner ID required', false);
+  fetch('/admin/ownership/reassign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ team: team, new_owner_id: newId })
+  }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, body: j }; }); })
+    .then(function (res) {
+      if (!res.ok || res.body.ok === false) return notify(res.body.error || 'Reassign failed', false);
+      notify('Reassigned', true);
+      document.getElementById('reassign-backdrop').style.display = 'none';
+      ownershipState.loaded = false;
+      initOwnership();
+    }).catch(function () { notify('Network error', false); });
+});
+
+// Back-compat shim
+function loadOwnershipPage() {
+  if (!ownershipState.loaded) initOwnership();
+  else sortMerged(ownershipState.lastSort || 'country');
+}
+window.loadOwnershipPage = loadOwnershipPage;
+
 
 // Buttons
 document.querySelector('#sort-country')?.addEventListener('click', () => sortMerged('country'));
@@ -1139,4 +1184,4 @@ async function getCogStatus(name){
     startPolling();
   }
   window.addEventListener('load', init);
-}();
+})();
