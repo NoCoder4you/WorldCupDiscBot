@@ -408,37 +408,44 @@ function mergeTeamsWithOwnership(teams, rows) {
 }
 
 function renderOwnershipTable(list) {
-  const tbody = qs('#ownership-tbody');
+  const tbody = document.querySelector('#ownership-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  list.forEach(row => {
+  list.forEach(function(row) {
     const tr = document.createElement('tr');
     if (!row.main_owner) tr.classList.add('row-unassigned');
     else tr.classList.add('row-assigned');
 
-    // Prefer username; show numeric ID only if admin
-    const label = row.main_owner?.username || row.main_owner?.id || '';
-    const showId = adminUnlocked && row.main_owner?.id && label !== row.main_owner.id;
+    // prefer name; only show numeric ID to admins
+    var label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
+    var idVal = row.main_owner ? row.main_owner.id : '';
+    var showId = !!(window.adminUnlocked && idVal && label !== idVal);
 
-    const ownerCell = row.main_owner
-      ? `<span class="owner-name" title="${row.main_owner.id}">${label}</span>${
-          showId ? ` <span class="muted">(${row.main_owner.id})</span>` : ''
-        }`
-      : `Unassigned <span class="warn-icon" title="No owner">⚠️</span>`;
+    var ownerCell = '';
+    if (row.main_owner) {
+      ownerCell =
+        '<span class="owner-name" title="' + idVal + '">' + label + '</span>' +
+        (showId ? ' <span class="muted">(' + idVal + ')</span>' : '');
+    } else {
+      ownerCell = 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
+    }
 
-    const splitStr = (row.split_with && row.split_with.length)
-      ? row.split_with.map(s => s.username || s.id).join(', ')
-      : '—';
+    var splitStr = '—';
+    if (row.split_with && row.split_with.length) {
+      splitStr = row.split_with.map(function(s) {
+        return s.username || s.id;
+      }).join(', ');
+    }
 
-    tr.innerHTML = `
-      <td>${row.country}</td>
-      <td>${ownerCell}</td>
-      <td>${splitStr}</td>
-      <td class="admin-col" data-admin="true">
-        <button class="btn btn-outline xs reassign-btn" data-team="${row.country}">Reassign</button>
-      </td>
-    `;
+    tr.innerHTML =
+      '<td>' + row.country + '</td>' +
+      '<td>' + ownerCell + '</td>' +
+      '<td>' + splitStr + '</td>' +
+      '<td class="admin-col" data-admin="true">' +
+        '<button class="btn btn-outline xs reassign-btn" data-team="' + row.country + '">Reassign</button>' +
+      '</td>';
+
     tbody.appendChild(tr);
   });
 }
