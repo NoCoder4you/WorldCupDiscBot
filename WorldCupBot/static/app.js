@@ -430,6 +430,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Otherwise no-op; router will call it when you click the tab
 });
 
+// ---- Compatibility shim for existing router ----
+async function loadOwnershipPage() {
+  // If your router expects a Promise, keep this async
+  if (!ownershipState.loaded) {
+    await initOwnership();
+  } else {
+    // Re-render using last sort so the page updates on re-entry
+    sortMerged(ownershipState.lastSort || 'country');
+  }
+}
+// expose globally in case your router looks up window[loaderName]
+window.loadOwnershipPage = loadOwnershipPage;
 
 
   // --- BETS + Admin pages unchanged (same as previous message) ---
