@@ -285,6 +285,7 @@
 
 
 // ===== OWNERSHIP (teams.json + players.json) =====
+let playerNames = {}; // id -> username
 let ownershipState = {
   teams: [],
   rows: [],
@@ -343,9 +344,11 @@ function renderOwnershipTable(list) {
   list.forEach(row => {
     const tr = document.createElement('tr');
     if (!row.main_owner) tr.classList.add('row-unassigned');
+    else tr.classList.add('row-assigned');
 
+    const ownerLabel = row.main_owner?.username || row.main_owner?.id || '';
     const ownerCell = row.main_owner
-      ? `${row.main_owner.username || row.main_owner.id} <span class="muted">(${row.main_owner.id})</span>`
+      ? `<span class="owner-name">${ownerLabel}</span> <span class="muted">(${row.main_owner.id})</span>`
       : `Unassigned <span class="warn-icon" title="No owner">⚠️</span>`;
 
     const splitStr = row.split_with && row.split_with.length
@@ -387,21 +390,38 @@ function sortMerged(by) {
 
 async function initOwnership() {
   try {
-    const [rowsObj, teams] = await Promise.all([
+    const [rowsObj, teams, names] = await Promise.all([
       fetchOwnershipRows(),
-      fetchTeamsList()
+      fetchTeamsList(),
+      fetch('/api/player_names').then(r => r.ok ? r.json() : {}).catch(() => ({}))
     ]);
+    playerNames = names || {};
     ownershipState.rows = rowsObj.rows || [];
     ownershipState.teams = teams;
 
-    ownershipState.merged = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
+    const mergedData = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
+
+    // Fill in missing usernames using playerNames
+    mergedData.merged.forEach(r => {
+      if (r.main_owner && !r.main_owner.username) {
+        r.main_owner.username = playerNames[r.main_owner.id] || r.main_owner.id;
+      }
+      (r.split_with || []).forEach(s => {
+        if (!s.username) s.username = playerNames[s.id] || s.id;
+      });
+    });
+
+    ownershipState.merged = mergedData.merged;
+    ownershipState.playerList = mergedData.playerList.length
+      ? mergedData.playerList
+      : Object.entries(playerNames).map(([id, username]) => ({ id, username }));
     ownershipState.loaded = true;
 
-    // Initial render sorted by country
     sortMerged('country');
+    fillReassignSelect(ownershipState.playerList);
   } catch (e) {
-    logErr('initOwnership', e);
-    if (typeof notify === 'function') notify('Failed to load ownership data', false);
+    console.error('[ownership:init]', e);
+    notify('Failed to load ownership data', false);
   }
 }
 
