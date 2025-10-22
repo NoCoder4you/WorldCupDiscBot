@@ -389,7 +389,11 @@ def create_public_routes(ctx):
         if isinstance(data, dict):
             for uid, pdata in data.items():
                 try:
-                    name = (pdata or {}).get("username") or (pdata or {}).get("name")
+                    name = (
+                            (pdata or {}).get("username")
+                            or (pdata or {}).get("name")
+                            or (pdata or {}).get("display_name")
+                    )
                     if name:
                         out[str(uid)] = str(name)
                 except Exception:

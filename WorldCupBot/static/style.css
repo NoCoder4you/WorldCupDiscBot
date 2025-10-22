@@ -188,6 +188,12 @@ body:not(.admin) section.page-section.admin-only {
 	display: none;
 }
 
+/* Hide Action column unless logged in as admin */
+body:not(.admin) .admin-col,
+body:not(.admin) [data-admin="true"] {
+  display: none !important;
+}
+
 .card.admin-only {
 	display: none;
 }

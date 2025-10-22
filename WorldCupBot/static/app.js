@@ -144,6 +144,77 @@
     });
   }
 
+
+    // ---------- ADMIN LOGIN / LOGOUT ----------
+    const loginBtn = qs('#admin-button');
+    const logoutBtn = qs('#admin-logout');
+    const modal = qs('#admin-login-backdrop');
+    const submit = qs('#admin-submit');
+    const cancel = qs('#admin-cancel');
+    const pw = qs('#admin-password');
+
+    loginBtn?.addEventListener('click', () => {
+      modal.style.display = 'flex';
+      pw.value = '';
+      pw.focus();
+    });
+
+    cancel?.addEventListener('click', () => {
+      modal.style.display = 'none';
+    });
+
+    // Handle login
+    submit?.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/admin/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw.value })
+        });
+        const j = await res.json();
+
+        if (res.ok && j.ok) {
+          // ✅ Success: unlock admin mode
+          adminUnlocked = true;
+          document.body.classList.add('admin');
+          notify('Admin unlocked', true);
+
+          // Hide modal, update UI
+          modal.style.display = 'none';
+          logoutBtn.style.display = 'inline-block';
+          loginBtn.style.display = 'none';
+        } else {
+          notify(j.error || 'Invalid password', false);
+        }
+      } catch (e) {
+        console.error('Login failed', e);
+        notify('Network error', false);
+      }
+    });
+
+    // Handle logout
+    logoutBtn?.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/admin/auth/logout', { method: 'POST' });
+        if (res.ok) {
+          // ✅ Success: lock admin mode
+          adminUnlocked = false;
+          document.body.classList.remove('admin');
+          notify('Locked', true);
+
+          // Update UI
+          loginBtn.style.display = 'inline-block';
+          logoutBtn.style.display = 'none';
+        } else {
+          notify('Logout failed', false);
+        }
+      } catch (e) {
+        console.error('Logout failed', e);
+        notify('Network error', false);
+      }
+    });
+
+
   // --- DASHBOARD ---
   async function loadDash(){
     try{
@@ -409,16 +480,14 @@ async function initOwnership() {
       merged = mergeTeamsWithOwnership(teams, rowsObj.rows || []);
     }
 
-    // Optional: hydrate names if endpoint exists
+    // Fetch id->name map and hydrate missing usernames
     let names = {};
     try {
       const nr = await fetch('/api/player_names');
       if (nr.ok) names = await nr.json();
     } catch (_) {}
 
-    // Normalize to one array "list"
-    const list = Array.isArray(merged.merged) ? merged.merged : merged;
-
+    const list = Array.isArray(merged?.merged) ? merged.merged : merged; // supports both shapes
     list.forEach(r => {
       if (r.main_owner) {
         r.main_owner.username = r.main_owner.username || names[r.main_owner.id] || r.main_owner.id;
@@ -429,8 +498,6 @@ async function initOwnership() {
     });
 
     ownershipState.merged = list;
-    ownershipState.loaded = true;
-
     sortMerged(ownershipState.lastSort || 'country');
     // if you populate a reassign select:
     if (typeof fillReassignSelect === 'function') {
