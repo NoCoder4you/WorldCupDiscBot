@@ -366,9 +366,10 @@ function renderOwnershipTable(list) {
 
   list.forEach(function (row) {
     var tr = document.createElement('tr');
-    if (!row.main_owner) tr.classList.add('row-unassigned'); else tr.classList.add('row-assigned');
+    if (!row.main_owner) tr.classList.add('row-unassigned');
+    else tr.classList.add('row-assigned');
 
-    // prefer name; only show numeric ID to admins
+    // Prefer username; only show numeric ID when logged in as admin
     var label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
     var idVal = row.main_owner ? row.main_owner.id : '';
     var showId = !!(window.adminUnlocked && idVal && label !== idVal);
@@ -469,19 +470,24 @@ function mergeTeamsWithOwnership(teams, rows) {
 }
 
 function initOwnership() {
-  // Try merged endpoint first, then fallback
-  var mergedPromise = fetch('/api/ownership_merged').then(function (r) {
-    if (!r.ok) return null;
-    return r.json();
-  }).then(function (j) {
-    return (j && Array.isArray(j.rows)) ? j.rows : null;
-  }).catch(function () { return null; });
+  var mergedPromise = fetch('/api/ownership_merged')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) { return (j && Array.isArray(j.rows)) ? j.rows : null; })
+    .catch(function () { return null; });
 
   mergedPromise.then(function (list) {
     if (list) return list;
 
-    // Fallback: two-call flow
-    return Promise.all([fetchOwnershipRows(), fetchTeamsList()]).then(function (arr) {
+    // Fallback path: /api/ownership_from_players + /api/teams
+    return Promise.all([
+      fetch('/api/ownership_from_players').then(function (r) {
+        if (!r.ok) throw new Error('GET /api/ownership_from_players ' + r.status);
+        return r.json();
+      }),
+      fetch('/api/teams').then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (j) { return Array.isArray(j) ? j : (Array.isArray(j.teams) ? j.teams : []); })
+        .catch(function () { return []; })
+    ]).then(function (arr) {
       var rowsObj = arr[0] || {};
       var teams = arr[1] || [];
       ownershipState.rows = rowsObj.rows || [];
@@ -489,21 +495,24 @@ function initOwnership() {
       return mergeTeamsWithOwnership(teams, ownershipState.rows);
     });
   }).then(function (list) {
-    // Hydrate id->name
-    return fetch('/api/player_names').then(function (r) {
-      return r.ok ? r.json() : {};
-    }).catch(function () { return {}; }).then(function (names) {
-      playerNames = names || {};
-      list.forEach(function (r) {
-        if (r.main_owner) {
-          r.main_owner.username = r.main_owner.username || playerNames[r.main_owner.id] || r.main_owner.id;
-        }
-        (r.split_with || []).forEach(function (s) {
-          s.username = s.username || playerNames[s.id] || s.id;
+    // Hydrate names from server map
+    return fetch('/api/player_names')
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .catch(function () { return {}; })
+      .then(function (names) {
+        playerNames = names || {};
+        list.forEach(function (row) {
+          if (row.main_owner) {
+            var id = row.main_owner.id;
+            row.main_owner.username = row.main_owner.username || playerNames[id] || id;
+          }
+          (row.split_with || []).forEach(function (s) {
+            var sid = s.id;
+            s.username = s.username || playerNames[sid] || sid;
+          });
         });
+        return list;
       });
-      return list;
-    });
   }).then(function (list) {
     ownershipState.merged = list;
     ownershipState.loaded = true;
@@ -513,6 +522,7 @@ function initOwnership() {
     notify('Failed to load ownership data', false);
   });
 }
+
 
 // Sort buttons
 var sortCountryBtn = document.querySelector('#sort-country');
