@@ -258,6 +258,30 @@
     qs('#ping-value').textContent = isFinite(ms) ? `${ms} ms` : '-- ms';
   }
 
+  // --- OWNERSHIP ---
+  function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+  function ensureSectionCard(id, title, controls){
+    const sec = qs(`#${id}`); sec.innerHTML='';
+    const wrap = document.createElement('div'); wrap.className='table-wrap';
+    const head = document.createElement('div'); head.className='table-head';
+    head.innerHTML = `<div class="table-title">${title}</div><div class="table-actions"></div>`;
+    const actions = head.querySelector('.table-actions');
+    (controls||[]).forEach(([label, meta])=>{
+      if(meta && meta.kind==='input'){
+        const inp = document.createElement('input'); inp.type='text'; inp.id=meta.id; inp.placeholder=meta.placeholder||'';
+        actions.appendChild(inp);
+      }else if(meta && meta.kind==='select'){
+        const sel=document.createElement('select'); sel.id=meta.id;
+        (meta.items||[]).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+        actions.appendChild(sel);
+      }else{
+        const btn = document.createElement('button'); btn.className='btn'; if(meta?.id) btn.id=meta.id; btn.textContent=label; actions.appendChild(btn);
+      }
+    });
+    const scroll = document.createElement('div'); scroll.className='table-scroll';
+    wrap.appendChild(head); wrap.appendChild(scroll); sec.appendChild(wrap);
+    return wrap;
+  }
 // =========================
 // Ownership (teams.json + players.json)
 // =========================
@@ -273,16 +297,12 @@ let ownershipState = {
 
 // Merge utility - returns full list including unassigned
 function mergeTeamsWithOwnership(teams, rows) {
-  const byTeam = new Map(
-    rows.map(r => [String(r.country).toLowerCase(), r])
-  );
+  const byTeam = new Map(rows.map(r => [String(r.country).toLowerCase(), r]));
 
   // Build player list
   const players = new Map();
   rows.forEach(r => {
-    if (r.main_owner?.id) {
-      players.set(String(r.main_owner.id), r.main_owner.username || r.main_owner.id);
-    }
+    if (r.main_owner?.id) players.set(String(r.main_owner.id), r.main_owner.username || r.main_owner.id);
     (r.split_with || []).forEach(s => {
       if (s.id) players.set(String(s.id), s.username || s.id);
     });
@@ -320,13 +340,11 @@ async function fetchTeamsList() {
       if (Array.isArray(j.teams)) return j.teams;
     }
   } catch (e) { /* ignore */ }
-
   // Fallback: infer from ownership rows (still works sans endpoint)
   if (ownershipState.rows?.length) {
     return ownershipState.rows.map(r => r.country).sort((a, b) => a.localeCompare(b));
   }
-
-  return []; // worst case
+  return [];
 }
 
 async function fetchOwnershipRows() {
@@ -474,7 +492,7 @@ reassignSubmit?.addEventListener('click', async () => {
 qs('#sort-country')?.addEventListener('click', () => sortMerged('country'));
 qs('#sort-player')?.addEventListener('click', () => sortMerged('player'));
 
-// call this when navigating to the page
+// Router: show page and lazy-init ownership
 function showPage(id) {
   qsa('section.page-section, section.dashboard').forEach(s => s.classList.remove('active-section'));
   const sec = qs('#' + id);
@@ -482,6 +500,7 @@ function showPage(id) {
   qsa('.menu a').forEach(a => a.classList.toggle('active', a.dataset.page === id));
   if (id === 'ownership' && !ownershipState.loaded) initOwnership();
 }
+
 
   // --- BETS + Admin pages unchanged (same as previous message) ---
   async function loadBets(){
