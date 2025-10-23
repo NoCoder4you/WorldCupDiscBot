@@ -685,87 +685,71 @@ document.addEventListener('click', function (e) {
   document.getElementById('reassign-backdrop').style.display = 'flex';
 });
 
-    // ===== Reassign flow (gated, 2-step confirm) =====
-    const reassignBackdrop = document.getElementById('reassign-backdrop');
-    const reassignTeamInp  = document.getElementById('reassign-team');
-    const reassignSelect   = document.getElementById('reassign-select');
-    const reassignIdInp    = document.getElementById('reassign-id');
+    // ===== Reassign flow (custom dropdown version - no native <select>) =====
+const reassignBackdrop = document.getElementById('reassign-backdrop');
+const reassignTeamInp  = document.getElementById('reassign-team');
+const reassignIdInp    = document.getElementById('reassign-id');
+const pickerBtn        = document.getElementById('reassign-picker');   // button label of custom dropdown
 
-    // Open only if really admin (verify with server BEFORE opening)
-    document.addEventListener('click', async (e) => {
-      const btn = e.target.closest?.('.reassign-btn');
-      if (!btn) return;
+// Open only if really admin; then populate options and show modal
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest?.('.reassign-btn');
+  if (!btn) return;
 
-      // Re-sync session; if still locked, do not open modal
-      const unlocked = await fetchAdminStatus();
-      if (!unlocked) {
-        notify('Admin required', false);
-        return;
-      }
+  // ensure admin session is unlocked
+  const unlocked = await fetchAdminStatus();
+  if (!unlocked) {
+    notify('Admin required', false);
+    return; // do not open modal
+  }
 
-      reassignTeamInp.value = btn.getAttribute('data-team') || '';
-      reassignIdInp.value = '';
-      reassignSelect.value = '';
+  const team = btn.getAttribute('data-team') || '';
+  reassignTeamInp.value = team;
+  reassignIdInp.value = '';
+  if (pickerBtn) pickerBtn.textContent = '-- Select a player --';
 
-      await loadVerifiedOptions();      // populate select from /api/verified
-      reassignBackdrop.style.display = 'flex';
+  await loadVerifiedOptions(); // builds the custom dropdown list
+  reassignBackdrop.style.display = 'flex';
+});
+
+// Close/cancel
+document.getElementById('reassign-close')?.addEventListener('click', () => {
+  reassignBackdrop.style.display = 'none';
+});
+document.getElementById('reassign-cancel')?.addEventListener('click', () => {
+  reassignBackdrop.style.display = 'none';
+});
+
+// Submit (no second-stage confirm)
+document.getElementById('reassign-submit')?.addEventListener('click', async () => {
+  const unlocked = await fetchAdminStatus();
+  if (!unlocked) return notify('Admin required', false);
+
+  const team  = (document.getElementById('reassign-team').value || '').trim();
+  const newId = (document.getElementById('reassign-id').value  || '').trim();
+  const label = (pickerBtn?.textContent || '').trim();
+
+  if (!team || !newId) return notify('Team and new owner ID required', false);
+
+  try {
+    const r = await fetch('/admin/ownership/reassign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ team, new_owner_id: newId })
     });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) return notify(j.error || 'Reassign failed', false);
 
-    // keep select and manual id in sync
-    reassignSelect?.addEventListener('change', () => {
-      const v = reassignSelect.value;
-      if (v) reassignIdInp.value = v;
-    });
+    document.getElementById('reassign-backdrop').style.display = 'none';
+    notify(`Reassigned ${team} to ${label || newId}`, true);
+    await refreshOwnershipNow(); // hard refresh of the Ownership card
+  } catch {
+    notify('Network error', false);
+  }
+});
 
-    // close/cancel
-    document.getElementById('reassign-close')?.addEventListener('click', () => {
-      reassignBackdrop.style.display = 'none';
-    });
-    document.getElementById('reassign-cancel')?.addEventListener('click', () => {
-      reassignBackdrop.style.display = 'none';
-    });
-
-    document.getElementById('reassign-submit')?.addEventListener('click', async () => {
-      // verify admin
-      const unlocked = await fetchAdminStatus();
-      if (!unlocked) return notify('Admin required', false);
-
-    const team  = (document.getElementById('reassign-team').value || '').trim();
-    const newId = (document.getElementById('reassign-id').value  || '').trim();
-    // optional: show the label from the picker in the toast
-    const label = document.getElementById('reassign-picker')?.textContent || '';
-
-      if (!team || !newId) {
-        notify('Team and new owner ID required', false);
-        return;
-      }
-
-      try {
-        const r = await fetch('/admin/ownership/reassign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ team, new_owner_id: newId })
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || j.ok === false) {
-          notify(j.error || 'Reassign failed', false);
-          return;
-        }
-
-        // Close modal, toast success, and refresh the table content
-        document.getElementById('reassign-backdrop').style.display = 'none';
-        notify(`Reassigned ${team} to ${name || newId}`, true);
-        await refreshOwnershipNow();
-      } catch {
-        notify('Network error', false);
-      }
-    });
-
-
-
-
-// ---- Hard refresh of the Ownership table (self-contained) ----
+// ---- Ownership Table ----
 async function refreshOwnershipNow() {
   try {
     // Disable buttons briefly to avoid double clicks
