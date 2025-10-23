@@ -1588,3 +1588,41 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   #reassign-backdrop .modal-body { padding: 12px 14px; gap: 12px; }
   #reassign-backdrop .modal-foot { padding: 10px 14px 14px; }
 }
+
+/* === Reassign modal improvements === */
+
+/* make the "Team" box visually locked and non-clickable */
+#reassign-team[readonly] {
+  pointer-events: none;     /* completely non-clickable */
+  background: rgba(255,255,255,0.03);
+  color: #bfc9d5;
+  cursor: default;
+  user-select: none;
+}
+
+/* readable dropdown on dark theme */
+#reassign-select {
+  background: rgba(12,18,27,0.95);
+  color: #eaf0f7;
+  border: 1px solid var(--border, #213040);
+  border-radius: 10px;
+}
+
+#reassign-select option {
+  background: #0f1622;
+  color: #e8f1fb;
+  padding: 6px 10px;
+}
+
+#reassign-select option:hover,
+#reassign-select option:focus,
+#reassign-select option:checked {
+  background: #1c2533;
+  color: #ffffff;
+}
+
+/* disable browser default highlight (light gray) */
+#reassign-select::-ms-expand {
+  background: transparent;
+  color: inherit;
+}
