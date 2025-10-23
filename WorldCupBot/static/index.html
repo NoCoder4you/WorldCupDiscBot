@@ -140,37 +140,41 @@
         </div>
       </div>
 
-      <!-- Reassign Modal -->
-      <div class="modal-backdrop" id="reassign-backdrop">
-        <div class="modal">
-          <div class="modal-head">
-            <h3>Reassign Team</h3>
-            <button class="modal-x" id="reassign-close" aria-label="Close">✖</button>
-          </div>
-          <div class="modal-body">
-            <div class="row">
-              <label>Team</label>
-              <input id="reassign-team" type="text" readonly>
+        <!-- ===== Reassign Modal ===== -->
+        <div id="reassign-backdrop" style="display: none;">
+          <div id="reassign-modal">
+            <div class="modal-head">
+              <h3>Reassign Team</h3>
+              <button id="reassign-close" title="Close">×</button>
             </div>
 
-            <div class="row">
+            <div class="modal-body">
+              <label for="reassign-team">Team</label>
+              <input id="reassign-team" type="text" readonly>
+
               <label for="reassign-select">Pick known player</label>
               <select id="reassign-select">
                 <option value="">-- Select a player --</option>
+                <!-- JS will populate options from verified.json -->
               </select>
+
+              <label for="reassign-id">Or enter Discord ID</label>
+              <input
+                id="reassign-id"
+                type="text"
+                placeholder="123456789012345678"
+                maxlength="20"
+              >
+              <p class="hint">You can either pick a verified user above or manually enter a Discord ID.</p>
             </div>
 
-            <div class="row">
-              <label for="reassign-id">Or enter Discord ID</label>
-              <input id="reassign-id" type="text" placeholder="123456789012345678">
+            <div class="modal-foot">
+              <button id="reassign-cancel">Cancel</button>
+              <button id="reassign-submit">Reassign</button>
             </div>
           </div>
-          <div class="modal-actions">
-            <button class="btn btn-outline" id="reassign-cancel">Cancel</button>
-            <button class="btn btn-restart" id="reassign-submit">Reassign</button>
-          </div>
         </div>
-      </div>
+
     </section>
 
 

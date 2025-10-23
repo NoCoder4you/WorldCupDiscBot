@@ -1448,3 +1448,143 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   #ownership .ownership-table th:nth-child(4),
   #ownership .ownership-table td:nth-child(4) { width: 10%; }
 }
+
+/* ===== Reassign modal polish ===== */
+#reassign-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;                 /* JS sets to flex when opened */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 9999;
+}
+
+/* The card */
+#reassign-backdrop #reassign-modal,
+#reassign-backdrop .modal-card,       /* in case your inner div uses this class */
+#reassign-backdrop > div {
+  max-width: 640px;
+  width: min(92vw, 640px);
+  background: var(--card, #0f1622);
+  border: 1px solid var(--border, #213040);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  color: #dfe8f1;
+}
+
+/* Head */
+#reassign-backdrop .modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 8px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+#reassign-backdrop .modal-head h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: 0.2px;
+  color: #bde3ff;
+}
+#reassign-close {
+  appearance: none;
+  border: 1px solid var(--border, #213040);
+  background: rgba(255,255,255,0.05);
+  color: #cbd6e2;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform .06s ease, background .15s ease;
+}
+#reassign-close:hover { background: rgba(255,255,255,0.09); }
+#reassign-close:active { transform: scale(0.96); }
+
+/* Body */
+#reassign-backdrop .modal-body {
+  padding: 16px 18px;
+  display: grid;
+  gap: 14px;
+}
+#reassign-backdrop label {
+  display: block;
+  margin: 8px 0 6px;
+  font-weight: 700;
+  color: #a8b7c6;
+}
+
+/* Inputs and selects */
+#reassign-team,
+#reassign-id,
+#reassign-select {
+  width: 100%;
+  font-size: 15px;
+  line-height: 1.3;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #213040);
+  background: rgba(255,255,255,0.04);
+  color: #e8f1fb;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+#reassign-select { cursor: pointer; }
+#reassign-team:focus,
+#reassign-id:focus,
+#reassign-select:focus {
+  border-color: #4da4ff;
+  box-shadow: 0 0 0 3px rgba(77,164,255,0.25);
+  background: rgba(255,255,255,0.06);
+}
+
+/* Foot */
+#reassign-backdrop .modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 18px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+#reassign-cancel,
+#reassign-submit {
+  appearance: none;
+  border: 1px solid transparent;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter .12s ease, transform .06s ease, background .15s ease, border-color .15s ease;
+}
+
+#reassign-cancel {
+  background: rgba(255,255,255,0.06);
+  color: #c7d6e8;
+  border-color: var(--border, #213040);
+}
+#reassign-cancel:hover { filter: brightness(1.05); }
+#reassign-cancel:active { transform: translateY(1px); }
+
+#reassign-submit {
+  background: #05c46b;
+  color: #082016;
+  border-color: #05b462;
+}
+#reassign-submit:hover { filter: brightness(1.04); }
+#reassign-submit:active { transform: translateY(1px); }
+
+/* Compact help text or placeholders */
+#reassign-backdrop .hint {
+  font-size: 12px;
+  color: #93a6b9;
+  margin-top: 4px;
+}
+
+/* Make the select and inputs breathe on very small screens */
+@media (max-width: 520px) {
+  #reassign-backdrop .modal-head { padding: 12px 14px 6px; }
+  #reassign-backdrop .modal-body { padding: 12px 14px; gap: 12px; }
+  #reassign-backdrop .modal-foot { padding: 10px 14px 14px; }
+}
