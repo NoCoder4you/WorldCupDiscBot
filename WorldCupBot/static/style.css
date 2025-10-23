@@ -1507,6 +1507,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   padding: 16px 18px;
   display: grid;
   gap: 14px;
+  overflow: visible;
 }
 #reassign-backdrop label {
   display: block;

@@ -730,9 +730,9 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
   const unlocked = await fetchAdminStatus();
   if (!unlocked) return notify('Admin required', false);
 
-  const team  = (document.getElementById('reassign-team').value || '').trim();
-  const newId = (document.getElementById('reassign-id').value  || '').trim();
-  const label = (pickerBtn?.textContent || '').trim();
+    const team  = (document.getElementById('reassign-team').value || '').trim();
+    const newId = (document.getElementById('reassign-id').value || '').trim();
+    const label = (document.getElementById('reassign-picker')?.textContent || '').trim();
 
   if (!team || !newId) return notify('Team and new owner ID required', false);
 
