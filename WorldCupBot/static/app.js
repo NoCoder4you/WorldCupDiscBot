@@ -365,30 +365,87 @@
       const nm = item.habbo_name || item.username || item.display_name || item.name || String(id);
       return id ? { id: String(id), name: String(nm) } : null;
     }
-    // Build the custom dark dropdown from /api/verified
-    async function loadVerifiedOptions() {
+
+
+    async function ensureVerifiedOptionsReady(openAfter = false) {
       const picker = document.getElementById('reassign-picker');
       const list   = document.getElementById('reassign-options');
       const idBox  = document.getElementById('reassign-id');
-
       if (!picker || !list || !idBox) return [];
 
-      // fetch and normalize
-      const res = await fetch('/api/verified', { credentials: 'include' });
-      const raw = await res.json();
-      const arr = (Array.isArray(raw) ? raw :
-                  (Array.isArray(raw.verified_users) ? raw.verified_users : []))
-        .map(v => {
-          const id = String(v.discord_id || v.id || v.user_id || '');
-          const nm = String(v.habbo_name || v.username || v.display_name || v.name || id);
-          return id ? { id, name: nm } : null;
-        })
-        .filter(Boolean)
-        .sort((a,b) => a.name.localeCompare(b.name));
+      // Wire interactions once
+      if (!picker.dataset.wired) {
+        picker.dataset.wired = '1';
 
-      // render list items
+        // Toggle list
+        picker.addEventListener('click', () => {
+          if (list.childElementCount === 0) return; // nothing to show
+          const open = list.hidden;
+          list.hidden = !open;
+          picker.setAttribute('aria-expanded', String(open));
+        });
+
+        // Click an option
+        list.addEventListener('click', (e) => {
+          const li = e.target.closest('li');
+          if (!li) return;
+          picker.textContent = li.dataset.label;
+          idBox.value = li.dataset.id;
+          list.hidden = true;
+          picker.setAttribute('aria-expanded', 'false');
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+          if (e.target === picker || e.target.closest('#verified-select')) return;
+          if (!list.hidden) {
+            list.hidden = true;
+            picker.setAttribute('aria-expanded', 'false');
+          }
+        });
+      }
+
+      // If already populated, optionally open and return
+      if (list.childElementCount > 0) {
+        if (openAfter) {
+          list.hidden = false;
+          picker.setAttribute('aria-expanded', 'true');
+        }
+        return Array.from(list.children).map(li => ({ id: li.dataset.id, name: li.dataset.label }));
+      }
+
+      // Fetch /api/verified
+      let entries = [];
+      try {
+        const r = await fetch('/api/verified', { credentials: 'include' });
+        const raw = await r.json();
+        const arr = Array.isArray(raw) ? raw : (Array.isArray(raw.verified_users) ? raw.verified_users : []);
+        entries = arr.map(v => {
+          const id = String(v.discord_id || v.id || v.user_id || '');
+          const name = String(v.habbo_name || v.username || v.display_name || v.name || id);
+          return id ? { id, name } : null;
+        }).filter(Boolean);
+      } catch (_) {
+        // ignore
+      }
+
+      // Fallback: /api/player_names
+      if (entries.length === 0) {
+        try {
+          const r = await fetch('/api/player_names', { credentials: 'include' });
+          const map = await r.json();
+          entries = Object.keys(map).map(id => ({ id, name: map[id] || id }));
+        } catch (_) {
+          // ignore
+        }
+      }
+
+      // Sort A-Z
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+
+      // Render options
       list.innerHTML = '';
-      arr.forEach(({id, name}) => {
+      entries.forEach(({ id, name }) => {
         const li = document.createElement('li');
         li.setAttribute('role', 'option');
         li.dataset.id = id;
@@ -397,41 +454,13 @@
         list.appendChild(li);
       });
 
-      // open/close
-      function openList() {
+      if (openAfter && list.childElementCount > 0) {
         list.hidden = false;
         picker.setAttribute('aria-expanded', 'true');
       }
-      function closeList() {
-        list.hidden = true;
-        picker.setAttribute('aria-expanded', 'false');
-      }
 
-      // toggle
-      picker.onclick = () => (list.hidden ? openList() : closeList());
-
-      // select
-      list.onclick = (e) => {
-        const li = e.target.closest('li');
-        if (!li) return;
-        // set visible label and hidden ID
-        picker.textContent = li.dataset.label;
-        idBox.value = li.dataset.id;
-        // mark selection
-        list.querySelectorAll('li[aria-selected="true"]').forEach(n=>n.removeAttribute('aria-selected'));
-        li.setAttribute('aria-selected', 'true');
-        closeList();
-      };
-
-      // close when clicking outside
-      document.addEventListener('click', (e) => {
-        if (e.target === picker || e.target.closest('#verified-select')) return;
-        if (!list.hidden) closeList();
-      });
-
-      return arr;
+      return entries;
     }
-
 
 
 
@@ -472,30 +501,6 @@
       const nm = item.habbo_name || item.username || item.display_name || item.name || String(id);
       return id ? { id: String(id), name: String(nm) } : null;
     }
-    async function loadVerifiedOptions() {
-      try {
-        const r = await fetch('/api/verified', { credentials: 'include' });
-        const raw = await r.json();
-        const list = parseVerifiedPayload(raw)
-          .map(normalizeVerifiedItem)
-          .filter(Boolean)
-          .sort((a,b) => a.name.localeCompare(b.name));
-
-        const sel = document.getElementById('reassign-select');
-        if (!sel) return list;
-        sel.innerHTML = '<option value="">-- Select a player --</option>';
-        list.forEach(({id, name}) => {
-          const opt = document.createElement('option');
-          opt.value = id;
-          opt.textContent = name + ' (' + id + ')';
-          sel.appendChild(opt);
-        });
-        return list;
-      } catch {
-        return [];
-      }
-    }
-
 
 // -------------------- OWNERSHIP (teams.json + players.json) --------------------
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
@@ -706,9 +711,9 @@ document.addEventListener('click', async (e) => {
   const team = btn.getAttribute('data-team') || '';
   reassignTeamInp.value = team;
   reassignIdInp.value = '';
-  if (pickerBtn) pickerBtn.textContent = '-- Select a player --';
+  pickerBtn.textContent = '-- Select a player --';
+  await ensureVerifiedOptionsReady(true);
 
-  await loadVerifiedOptions(); // builds the custom dropdown list
   reassignBackdrop.style.display = 'flex';
 });
 
