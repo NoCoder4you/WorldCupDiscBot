@@ -1590,38 +1590,48 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 /* === Reassign modal improvements === */
-
-/* make the "Team" box visually locked and non-clickable */
 #reassign-team[readonly] {
-  pointer-events: none;     /* completely non-clickable */
-  background: rgba(255,255,255,0.03);
-  color: #bfc9d5;
+  pointer-events: none;
+  background: rgba(255,255,255,0.04);
+  color: #aeb8c5;
   cursor: default;
   user-select: none;
+  border: 1px solid #1b2838;
 }
 
-/* readable dropdown on dark theme */
+/* Dark dropdown styling */
 #reassign-select {
-  background: rgba(12,18,27,0.95);
-  color: #eaf0f7;
-  border: 1px solid var(--border, #213040);
-  border-radius: 10px;
+  background: #0d141d;
+  color: #dce6f0;
+  border: 1px solid #1b2838;
+  border-radius: 8px;
+  outline: none;
+  font-size: 15px;
+  padding: 10px 12px;
+  cursor: pointer;
 }
 
+#reassign-select:focus {
+  border-color: #4da4ff;
+  box-shadow: 0 0 0 3px rgba(77,164,255,0.25);
+}
+
+/* Options list - completely dark */
 #reassign-select option {
-  background: #0f1622;
-  color: #e8f1fb;
-  padding: 6px 10px;
+  background-color: #0d141d;
+  color: #dce6f0;
+  padding: 8px 10px;
 }
 
+/* Hover and selected states - darker blue tint */
 #reassign-select option:hover,
 #reassign-select option:focus,
 #reassign-select option:checked {
-  background: #1c2533;
+  background-color: #1c2431;
   color: #ffffff;
 }
 
-/* disable browser default highlight (light gray) */
+/* Remove system light outline on Windows */
 #reassign-select::-ms-expand {
   background: transparent;
   color: inherit;
