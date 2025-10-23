@@ -152,11 +152,14 @@
               <label for="reassign-team">Team</label>
               <input id="reassign-team" type="text" readonly>
 
-              <label for="reassign-select">Pick known player</label>
-              <select id="reassign-select">
-                <option value="">-- Select a player --</option>
-                <!-- JS will populate options from verified.json -->
-              </select>
+                <label>Pick known player</label>
+                <div class="select-dark" id="verified-select">
+                  <button type="button" id="reassign-picker" aria-haspopup="listbox" aria-expanded="false">
+                    -- Select a player --
+                  </button>
+                  <ul id="reassign-options" role="listbox" tabindex="-1" hidden></ul>
+                </div>
+
 
               <label for="reassign-id">Or enter Discord ID</label>
               <input

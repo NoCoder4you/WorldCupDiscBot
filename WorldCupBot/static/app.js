@@ -365,31 +365,73 @@
       const nm = item.habbo_name || item.username || item.display_name || item.name || String(id);
       return id ? { id: String(id), name: String(nm) } : null;
     }
+    // Build the custom dark dropdown from /api/verified
     async function loadVerifiedOptions() {
-      try {
-        const r = await fetch('/api/verified', { credentials: 'include' });
-        const raw = await r.json();
-        const list = parseVerifiedPayload(raw)
-          .map(normalizeVerifiedItem)
-          .filter(Boolean)
-          .sort((a,b) => a.name.localeCompare(b.name));
+      const picker = document.getElementById('reassign-picker');
+      const list   = document.getElementById('reassign-options');
+      const idBox  = document.getElementById('reassign-id');
 
-        const sel = document.getElementById('reassign-select');
-        if (!sel) return list;
+      if (!picker || !list || !idBox) return [];
 
-        sel.innerHTML = '<option value="">-- Select a player --</option>';
-        list.forEach(({id, name}) => {
-          const opt = document.createElement('option');
-          opt.value = id;
-          opt.textContent = `${name} (${id})`;
-          sel.appendChild(opt);
-        });
-        return list;
-      } catch {
-        // if this throws, /api/verified is not returning JSON
-        return [];
+      // fetch and normalize
+      const res = await fetch('/api/verified', { credentials: 'include' });
+      const raw = await res.json();
+      const arr = (Array.isArray(raw) ? raw :
+                  (Array.isArray(raw.verified_users) ? raw.verified_users : []))
+        .map(v => {
+          const id = String(v.discord_id || v.id || v.user_id || '');
+          const nm = String(v.habbo_name || v.username || v.display_name || v.name || id);
+          return id ? { id, name: nm } : null;
+        })
+        .filter(Boolean)
+        .sort((a,b) => a.name.localeCompare(b.name));
+
+      // render list items
+      list.innerHTML = '';
+      arr.forEach(({id, name}) => {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        li.dataset.id = id;
+        li.dataset.label = `${name} (${id})`;
+        li.textContent = li.dataset.label;
+        list.appendChild(li);
+      });
+
+      // open/close
+      function openList() {
+        list.hidden = false;
+        picker.setAttribute('aria-expanded', 'true');
       }
+      function closeList() {
+        list.hidden = true;
+        picker.setAttribute('aria-expanded', 'false');
+      }
+
+      // toggle
+      picker.onclick = () => (list.hidden ? openList() : closeList());
+
+      // select
+      list.onclick = (e) => {
+        const li = e.target.closest('li');
+        if (!li) return;
+        // set visible label and hidden ID
+        picker.textContent = li.dataset.label;
+        idBox.value = li.dataset.id;
+        // mark selection
+        list.querySelectorAll('li[aria-selected="true"]').forEach(n=>n.removeAttribute('aria-selected'));
+        li.setAttribute('aria-selected', 'true');
+        closeList();
+      };
+
+      // close when clicking outside
+      document.addEventListener('click', (e) => {
+        if (e.target === picker || e.target.closest('#verified-select')) return;
+        if (!list.hidden) closeList();
+      });
+
+      return arr;
     }
+
 
 
 
@@ -688,9 +730,10 @@ document.addEventListener('click', function (e) {
       const unlocked = await fetchAdminStatus();
       if (!unlocked) return notify('Admin required', false);
 
-      const team  = (document.getElementById('reassign-team').value || '').trim();
-      const newId = (document.getElementById('reassign-id').value  || '').trim();
-      const name  = (document.getElementById('reassign-select').selectedOptions[0]?.textContent || '').trim();
+    const team  = (document.getElementById('reassign-team').value || '').trim();
+    const newId = (document.getElementById('reassign-id').value  || '').trim();
+    // optional: show the label from the picker in the toast
+    const label = document.getElementById('reassign-picker')?.textContent || '';
 
       if (!team || !newId) {
         notify('Team and new owner ID required', false);
