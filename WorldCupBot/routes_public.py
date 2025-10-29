@@ -46,6 +46,7 @@ def _guilds_path(base_dir): return os.path.join(_json_dir(base_dir), "guilds.jso
 def _split_requests_path(base_dir): return os.path.join(_json_dir(base_dir), "split_requests.json")
 def _players_path(base_dir): return os.path.join(_json_dir(base_dir), "players.json")
 def _teams_path(base_dir): return os.path.join(_json_dir(base_dir), "teams.json")
+def _team_iso_path(base_dir): return os.path.join(_json_dir(base_dir), "team_iso.json")
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)

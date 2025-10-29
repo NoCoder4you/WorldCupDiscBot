@@ -528,13 +528,18 @@ function renderOwnershipTable(list) {
       }).join(', ');
     }
 
-    tr.innerHTML =
-      '<td>' + row.country + '</td>' +
-      '<td>' + ownerCell + '</td>' +
-      '<td>' + splitStr + '</td>' +
-      '<td class="admin-col" data-admin="true">' +
-        '<button class="btn btn-outline xs reassign-btn" data-team="' + row.country + '">Reassign</button>' +
-      '</td>';
+    tr.innerHTML = `
+       <td>
+         ${flagHTML(row.country)}
+         <span class="country-name">${row.country}</span>
+       </td>
+      <td>${ownerCell}</td>
+      <td>${splitStr}</td>
+      <td class="admin-col" data-admin="true">
+        <button class="btn btn-outline xs reassign-btn" data-team="${row.country}">Reassign</button>
+      </td>
+    `;
+
 
     tbody.appendChild(tr);
   });
@@ -652,6 +657,7 @@ function initOwnership() {
         return list;
       });
   }).then(function (list) {
+    await ensureTeamIsoLoaded();
     ownershipState.merged = list;
     ownershipState.loaded = true;
     sortMerged(ownershipState.lastSort || 'country');
@@ -659,6 +665,32 @@ function initOwnership() {
     console.error('[ownership:init]', e);
     notify('Failed to load ownership data', false);
   });
+}
+
+// ----- Flags: load team_iso and render -----
+let TEAM_ISO = null; // e.g., { "Argentina": "ar", "Wales": "gb-wls", ... }
+
+async function ensureTeamIsoLoaded() {
+  if (TEAM_ISO) return TEAM_ISO;
+  try {
+    const r = await fetch('/api/team_iso', { credentials: 'include' });
+    TEAM_ISO = (await r.json()) || {};
+  } catch { TEAM_ISO = {}; }
+  return TEAM_ISO;
+}
+
+// Build an <img> with CDN flag, with emoji fallback if it fails
+function flagHTML(country) {
+  const code = (TEAM_ISO && TEAM_ISO[country]) || '';
+  const emoji = (code && /^[a-z]{2}$/.test(code))
+    ? String.fromCodePoint(127397 + code[0].toUpperCase().charCodeAt(0)) +
+      String.fromCodePoint(127397 + code[1].toUpperCase().charCodeAt(1))
+    : '🏳️';
+  if (code) {
+    const src = `https://flagcdn.com/24x18/${code}.png`; // swap to /static/flags/${code}.svg if you want offline
+    return `<img class="flag-img" src="${src}" alt="${country}" onerror="this.replaceWith(document.createTextNode('${emoji}'));">`;
+  }
+  return `<span class="flag-emoji" aria-hidden="true">${emoji}</span>`;
 }
 
 
