@@ -48,6 +48,7 @@ def _players_path(base_dir): return os.path.join(_json_dir(base_dir), "players.j
 def _teams_path(base_dir): return os.path.join(_json_dir(base_dir), "teams.json")
 def _team_iso_path(base_dir): return os.path.join(_json_dir(base_dir), "team_iso.json")
 
+
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
     out = []
@@ -589,14 +590,11 @@ def create_public_routes(ctx):
         data = _json_load(_verified_path(base), [])
         return jsonify(data if data is not None else [])
 
-    # Return mapping of Country -> ISO code (e.g., "Argentina":"ar")
     @api.get("/team_iso")
     def api_team_iso():
         base = ctx.get("BASE_DIR", "")
         data = _json_load(_team_iso_path(base), {})
 
-        # Support either dict {"Argentina":"ar", ...}
-        # or list [{"team":"Argentina","iso":"ar"}, ...]
         if isinstance(data, list):
             out = {}
             for row in data:
