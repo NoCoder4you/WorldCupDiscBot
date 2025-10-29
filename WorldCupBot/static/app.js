@@ -494,6 +494,42 @@
     }
 
 // -------------------- OWNERSHIP (teams.json + players.json) --------------------
+
+// ===== Flags on Ownership Page =====
+window.TEAM_ISO = null;
+
+async function ensureTeamIsoLoaded(force = false) {
+  if (window.TEAM_ISO && !force) return window.TEAM_ISO;
+  try {
+    const r = await fetch('/api/team_iso', { credentials: 'include' });
+    if (!r.ok) {
+      console.warn('[flags] /api/team_iso HTTP', r.status);
+      window.TEAM_ISO = {};
+      return window.TEAM_ISO;
+    }
+    window.TEAM_ISO = await r.json();
+  } catch (e) {
+    console.error('[flags] load failed', e);
+    window.TEAM_ISO = {};
+  }
+  return window.TEAM_ISO;
+}
+
+function flagHTML(country) {
+  const code = window.TEAM_ISO?.[country] || '';
+  if (!code) return ''; // no flag mapped; render just the name
+
+  // Emoji fallback if image fails
+  const emoji = /^[a-z]{2}$/.test(code)
+    ? String.fromCodePoint(127397 + code[0].toUpperCase().charCodeAt(0)) +
+      String.fromCodePoint(127397 + code[1].toUpperCase().charCodeAt(1))
+    : '🏳️';
+
+  const src = `https://flagcdn.com/24x18/${code}.png`; // swap to /static/flags/${code}.svg for offline
+  return `<img class="flag-img" src="${src}" alt="${country}"
+          onerror="this.replaceWith(document.createTextNode('${emoji}'));">`;
+}
+
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
 var playerNames = {}; // id -> username
 
@@ -665,32 +701,6 @@ function initOwnership() {
     console.error('[ownership:init]', e);
     notify('Failed to load ownership data', false);
   });
-}
-
-// ----- Flags: load team_iso and render -----
-let TEAM_ISO = null; // e.g., { "Argentina": "ar", "Wales": "gb-wls", ... }
-
-async function ensureTeamIsoLoaded() {
-  if (TEAM_ISO) return TEAM_ISO;
-  try {
-    const r = await fetch('/api/team_iso', { credentials: 'include' });
-    TEAM_ISO = (await r.json()) || {};
-  } catch { TEAM_ISO = {}; }
-  return TEAM_ISO;
-}
-
-// Build an <img> with CDN flag, with emoji fallback if it fails
-function flagHTML(country) {
-  const code = (TEAM_ISO && TEAM_ISO[country]) || '';
-  const emoji = (code && /^[a-z]{2}$/.test(code))
-    ? String.fromCodePoint(127397 + code[0].toUpperCase().charCodeAt(0)) +
-      String.fromCodePoint(127397 + code[1].toUpperCase().charCodeAt(1))
-    : '🏳️';
-  if (code) {
-    const src = `https://flagcdn.com/24x18/${code}.png`; // swap to /static/flags/${code}.svg if you want offline
-    return `<img class="flag-img" src="${src}" alt="${country}" onerror="this.replaceWith(document.createTextNode('${emoji}'));">`;
-  }
-  return `<span class="flag-emoji" aria-hidden="true">${emoji}</span>`;
 }
 
 
