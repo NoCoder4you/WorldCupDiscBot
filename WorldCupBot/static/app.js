@@ -530,6 +530,32 @@ function flagHTML(country) {
           onerror="this.replaceWith(document.createTextNode('${emoji}'));">`;
 }
 
+function codeToEmoji(cc) {
+  if (!cc || !/^[A-Za-z]{2}$/.test(cc)) return '🏳️';   // only works for true alpha-2
+  const base = 127397;                                  // regional indicator base
+  const up   = cc.toUpperCase();
+  // use charCodeAt(0) for BOTH letters (bug was charCodeAt(1) on the 2nd)
+  return String.fromCodePoint(
+    base + up.charCodeAt(0),
+    base + up.charCodeAt(1)
+  );
+}
+
+function flagHTML(country) {
+  const code = resolveIsoCode(country);                 // whatever you already have
+  if (!code) return '';                                 // no icon if unknown
+
+  // If the mapping is exactly 2 letters, we can make an emoji fallback
+  const emoji = codeToEmoji(code);
+
+  // Try image first (works for things like gb-wls as well), fallback to emoji or blank
+  const src = `https://flagcdn.com/24x18/${code}.png`;  // swap to /static/flags/${code}.svg for offline
+  // If emoji == white flag (not 2 letters), we still keep a blank fallback
+  const fallback = emoji !== '🏳️' ? emoji : '';
+  return `<img class="flag-img" src="${src}" alt="${country}"
+              onerror="this.replaceWith(document.createTextNode('${fallback}'));">`;
+}
+
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
 var playerNames = {}; // id -> username
 
