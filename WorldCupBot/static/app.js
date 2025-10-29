@@ -495,71 +495,62 @@
 
 // -------------------- OWNERSHIP (teams.json + players.json) --------------------
 
-// ===== Flags on Ownership Page =====
+// ===== Flags helpers =====
 window.TEAM_ISO = null;
 
 async function ensureTeamIsoLoaded(force = false) {
   if (window.TEAM_ISO && !force) return window.TEAM_ISO;
   try {
     const r = await fetch('/api/team_iso', { credentials: 'include' });
-    if (!r.ok) {
-      console.warn('[flags] /api/team_iso HTTP', r.status);
-      window.TEAM_ISO = {};
-      return window.TEAM_ISO;
-    }
-    window.TEAM_ISO = await r.json();
-  } catch (e) {
-    console.error('[flags] load failed', e);
+    window.TEAM_ISO = r.ok ? (await r.json()) : {};
+  } catch {
     window.TEAM_ISO = {};
   }
   return window.TEAM_ISO;
 }
 
-function flagHTML(country) {
-  const code = window.TEAM_ISO?.[country] || '';
-  if (!code) return ''; // no flag mapped; render just the name
+// Optional aliases for common naming differences
+const ISO_ALIASES = {
+  'USA': 'us', 'United States': 'uS',
+  'England': 'gb-eng', 'Scotland': 'gb-sct', 'Wales': 'gb-wls', 'Northern Ireland': 'gb-nir',
+  'South Korea': 'kr', 'Ivory Coast': 'ci', "Côte d’Ivoire": 'ci', "Cote d'Ivoire": 'ci'
+};
 
-  // Emoji fallback if image fails
-  const emoji = /^[a-z]{2}$/.test(code)
-    ? String.fromCodePoint(127397 + code[0].toUpperCase().charCodeAt(0)) +
-      String.fromCodePoint(127397 + code[1].toUpperCase().charCodeAt(1))
-    : '🏳️';
+// Find the ISO code for a given country name
+function resolveIsoCode(country) {
+  if (!country) return '';
+  const c = String(country).trim();
 
-  const src = `https://flagcdn.com/24x18/${code}.png`; // swap to /static/flags/${code}.svg for offline
-  return `<img class="flag-img" src="${src}" alt="${country}"
-          onerror="this.replaceWith(document.createTextNode('${emoji}'));">`;
+  // direct match
+  if (window.TEAM_ISO && window.TEAM_ISO[c]) return window.TEAM_ISO[c];
+  // alias match
+  if (ISO_ALIASES[c]) return ISO_ALIASES[c];
+
+  // relaxed match (case/space-insensitive)
+  const norm = c.toLowerCase().replace(/\s+/g, ' ');
+  for (const k in (window.TEAM_ISO || {})) {
+    if (k.toLowerCase().replace(/\s+/g, ' ') === norm) return window.TEAM_ISO[k];
+  }
+  return '';
 }
 
+// Safe emoji from alpha-2 code
 function codeToEmoji(cc) {
-  if (!cc || !/^[A-Za-z]{2}$/.test(cc)) return '🏳️';   // only works for true alpha-2
-  const base = 127397;                                  // regional indicator base
-  const up   = cc.toUpperCase();
-  // use charCodeAt(0) for BOTH letters (bug was charCodeAt(1) on the 2nd)
-  return String.fromCodePoint(
-    base + up.charCodeAt(0),
-    base + up.charCodeAt(1)
-  );
+  if (!/^[A-Za-z]{2}$/.test(cc)) return '🏳️';
+  const up = cc.toUpperCase();
+  const base = 127397;
+  return String.fromCodePoint(base + up.charCodeAt(0), base + up.charCodeAt(1));
 }
 
+// Build the flag HTML (img with emoji fallback)
 function flagHTML(country) {
   const code = resolveIsoCode(country);
   if (!code) return '';
-
-  // Safe emoji fallback
-  let emoji = '';
-  if (/^[a-z]{2}$/i.test(code)) {
-    const up = code.toUpperCase();
-    emoji = String.fromCodePoint(
-      127397 + up.charCodeAt(0),
-      127397 + up.charCodeAt(1)
-    );
-  } else {
-    emoji = '🏳️';
-  }
-
-  const src = `https://flagcdn.com/24x18/${code}.png`;
+  const emoji = codeToEmoji(code);
+  const src = `https://flagcdn.com/24x18/${code}.png`; // switch to /static/flags/${code}.svg if you host locally
+  const fallback = emoji !== '🏳️' ? emoji : '';
   return `<img class="flag-img" src="${src}" alt="${country}"
-          onerror="this.replaceWith(document.createTextNode('${emoji}'));">`;
+          onerror="this.replaceWith(document.createTextNode('${fallback}'));">`;
 }
 
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
