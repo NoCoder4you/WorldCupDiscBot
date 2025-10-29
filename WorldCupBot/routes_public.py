@@ -589,4 +589,25 @@ def create_public_routes(ctx):
         data = _json_load(_verified_path(base), [])
         return jsonify(data if data is not None else [])
 
+    # Return mapping of Country -> ISO code (e.g., "Argentina":"ar")
+    @api.get("/team_iso")
+    def api_team_iso():
+        base = ctx.get("BASE_DIR", "")
+        data = _json_load(_team_iso_path(base), {})
+
+        # Support either dict {"Argentina":"ar", ...}
+        # or list [{"team":"Argentina","iso":"ar"}, ...]
+        if isinstance(data, list):
+            out = {}
+            for row in data:
+                if not isinstance(row, dict):
+                    continue
+                name = (row.get("team") or row.get("name") or "").strip()
+                code = (row.get("iso") or row.get("code") or "").strip().lower()
+                if name and code:
+                    out[name] = code
+            return jsonify(out)
+
+        return jsonify(data if isinstance(data, dict) else {})
+
     return [root, api]
