@@ -648,59 +648,71 @@ function mergeTeamsWithOwnership(teams, rows) {
   });
 }
 
-function initOwnership() {
-  var mergedPromise = fetch('/api/ownership_merged')
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (j) { return (j && Array.isArray(j.rows)) ? j.rows : null; })
-    .catch(function () { return null; });
+// REPLACE your whole initOwnership with this async version
+async function initOwnership() {
+  try {
+    // 1) Try merged endpoint
+    let list = null;
+    try {
+      const r = await fetch('/api/ownership_merged', { credentials: 'include' });
+      if (r.ok) {
+        const j = await r.json();
+        if (j && Array.isArray(j.rows)) list = j.rows;
+      }
+    } catch { /* fall through to fallback */ }
 
-  mergedPromise.then(function (list) {
-    if (list) return list;
+    // 2) Fallback: ownership_from_players + teams
+    if (!list) {
+      const [rowsObj, teams] = await Promise.all([
+        (async () => {
+          const r = await fetch('/api/ownership_from_players', { credentials: 'include' });
+          if (!r.ok) throw new Error('GET /api/ownership_from_players ' + r.status);
+          return (await r.json()) || {};
+        })(),
+        (async () => {
+          try {
+            const r = await fetch('/api/teams', { credentials: 'include' });
+            const j = r.ok ? await r.json() : [];
+            return Array.isArray(j) ? j : (Array.isArray(j.teams) ? j.teams : []);
+          } catch { return []; }
+        })()
+      ]);
 
-    // Fallback path: /api/ownership_from_players + /api/teams
-    return Promise.all([
-      fetch('/api/ownership_from_players').then(function (r) {
-        if (!r.ok) throw new Error('GET /api/ownership_from_players ' + r.status);
-        return r.json();
-      }),
-      fetch('/api/teams').then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (j) { return Array.isArray(j) ? j : (Array.isArray(j.teams) ? j.teams : []); })
-        .catch(function () { return []; })
-    ]).then(function (arr) {
-      var rowsObj = arr[0] || {};
-      var teams = arr[1] || [];
-      ownershipState.rows = rowsObj.rows || [];
-      ownershipState.teams = teams;
-      return mergeTeamsWithOwnership(teams, ownershipState.rows);
-    });
-  }).then(function (list) {
-    // Hydrate names from server map
-    return fetch('/api/player_names')
-      .then(function (r) { return r.ok ? r.json() : {}; })
-      .catch(function () { return {}; })
-      .then(function (names) {
-        playerNames = names || {};
-        list.forEach(function (row) {
-          if (row.main_owner) {
-            var id = row.main_owner.id;
-            row.main_owner.username = row.main_owner.username || playerNames[id] || id;
-          }
-          (row.split_with || []).forEach(function (s) {
-            var sid = s.id;
-            s.username = s.username || playerNames[sid] || sid;
-          });
-        });
-        return list;
+      ownershipState.rows  = rowsObj.rows || [];
+      ownershipState.teams = teams || [];
+      list = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
+    }
+
+    // 3) Hydrate usernames
+    let names = {};
+    try {
+      const r = await fetch('/api/player_names', { credentials: 'include' });
+      names = r.ok ? (await r.json()) : {};
+    } catch { names = {}; }
+
+    playerNames = names || {};
+    list.forEach(row => {
+      if (row.main_owner) {
+        const id = row.main_owner.id;
+        row.main_owner.username = row.main_owner.username || playerNames[id] || id;
+      }
+      (row.split_with || []).forEach(s => {
+        const sid = s.id;
+        s.username = s.username || playerNames[sid] || sid;
       });
-  }).then(function (list) {
+    });
+
+    // 4) Ensure flag map is loaded BEFORE rendering
     await ensureTeamIsoLoaded();
+
+    // 5) Render
     ownershipState.merged = list;
     ownershipState.loaded = true;
     sortMerged(ownershipState.lastSort || 'country');
-  }).catch(function (e) {
+  } catch (e) {
     console.error('[ownership:init]', e);
     notify('Failed to load ownership data', false);
-  });
+  }
 }
 
 
