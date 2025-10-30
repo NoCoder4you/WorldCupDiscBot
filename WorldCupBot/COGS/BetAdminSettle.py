@@ -51,7 +51,14 @@ class BetAdminSettle(commands.Cog):
             return
 
         bet["winner_user_id"] = winner_id
-        bet["settled"] = True
+        # NEW: set 'winner' field to the user id, leave blank until settled
+        bet["winner"] = winner_id
+        # if 'settled' key existed from older data, we can ignore/remove it gracefully
+        if "settled" in bet:
+            try:
+                del bet["settled"]
+            except Exception:
+                pass
         save_bets(bets)
 
         msg_id = bet.get("message_id")

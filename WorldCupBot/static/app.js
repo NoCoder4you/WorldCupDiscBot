@@ -1007,10 +1007,10 @@ window.loadOwnershipPage = loadOwnershipPage;
     }
 
     async function loadAndRenderBets() {
-        const host = document.getElementById('bets');
-        if (!host) return;
+      const host = document.getElementById('bets');
+      if (!host) return;
 
-        host.innerHTML = `
+      host.innerHTML = `
         <div class="table-wrap">
           <div class="table-head">
             <div class="table-title">Bets</div>
@@ -1021,11 +1021,11 @@ window.loadOwnershipPage = loadOwnershipPage;
           </div>
           <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
         </div>
-        `;
+      `;
 
-        // Load data
-        let verifiedMap = new Map();
-        try {
+      // Load data
+      let verifiedMap = new Map();
+      try {
         const verified = await getJSON('/api/verified');
         if (!verified.__unauthorized) {
           const arr = Array.isArray(verified) ? verified : (verified.users || []);
@@ -1035,24 +1035,24 @@ window.loadOwnershipPage = loadOwnershipPage;
             (u.username && String(u.username).trim()) || ''
           ]));
         }
-        } catch (e) { console.warn('[bets] verified load:', e); }
+      } catch (e) { console.warn('[bets] verified load:', e); }
 
-        let bets = [];
-        try {
+      let bets = [];
+      try {
         const raw = await getJSON('/api/bets'); // make sure this is the public-safe endpoint
         if (!raw.__unauthorized) {
           bets = Array.isArray(raw) ? raw : (raw.bets || []);
         }
-        } catch (e) {
+      } catch (e) {
         console.error('[bets] bets load:', e);
-        }
+      }
 
-        const scroller = host.querySelector('.table-scroll');
-        scroller.innerHTML = '';
+      const scroller = host.querySelector('.table-scroll');
+      scroller.innerHTML = '';
 
-        const table = document.createElement('table');
-        table.className = 'table';
-        table.innerHTML = `
+      const table = document.createElement('table');
+      table.className = 'table';
+      table.innerHTML = `
         <thead>
           <tr>
             <th>ID</th>
@@ -1064,16 +1064,16 @@ window.loadOwnershipPage = loadOwnershipPage;
           </tr>
         </thead>
         <tbody></tbody>
-        `;
-        const tbody = table.querySelector('tbody');
+      `;
+      const tbody = table.querySelector('tbody');
 
-        const resolveDisplayName = (id, fallback) => {
+      const resolveDisplayName = (id, fallback) => {
         const key = id ? String(id) : '';
         const name = key && verifiedMap.get(key);
         return name || fallback || (key ? `User ${key}` : 'Unknown');
-        };
+      };
 
-        for (const bet of bets) {
+      for (const bet of bets) {
         const tr = document.createElement('tr');
 
         const tdId = document.createElement('td');
@@ -1162,16 +1162,16 @@ window.loadOwnershipPage = loadOwnershipPage;
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
         tbody.appendChild(tr);
-        }
+      }
 
-        scroller.appendChild(table);
+      scroller.appendChild(table);
 
-        const btn = document.getElementById('bets-refresh');
-        if (btn) btn.onclick = () => loadAndRenderBets();
+      const btn = document.getElementById('bets-refresh');
+      if (btn) btn.onclick = () => loadAndRenderBets();
 
-        // Re-enable floating text tooltips if you use them
-        if (typeof enableHoverTips === 'function') enableHoverTips();
-        }
+      // Re-enable floating text tooltips if you use them
+      if (typeof enableHoverTips === 'function') enableHoverTips();
+    }
 
 
 

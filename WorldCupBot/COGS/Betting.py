@@ -201,7 +201,7 @@ class BettingCog(commands.Cog):
             "option2_user_id": None,
             "option2_user_name": None,
             "channel_id": channel_id,
-            "settled": False
+            "winner": ""
         }
         bets.append(bet_data)
         await write_bets(bets)

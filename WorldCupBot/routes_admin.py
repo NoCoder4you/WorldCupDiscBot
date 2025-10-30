@@ -1,11 +1,3 @@
-# routes_admin.py
-# Flask admin blueprint for the World Cup 2026 panel.
-# - Auth (login/logout/status)
-# - Config exposure (webhook only)
-# - Cog list/status/actions
-# - Bot controls + backups via command queue
-# Compatible with separate bot process (preferred) or in-process (optional)
-
 import os
 import sys
 import json
@@ -182,9 +174,6 @@ def create_admin_routes(ctx):
     def _split_requests_log_path():
         return os.path.join(_base_dir(ctx), "JSON", "split_requests_log.json")
 
-    def _players_path():
-        return os.path.join(_base_dir(ctx), "JSON", "players.json")
-
     def _read_json(path, default):
         try:
             if not os.path.isfile(path):
@@ -200,44 +189,6 @@ def create_admin_routes(ctx):
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp, path)
-
-    def _read_players():
-        data = _read_json(_players_path(), {})
-        players = {}
-        if isinstance(data, dict):
-            for pid, pdata in data.items():
-                name = ""
-                if isinstance(pdata, dict):
-                    name = pdata.get("name") or pdata.get("username") or pdata.get("display_name") or str(pid)
-                else:
-                    name = str(pdata)
-                players[str(pid)] = str(name)
-        return players
-
-    def _resolve_names(ctx, ids):
-        # players.json first, then bot cache override (if available)
-        ids = {str(i) for i in ids if i is not None}
-        players = _read_players()
-        bot = ctx.get("bot")
-        botnames = {}
-        if bot:
-            for i in ids:
-                try:
-                    uid = int(i)
-                except Exception:
-                    continue
-                u = bot.get_user(uid)
-                if u:
-                    botnames[i] = str(u)
-        out = {}
-        for i in ids:
-            if i in botnames:
-                out[i] = botnames[i]
-            elif i in players:
-                out[i] = players[i]
-            else:
-                out[i] = i
-        return out
 
     def _now_iso():
         import datetime as _dt
@@ -256,6 +207,59 @@ def create_admin_routes(ctx):
             raw.append(event)
             _write_json_atomic(path, raw)
             return len(raw)
+
+    # ---------- Bets: Declare Winner ----------
+    def _bets_path():
+        return os.path.join(_base_dir(ctx), "JSON", "bets.json")
+
+    def _read_bets():
+        try:
+            if not os.path.isfile(_bets_path()):
+                return []
+            with open(_bets_path(), "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict) and isinstance(data.get("bets"), list):
+                return data["bets"]
+            return []
+        except Exception:
+            return []
+
+    @bp.post("/bets/<bet_id>/winner")
+    def bets_declare_winner(bet_id):
+        """Admin: declare winner for a bet by ID."""
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        data = request.get_json(silent=True) or {}
+        winner = str(data.get("winner") or "").lower()
+        if winner not in ("option1", "option2"):
+            return jsonify({"ok": False, "error": "winner must be option1 or option2"}), 400
+
+        bets = _read_bets()
+        found = None
+        for b in bets:
+            if str(b.get("bet_id")) == str(bet_id):
+                found = b
+                break
+
+        if not found:
+            return jsonify({"ok": False, "error": "bet_not_found"}), 404
+
+        found["winner"] = winner
+        found["settled"] = True
+        found["winner_set_at"] = _now_iso()
+        found["embed_updated"] = False
+
+        _write_json_atomic(_bets_path(), bets)
+
+        # enqueue bot to refresh embed if desired
+        _enqueue_command(ctx, "bet_winner_declared", {"bet_id": bet_id, "winner": winner})
+
+        return jsonify({"ok": True, "bet": found})
+
 
     # ---------- Auth ----------
     @bp.post("/auth/login")
