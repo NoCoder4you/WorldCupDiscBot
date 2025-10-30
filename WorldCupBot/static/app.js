@@ -963,34 +963,32 @@ window.loadOwnershipPage = loadOwnershipPage;
     }catch(e){ notify(`Bets error: ${e.message}`, false); }
   }
 
-    /* =========================
-       Bets hover tooltips (names from verified.json)
-       ========================= */
+    /* ===== Bets hover tooltips — safe, no throws ===== */
 
-    // 1) Build id -> display name map from /api/verified
-    let VERIFIED_NAME_MAP = null;
+    /* 1) Name map from /api/verified */
+    window.VERIFIED_NAME_MAP = window.VERIFIED_NAME_MAP || null;
     async function loadVerifiedNameMap() {
-      if (VERIFIED_NAME_MAP) return VERIFIED_NAME_MAP;
+      if (window.VERIFIED_NAME_MAP) return window.VERIFIED_NAME_MAP;
       try {
         const r = await fetch('/api/verified', { credentials: 'include' });
         const raw = r.ok ? await r.json() : [];
         const arr = Array.isArray(raw) ? raw : (raw.verified_users || []);
-        VERIFIED_NAME_MAP = {};
+        const map = {};
         for (const u of arr) {
           const id = String(u.discord_id || u.id || '').trim();
           const name = u.display_name || u.username || u.habbo_name || u.name || id;
-          if (id) VERIFIED_NAME_MAP[id] = name;
+          if (id) map[id] = name;
         }
+        window.VERIFIED_NAME_MAP = map;
       } catch {
-        VERIFIED_NAME_MAP = {};
+        window.VERIFIED_NAME_MAP = {};
       }
-      return VERIFIED_NAME_MAP;
+      return window.VERIFIED_NAME_MAP;
     }
 
-    // 2) Extract supporters for a specific option from a bet object
-    //    Works with your current single-user fields and future arrays.
+    /* 2) Supporter IDs from a bet object (graceful if bet is null) */
     function getSupporterIds(bet, opt) {
-      // Prefer arrays if you add them later
+      if (!bet) return [];
       const arrKeys = opt === 1
         ? ['option1_supporters', 'option1_ids', 'opt1_ids']
         : ['option2_supporters', 'option2_ids', 'opt2_ids'];
@@ -998,13 +996,12 @@ window.loadOwnershipPage = loadOwnershipPage;
         const v = bet[k];
         if (Array.isArray(v) && v.length) return v.map(x => String(x));
       }
-      // Current single fields (per your screenshot)
       const singleKey = opt === 1 ? 'option1_user_id' : 'option2_user_id';
       const id = bet[singleKey];
       return id ? [String(id)] : [];
     }
 
-    // 3) Tiny floating tooltip
+    /* 3) Tiny tooltip (no errors if not in DOM) */
     function ensureTipEl() {
       let el = document.querySelector('.hover-tip');
       if (!el) {
@@ -1030,26 +1027,27 @@ window.loadOwnershipPage = loadOwnershipPage;
       if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
     }
 
-    // 4) Index bets and tag the option cells; one delegated hover listener
-    const BETS_BY_ID = Object.create(null);
+    /* 4) Index + delegated hover. No throws, no notify. */
+    const BETS_BY_ID = (typeof BETS_BY_ID !== 'undefined') ? BETS_BY_ID : Object.create(null);
 
     function registerBets(bets) {
-      // index for instant lookup on hover
-      for (const b of bets) BETS_BY_ID[String(b.id)] = b;
+      // index by ID as strings (keep leading zeros)
+      for (const b of bets || []) BETS_BY_ID[String(b.id)] = b;
 
       const tbody = document.querySelector('#bets-tbody');
+
       if (!tbody) return;
 
-      // Tag option cells (assumes columns: 0=id, 3=Option 1, 4=Option 2)
+      // tag option cells (assumes columns: 0=id, 3=opt1, 4=opt2)
       Array.from(tbody.rows).forEach(row => {
         const betId = String((row.cells[0]?.textContent || '').trim());
-        const opt1 = row.cells[3];
-        const opt2 = row.cells[4];
-        if (opt1) { opt1.classList.add('bet-opt'); opt1.dataset.betId = betId; opt1.dataset.opt = '1'; }
-        if (opt2) { opt2.classList.add('bet-opt'); opt2.dataset.betId = betId; opt2.dataset.opt = '2'; }
+        const c3 = row.cells[3], c4 = row.cells[4];
+        if (c3) { c3.classList.add('bet-opt'); c3.dataset.betId = betId; c3.dataset.opt = '1'; }
+        if (c4) { c4.classList.add('bet-opt'); c4.dataset.betId = betId; c4.dataset.opt = '2'; }
       });
 
-      wireBetsHover();
+      registerBets(bets);
+      wireBetsHover(); // one-time
     }
 
     let betsHoverWired = false;
@@ -1058,35 +1056,26 @@ window.loadOwnershipPage = loadOwnershipPage;
       betsHoverWired = true;
 
       const tbody = document.querySelector('#bets-tbody');
-      registerBets(bets);
       if (!tbody) return;
 
       tbody.addEventListener('mouseover', async (e) => {
         const cell = e.target.closest('.bet-opt');
         if (!cell || !tbody.contains(cell)) return;
 
-        const betId = cell.dataset.betId;
-        const opt   = Number(cell.dataset.opt);
+        const betId = cell.dataset.betId || '';
+        const opt   = Number(cell.dataset.opt || '0') || 0;
 
-        // Safety: lookup must exist
-        const bet = BETS_BY_ID?.[betId];
-        if (!bet) {
-          console.warn(`[bets:hover] No bet found for ID ${betId}`);
-          return; // stop quietly instead of error
-        }
+        // resolve bet safely; if missing, quietly bail
+        const bet = BETS_BY_ID[String(betId)];
+        if (!bet) { hideHoverTip(); return; }
 
-        try {
-          const namesMap = await loadVerifiedNameMap();
-          const ids  = getSupporterIds(bet, opt);
-          const list = ids.map(id => namesMap[id] || id);
-          const html = list.length
-            ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
-            : `<em>No picks yet</em>`;
-          showHoverTip(cell, html);
-        } catch (err) {
-          console.error('[bets:hover]', err);
-          notify('Bets error: ' + (err?.message || err), false);
-        }
+        const namesMap = await loadVerifiedNameMap();
+        const ids  = getSupporterIds(bet, opt);
+        const list = ids.map(id => namesMap[id] || id);
+        const html = list.length
+          ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
+          : `<em>No picks yet</em>`;
+        showHoverTip(cell, html);
       });
 
       tbody.addEventListener('mouseout', (e) => {
