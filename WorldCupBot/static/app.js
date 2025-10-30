@@ -1160,7 +1160,6 @@ window.loadOwnershipPage = loadOwnershipPage;
           box.append(b1, b2);
           tdWin.appendChild(box);
         } else {
-
         const pill = document.createElement('span');
         pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
 
@@ -1175,6 +1174,7 @@ window.loadOwnershipPage = loadOwnershipPage;
           pill.textContent = 'TBD';
         }
         tdWin.appendChild(pill);
+        }
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
         tbody.appendChild(tr);
