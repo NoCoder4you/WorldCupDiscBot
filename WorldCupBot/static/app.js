@@ -1031,11 +1031,12 @@ window.loadOwnershipPage = loadOwnershipPage;
     const BETS_BY_ID = (typeof BETS_BY_ID !== 'undefined') ? BETS_BY_ID : Object.create(null);
 
     function registerBets(bets) {
+      const map = window.BETS_BY_ID;                      // use the hoisted global
+
       // index by ID as strings (keep leading zeros)
-      for (const b of bets || []) BETS_BY_ID[String(b.id)] = b;
+      for (const b of (bets || [])) map[String(b.id)] = b;
 
       const tbody = document.querySelector('#bets-tbody');
-
       if (!tbody) return;
 
       // tag option cells (assumes columns: 0=id, 3=opt1, 4=opt2)
@@ -1046,8 +1047,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         if (c4) { c4.classList.add('bet-opt'); c4.dataset.betId = betId; c4.dataset.opt = '2'; }
       });
 
-      registerBets(bets);
-      wireBetsHover(); // one-time
+      wireBetsHover(); // one-time hookup
     }
 
     let betsHoverWired = false;
@@ -1062,11 +1062,10 @@ window.loadOwnershipPage = loadOwnershipPage;
         const cell = e.target.closest('.bet-opt');
         if (!cell || !tbody.contains(cell)) return;
 
-        const betId = cell.dataset.betId || '';
+        const betId = String(cell.dataset.betId || '');
         const opt   = Number(cell.dataset.opt || '0') || 0;
 
-        // resolve bet safely; if missing, quietly bail
-        const bet = BETS_BY_ID[String(betId)];
+        const bet = window.BETS_BY_ID[betId];             // read from global
         if (!bet) { hideHoverTip(); return; }
 
         const namesMap = await loadVerifiedNameMap();
