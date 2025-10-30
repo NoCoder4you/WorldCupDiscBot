@@ -55,6 +55,27 @@
     }finally{ clearTimeout(to); }
   }
 
+    async function getJSON(url, opts = {}) {
+      const res = await fetch(url, { cache: 'no-store', ...opts });
+      if (res.status === 401) {
+        // Public side hitting an admin route - fail quietly
+        return { __unauthorized: true };
+      }
+      if (!res.ok) throw new Error(`${url} ${res.status}`);
+      return res.json();
+    }
+
+    async function postJSON(url, body) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      if (!res.ok) throw new Error(`${url} ${res.status}`);
+      return res.json().catch(() => ({}));
+    }
+
+
   function setTheme(t){
     state.theme = t;
     document.body.classList.toggle('light', t==='light');
@@ -985,111 +1006,173 @@ window.loadOwnershipPage = loadOwnershipPage;
       return 'Unknown';
     }
 
-    // 3) Main: load + render
     async function loadAndRenderBets() {
-      const host = document.getElementById('bets');
-      if (!host) {
-        console.warn('[bets] #bets container not found');
-        return;
-      }
+        const host = document.getElementById('bets');
+        if (!host) return;
 
-      // minimal skeleton while loading
-      host.innerHTML = `
+        host.innerHTML = `
         <div class="table-wrap">
           <div class="table-head">
             <div class="table-title">Bets</div>
             <div class="table-actions">
               <button id="bets-refresh" class="btn small">Refresh</button>
+              <span class="muted">Hover an option to see who claimed it</span>
             </div>
           </div>
           <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
         </div>
-      `;
+        `;
 
-      try {
-        const [verifiedMap, bets] = await Promise.all([
-          fetchVerifiedMap(),
-          (async () => {
-            const res = await fetch('/api/bets', { cache: 'no-store' });
-            if (!res.ok) throw new Error(`bets ${res.status}`);
-            const raw = await res.json();
-            return Array.isArray(raw) ? raw : (raw.bets || []);
-          })()
-        ]);
+        // Load data
+        let verifiedMap = new Map();
+        try {
+        const verified = await getJSON('/api/verified');
+        if (!verified.__unauthorized) {
+          const arr = Array.isArray(verified) ? verified : (verified.users || []);
+          verifiedMap = new Map(arr.map(u => [
+            String(u.discord_id ?? u.id ?? ''),
+            (u.display_name && String(u.display_name).trim()) ||
+            (u.username && String(u.username).trim()) || ''
+          ]));
+        }
+        } catch (e) { console.warn('[bets] verified load:', e); }
 
-        const wrap = host.querySelector('.table-wrap');
+        let bets = [];
+        try {
+        const raw = await getJSON('/api/bets'); // make sure this is the public-safe endpoint
+        if (!raw.__unauthorized) {
+          bets = Array.isArray(raw) ? raw : (raw.bets || []);
+        }
+        } catch (e) {
+        console.error('[bets] bets load:', e);
+        }
+
         const scroller = host.querySelector('.table-scroll');
         scroller.innerHTML = '';
 
         const table = document.createElement('table');
         table.className = 'table';
         table.innerHTML = `
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Wager</th>
-              <th>Option 1</th>
-              <th>Option 2</th>
-              <th>Settled</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Wager</th>
+            <th>Option 1</th>
+            <th>Option 2</th>
+            <th>Winner</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
         `;
-
         const tbody = table.querySelector('tbody');
 
+        const resolveDisplayName = (id, fallback) => {
+        const key = id ? String(id) : '';
+        const name = key && verifiedMap.get(key);
+        return name || fallback || (key ? `User ${key}` : 'Unknown');
+        };
+
         for (const bet of bets) {
-          const tr = document.createElement('tr');
+        const tr = document.createElement('tr');
 
-          const tdId = document.createElement('td');
-          tdId.textContent = bet.bet_id ?? '-';
+        const tdId = document.createElement('td');
+        tdId.textContent = bet.bet_id ?? '-';
 
-          const tdTitle = document.createElement('td');
-          tdTitle.textContent = bet.bet_title ?? '-';
+        const tdTitle = document.createElement('td');
+        tdTitle.textContent = bet.bet_title ?? '-';
 
-          const tdWager = document.createElement('td');
-          tdWager.textContent = bet.wager ?? '-';
+        const tdWager = document.createElement('td');
+        tdWager.textContent = bet.wager ?? '-';
 
-          // Option 1
-          const tdO1 = document.createElement('td');
-          tdO1.className = 'bet-opt bet-opt1';
-          const spanO1 = document.createElement('span');
-          spanO1.textContent = bet.option1 ?? '-';
-          spanO1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
-            ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option1_user_id, bet.option1_user_name)}`
-            : 'Unclaimed';
-          tdO1.appendChild(spanO1);
+        // Option 1
+        const tdO1 = document.createElement('td');
+        tdO1.className = 'bet-opt bet-opt1';
+        const spanO1 = document.createElement('span');
+        spanO1.textContent = bet.option1 ?? '-';
+        spanO1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
+          ? `Claimed by: ${resolveDisplayName(bet.option1_user_id, bet.option1_user_name)}`
+          : 'Unclaimed';
+        tdO1.appendChild(spanO1);
 
-          // Option 2
-          const tdO2 = document.createElement('td');
-          tdO2.className = 'bet-opt bet-opt2';
-          const spanO2 = document.createElement('span');
-          spanO2.textContent = bet.option2 ?? '-';
-          spanO2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
-            ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option2_user_id, bet.option2_user_name)}`
-            : 'Unclaimed';
-          tdO2.appendChild(spanO2);
+        // Option 2
+        const tdO2 = document.createElement('td');
+        tdO2.className = 'bet-opt bet-opt2';
+        const spanO2 = document.createElement('span');
+        spanO2.textContent = bet.option2 ?? '-';
+        spanO2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
+          ? `Claimed by: ${resolveDisplayName(bet.option2_user_id, bet.option2_user_name)}`
+          : 'Unclaimed';
+        tdO2.appendChild(spanO2);
 
-          const tdSettled = document.createElement('td');
-          tdSettled.textContent = bet.settled ? 'Yes' : 'No';
+        // Winner
+        const tdWin = document.createElement('td');
+        tdWin.className = 'bet-winner';
 
-          tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdSettled);
-          tbody.appendChild(tr);
+        const winnerKey = (bet.winner === 'option1' || bet.winner === 'option2') ? bet.winner : null;
+        const winnerText = winnerKey ? (winnerKey === 'option1' ? (bet.option1 ?? 'Option 1')
+                                                               : (bet.option2 ?? 'Option 2')) : null;
+
+        if (winnerText) {
+          const pill = document.createElement('span');
+          pill.className = 'pill pill-winner';
+          pill.textContent = winnerText;
+          tdWin.appendChild(pill);
+        } else {
+          // TBD
+          const pill = document.createElement('span');
+          pill.className = 'pill pill-tbd';
+          pill.textContent = 'TBD';
+          tdWin.appendChild(pill);
+
+          // Admin controls to declare winner
+          if (window.state && state.admin === true) {
+            const controls = document.createElement('div');
+            controls.className = 'win-controls';
+            const b1 = document.createElement('button');
+            b1.className = 'btn xs';
+            b1.textContent = 'Set O1';
+            const b2 = document.createElement('button');
+            b2.className = 'btn xs';
+            b2.textContent = 'Set O2';
+
+            b1.onclick = async () => {
+              try {
+                await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option1' });
+                loadAndRenderBets();
+              } catch (e) {
+                console.error('declare winner o1:', e);
+                if (typeof notify === 'function') notify('Failed to set winner', false);
+              }
+            };
+            b2.onclick = async () => {
+              try {
+                await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option2' });
+                loadAndRenderBets();
+              } catch (e) {
+                console.error('declare winner o2:', e);
+                if (typeof notify === 'function') notify('Failed to set winner', false);
+              }
+            };
+
+            controls.append(b1, b2);
+            tdWin.appendChild(controls);
+          }
+        }
+
+        tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
+        tbody.appendChild(tr);
         }
 
         scroller.appendChild(table);
 
-        // wire refresh
-        const btn = wrap.querySelector('#bets-refresh');
+        const btn = document.getElementById('bets-refresh');
         if (btn) btn.onclick = () => loadAndRenderBets();
 
-      } catch (e) {
-        console.error('[bets] render error:', e);
-        host.querySelector('.table-scroll').innerHTML =
-          `<div class="error" style="padding:12px">Failed to load bets. Check console.</div>`;
-      }
-    }
+        // Re-enable floating text tooltips if you use them
+        if (typeof enableHoverTips === 'function') enableHoverTips();
+        }
+
 
 
 /* -----------------------------
