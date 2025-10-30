@@ -950,8 +950,8 @@ window.loadOwnershipPage = loadOwnershipPage;
           const tr=document.createElement('tr');
           const status = b.settled ? 'Settled':'Open';
           tr.innerHTML = `<td>${escapeHtml(b.bet_id)}</td><td>${escapeHtml(b.bet_title)}</td><td>${escapeHtml(b.wager)}</td>
-                            <td class="bet-opt" data-bet-id="${bet.id}" data-opt="1">${bet.option1}</td>
-                            <td class="bet-opt" data-bet-id="${bet.id}" data-opt="2">${bet.option2}</td>
+                            <td class="bet-opt" data-bet-id="${b.bet_id}" data-opt="1">${b.option1}</td>
+                            <td class="bet-opt" data-bet-id="${b.bet_id}" data-opt="2">${b.option2}</td>
                           <td>${status}</td>`;
           tbody.appendChild(tr);
         });
