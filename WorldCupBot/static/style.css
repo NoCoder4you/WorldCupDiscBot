@@ -1727,7 +1727,43 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .hover-tip strong{ color:#bde3ff; }
 .hover-tip em{ color:#91a3b6; font-style:italic; }
 
-.bet-opt span {
-  display: inline-block;
-  cursor: help;
+.bet-opt span::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 6px 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  font-size: 0.85rem;
+  z-index: 1000;
+}
+
+/* Tooltip arrow */
+.bet-opt span::before {
+  content: '';
+  position: absolute;
+  bottom: 115%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--accent) transparent transparent transparent;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* Show tooltip on hover */
+.bet-opt span:hover::after,
+.bet-opt span:hover::before {
+  opacity: 1;
 }

@@ -1009,33 +1009,20 @@ window.loadOwnershipPage = loadOwnershipPage;
         const tdWager = document.createElement('td');
         tdWager.textContent = bet.wager ?? '-';
 
-        // Option 1 cell
-        const tdO1 = document.createElement('td');
-        tdO1.className = 'bet-opt bet-opt1';
+        // Option 1
         const spanO1 = document.createElement('span');
         spanO1.textContent = bet.option1 ?? '-';
-        tdO1.appendChild(spanO1);
+        spanO1.dataset.tip = bet.option1_user_id || bet.option1_user_name
+          ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option1_user_id, bet.option1_user_name)}`
+          : 'Unclaimed';
 
-        if (bet.option1_user_id || bet.option1_user_name) {
-          const who = resolveDisplayName(verifiedMap, bet.option1_user_id, bet.option1_user_name);
-          spanO1.title = `Claimed by: ${who}`; // tooltip on text only
-        } else {
-          spanO1.title = 'Unclaimed';
-        }
-
-        // Option 2 cell
-        const tdO2 = document.createElement('td');
-        tdO2.className = 'bet-opt bet-opt2';
+        // Option 2
         const spanO2 = document.createElement('span');
         spanO2.textContent = bet.option2 ?? '-';
-        tdO2.appendChild(spanO2);
+        spanO2.dataset.tip = bet.option2_user_id || bet.option2_user_name
+          ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option2_user_id, bet.option2_user_name)}`
+          : 'Unclaimed';
 
-        if (bet.option2_user_id || bet.option2_user_name) {
-          const who = resolveDisplayName(verifiedMap, bet.option2_user_id, bet.option2_user_name);
-          spanO2.title = `Claimed by: ${who}`;
-        } else {
-          spanO2.title = 'Unclaimed';
-        }
 
         const tdSettled = document.createElement('td');
         tdSettled.textContent = bet.settled ? 'Yes' : 'No';
