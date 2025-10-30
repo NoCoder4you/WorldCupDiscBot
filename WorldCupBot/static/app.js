@@ -258,19 +258,15 @@
       }
     }
 
-    // Pretty label for hover based on id and fallback "username#0000"
-    function resolveDisplay(map, userId, fallbackUserString) {
-      const id = userId != null ? String(userId) : '';
-      const nice = (id && map.get(id)) || null;
-      // Format: "Nickname • @username#0000" if we have both
-      if (nice && fallbackUserString) return `${nice} • @${fallbackUserString}`;
-      if (nice) return nice;
-      if (fallbackUserString) return `@${fallbackUserString}`;
-      if (id) return `User ${id}`;
+    // Returns the display name (nickname) if verified, else fallback
+    function resolveDisplayName(map, userId, fallbackUserString) {
+      const id = userId ? String(userId) : '';
+      const name = id && map.get(id);
+      if (name) return name; // verified nickname (display_name)
+      if (fallbackUserString) return fallbackUserString;
       return 'Unknown';
     }
 
-    // Small helper to set a tooltip for an option cell/element
     function setOptionTooltip(el, claimedByText) {
       if (!el) return;
       el.title = claimedByText || 'Unclaimed';
@@ -949,7 +945,7 @@ window.loadOwnershipPage = loadOwnershipPage;
 
     // Keep your existing helpers if you already added them:
     // - fetchVerifiedMap()
-    // - resolveDisplay(map, userId, fallbackUserString)
+    // - resolveDisplayName(map, userId, fallbackUserString)
     // - setOptionTooltip(el, text)
 
     // Unified loader + renderer
@@ -977,7 +973,6 @@ window.loadOwnershipPage = loadOwnershipPage;
         <div class="table-title">Bets</div>
         <div class="table-actions">
           <button id="bets-refresh" class="btn small">Refresh</button>
-          <span class="muted">Hover an option to see who claimed it</span>
         </div>
       `;
 
@@ -1018,7 +1013,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         tdO1.className = 'bet-opt bet-opt1';
         tdO1.textContent = bet.option1 ?? '-';
         if (bet.option1_user_id || bet.option1_user_name) {
-          const who = resolveDisplay(verifiedMap, bet.option1_user_id, bet.option1_user_name);
+          const who = resolveDisplayName(verifiedMap, bet.option1_user_id, bet.option1_user_name);
           setOptionTooltip(tdO1, `Claimed by: ${who}`);
         } else {
           setOptionTooltip(tdO1, 'Unclaimed');
@@ -1028,7 +1023,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         tdO2.className = 'bet-opt bet-opt2';
         tdO2.textContent = bet.option2 ?? '-';
         if (bet.option2_user_id || bet.option2_user_name) {
-          const who = resolveDisplay(verifiedMap, bet.option2_user_id, bet.option2_user_name);
+          const who = resolveDisplayName(verifiedMap, bet.option2_user_id, bet.option2_user_name);
           setOptionTooltip(tdO2, `Claimed by: ${who}`);
         } else {
           setOptionTooltip(tdO2, 'Unclaimed');
