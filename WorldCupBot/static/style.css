@@ -1733,7 +1733,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   bottom: 125%;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--card-bg);
+  background: var(--card);
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 6px;
@@ -1766,4 +1766,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .bet-opt span:hover::after,
 .bet-opt span:hover::before {
   opacity: 1;
+}
+.bet-opt span {
+  position: relative;
 }
