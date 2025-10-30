@@ -304,11 +304,17 @@ def create_public_routes(ctx):
         for b in seq or []:
             if not isinstance(b, dict):
                 continue
-            item = dict(b)  # do not mutate original file
-            if "option1_user_id" in item or "option1_user_name" in item:
-                item["option1_user_name"] = resolve_name(item.get("option1_user_id"), item.get("option1_user_name"))
-            if "option2_user_id" in item or "option2_user_name" in item:
-                item["option2_user_name"] = resolve_name(item.get("option2_user_id"), item.get("option2_user_name"))
+            item = dict(b)  # do not mutate file
+
+            # Enrich both the legacy name fields and add explicit display fields
+            o1 = resolve_name(item.get("option1_user_id"), item.get("option1_user_name"))
+            o2 = resolve_name(item.get("option2_user_id"), item.get("option2_user_name"))
+
+            item["option1_user_name"] = o1
+            item["option2_user_name"] = o2
+            item["option1_display_name"] = o1
+            item["option2_display_name"] = o2
+
             out.append(item)
 
         return jsonify(out)

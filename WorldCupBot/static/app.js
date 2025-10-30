@@ -1103,7 +1103,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         const s1 = document.createElement('span');
         s1.textContent = bet.option1 ?? '-';
         s1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
-          ? `Claimed by: ${resolveDisplayName(bet.option1_user_id, bet.option1_user_name)}`
+          ? `Claimed by: ${o1Display}`
           : 'Unclaimed';
         tdO1.appendChild(s1);
 
@@ -1113,7 +1113,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         const s2 = document.createElement('span');
         s2.textContent = bet.option2 ?? '-';
         s2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
-          ? `Claimed by: ${resolveDisplayName(bet.option2_user_id, bet.option2_user_name)}`
+          ? `Claimed by: ${o2Display}`
           : 'Unclaimed';
         tdO2.appendChild(s2);
 
@@ -1160,18 +1160,21 @@ window.loadOwnershipPage = loadOwnershipPage;
           box.append(b1, b2);
           tdWin.appendChild(box);
         } else {
+
         const pill = document.createElement('span');
         pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
 
+        const o1Display = bet.option1_display_name ?? resolveDisplayName(bet.option1_user_id, bet.option1_user_name);
+        const o2Display = bet.option2_display_name ?? resolveDisplayName(bet.option2_user_id, bet.option2_user_name);
+
         if (winner === 'option1') {
-          pill.textContent = resolveDisplayName(bet.option1_user_id, bet.option1_user_name);
+          pill.textContent = o1Display || 'Option 1';
         } else if (winner === 'option2') {
-          pill.textContent = resolveDisplayName(bet.option2_user_id, bet.option2_user_name);
+          pill.textContent = o2Display || 'Option 2';
         } else {
           pill.textContent = 'TBD';
         }
         tdWin.appendChild(pill);
-        }
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
         tbody.appendChild(tr);
