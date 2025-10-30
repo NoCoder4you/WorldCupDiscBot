@@ -976,8 +976,8 @@ window.loadOwnershipPage = loadOwnershipPage;
           const tr=document.createElement('tr');
           const status = b.settled ? 'Settled':'Open';
           tr.innerHTML = `<td>${escapeHtml(b.bet_id)}</td><td>${escapeHtml(b.bet_title)}</td><td>${escapeHtml(b.wager)}</td>
-                          <td>${escapeHtml(b.option1)}${!b.option1_user_id?'<div class="unclaimed">Unclaimed</div>':''}</td>
-                          <td>${escapeHtml(b.option2)}${!b.option2_user_id?'<div class="unclaimed">Unclaimed</div>':''}</td>
+                            <td class="bet-opt" data-bet-id="${bet.id}" data-opt="1">${bet.option1}</td>
+                            <td class="bet-opt" data-bet-id="${bet.id}" data-opt="2">${bet.option2}</td>
                           <td>${status}</td>`;
           tbody.appendChild(tr);
         });
@@ -988,6 +988,121 @@ window.loadOwnershipPage = loadOwnershipPage;
       searchInp.addEventListener('input', draw);
     }catch(e){ notify(`Bets error: ${e.message}`, false); }
   }
+
+    // ===== Hover name map + tooltip =====
+    let VERIFIED_NAME_MAP = null;   // id -> display name
+    async function loadVerifiedNameMap() {
+      if (VERIFIED_NAME_MAP) return VERIFIED_NAME_MAP;
+      try {
+        const r = await fetch('/api/verified', { credentials: 'include' });
+        const raw = r.ok ? await r.json() : [];
+        const arr = Array.isArray(raw) ? raw : (raw.verified_users || []);
+        VERIFIED_NAME_MAP = {};
+        for (const u of arr) {
+          const id = String(u.discord_id || u.id || '').trim();
+          const name = u.display_name || u.username || u.habbo_name || u.name || id;
+          if (id) VERIFIED_NAME_MAP[id] = name;
+        }
+      } catch { VERIFIED_NAME_MAP = {}; }
+      return VERIFIED_NAME_MAP;
+    }
+
+    function ensureTipEl() {
+      let el = document.querySelector('.hover-tip');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'hover-tip';
+        document.body.appendChild(el);
+      }
+      return el;
+    }
+    function showHoverTip(anchorEl, html) {
+      const el = ensureTipEl();
+      el.innerHTML = html;
+      el.style.opacity = '1';
+      el.style.pointerEvents = 'auto';
+      const r = anchorEl.getBoundingClientRect();
+      const top  = window.scrollY + r.top - el.offsetHeight - 8;
+      const left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + window.innerWidth - el.offsetWidth - 8));
+      el.style.top = `${Math.max(8, top)}px`;
+      el.style.left = `${left}px`;
+    }
+    function hideHoverTip() {
+      const el = document.querySelector('.hover-tip');
+      if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
+    }
+
+
+
+    // Works with single fields or arrays if you add them later
+    function getSupporterIds(bet, opt) {
+      const arrKeys = opt === 1
+        ? ['option1_supporters', 'option1_ids', 'opt1_ids']
+        : ['option2_supporters', 'option2_ids', 'opt2_ids'];
+      for (const k of arrKeys) {
+        const v = bet[k];
+        if (Array.isArray(v) && v.length) return v.map(x => String(x));
+      }
+      const singleKey = opt === 1 ? 'option1_user_id' : 'option2_user_id';
+      const id = bet[singleKey];
+      return id ? [String(id)] : [];
+    }
+
+
+    const BETS_BY_ID = Object.create(null);
+
+    function registerBets(bets) {
+      for (const b of bets) BETS_BY_ID[String(b.id)] = b;
+
+      const tbody = document.querySelector('#bets-tbody');
+      if (!tbody) return;
+
+      // tag option cells in each row (assumes columns: 0=id, 3=opt1, 4=opt2)
+      Array.from(tbody.rows).forEach(row => {
+        const betId = String((row.cells[0]?.textContent || '').trim());
+        const opt1 = row.cells[3], opt2 = row.cells[4];
+        if (opt1) { opt1.classList.add('bet-opt'); opt1.dataset.betId = betId; opt1.dataset.opt = '1'; }
+        if (opt2) { opt2.classList.add('bet-opt'); opt2.dataset.betId = betId; opt2.dataset.opt = '2'; }
+      });
+
+      wireBetsHover();
+    }
+
+    let betsHoverWired = false;
+    function wireBetsHover() {
+      if (betsHoverWired) return;
+      betsHoverWired = true;
+
+      const tbody = document.querySelector('#bets-tbody');
+      if (!tbody) return;
+
+      tbody.addEventListener('mouseover', async (e) => {
+        const cell = e.target.closest('.bet-opt');
+        if (!cell || !tbody.contains(cell)) return;
+
+        const betId = cell.dataset.betId;
+        const opt   = Number(cell.dataset.opt);
+        const bet   = BETS_BY_ID[betId];
+        if (!bet) return;
+
+        const [namesMap] = await Promise.all([loadVerifiedNameMap()]);
+        const ids  = getSupporterIds(bet, opt);
+        const list = ids.map(id => namesMap[id] || id);
+        const html = list.length
+          ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
+          : `<em>No picks yet</em>`;
+
+        showHoverTip(cell, html);
+      });
+
+      tbody.addEventListener('mouseout', (e) => {
+        if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+        hideHoverTip();
+      });
+    }
+
+registerBets(betsArrayYouUsedToRender);
+
 
 /* -----------------------------
    Splits page (Requests + History)

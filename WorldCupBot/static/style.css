@@ -1707,3 +1707,23 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 .flag-emoji{ display:inline-block; width:1.35em; text-align:center; margin-right:8px; }
 .country-name{ vertical-align:middle; }
+
+/* Dark hover tooltip for bets */
+.hover-tip{
+  position:absolute;
+  max-width:380px;
+  background:rgba(13,20,29,0.97);
+  border:1px solid #1f2c3b;
+  color:#e7f0fa;
+  padding:10px 12px;
+  border-radius:10px;
+  box-shadow:0 12px 32px rgba(0,0,0,.45);
+  z-index:9999;
+  font-size:14px;
+  line-height:1.35;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .12s ease;
+}
+.hover-tip strong{ color:#bde3ff; }
+.hover-tip em{ color:#91a3b6; font-style:italic; }
