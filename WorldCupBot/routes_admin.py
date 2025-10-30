@@ -1,5 +1,3 @@
-# routes_admin.py
-# Admin blueprint - uses JSON/verified.json with {"verified_users":[...]} structure
 import os, sys, json, time, glob
 from flask import Blueprint, jsonify, request, session
 
@@ -40,9 +38,18 @@ def _now_iso():
     return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 def _password_from_config(cfg):
+    """
+    Resolve the admin password from JSON/ENV.
+    Priority: JSON keys -> ENV keys.
+    Accepted JSON keys: PANEL_PASSWORD, ADMIN_PASSWORD, ADMIN_PASS, ADMIN
+    Accepted ENV keys:  WC_PANEL_PASSWORD, WC_ADMIN_PASSWORD, ADMIN_PASSWORD, PANEL_PASSWORD
+    """
     for k in ("PANEL_PASSWORD", "ADMIN_PASSWORD", "ADMIN_PASS", "ADMIN"):
         if cfg.get(k):
-            return str(cfg[k])
+            return str(cfg[k]).strip()
+    for k in ("WC_PANEL_PASSWORD", "WC_ADMIN_PASSWORD", "ADMIN_PASSWORD", "PANEL_PASSWORD"):
+        if os.environ.get(k):
+            return os.environ.get(k).strip()
     return None
 
 def _load_config(ctx): return _read_json(_path(ctx, "config.json"), {})
@@ -72,7 +79,7 @@ def create_admin_routes(ctx):
     @bp.post("/auth/login")
     def auth_login():
         data = request.get_json(silent=True) or {}
-        pw = str(data.get("password") or "")
+        pw = str(data.get("password") or "").strip()
         cfg = _load_config(ctx)
         expected = _password_from_config(cfg)
         if expected and pw and pw == expected:
@@ -88,6 +95,24 @@ def create_admin_routes(ctx):
     @bp.get("/auth/status")
     def auth_status():
         return jsonify({"unlocked": bool(session.get(SESSION_KEY) is True)})
+
+    @bp.get("/auth/diag")
+    def auth_diag():
+        cfg = _load_config(ctx)
+        found_key = None
+        for k in ("PANEL_PASSWORD", "ADMIN_PASSWORD", "ADMIN_PASS", "ADMIN"):
+            if cfg.get(k):
+                found_key = k
+                break
+        env_keys = [k for k in ("WC_PANEL_PASSWORD","WC_ADMIN_PASSWORD","ADMIN_PASSWORD","PANEL_PASSWORD") if os.environ.get(k)]
+        return jsonify({
+            "base_dir": _base_dir(ctx),
+            "json_path": _path(ctx, "config.json"),
+            "config_keys": list(cfg.keys()),
+            "password_key_in_json": found_key,
+            "password_present_in_env": bool(env_keys),
+            "env_keys_checked": env_keys
+        })
 
     def require_admin():
         if session.get(SESSION_KEY) is True:
@@ -256,7 +281,7 @@ def create_admin_routes(ctx):
         }
         hist_count = _append_split_history(event)
         _enqueue_command(ctx, "split_decline", {"id": sid, "reason": reason})
-        return jsonify({"ok": True, "pending_count": len(pending_raw), "history_count": hist_count, "event": event})
+        return jsonify({"ok": True, "pending_count": len(pending_raw), "history_count": len(pending_raw), "event": event})
 
     @bp.get("/splits/history")
     def splits_history():
