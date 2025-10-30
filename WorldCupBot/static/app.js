@@ -1060,15 +1060,19 @@ window.loadOwnershipPage = loadOwnershipPage;
       const tbody = document.querySelector('#bets-tbody');
       if (!tbody) return;
 
-      // One listener for all rows (no per-row closures)
       tbody.addEventListener('mouseover', async (e) => {
         const cell = e.target.closest('.bet-opt');
         if (!cell || !tbody.contains(cell)) return;
 
         const betId = cell.dataset.betId;
         const opt   = Number(cell.dataset.opt);
-        const bet   = BETS_BY_ID[betId];
-        if (!bet) return;
+
+        // Safety: lookup must exist
+        const bet = BETS_BY_ID?.[betId];
+        if (!bet) {
+          console.warn(`[bets:hover] No bet found for ID ${betId}`);
+          return; // stop quietly instead of error
+        }
 
         try {
           const namesMap = await loadVerifiedNameMap();
