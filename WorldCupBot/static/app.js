@@ -1058,6 +1058,7 @@ window.loadOwnershipPage = loadOwnershipPage;
       betsHoverWired = true;
 
       const tbody = document.querySelector('#bets-tbody');
+      registerBets(bets);
       if (!tbody) return;
 
       tbody.addEventListener('mouseover', async (e) => {
@@ -1093,7 +1094,6 @@ window.loadOwnershipPage = loadOwnershipPage;
         hideHoverTip();
       });
     }
-registerBets(bets);
 
 /* -----------------------------
    Splits page (Requests + History)
