@@ -1023,7 +1023,6 @@ window.loadOwnershipPage = loadOwnershipPage;
         </div>
       `;
 
-      // helpers kept lightweight here
       const getJSON = async (url, opts={}) => {
         const res = await fetch(url, { cache: 'no-store', ...opts });
         if (!res.ok) throw new Error(`${url} ${res.status}`);
@@ -1039,7 +1038,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         return res.json().catch(() => ({}));
       };
 
-      // verified map for tooltips
+      // build verified map for fallbacks
       let verifiedMap = new Map();
       try {
         const verified = await getJSON('/api/verified');
@@ -1049,9 +1048,15 @@ window.loadOwnershipPage = loadOwnershipPage;
           (u.display_name && String(u.display_name).trim()) ||
           (u.username && String(u.username).trim()) || ''
         ]));
-      } catch { /* fine on public */ }
+      } catch { /* ok on public */ }
 
-      // bets
+      // helper: prefer display_name from verified map, fall back to provided username
+      const resolveDisplayName = (id, fallbackUsername) => {
+        const key = id ? String(id) : '';
+        return (key && verifiedMap.get(key)) || fallbackUsername || (key ? `User ${key}` : 'Unknown');
+      };
+
+      // fetch bets (enriched by backend if you used the latest routes_public.py)
       let bets = [];
       try {
         const raw = await getJSON('/api/bets');
@@ -1080,11 +1085,6 @@ window.loadOwnershipPage = loadOwnershipPage;
       `;
       const tbody = table.querySelector('tbody');
 
-        const resolveDisplayName = (id, fallbackUsername) => {
-          const key = id ? String(id) : '';
-          return (key && verifiedMap.get(key)) || (fallbackUsername || (key ? `User ${key}` : 'Unknown'));
-        };
-
       for (const bet of bets) {
         const tr = document.createElement('tr');
 
@@ -1097,47 +1097,46 @@ window.loadOwnershipPage = loadOwnershipPage;
         const tdWager = document.createElement('td');
         tdWager.textContent = bet.wager ?? '-';
 
-        // Option 1 with themed tooltip on text only
+        // Compute display names ONCE and reuse everywhere
+        const o1Name = (bet.option1_display_name ??
+                       resolveDisplayName(bet.option1_user_id, bet.option1_user_name)) || '';
+        const o2Name = (bet.option2_display_name ??
+                       resolveDisplayName(bet.option2_user_id, bet.option2_user_name)) || '';
+
+        // Option 1 cell with tooltip on text
         const tdO1 = document.createElement('td');
         tdO1.className = 'bet-opt bet-opt1';
         const s1 = document.createElement('span');
         s1.textContent = bet.option1 ?? '-';
         s1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
-          ? `Claimed by: ${o1Display}`
+          ? `Claimed by: ${o1Name}`
           : 'Unclaimed';
         tdO1.appendChild(s1);
 
-        // Option 2 with tooltip
+        // Option 2 cell with tooltip on text
         const tdO2 = document.createElement('td');
         tdO2.className = 'bet-opt bet-opt2';
         const s2 = document.createElement('span');
         s2.textContent = bet.option2 ?? '-';
         s2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
-          ? `Claimed by: ${o2Display}`
+          ? `Claimed by: ${o2Name}`
           : 'Unclaimed';
         tdO2.appendChild(s2);
 
         // Winner column
         const tdWin = document.createElement('td');
         tdWin.className = 'bet-winner';
-
         const winner = bet.winner === 'option1' || bet.winner === 'option2' ? bet.winner : null;
 
         if (window.state && state.admin === true) {
-          // ADMIN VIEW: show buttons instead of the pill
+          // ADMIN: show Set O1 / Set O2 buttons
           const box = document.createElement('div');
           box.className = 'win-controls';
 
           const b1 = document.createElement('button');
           b1.className = 'btn xs' + (winner === 'option1' ? ' active' : '');
-          b1.textContent = 'O1';
+          b1.textContent = 'Set O1';
           b1.disabled = winner === 'option1';
-
-          const b2 = document.createElement('button');
-          b2.className = 'btn xs' + (winner === 'option2' ? ' active' : '');
-          b2.textContent = 'O2';
-          b2.disabled = winner === 'option2';
-
           b1.onclick = async () => {
             try {
               await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option1' });
@@ -1147,6 +1146,11 @@ window.loadOwnershipPage = loadOwnershipPage;
               if (typeof notify === 'function') notify('Failed to set winner', false);
             }
           };
+
+          const b2 = document.createElement('button');
+          b2.className = 'btn xs' + (winner === 'option2' ? ' active' : '');
+          b2.textContent = 'Set O2';
+          b2.disabled = winner === 'option2';
           b2.onclick = async () => {
             try {
               await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option2' });
@@ -1160,20 +1164,13 @@ window.loadOwnershipPage = loadOwnershipPage;
           box.append(b1, b2);
           tdWin.appendChild(box);
         } else {
-        const pill = document.createElement('span');
-        pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
-
-        const o1Display = bet.option1_display_name ?? resolveDisplayName(bet.option1_user_id, bet.option1_user_name);
-        const o2Display = bet.option2_display_name ?? resolveDisplayName(bet.option2_user_id, bet.option2_user_name);
-
-        if (winner === 'option1') {
-          pill.textContent = o1Display || 'Option 1';
-        } else if (winner === 'option2') {
-          pill.textContent = o2Display || 'Option 2';
-        } else {
-          pill.textContent = 'TBD';
-        }
-        tdWin.appendChild(pill);
+          // PUBLIC: show the claimant's display name
+          const pill = document.createElement('span');
+          pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
+          if (winner === 'option1') pill.textContent = o1Name || 'Option 1';
+          else if (winner === 'option2') pill.textContent = o2Name || 'Option 2';
+          else pill.textContent = 'TBD';
+          tdWin.appendChild(pill);
         }
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
