@@ -1774,6 +1774,5 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .pill-winner { background: var(--accent); color: var(--header-bg); }
 .pill-tbd { background: #6b72804d; color: var(--text); border: 1px dashed var(--card-border); }
 
-/* tiny admin buttons for winner */
-.win-controls { margin-top: 6px; display: flex; gap: 6px; }
-.btn.xs { padding: 2px 6px; font-size: 0.75rem; line-height: 1.1; }
+.win-controls { display: flex; gap: 6px; }
+.btn.xs.active { opacity: 0.8; border: 1px solid var(--accent); cursor: default; }

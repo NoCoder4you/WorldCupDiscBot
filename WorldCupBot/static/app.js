@@ -1010,41 +1010,54 @@ window.loadOwnershipPage = loadOwnershipPage;
       const host = document.getElementById('bets');
       if (!host) return;
 
+      // header - no hover hint
       host.innerHTML = `
         <div class="table-wrap">
           <div class="table-head">
             <div class="table-title">Bets</div>
             <div class="table-actions">
               <button id="bets-refresh" class="btn small">Refresh</button>
-              <span class="muted">Hover an option to see who claimed it</span>
             </div>
           </div>
           <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
         </div>
       `;
 
-      // Load data
+      // helpers kept lightweight here
+      const getJSON = async (url, opts={}) => {
+        const res = await fetch(url, { cache: 'no-store', ...opts });
+        if (!res.ok) throw new Error(`${url} ${res.status}`);
+        return res.json();
+      };
+      const postJSON = async (url, body) => {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body || {})
+        });
+        if (!res.ok) throw new Error(`${url} ${res.status}`);
+        return res.json().catch(() => ({}));
+      };
+
+      // verified map for tooltips
       let verifiedMap = new Map();
       try {
         const verified = await getJSON('/api/verified');
-        if (!verified.__unauthorized) {
-          const arr = Array.isArray(verified) ? verified : (verified.users || []);
-          verifiedMap = new Map(arr.map(u => [
-            String(u.discord_id ?? u.id ?? ''),
-            (u.display_name && String(u.display_name).trim()) ||
-            (u.username && String(u.username).trim()) || ''
-          ]));
-        }
-      } catch (e) { console.warn('[bets] verified load:', e); }
+        const arr = Array.isArray(verified) ? verified : (verified.users || []);
+        verifiedMap = new Map(arr.map(u => [
+          String(u.discord_id ?? u.id ?? ''),
+          (u.display_name && String(u.display_name).trim()) ||
+          (u.username && String(u.username).trim()) || ''
+        ]));
+      } catch { /* fine on public */ }
 
+      // bets
       let bets = [];
       try {
-        const raw = await getJSON('/api/bets'); // make sure this is the public-safe endpoint
-        if (!raw.__unauthorized) {
-          bets = Array.isArray(raw) ? raw : (raw.bets || []);
-        }
+        const raw = await getJSON('/api/bets');
+        bets = Array.isArray(raw) ? raw : (raw.bets || []);
       } catch (e) {
-        console.error('[bets] bets load:', e);
+        console.error('[bets] load failed:', e);
       }
 
       const scroller = host.querySelector('.table-scroll');
@@ -1069,8 +1082,7 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       const resolveDisplayName = (id, fallback) => {
         const key = id ? String(id) : '';
-        const name = key && verifiedMap.get(key);
-        return name || fallback || (key ? `User ${key}` : 'Unknown');
+        return (key && verifiedMap.get(key)) || fallback || (key ? `User ${key}` : 'Unknown');
       };
 
       for (const bet of bets) {
@@ -1085,79 +1097,76 @@ window.loadOwnershipPage = loadOwnershipPage;
         const tdWager = document.createElement('td');
         tdWager.textContent = bet.wager ?? '-';
 
-        // Option 1
+        // Option 1 with themed tooltip on text only
         const tdO1 = document.createElement('td');
         tdO1.className = 'bet-opt bet-opt1';
-        const spanO1 = document.createElement('span');
-        spanO1.textContent = bet.option1 ?? '-';
-        spanO1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
+        const s1 = document.createElement('span');
+        s1.textContent = bet.option1 ?? '-';
+        s1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
           ? `Claimed by: ${resolveDisplayName(bet.option1_user_id, bet.option1_user_name)}`
           : 'Unclaimed';
-        tdO1.appendChild(spanO1);
+        tdO1.appendChild(s1);
 
-        // Option 2
+        // Option 2 with tooltip
         const tdO2 = document.createElement('td');
         tdO2.className = 'bet-opt bet-opt2';
-        const spanO2 = document.createElement('span');
-        spanO2.textContent = bet.option2 ?? '-';
-        spanO2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
+        const s2 = document.createElement('span');
+        s2.textContent = bet.option2 ?? '-';
+        s2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
           ? `Claimed by: ${resolveDisplayName(bet.option2_user_id, bet.option2_user_name)}`
           : 'Unclaimed';
-        tdO2.appendChild(spanO2);
+        tdO2.appendChild(s2);
 
-        // Winner
+        // Winner column
         const tdWin = document.createElement('td');
         tdWin.className = 'bet-winner';
 
-        const winnerKey = (bet.winner === 'option1' || bet.winner === 'option2') ? bet.winner : null;
-        const winnerText = winnerKey ? (winnerKey === 'option1' ? (bet.option1 ?? 'Option 1')
-                                                               : (bet.option2 ?? 'Option 2')) : null;
+        const winner = bet.winner === 'option1' || bet.winner === 'option2' ? bet.winner : null;
 
-        if (winnerText) {
-          const pill = document.createElement('span');
-          pill.className = 'pill pill-winner';
-          pill.textContent = winnerText;
-          tdWin.appendChild(pill);
+        if (window.state && state.admin === true) {
+          // ADMIN VIEW: show buttons instead of the pill
+          const box = document.createElement('div');
+          box.className = 'win-controls';
+
+          const b1 = document.createElement('button');
+          b1.className = 'btn xs' + (winner === 'option1' ? ' active' : '');
+          b1.textContent = 'O1';
+          b1.disabled = winner === 'option1';
+
+          const b2 = document.createElement('button');
+          b2.className = 'btn xs' + (winner === 'option2' ? ' active' : '');
+          b2.textContent = 'O2';
+          b2.disabled = winner === 'option2';
+
+          b1.onclick = async () => {
+            try {
+              await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option1' });
+              loadAndRenderBets();
+            } catch (e) {
+              console.error('declare winner o1:', e);
+              if (typeof notify === 'function') notify('Failed to set winner', false);
+            }
+          };
+          b2.onclick = async () => {
+            try {
+              await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option2' });
+              loadAndRenderBets();
+            } catch (e) {
+              console.error('declare winner o2:', e);
+              if (typeof notify === 'function') notify('Failed to set winner', false);
+            }
+          };
+
+          box.append(b1, b2);
+          tdWin.appendChild(box);
         } else {
-          // TBD
+          // PUBLIC VIEW: show pill or TBD
           const pill = document.createElement('span');
-          pill.className = 'pill pill-tbd';
-          pill.textContent = 'TBD';
+          pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
+          if (winner === 'option1') pill.textContent = bet.option1 ?? 'Option 1';
+          else if (winner === 'option2') pill.textContent = bet.option2 ?? 'Option 2';
+          else pill.textContent = 'TBD';
           tdWin.appendChild(pill);
-
-          // Admin controls to declare winner
-          if (window.state && state.admin === true) {
-            const controls = document.createElement('div');
-            controls.className = 'win-controls';
-            const b1 = document.createElement('button');
-            b1.className = 'btn xs';
-            b1.textContent = 'Set O1';
-            const b2 = document.createElement('button');
-            b2.className = 'btn xs';
-            b2.textContent = 'Set O2';
-
-            b1.onclick = async () => {
-              try {
-                await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option1' });
-                loadAndRenderBets();
-              } catch (e) {
-                console.error('declare winner o1:', e);
-                if (typeof notify === 'function') notify('Failed to set winner', false);
-              }
-            };
-            b2.onclick = async () => {
-              try {
-                await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option2' });
-                loadAndRenderBets();
-              } catch (e) {
-                console.error('declare winner o2:', e);
-                if (typeof notify === 'function') notify('Failed to set winner', false);
-              }
-            };
-
-            controls.append(b1, b2);
-            tdWin.appendChild(controls);
-          }
         }
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
@@ -1169,10 +1178,8 @@ window.loadOwnershipPage = loadOwnershipPage;
       const btn = document.getElementById('bets-refresh');
       if (btn) btn.onclick = () => loadAndRenderBets();
 
-      // Re-enable floating text tooltips if you use them
       if (typeof enableHoverTips === 'function') enableHoverTips();
     }
-
 
 
 /* -----------------------------
