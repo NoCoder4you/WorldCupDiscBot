@@ -1583,7 +1583,6 @@ async function getCogStatus(name){
     stopPolling();
     state.pollingId = setInterval(async ()=>{
       if(state.currentPage==='dashboard') await loadDash();
-      else if(state.currentPage==='bets') await loadAndRenderBets();
     }, 5000);
   }
   function stopPolling(){ if(state.pollingId) clearInterval(state.pollingId); state.pollingId=null; }
