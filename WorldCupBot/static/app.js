@@ -1027,9 +1027,6 @@ window.loadOwnershipPage = loadOwnershipPage;
       if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
     }
 
-    /* 4) Index + delegated hover. No throws, no notify. */
-    const BETS_BY_ID = (typeof BETS_BY_ID !== 'undefined') ? BETS_BY_ID : Object.create(null);
-
     function registerBets(bets) {
       const map = window.BETS_BY_ID;                      // use the hoisted global
 
