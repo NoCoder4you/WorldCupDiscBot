@@ -352,21 +352,6 @@
   }
 
   // --- OWNERSHIP ---
-
-    // ===== Load verified users from /api/verified =====
-    function parseVerifiedPayload(payload) {
-      if (!payload) return [];
-      if (Array.isArray(payload)) return payload;
-      if (payload.verified_users && Array.isArray(payload.verified_users)) return payload.verified_users;
-      return [];
-    }
-    function normalizeVerifiedItem(item) {
-      const id = item.discord_id || item.id || item.user_id || item.discordId || item.uid || '';
-      const nm = item.habbo_name || item.username || item.display_name || item.name || String(id);
-      return id ? { id: String(id), name: String(nm) } : null;
-    }
-
-
     // ===== Verified picker (lazy-open; opens only on click) =====
     async function setupVerifiedPicker(preload = false) {
       const picker = document.getElementById('reassign-picker');
@@ -884,17 +869,6 @@ async function refreshOwnershipNow() {
   }
 }
 
-
-
-
-// Back-compat shim
-function loadOwnershipPage() {
-  if (!ownershipState.loaded) initOwnership();
-  else sortMerged(ownershipState.lastSort || 'country');
-}
-window.loadOwnershipPage = loadOwnershipPage;
-
-
 // Buttons
 document.querySelector('#sort-country')?.addEventListener('click', () => sortMerged('country'));
 document.querySelector('#sort-player')?.addEventListener('click', () => sortMerged('player'));
@@ -1049,21 +1023,84 @@ window.loadOwnershipPage = loadOwnershipPage;
     }
 
 
-    // Map bet.id -> bet object for quick lookup on hover
+    /* =========================
+       Bets hover tooltips (names from verified.json)
+       ========================= */
+
+    // 1) Build id -> display name map from /api/verified
+    let VERIFIED_NAME_MAP = null;
+    async function loadVerifiedNameMap() {
+      if (VERIFIED_NAME_MAP) return VERIFIED_NAME_MAP;
+      try {
+        const r = await fetch('/api/verified', { credentials: 'include' });
+        const raw = r.ok ? await r.json() : [];
+        const arr = Array.isArray(raw) ? raw : (raw.verified_users || []);
+        VERIFIED_NAME_MAP = {};
+        for (const u of arr) {
+          const id = String(u.discord_id || u.id || '').trim();
+          const name = u.display_name || u.username || u.habbo_name || u.name || id;
+          if (id) VERIFIED_NAME_MAP[id] = name;
+        }
+      } catch {
+        VERIFIED_NAME_MAP = {};
+      }
+      return VERIFIED_NAME_MAP;
+    }
+
+    // 2) Extract supporters for a specific option from a bet object
+    //    Works with your current single-user fields and future arrays.
+    function getSupporterIds(bet, opt) {
+      // Prefer arrays if you add them later
+      const arrKeys = opt === 1
+        ? ['option1_supporters', 'option1_ids', 'opt1_ids']
+        : ['option2_supporters', 'option2_ids', 'opt2_ids'];
+      for (const k of arrKeys) {
+        const v = bet[k];
+        if (Array.isArray(v) && v.length) return v.map(x => String(x));
+      }
+      // Current single fields (per your screenshot)
+      const singleKey = opt === 1 ? 'option1_user_id' : 'option2_user_id';
+      const id = bet[singleKey];
+      return id ? [String(id)] : [];
+    }
+
+    // 3) Tiny floating tooltip
+    function ensureTipEl() {
+      let el = document.querySelector('.hover-tip');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'hover-tip';
+        document.body.appendChild(el);
+      }
+      return el;
+    }
+    function showHoverTip(anchorEl, html) {
+      const el = ensureTipEl();
+      el.innerHTML = html;
+      el.style.opacity = '1';
+      el.style.pointerEvents = 'auto';
+      const r = anchorEl.getBoundingClientRect();
+      const top  = window.scrollY + r.top - el.offsetHeight - 8;
+      const left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + window.innerWidth - el.offsetWidth - 8));
+      el.style.top = `${Math.max(8, top)}px`;
+      el.style.left = `${left}px`;
+    }
+    function hideHoverTip() {
+      const el = document.querySelector('.hover-tip');
+      if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
+    }
+
+    // 4) Index bets and tag the option cells; one delegated hover listener
     const BETS_BY_ID = Object.create(null);
 
-    /**
-     * Call this right after you finish rendering the table rows.
-     * It indexes the bets, tags the option cells, and wires one hover listener.
-     */
     function registerBets(bets) {
-      // index
+      // index for instant lookup on hover
       for (const b of bets) BETS_BY_ID[String(b.id)] = b;
 
       const tbody = document.querySelector('#bets-tbody');
       if (!tbody) return;
 
-      // tag the cells that represent options (assumes columns: 0=id, 3=opt1, 4=opt2)
+      // Tag option cells (assumes columns: 0=id, 3=Option 1, 4=Option 2)
       Array.from(tbody.rows).forEach(row => {
         const betId = String((row.cells[0]?.textContent || '').trim());
         const opt1 = row.cells[3];
@@ -1072,7 +1109,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         if (opt2) { opt2.classList.add('bet-opt'); opt2.dataset.betId = betId; opt2.dataset.opt = '2'; }
       });
 
-      wireBetsHover(); // ensure listener is in place
+      wireBetsHover();
     }
 
     let betsHoverWired = false;
@@ -1083,7 +1120,7 @@ window.loadOwnershipPage = loadOwnershipPage;
       const tbody = document.querySelector('#bets-tbody');
       if (!tbody) return;
 
-      // One listener for all rows - no 'bet' variable capture needed
+      // One listener for all rows (no per-row closures)
       tbody.addEventListener('mouseover', async (e) => {
         const cell = e.target.closest('.bet-opt');
         if (!cell || !tbody.contains(cell)) return;
@@ -1091,16 +1128,16 @@ window.loadOwnershipPage = loadOwnershipPage;
         const betId = cell.dataset.betId;
         const opt   = Number(cell.dataset.opt);
         const bet   = BETS_BY_ID[betId];
-        if (!bet) return; // row didn’t have a valid id
+        if (!bet) return;
 
         try {
-          const namesMap = await loadVerifiedNameMap();      // already added helper
-          const ids      = getSupporterIds(bet, opt);        // already added helper
-          const list     = ids.map(id => namesMap[id] || id);
-          const html     = list.length
+          const namesMap = await loadVerifiedNameMap();
+          const ids  = getSupporterIds(bet, opt);
+          const list = ids.map(id => namesMap[id] || id);
+          const html = list.length
             ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
             : `<em>No picks yet</em>`;
-          showHoverTip(cell, html);                          // already added helper
+          showHoverTip(cell, html);
         } catch (err) {
           console.error('[bets:hover]', err);
           notify('Bets error: ' + (err?.message || err), false);
@@ -1109,7 +1146,7 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       tbody.addEventListener('mouseout', (e) => {
         if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
-        hideHoverTip();                                      // already added helper
+        hideHoverTip();
       });
     }
 
@@ -1307,18 +1344,6 @@ function buildPendingSplits(rows) {
   box.appendChild(table);
   return box;
 }
-
-/* POST helper for force accept/decline – matches routes_admin.py */
-async function submitSplitAction(action, id) {
-  const url = action === 'accept' ? '/admin/splits/accept' : '/admin/splits/decline';
-  const res = await fetchJSON(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  });
-  return res; // { ok, pending_count, history_count, event }
-}
-
 
 /* POST helper for force accept/decline – matches routes_admin.py */
 async function submitSplitAction(action, id) {
