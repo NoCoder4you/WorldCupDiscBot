@@ -1726,3 +1726,8 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 .hover-tip strong{ color:#bde3ff; }
 .hover-tip em{ color:#91a3b6; font-style:italic; }
+
+.bet-opt span {
+  display: inline-block;
+  cursor: help;
+}
