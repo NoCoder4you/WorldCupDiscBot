@@ -197,5 +197,27 @@ class SpectatorVerify(commands.Cog):
                         pass
                 break
 
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        """When a member's server nickname changes, persist their display_name to verified.json."""
+        # Only act when the guild-specific nickname actually changed
+        if before.nick == after.nick:
+            return
+
+        # Reload the latest file on each change
+        data = ensure_json_file(VERIFIED_PATH, {"verified_users": []})
+
+        user_id = str(after.id)
+        updated = False
+        for entry in data.get("verified_users", []):
+            if entry.get("discord_id") == user_id:
+                entry["display_name"] = after.display_name  # display_name = nick if set, else username
+                updated = True
+                break
+
+        if updated:
+            save_json_file(VERIFIED_PATH, data)
+
+
 async def setup(bot):
     await bot.add_cog(SpectatorVerify(bot))

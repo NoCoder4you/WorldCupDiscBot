@@ -237,6 +237,45 @@
     document.addEventListener('DOMContentLoaded', fetchAdminStatus);
 
 
+    // --- Verified users -> display_name map ------------------
+    async function fetchVerifiedMap() {
+      // Your Flask public route returns the JSON file as-is:
+      // routes_public.py -> GET /api/verified
+      // Expected element shape per user: { discord_id, username, display_name, ... }
+      try {
+        const res = await fetch('/api/verified');
+        const arr = await res.json();
+        const map = new Map();
+        for (const u of Array.isArray(arr) ? arr : []) {
+          const id = String(u.discord_id ?? u.id ?? '');
+          // prefer display_name when present, else username
+          const disp = (u.display_name && String(u.display_name).trim()) || (u.username && String(u.username).trim());
+          if (id) map.set(id, disp || id);
+        }
+        return map;
+      } catch {
+        return new Map();
+      }
+    }
+
+    // Pretty label for hover based on id and fallback "username#0000"
+    function resolveDisplay(map, userId, fallbackUserString) {
+      const id = userId != null ? String(userId) : '';
+      const nice = (id && map.get(id)) || null;
+      // Format: "Nickname • @username#0000" if we have both
+      if (nice && fallbackUserString) return `${nice} • @${fallbackUserString}`;
+      if (nice) return nice;
+      if (fallbackUserString) return `@${fallbackUserString}`;
+      if (id) return `User ${id}`;
+      return 'Unknown';
+    }
+
+    // Small helper to set a tooltip for an option cell/element
+    function setOptionTooltip(el, claimedByText) {
+      if (!el) return;
+      el.title = claimedByText || 'Unclaimed';
+    }
+
   // --- DASHBOARD ---
   async function loadDash(){
     try{
@@ -908,177 +947,109 @@ async function loadOwnershipPage() {
 window.loadOwnershipPage = loadOwnershipPage;
 
 
-  // --- BETS + Admin pages unchanged (same as previous message) ---
-  async function loadBets(){
-    try{
-      const d = await fetchJSON('/api/bets');
-      const items = Array.isArray(d) ? d : (d.bets||[]);
-      const wrap = ensureSectionCard('bets','Bets',[
-        ['Refresh',{id:'bets-refresh-btn'}],
-        ['Rows',{kind:'select',id:'bets-rows',items:[10,25,50,100]}],
-        ['Search',{kind:'input',id:'bets-search',placeholder:'Search'}],
+    // Keep your existing helpers if you already added them:
+    // - fetchVerifiedMap()
+    // - resolveDisplay(map, userId, fallbackUserString)
+    // - setOptionTooltip(el, text)
+
+    // Unified loader + renderer
+    async function loadAndRenderBets() {
+      // fetch verified map and bets in parallel
+      const [verifiedMap, bets] = await Promise.all([
+        fetchVerifiedMap(),
+        (async () => {
+          const res = await fetch('/api/bets');
+          const raw = await res.json();
+          return Array.isArray(raw) ? raw : (raw.bets || []);
+        })()
       ]);
-      const scroll = wrap.querySelector('.table-scroll'); scroll.innerHTML='';
-      const table = document.createElement('table'); table.className='table';
-      table.innerHTML = `<thead><tr>
-        <th data-k="bet_id">ID</th><th data-k="bet_title">Title</th><th data-k="wager">Wager</th>
-        <th data-k="option1">Option 1</th><th data-k="option2">Option 2</th><th data-k="settled">Status</th>
-      </tr></thead><tbody></tbody>`;
-      scroll.appendChild(table);
 
-      let sortKey='bet_id', sortDir=1;
-      table.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{
-        const k=th.dataset.k; if(sortKey===k) sortDir=-sortDir; else {sortKey=k; sortDir=1;} draw();
-      }));
-      const rowsSel = qs('#bets-rows'); const searchInp = qs('#bets-search');
-      rowsSel.value = localStorage.getItem('wc:betsRows') || '25';
-      searchInp.value = localStorage.getItem('wc:betsQ') || '';
-      function draw(){
-        const q=(searchInp.value||'').toLowerCase();
-        const perPage=Number(rowsSel.value||25);
-        localStorage.setItem('wc:betsRows', String(perPage));
-        localStorage.setItem('wc:betsQ', q);
-        const filtered = items.filter(b => JSON.stringify(b).toLowerCase().includes(q));
-        const sorted = filtered.sort((a,b)=>{
-          const av=a?.[sortKey], bv=b?.[sortKey];
-          if(av==null && bv==null) return 0; if(av==null) return 1; if(bv==null) return -1;
-          if(av<bv) return -1*sortDir; if(av>bv) return 1*sortDir; return 0;
-        });
-        const pageItems = sorted.slice(0, perPage);
-        const tbody = table.querySelector('tbody'); tbody.innerHTML='';
-        pageItems.forEach(b=>{
-          const tr=document.createElement('tr');
-          const status = b.settled ? 'Settled':'Open';
-          tr.innerHTML = `<td>${escapeHtml(b.bet_id)}</td><td>${escapeHtml(b.bet_title)}</td><td>${escapeHtml(b.wager)}</td>
-                            <td class="bet-opt" data-bet-id="${b.bet_id}" data-opt="1">${b.option1}</td>
-                            <td class="bet-opt" data-bet-id="${b.bet_id}" data-opt="2">${b.option2}</td>
-                          <td>${status}</td>`;
-          tbody.appendChild(tr);
-        });
-      }
-      draw();
-      qs('#bets-refresh-btn').addEventListener('click', loadBets);
-      rowsSel.addEventListener('change', draw);
-      searchInp.addEventListener('input', draw);
-    }catch(e){ notify(`Bets error: ${e.message}`, false); }
-  }
+      const host = document.getElementById('bets');
+      if (!host) return;
+      host.innerHTML = '';
 
-    /* ===== Bets hover tooltips — safe, no throws ===== */
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
 
-    /* 1) Name map from /api/verified */
-    window.VERIFIED_NAME_MAP = window.VERIFIED_NAME_MAP || null;
-    async function loadVerifiedNameMap() {
-      if (window.VERIFIED_NAME_MAP) return window.VERIFIED_NAME_MAP;
-      try {
-        const r = await fetch('/api/verified', { credentials: 'include' });
-        const raw = r.ok ? await r.json() : [];
-        const arr = Array.isArray(raw) ? raw : (raw.verified_users || []);
-        const map = {};
-        for (const u of arr) {
-          const id = String(u.discord_id || u.id || '').trim();
-          const name = u.display_name || u.username || u.habbo_name || u.name || id;
-          if (id) map[id] = name;
+      const head = document.createElement('div');
+      head.className = 'table-head';
+      head.innerHTML = `
+        <div class="table-title">Bets</div>
+        <div class="table-actions">
+          <button id="bets-refresh" class="btn small">Refresh</button>
+          <span class="muted">Hover an option to see who claimed it</span>
+        </div>
+      `;
+
+      const scroller = document.createElement('div');
+      scroller.className = 'table-scroll';
+
+      const table = document.createElement('table');
+      table.className = 'table';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Wager</th>
+            <th>Option 1</th>
+            <th>Option 2</th>
+            <th>Settled</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+
+      const tbody = table.querySelector('tbody');
+
+      for (const bet of bets) {
+        const tr = document.createElement('tr');
+
+        const tdId = document.createElement('td');
+        tdId.textContent = bet.bet_id ?? '-';
+
+        const tdTitle = document.createElement('td');
+        tdTitle.textContent = bet.bet_title ?? '-';
+
+        const tdWager = document.createElement('td');
+        tdWager.textContent = bet.wager ?? '-';
+
+        const tdO1 = document.createElement('td');
+        tdO1.className = 'bet-opt bet-opt1';
+        tdO1.textContent = bet.option1 ?? '-';
+        if (bet.option1_user_id || bet.option1_user_name) {
+          const who = resolveDisplay(verifiedMap, bet.option1_user_id, bet.option1_user_name);
+          setOptionTooltip(tdO1, `Claimed by: ${who}`);
+        } else {
+          setOptionTooltip(tdO1, 'Unclaimed');
         }
-        window.VERIFIED_NAME_MAP = map;
-      } catch {
-        window.VERIFIED_NAME_MAP = {};
+
+        const tdO2 = document.createElement('td');
+        tdO2.className = 'bet-opt bet-opt2';
+        tdO2.textContent = bet.option2 ?? '-';
+        if (bet.option2_user_id || bet.option2_user_name) {
+          const who = resolveDisplay(verifiedMap, bet.option2_user_id, bet.option2_user_name);
+          setOptionTooltip(tdO2, `Claimed by: ${who}`);
+        } else {
+          setOptionTooltip(tdO2, 'Unclaimed');
+        }
+
+        const tdSettled = document.createElement('td');
+        tdSettled.textContent = bet.settled ? 'Yes' : 'No';
+
+        tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdSettled);
+        tbody.appendChild(tr);
       }
-      return window.VERIFIED_NAME_MAP;
+
+      scroller.appendChild(table);
+      wrap.append(head, scroller);
+      host.appendChild(wrap);
+
+      // refresh button
+      const btn = document.getElementById('bets-refresh');
+      if (btn) btn.onclick = () => loadAndRenderBets();
     }
 
-    /* 2) Supporter IDs from a bet object (graceful if bet is null) */
-    function getSupporterIds(bet, opt) {
-      if (!bet) return [];
-      const arrKeys = opt === 1
-        ? ['option1_supporters', 'option1_ids', 'opt1_ids']
-        : ['option2_supporters', 'option2_ids', 'opt2_ids'];
-      for (const k of arrKeys) {
-        const v = bet[k];
-        if (Array.isArray(v) && v.length) return v.map(x => String(x));
-      }
-      const singleKey = opt === 1 ? 'option1_user_id' : 'option2_user_id';
-      const id = bet[singleKey];
-      return id ? [String(id)] : [];
-    }
-
-    /* 3) Tiny tooltip (no errors if not in DOM) */
-    function ensureTipEl() {
-      let el = document.querySelector('.hover-tip');
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'hover-tip';
-        document.body.appendChild(el);
-      }
-      return el;
-    }
-    function showHoverTip(anchorEl, html) {
-      const el = ensureTipEl();
-      el.innerHTML = html;
-      el.style.opacity = '1';
-      el.style.pointerEvents = 'auto';
-      const r = anchorEl.getBoundingClientRect();
-      const top  = window.scrollY + r.top - el.offsetHeight - 8;
-      const left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + window.innerWidth - el.offsetWidth - 8));
-      el.style.top = `${Math.max(8, top)}px`;
-      el.style.left = `${left}px`;
-    }
-    function hideHoverTip() {
-      const el = document.querySelector('.hover-tip');
-      if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
-    }
-
-    function registerBets(bets) {
-      const map = window.BETS_BY_ID;                      // use the hoisted global
-
-      // index by ID as strings (keep leading zeros)
-      for (const b of (bets || [])) map[String(b.id)] = b;
-
-      const tbody = document.querySelector('#bets-tbody');
-      if (!tbody) return;
-
-      // tag option cells (assumes columns: 0=id, 3=opt1, 4=opt2)
-      Array.from(tbody.rows).forEach(row => {
-        const betId = String((row.cells[0]?.textContent || '').trim());
-        const c3 = row.cells[3], c4 = row.cells[4];
-        if (c3) { c3.classList.add('bet-opt'); c3.dataset.betId = betId; c3.dataset.opt = '1'; }
-        if (c4) { c4.classList.add('bet-opt'); c4.dataset.betId = betId; c4.dataset.opt = '2'; }
-      });
-
-      wireBetsHover(); // one-time hookup
-    }
-
-    let betsHoverWired = false;
-    function wireBetsHover() {
-      if (betsHoverWired) return;
-      betsHoverWired = true;
-
-      const tbody = document.querySelector('#bets-tbody');
-      if (!tbody) return;
-
-      tbody.addEventListener('mouseover', async (e) => {
-        const cell = e.target.closest('.bet-opt');
-        if (!cell || !tbody.contains(cell)) return;
-
-        const betId = String(cell.dataset.betId || '');
-        const opt   = Number(cell.dataset.opt || '0') || 0;
-
-        const bet = window.BETS_BY_ID[betId];             // read from global
-        if (!bet) { hideHoverTip(); return; }
-
-        const namesMap = await loadVerifiedNameMap();
-        const ids  = getSupporterIds(bet, opt);
-        const list = ids.map(id => namesMap[id] || id);
-        const html = list.length
-          ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
-          : `<em>No picks yet</em>`;
-        showHoverTip(cell, html);
-      });
-
-      tbody.addEventListener('mouseout', (e) => {
-        if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
-        hideHoverTip();
-      });
-    }
 
 /* -----------------------------
    Splits page (Requests + History)
@@ -1558,7 +1529,7 @@ async function getCogStatus(name){
   async function routePage(){
     switch(state.currentPage){
       case 'dashboard': await loadDash(); break;
-      case 'bets': await loadBets(); break;
+      case 'bets': await loadAndRenderBets(); break;
       case 'ownership': await loadOwnershipPage(); break;
       case 'splits': if(state.admin) await loadSplits(); else setPage('dashboard'); break;
       case 'backups': if(state.admin) await loadBackups(); else setPage('dashboard'); break;
@@ -1571,7 +1542,7 @@ async function getCogStatus(name){
     stopPolling();
     state.pollingId = setInterval(async ()=>{
       if(state.currentPage==='dashboard') await loadDash();
-      else if(state.currentPage==='bets') await loadBets();
+      else if(state.currentPage==='bets') await loadAndRenderBets();
     }, 5000);
   }
   function stopPolling(){ if(state.pollingId) clearInterval(state.pollingId); state.pollingId=null; }
