@@ -1049,24 +1049,30 @@ window.loadOwnershipPage = loadOwnershipPage;
     }
 
 
+    // Map bet.id -> bet object for quick lookup on hover
     const BETS_BY_ID = Object.create(null);
 
+    /**
+     * Call this right after you finish rendering the table rows.
+     * It indexes the bets, tags the option cells, and wires one hover listener.
+     */
     function registerBets(bets) {
+      // index
       for (const b of bets) BETS_BY_ID[String(b.id)] = b;
 
       const tbody = document.querySelector('#bets-tbody');
-      registerBets(betsArrayYouUsedToRender);
       if (!tbody) return;
 
-      // tag option cells in each row (assumes columns: 0=id, 3=opt1, 4=opt2)
+      // tag the cells that represent options (assumes columns: 0=id, 3=opt1, 4=opt2)
       Array.from(tbody.rows).forEach(row => {
         const betId = String((row.cells[0]?.textContent || '').trim());
-        const opt1 = row.cells[3], opt2 = row.cells[4];
+        const opt1 = row.cells[3];
+        const opt2 = row.cells[4];
         if (opt1) { opt1.classList.add('bet-opt'); opt1.dataset.betId = betId; opt1.dataset.opt = '1'; }
         if (opt2) { opt2.classList.add('bet-opt'); opt2.dataset.betId = betId; opt2.dataset.opt = '2'; }
       });
 
-      wireBetsHover();
+      wireBetsHover(); // ensure listener is in place
     }
 
     let betsHoverWired = false;
@@ -1077,6 +1083,7 @@ window.loadOwnershipPage = loadOwnershipPage;
       const tbody = document.querySelector('#bets-tbody');
       if (!tbody) return;
 
+      // One listener for all rows - no 'bet' variable capture needed
       tbody.addEventListener('mouseover', async (e) => {
         const cell = e.target.closest('.bet-opt');
         if (!cell || !tbody.contains(cell)) return;
@@ -1084,21 +1091,25 @@ window.loadOwnershipPage = loadOwnershipPage;
         const betId = cell.dataset.betId;
         const opt   = Number(cell.dataset.opt);
         const bet   = BETS_BY_ID[betId];
-        if (!bet) return;
+        if (!bet) return; // row didn’t have a valid id
 
-        const [namesMap] = await Promise.all([loadVerifiedNameMap()]);
-        const ids  = getSupporterIds(bet, opt);
-        const list = ids.map(id => namesMap[id] || id);
-        const html = list.length
-          ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
-          : `<em>No picks yet</em>`;
-
-        showHoverTip(cell, html);
+        try {
+          const namesMap = await loadVerifiedNameMap();      // already added helper
+          const ids      = getSupporterIds(bet, opt);        // already added helper
+          const list     = ids.map(id => namesMap[id] || id);
+          const html     = list.length
+            ? `<strong>${list.length} picked</strong><br>${list.join('<br>')}`
+            : `<em>No picks yet</em>`;
+          showHoverTip(cell, html);                          // already added helper
+        } catch (err) {
+          console.error('[bets:hover]', err);
+          notify('Bets error: ' + (err?.message || err), false);
+        }
       });
 
       tbody.addEventListener('mouseout', (e) => {
         if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
-        hideHoverTip();
+        hideHoverTip();                                      // already added helper
       });
     }
 
