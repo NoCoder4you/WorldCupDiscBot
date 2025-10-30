@@ -334,18 +334,92 @@ def create_public_routes(ctx):
         return jsonify(out)
 
     # ---------- Ownership (legacy) ----------
+    # ---------- Ownership (enriched, table-ready) ----------
     @api.get("/ownerships")
     def ownerships_get():
-        base = ctx.get("BASE_DIR","")
+        base = ctx.get("BASE_DIR", "")
+
+        # Build id -> display_name map from verified.json {"verified_users":[...]}
+        verified_blob = _json_load(_verified_path(base), {})
+        vlist = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
+        id_to_display = {}
+        if isinstance(vlist, list):
+            for u in vlist:
+                if isinstance(u, dict):
+                    did = str(u.get("discord_id") or u.get("id") or u.get("user_id") or "").strip()
+                    dnm = (u.get("display_name") or u.get("username") or u.get("name") or "").strip()
+                    if did:
+                        id_to_display[did] = dnm or did
+
+        def resolve_name(x):
+            if x is None:
+                return ""
+            # dict?
+            if isinstance(x, dict):
+                did = str(x.get("discord_id") or x.get("id") or x.get("user_id") or "").strip()
+                disp = (x.get("display_name") or x.get("username") or x.get("name") or "").strip()
+                if did and id_to_display.get(did):
+                    return id_to_display[did]
+                return disp or did
+            # string id?
+            sx = str(x).strip()
+            if sx.isdigit() and id_to_display.get(sx):
+                return id_to_display[sx]
+            return sx
+
         raw = _json_load(_ownership_path(base), {})
-        ownerships = []
+        items = []
+
         if isinstance(raw, dict):
-            for country, owners in raw.items():
-                if owners is None: owners = []
-                if isinstance(owners, str): owners = [owners]
-                ownerships.append({"country": country, "owners": owners})
-        verified = _json_load(_verified_path(base), {})
-        return jsonify({"ownerships": ownerships, "verified_users": verified})
+            for team, val in raw.items():
+                owners = []
+                # val can be list (owners) or dict with owners/splits
+                if isinstance(val, list):
+                    owners = val
+                    splits = []
+                elif isinstance(val, dict):
+                    owners = val.get("owners") or val.get("owner") or []
+                    splits = val.get("splits") or val.get("split_with") or []
+                    if isinstance(owners, (str, dict)): owners = [owners]
+                    if isinstance(splits, (str, dict)): splits = [splits]
+                else:
+                    owners = [val]
+                    splits = []
+
+                owners_disp = [resolve_name(o) for o in owners if o is not None]
+                splits_disp = [resolve_name(s) for s in (splits or owners_disp[1:]) if
+                               s]  # if no explicit splits, treat extra owners as splits
+
+                owner_main = owners_disp[0] if owners_disp else ""
+                split_with = ", ".join([n for n in splits_disp if n and n != owner_main])
+                items.append({
+                    "team": str(team),
+                    "owner": owner_main,
+                    "split_with": split_with
+                })
+
+        elif isinstance(raw, list):
+            for row in raw:
+                if not isinstance(row, dict):
+                    continue
+                team = row.get("team") or row.get("country") or ""
+                owners = row.get("owners") or row.get("owner") or []
+                splits = row.get("splits") or row.get("split_with") or []
+                if isinstance(owners, (str, dict)): owners = [owners]
+                if isinstance(splits, (str, dict)): splits = [splits]
+
+                owners_disp = [resolve_name(o) for o in owners if o is not None]
+                splits_disp = [resolve_name(s) for s in splits if s is not None]
+
+                owner_main = owners_disp[0] if owners_disp else ""
+                split_with = ", ".join([n for n in splits_disp if n and n != owner_main])
+                items.append({
+                    "team": str(team),
+                    "owner": owner_main,
+                    "split_with": split_with
+                })
+
+        return jsonify({"items": items, "ownerships": items})
 
     # ---------- Team ISO ----------
     @api.get("/team_iso")
