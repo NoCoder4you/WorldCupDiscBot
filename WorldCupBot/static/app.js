@@ -1055,6 +1055,7 @@ window.loadOwnershipPage = loadOwnershipPage;
       for (const b of bets) BETS_BY_ID[String(b.id)] = b;
 
       const tbody = document.querySelector('#bets-tbody');
+      registerBets(betsArrayYouUsedToRender);
       if (!tbody) return;
 
       // tag option cells in each row (assumes columns: 0=id, 3=opt1, 4=opt2)
@@ -1100,9 +1101,6 @@ window.loadOwnershipPage = loadOwnershipPage;
         hideHoverTip();
       });
     }
-
-registerBets(betsArrayYouUsedToRender);
-
 
 /* -----------------------------
    Splits page (Requests + History)

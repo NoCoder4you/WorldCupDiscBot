@@ -1708,7 +1708,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .flag-emoji{ display:inline-block; width:1.35em; text-align:center; margin-right:8px; }
 .country-name{ vertical-align:middle; }
 
-/* Dark hover tooltip for bets */
 .hover-tip{
   position:absolute;
   max-width:380px;
