@@ -1000,7 +1000,6 @@ window.loadOwnershipPage = loadOwnershipPage;
             <div class="table-title">Bets</div>
             <div class="table-actions">
               <button id="bets-refresh" class="btn small">Refresh</button>
-              <span class="muted">Hover an option to see who claimed it</span>
             </div>
           </div>
           <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
@@ -1091,8 +1090,6 @@ window.loadOwnershipPage = loadOwnershipPage;
           `<div class="error" style="padding:12px">Failed to load bets. Check console.</div>`;
       }
     }
-
-    loadAndRenderBets();
 
 
 /* -----------------------------
