@@ -608,4 +608,60 @@ def create_public_routes(ctx):
 
         return jsonify(data if isinstance(data, dict) else {})
 
+    @api.get("/verified")
+    def api_verified():
+        base = ctx.get("BASE_DIR", "")
+        verified = _json_load(_verified_path(base), [])
+
+        out = []
+        if isinstance(verified, list):
+            for v in verified:
+                if not isinstance(v, dict):
+                    continue
+                user = {}
+                user["discord_id"] = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "")
+                user["username"] = v.get("username") or v.get("name") or ""
+                user["display_name"] = v.get("display_name") or user["username"] or ""
+                user["habbo_name"] = v.get("habbo_name") or ""
+                out.append(user)
+
+        return jsonify(out)
+
+    @api.get("/bets")
+    def api_bets():
+        base = ctx.get("BASE_DIR", "")
+        bets = _json_load(_bets_path(base), [])
+        verified = _json_load(_verified_path(base), [])
+
+        vmap = {}
+        if isinstance(verified, list):
+            for v in verified:
+                if isinstance(v, dict):
+                    did = str(v.get("discord_id") or v.get("id") or "")
+                    if did:
+                        vmap[did] = {
+                            "display_name": v.get("display_name") or v.get("username") or "",
+                            "username": v.get("username") or ""
+                        }
+
+        def resolve_name(uid, fallback):
+            key = str(uid) if uid is not None else ""
+            if key and key in vmap:
+                return vmap[key]["display_name"] or vmap[key]["username"] or (fallback or key)
+            return fallback or (key if key else "")
+
+        out = []
+        seq = bets if isinstance(bets, list) else bets.get("bets", [])
+        for b in seq or []:
+            if not isinstance(b, dict):
+                continue
+            item = dict(b)
+            if "option1_user_id" in item or "option1_user_name" in item:
+                item["option1_user_name"] = resolve_name(item.get("option1_user_id"), item.get("option1_user_name"))
+            if "option2_user_id" in item or "option2_user_name" in item:
+                item["option2_user_name"] = resolve_name(item.get("option2_user_id"), item.get("option2_user_name"))
+            out.append(item)
+
+        return jsonify(out)
+
     return [root, api]
