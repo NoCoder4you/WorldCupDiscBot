@@ -1080,10 +1080,10 @@ window.loadOwnershipPage = loadOwnershipPage;
       `;
       const tbody = table.querySelector('tbody');
 
-      const resolveDisplayName = (id, fallback) => {
-        const key = id ? String(id) : '';
-        return (key && verifiedMap.get(key)) || fallback || (key ? `User ${key}` : 'Unknown');
-      };
+        const resolveDisplayName = (id, fallbackUsername) => {
+          const key = id ? String(id) : '';
+          return (key && verifiedMap.get(key)) || (fallbackUsername || (key ? `User ${key}` : 'Unknown'));
+        };
 
       for (const bet of bets) {
         const tr = document.createElement('tr');
@@ -1160,13 +1160,17 @@ window.loadOwnershipPage = loadOwnershipPage;
           box.append(b1, b2);
           tdWin.appendChild(box);
         } else {
-          // PUBLIC VIEW: show pill or TBD
-          const pill = document.createElement('span');
-          pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
-          if (winner === 'option1') pill.textContent = bet.option1 ?? 'Option 1';
-          else if (winner === 'option2') pill.textContent = bet.option2 ?? 'Option 2';
-          else pill.textContent = 'TBD';
-          tdWin.appendChild(pill);
+        const pill = document.createElement('span');
+        pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
+
+        if (winner === 'option1') {
+          pill.textContent = resolveDisplayName(bet.option1_user_id, bet.option1_user_name);
+        } else if (winner === 'option2') {
+          pill.textContent = resolveDisplayName(bet.option2_user_id, bet.option2_user_name);
+        } else {
+          pill.textContent = 'TBD';
+        }
+        tdWin.appendChild(pill);
         }
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
