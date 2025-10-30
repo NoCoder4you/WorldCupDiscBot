@@ -237,33 +237,39 @@
     document.addEventListener('DOMContentLoaded', fetchAdminStatus);
 
 
-    // --- Verified users -> display_name map ------------------
     async function fetchVerifiedMap() {
-      // Your Flask public route returns the JSON file as-is:
-      // routes_public.py -> GET /api/verified
-      // Expected element shape per user: { discord_id, username, display_name, ... }
       try {
-        const res = await fetch('/api/verified');
-        const arr = await res.json();
+        const res = await fetch('/api/verified', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`verified ${res.status}`);
+        const data = await res.json();
+
+        // Support array or object forms
+        const arr = Array.isArray(data)
+          ? data
+          : (Array.isArray(data.users) ? data.users : []);
+
         const map = new Map();
-        for (const u of Array.isArray(arr) ? arr : []) {
+        for (const u of arr) {
           const id = String(u.discord_id ?? u.id ?? '');
-          // prefer display_name when present, else username
-          const disp = (u.display_name && String(u.display_name).trim()) || (u.username && String(u.username).trim());
-          if (id) map.set(id, disp || id);
+          const name = (u.display_name && String(u.display_name).trim())
+                    || (u.username && String(u.username).trim())
+                    || '';
+          if (id) map.set(id, name || id);
         }
         return map;
-      } catch {
+      } catch (e) {
+        console.error('[bets] verified map error:', e);
         return new Map();
       }
     }
 
-    // Returns the display name (nickname) if verified, else fallback
+    // 2) Resolve display name (prefer nickname)
     function resolveDisplayName(map, userId, fallbackUserString) {
       const id = userId ? String(userId) : '';
-      const name = id && map.get(id);
-      if (name) return name; // verified nickname (display_name)
+      const name = (id && map.get(id)) || '';
+      if (name) return name;
       if (fallbackUserString) return fallbackUserString;
+      if (id) return `User ${id}`;
       return 'Unknown';
     }
 
@@ -942,103 +948,151 @@ async function loadOwnershipPage() {
 // expose globally in case your router looks up window[loaderName]
 window.loadOwnershipPage = loadOwnershipPage;
 
+    // 1) Verified map loader: {id -> display_name}
+    async function fetchVerifiedMap() {
+      try {
+        const res = await fetch('/api/verified', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`verified ${res.status}`);
+        const data = await res.json();
 
-    // Keep your existing helpers if you already added them:
-    // - fetchVerifiedMap()
-    // - resolveDisplayName(map, userId, fallbackUserString)
-    // - setOptionTooltip(el, text)
+        // Support array or object forms
+        const arr = Array.isArray(data)
+          ? data
+          : (Array.isArray(data.users) ? data.users : []);
 
-    // Unified loader + renderer
+        const map = new Map();
+        for (const u of arr) {
+          const id = String(u.discord_id ?? u.id ?? '');
+          const name = (u.display_name && String(u.display_name).trim())
+                    || (u.username && String(u.username).trim())
+                    || '';
+          if (id) map.set(id, name || id);
+        }
+        return map;
+      } catch (e) {
+        console.error('[bets] verified map error:', e);
+        return new Map();
+      }
+    }
+
+    // 2) Resolve display name (prefer nickname)
+    function resolveDisplayName(map, userId, fallbackUserString) {
+      const id = userId ? String(userId) : '';
+      const name = (id && map.get(id)) || '';
+      if (name) return name;
+      if (fallbackUserString) return fallbackUserString;
+      if (id) return `User ${id}`;
+      return 'Unknown';
+    }
+
+    // 3) Main: load + render
     async function loadAndRenderBets() {
-      // fetch verified map and bets in parallel
-      const [verifiedMap, bets] = await Promise.all([
-        fetchVerifiedMap(),
-        (async () => {
-          const res = await fetch('/api/bets');
-          const raw = await res.json();
-          return Array.isArray(raw) ? raw : (raw.bets || []);
-        })()
-      ]);
-
       const host = document.getElementById('bets');
-      if (!host) return;
-      host.innerHTML = '';
+      if (!host) {
+        console.warn('[bets] #bets container not found');
+        return;
+      }
 
-      const wrap = document.createElement('div');
-      wrap.className = 'table-wrap';
-
-      const head = document.createElement('div');
-      head.className = 'table-head';
-      head.innerHTML = `
-        <div class="table-title">Bets</div>
-        <div class="table-actions">
-          <button id="bets-refresh" class="btn small">Refresh</button>
+      // minimal skeleton while loading
+      host.innerHTML = `
+        <div class="table-wrap">
+          <div class="table-head">
+            <div class="table-title">Bets</div>
+            <div class="table-actions">
+              <button id="bets-refresh" class="btn small">Refresh</button>
+              <span class="muted">Hover an option to see who claimed it</span>
+            </div>
+          </div>
+          <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
         </div>
       `;
 
-      const scroller = document.createElement('div');
-      scroller.className = 'table-scroll';
+      try {
+        const [verifiedMap, bets] = await Promise.all([
+          fetchVerifiedMap(),
+          (async () => {
+            const res = await fetch('/api/bets', { cache: 'no-store' });
+            if (!res.ok) throw new Error(`bets ${res.status}`);
+            const raw = await res.json();
+            return Array.isArray(raw) ? raw : (raw.bets || []);
+          })()
+        ]);
 
-      const table = document.createElement('table');
-      table.className = 'table';
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Wager</th>
-            <th>Option 1</th>
-            <th>Option 2</th>
-            <th>Settled</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      `;
+        const wrap = host.querySelector('.table-wrap');
+        const scroller = host.querySelector('.table-scroll');
+        scroller.innerHTML = '';
 
-      const tbody = table.querySelector('tbody');
+        const table = document.createElement('table');
+        table.className = 'table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Wager</th>
+              <th>Option 1</th>
+              <th>Option 2</th>
+              <th>Settled</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
 
-      for (const bet of bets) {
-        const tr = document.createElement('tr');
+        const tbody = table.querySelector('tbody');
 
-        const tdId = document.createElement('td');
-        tdId.textContent = bet.bet_id ?? '-';
+        for (const bet of bets) {
+          const tr = document.createElement('tr');
 
-        const tdTitle = document.createElement('td');
-        tdTitle.textContent = bet.bet_title ?? '-';
+          const tdId = document.createElement('td');
+          tdId.textContent = bet.bet_id ?? '-';
 
-        const tdWager = document.createElement('td');
-        tdWager.textContent = bet.wager ?? '-';
+          const tdTitle = document.createElement('td');
+          tdTitle.textContent = bet.bet_title ?? '-';
 
-        // Option 1
-        const spanO1 = document.createElement('span');
-        spanO1.textContent = bet.option1 ?? '-';
-        spanO1.dataset.tip = bet.option1_user_id || bet.option1_user_name
-          ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option1_user_id, bet.option1_user_name)}`
-          : 'Unclaimed';
+          const tdWager = document.createElement('td');
+          tdWager.textContent = bet.wager ?? '-';
 
-        // Option 2
-        const spanO2 = document.createElement('span');
-        spanO2.textContent = bet.option2 ?? '-';
-        spanO2.dataset.tip = bet.option2_user_id || bet.option2_user_name
-          ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option2_user_id, bet.option2_user_name)}`
-          : 'Unclaimed';
+          // Option 1
+          const tdO1 = document.createElement('td');
+          tdO1.className = 'bet-opt bet-opt1';
+          const spanO1 = document.createElement('span');
+          spanO1.textContent = bet.option1 ?? '-';
+          spanO1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
+            ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option1_user_id, bet.option1_user_name)}`
+            : 'Unclaimed';
+          tdO1.appendChild(spanO1);
 
+          // Option 2
+          const tdO2 = document.createElement('td');
+          tdO2.className = 'bet-opt bet-opt2';
+          const spanO2 = document.createElement('span');
+          spanO2.textContent = bet.option2 ?? '-';
+          spanO2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
+            ? `Claimed by: ${resolveDisplayName(verifiedMap, bet.option2_user_id, bet.option2_user_name)}`
+            : 'Unclaimed';
+          tdO2.appendChild(spanO2);
 
-        const tdSettled = document.createElement('td');
-        tdSettled.textContent = bet.settled ? 'Yes' : 'No';
+          const tdSettled = document.createElement('td');
+          tdSettled.textContent = bet.settled ? 'Yes' : 'No';
 
-        tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdSettled);
-        tbody.appendChild(tr);
+          tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdSettled);
+          tbody.appendChild(tr);
+        }
+
+        scroller.appendChild(table);
+
+        // wire refresh
+        const btn = wrap.querySelector('#bets-refresh');
+        if (btn) btn.onclick = () => loadAndRenderBets();
+
+      } catch (e) {
+        console.error('[bets] render error:', e);
+        host.querySelector('.table-scroll').innerHTML =
+          `<div class="error" style="padding:12px">Failed to load bets. Check console.</div>`;
       }
-
-      scroller.appendChild(table);
-      wrap.append(head, scroller);
-      host.appendChild(wrap);
-
-      // refresh button
-      const btn = document.getElementById('bets-refresh');
-      if (btn) btn.onclick = () => loadAndRenderBets();
     }
+
+    loadAndRenderBets();
 
 
 /* -----------------------------
