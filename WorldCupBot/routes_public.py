@@ -333,7 +333,6 @@ def create_public_routes(ctx):
             out.append(item)
         return jsonify(out)
 
-    # ---------- Ownership (legacy) ----------
     # ---------- Ownership (enriched, table-ready) ----------
     @api.get("/ownerships")
     def ownerships_get():
