@@ -281,23 +281,31 @@ def create_public_routes(ctx):
         bets = _json_load(_bets_path(base), [])
         verified = _json_load(_verified_path(base), [])
 
-        # id -> {display_name, username}
-        vmap = {}
+        vmap_id = {}
+        vmap_user = {}
         if isinstance(verified, list):
             for v in verified:
-                if isinstance(v, dict):
-                    did = str(v.get("discord_id") or v.get("id") or "")
-                    if did:
-                        vmap[did] = {
-                            "display_name": v.get("display_name") or v.get("username") or "",
-                            "username": v.get("username") or ""
-                        }
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or "").strip()
+                uname = (v.get("username") or "").strip()
+                dname = (v.get("display_name") or uname).strip()
+                if did:
+                    vmap_id[did] = {"display_name": dname, "username": uname}
+                if uname:
+                    vmap_user[uname.lower()] = dname
 
-        def resolve_name(uid, fallback):
-            key = str(uid) if uid is not None else ""
-            if key and key in vmap:
-                return vmap[key]["display_name"] or vmap[key]["username"] or (fallback or key)
-            return fallback or (key if key else "")
+        def resolve_by_id_or_username(uid, uname_fallback):
+            key = str(uid).strip() if uid is not None else ""
+            if key and key in vmap_id:
+                rec = vmap_id[key]
+                return rec["display_name"] or rec["username"] or (uname_fallback or key)
+            if uname_fallback:
+                dn = vmap_user.get(str(uname_fallback).lower())
+                if dn:
+                    return dn
+            # Give up
+            return uname_fallback or (key if key else "")
 
         out = []
         seq = bets if isinstance(bets, list) else bets.get("bets", [])
@@ -306,9 +314,8 @@ def create_public_routes(ctx):
                 continue
             item = dict(b)  # do not mutate file
 
-            # Enrich both the legacy name fields and add explicit display fields
-            o1 = resolve_name(item.get("option1_user_id"), item.get("option1_user_name"))
-            o2 = resolve_name(item.get("option2_user_id"), item.get("option2_user_name"))
+            o1 = resolve_by_id_or_username(item.get("option1_user_id"), item.get("option1_user_name"))
+            o2 = resolve_by_id_or_username(item.get("option2_user_id"), item.get("option2_user_name"))
 
             item["option1_user_name"] = o1
             item["option2_user_name"] = o2
