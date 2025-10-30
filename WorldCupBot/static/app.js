@@ -946,6 +946,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         });
         const pageItems = sorted.slice(0, perPage);
         const tbody = table.querySelector('tbody'); tbody.innerHTML='';
+        registerBets(bets);
         pageItems.forEach(b=>{
           const tr=document.createElement('tr');
           const status = b.settled ? 'Settled':'Open';
