@@ -1,11 +1,16 @@
-import os, sys, json, time, glob
+import os, json, time, glob, sys
 from flask import Blueprint, jsonify, request, session
 
 SESSION_KEY = "wc_admin"
 
-def _base_dir(ctx): return ctx.get("BASE_DIR", os.getcwd())
-def _json_dir(ctx): return os.path.join(_base_dir(ctx), "JSON")
-def _path(ctx, name): return os.path.join(_json_dir(ctx), name)
+def _base_dir(ctx): 
+    return ctx.get("BASE_DIR", os.getcwd())
+
+def _json_dir(ctx): 
+    return os.path.join(_base_dir(ctx), "JSON")
+
+def _path(ctx, name): 
+    return os.path.join(_json_dir(ctx), name)
 
 def _read_json(path, default):
     try:
@@ -23,6 +28,10 @@ def _write_json_atomic(path, data):
         json.dump(data, f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
 
+def _now_iso():
+    import datetime as _dt
+    return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
 def _commands_path(ctx):
     rd = os.path.join(_base_dir(ctx), "runtime")
     os.makedirs(rd, exist_ok=True)
@@ -33,56 +42,43 @@ def _enqueue_command(ctx, kind, payload=None):
     with open(_commands_path(ctx), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd, separators=(",", ":")) + "\n")
 
-def _now_iso():
-    import datetime as _dt
-    return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-
-def _password_from_config(cfg):
-    """
-    Resolve the admin password from JSON/ENV.
-    Priority: JSON keys -> ENV keys.
-    Accepted JSON keys: PANEL_PASSWORD, ADMIN_PASSWORD, ADMIN_PASS, ADMIN
-    Accepted ENV keys:  WC_PANEL_PASSWORD, WC_ADMIN_PASSWORD, ADMIN_PASSWORD, PANEL_PASSWORD
-    """
-    for k in ("PANEL_PASSWORD", "ADMIN_PASSWORD", "ADMIN_PASS", "ADMIN"):
-        if cfg.get(k):
-            return str(cfg[k]).strip()
-    for k in ("WC_PANEL_PASSWORD", "WC_ADMIN_PASSWORD", "ADMIN_PASSWORD", "PANEL_PASSWORD"):
-        if os.environ.get(k):
-            return os.environ.get(k).strip()
-    return None
-
-def _load_config(ctx): return _read_json(_path(ctx, "config.json"), {})
-
-# ----- verified helpers (expects {"verified_users":[...]}) -----
+# ---- VERIFIED HELPERS (expects {"verified_users":[...]}) ----
 def _verified_map(ctx):
     blob = _read_json(_path(ctx, "verified.json"), {})
     raw = blob.get("verified_users") if isinstance(blob, dict) else blob
     out = {}
     if isinstance(raw, list):
         for v in raw:
-            if not isinstance(v, dict): continue
+            if not isinstance(v, dict): 
+                continue
             did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
-            if not did: continue
+            if not did: 
+                continue
             disp = (v.get("display_name") or v.get("username") or "").strip()
             out[did] = disp or did
     return out
 
-def _resolve_names(ctx, ids):
-    m = _verified_map(ctx)
-    return {str(x): m.get(str(x), str(x)) for x in {str(i) for i in ids if i is not None}}
+# ---- SIMPLE AUTH: STRICTLY JSON/CONFIG.JSON -> ADMIN_PASSWORD ----
+def _load_config(ctx): 
+    return _read_json(_path(ctx, "config.json"), {})
+
+def _get_admin_password(ctx):
+    cfg = _load_config(ctx)
+    pw = cfg.get("ADMIN_PASSWORD")
+    return str(pw) if pw is not None else None
 
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-    # ---------- Auth ----------
+    # Auth endpoints
     @bp.post("/auth/login")
     def auth_login():
         data = request.get_json(silent=True) or {}
-        pw = str(data.get("password") or "").strip()
-        cfg = _load_config(ctx)
-        expected = _password_from_config(cfg)
-        if expected and pw and pw == expected:
+        submitted = (data.get("password") or "")
+        expected = _get_admin_password(ctx)
+        if expected is None:
+            return jsonify({"ok": False, "error": "ADMIN_PASSWORD missing in JSON/config.json"}), 500
+        if str(submitted) == str(expected):
             session[SESSION_KEY] = True
             return jsonify({"ok": True, "unlocked": True})
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
@@ -96,34 +92,18 @@ def create_admin_routes(ctx):
     def auth_status():
         return jsonify({"unlocked": bool(session.get(SESSION_KEY) is True)})
 
-    @bp.get("/auth/diag")
-    def auth_diag():
-        cfg = _load_config(ctx)
-        found_key = None
-        for k in ("PANEL_PASSWORD", "ADMIN_PASSWORD", "ADMIN_PASS", "ADMIN"):
-            if cfg.get(k):
-                found_key = k
-                break
-        env_keys = [k for k in ("WC_PANEL_PASSWORD","WC_ADMIN_PASSWORD","ADMIN_PASSWORD","PANEL_PASSWORD") if os.environ.get(k)]
-        return jsonify({
-            "base_dir": _base_dir(ctx),
-            "json_path": _path(ctx, "config.json"),
-            "config_keys": list(cfg.keys()),
-            "password_key_in_json": found_key,
-            "password_present_in_env": bool(env_keys),
-            "env_keys_checked": env_keys
-        })
-
+    # Require admin helper
     def require_admin():
         if session.get(SESSION_KEY) is True:
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
-    # ---------- Cogs (unchanged except for queue) ----------
+    # ---- COGS (unchanged minimal) ----
     def _scan_cogs():
         results = []
         cdir = os.path.join(_base_dir(ctx), "COGS")
-        if not os.path.isdir(cdir): return results
+        if not os.path.isdir(cdir): 
+            return results
         loaded_exts = set()
         try:
             st = _read_json(_path(ctx, "cogs_status.json"), {})
@@ -140,7 +120,8 @@ def create_admin_routes(ctx):
         sysmods = set(sys.modules.keys())
         for py in sorted(glob.glob(os.path.join(cdir, "*.py"))):
             name = os.path.splitext(os.path.basename(py))[0]
-            if name.startswith("_"): continue
+            if name.startswith("_"): 
+                continue
             module_name = f"COGS.{name}"
             is_loaded = ((module_name in loaded_exts) or (not loaded_exts and module_name in sysmods))
             results.append({"name": name, "loaded": bool(is_loaded)})
@@ -176,7 +157,7 @@ def create_admin_routes(ctx):
         _enqueue_cog(cog, "reload")
         return jsonify({"ok": True})
 
-    # ---------- Splits (display names) ----------
+    # ---- SPLITS (uses verified display names) ----
     def _split_requests_path(): return _path(ctx, "split_requests.json")
     def _split_requests_log_path(): return _path(ctx, "split_requests_log.json")
 
@@ -194,6 +175,10 @@ def create_admin_routes(ctx):
             _write_json_atomic(path, raw)
             return len(raw)
 
+    def _resolve_names(ctx, ids):
+        m = _verified_map(ctx)
+        return {str(x): m.get(str(x), str(x)) for x in {str(i) for i in ids if i is not None}}
+
     @bp.get("/splits")
     def splits_get():
         resp = require_admin()
@@ -204,7 +189,8 @@ def create_admin_routes(ctx):
         id_bucket = set()
         if isinstance(raw, dict):
             for key, v in raw.items():
-                if not isinstance(v, dict): continue
+                if not isinstance(v, dict): 
+                    continue
                 req_id = str(v.get("requester_id") or "")
                 own_id = str(v.get("main_owner_id") or "")
                 id_bucket.update({req_id, own_id})
@@ -250,9 +236,9 @@ def create_admin_routes(ctx):
             "from_username": names.get(req_id, req_id), "to_username": names.get(own_id, own_id),
             "reason": reason, "timestamp": _now_iso(),
         }
-        hist_count = _append_split_history(event)
+        _append_split_history(event)
         _enqueue_command(ctx, "split_accept", {"id": sid, "reason": reason})
-        return jsonify({"ok": True, "pending_count": len(pending_raw), "history_count": hist_count, "event": event})
+        return jsonify({"ok": True, "event": event})
 
     @bp.post("/splits/decline")
     def splits_decline():
@@ -279,43 +265,11 @@ def create_admin_routes(ctx):
             "from_username": names.get(req_id, req_id), "to_username": names.get(own_id, own_id),
             "reason": reason, "timestamp": _now_iso(),
         }
-        hist_count = _append_split_history(event)
+        _append_split_history(event)
         _enqueue_command(ctx, "split_decline", {"id": sid, "reason": reason})
-        return jsonify({"ok": True, "pending_count": len(pending_raw), "history_count": len(pending_raw), "event": event})
+        return jsonify({"ok": True, "event": event})
 
-    @bp.get("/splits/history")
-    def splits_history():
-        resp = require_admin()
-        if resp is not None: return resp
-        raw = _read_json(_split_requests_log_path(), [])
-        events = raw.get("events") if isinstance(raw, dict) else raw
-        if not isinstance(events, list): events = []
-
-        id_bucket = set()
-        for ev in events:
-            if not isinstance(ev, dict): continue
-            for k in ("requester_id", "main_owner_id", "from_id", "to_id", "from", "to"):
-                if ev.get(k): id_bucket.add(str(ev.get(k)))
-        names = _resolve_names(ctx, id_bucket)
-
-        norm = []
-        for ev in events:
-            if not isinstance(ev, dict): continue
-            ev_out = dict(ev)
-            req_id = str(ev.get("requester_id") or ev.get("from_id") or ev.get("from") or "")
-            own_id = str(ev.get("main_owner_id") or ev.get("to_id") or ev.get("to") or "")
-            ev_out["from_username"] = names.get(req_id, req_id)
-            ev_out["to_username"]   = names.get(own_id, own_id)
-            norm.append(ev_out)
-
-        try:
-            limit = int(request.args.get("limit", "200"))
-        except Exception:
-            limit = 200
-        norm = norm[-abs(limit):]
-        return jsonify({"events": norm})
-
-    # ---------- Bets: declare winner (response enriched) ----------
+    # ---- BETS: declare winner (response enriched with display names) ----
     def _bets_path(): return _path(ctx, "bets.json")
 
     def _enrich_bet_names(b):
