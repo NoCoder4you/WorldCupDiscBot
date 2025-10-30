@@ -963,66 +963,6 @@ window.loadOwnershipPage = loadOwnershipPage;
     }catch(e){ notify(`Bets error: ${e.message}`, false); }
   }
 
-    // ===== Hover name map + tooltip =====
-    let VERIFIED_NAME_MAP = null;   // id -> display name
-    async function loadVerifiedNameMap() {
-      if (VERIFIED_NAME_MAP) return VERIFIED_NAME_MAP;
-      try {
-        const r = await fetch('/api/verified', { credentials: 'include' });
-        const raw = r.ok ? await r.json() : [];
-        const arr = Array.isArray(raw) ? raw : (raw.verified_users || []);
-        VERIFIED_NAME_MAP = {};
-        for (const u of arr) {
-          const id = String(u.discord_id || u.id || '').trim();
-          const name = u.display_name || u.username || u.habbo_name || u.name || id;
-          if (id) VERIFIED_NAME_MAP[id] = name;
-        }
-      } catch { VERIFIED_NAME_MAP = {}; }
-      return VERIFIED_NAME_MAP;
-    }
-
-    function ensureTipEl() {
-      let el = document.querySelector('.hover-tip');
-      if (!el) {
-        el = document.createElement('div');
-        el.className = 'hover-tip';
-        document.body.appendChild(el);
-      }
-      return el;
-    }
-    function showHoverTip(anchorEl, html) {
-      const el = ensureTipEl();
-      el.innerHTML = html;
-      el.style.opacity = '1';
-      el.style.pointerEvents = 'auto';
-      const r = anchorEl.getBoundingClientRect();
-      const top  = window.scrollY + r.top - el.offsetHeight - 8;
-      const left = Math.max(8, Math.min(window.scrollX + r.left, window.scrollX + window.innerWidth - el.offsetWidth - 8));
-      el.style.top = `${Math.max(8, top)}px`;
-      el.style.left = `${left}px`;
-    }
-    function hideHoverTip() {
-      const el = document.querySelector('.hover-tip');
-      if (el) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; }
-    }
-
-
-
-    // Works with single fields or arrays if you add them later
-    function getSupporterIds(bet, opt) {
-      const arrKeys = opt === 1
-        ? ['option1_supporters', 'option1_ids', 'opt1_ids']
-        : ['option2_supporters', 'option2_ids', 'opt2_ids'];
-      for (const k of arrKeys) {
-        const v = bet[k];
-        if (Array.isArray(v) && v.length) return v.map(x => String(x));
-      }
-      const singleKey = opt === 1 ? 'option1_user_id' : 'option2_user_id';
-      const id = bet[singleKey];
-      return id ? [String(id)] : [];
-    }
-
-
     /* =========================
        Bets hover tooltips (names from verified.json)
        ========================= */
