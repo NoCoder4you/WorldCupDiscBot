@@ -341,14 +341,16 @@ def create_admin_routes(ctx):
     @bp.get("/splits")
     def splits_get():
         resp = require_admin()
-        if resp is not None: return resp
+        if resp is not None:
+            return resp
 
         raw = _read_json(_split_requests_path(), {})
         pending = []
         id_bucket = set()
+
         if isinstance(raw, dict):
             for key, v in raw.items():
-                if not isinstance(v, dict): 
+                if not isinstance(v, dict):
                     continue
                 req_id = str(v.get("requester_id") or "")
                 own_id = str(v.get("main_owner_id") or "")
@@ -356,6 +358,7 @@ def create_admin_routes(ctx):
                 pending.append({
                     "id": key,
                     "team": v.get("team"),
+                    # keep raw ids
                     "requester_id": req_id,
                     "main_owner_id": own_id,
                     "expires_at": v.get("expires_at"),
@@ -364,9 +367,14 @@ def create_admin_routes(ctx):
 
         names = _resolve_names(ctx, id_bucket)
         for p in pending:
-            rid = str(p.get("requester_id")); oid = str(p.get("main_owner_id"))
+            rid = p.get("requester_id", "")
+            oid = p.get("main_owner_id", "")
+            # add explicit name fields
             p["from_username"] = names.get(rid, rid)
-            p["to_username"]   = names.get(oid, oid)
+            p["to_username"] = names.get(oid, oid)
+            # also set the legacy columns your table renders
+            p["from"] = p["from_username"]
+            p["to"] = p["to_username"]
 
         return jsonify({"pending": pending})
 
@@ -435,12 +443,11 @@ def create_admin_routes(ctx):
             return resp
 
         raw = _read_json(_split_requests_log_path(), [])
-        # support both { "events": [...] } and [ ... ]
         events = raw.get("events") if isinstance(raw, dict) else raw
         if not isinstance(events, list):
             events = []
 
-        # collect ids to resolve display names
+        # collect ids to resolve
         id_bucket = set()
         for ev in events:
             if not isinstance(ev, dict):
@@ -452,7 +459,6 @@ def create_admin_routes(ctx):
 
         names = _resolve_names(ctx, id_bucket)
 
-        # normalize each event with friendly names
         norm = []
         for ev in events:
             if not isinstance(ev, dict):
@@ -460,11 +466,17 @@ def create_admin_routes(ctx):
             e = dict(ev)
             req_id = str(ev.get("requester_id") or ev.get("from_id") or ev.get("from") or "")
             own_id = str(ev.get("main_owner_id") or ev.get("to_id") or ev.get("to") or "")
+            # keep ids
+            e["from_id"] = req_id
+            e["to_id"] = own_id
+            # add name fields
             e["from_username"] = names.get(req_id, req_id)
-            e["to_username"]   = names.get(own_id, own_id)
+            e["to_username"] = names.get(own_id, own_id)
+            # set legacy columns so your UI shows names
+            e["from"] = e["from_username"]
+            e["to"] = e["to_username"]
             norm.append(e)
 
-        # optional limit ?limit=200
         try:
             limit = int(request.args.get("limit", "200"))
         except Exception:
@@ -472,7 +484,6 @@ def create_admin_routes(ctx):
         norm = norm[-abs(limit):]
 
         return jsonify({"events": norm})
-
 
     # ---- BETS: declare winner (response enriched with display names) ----
     def _bets_path(): return _path(ctx, "bets.json")
