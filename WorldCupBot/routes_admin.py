@@ -111,6 +111,73 @@ def create_admin_routes(ctx):
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
+    # ---------- Bot controls ----------
+    def _callable(fn):
+        try:
+            return callable(fn)
+        except Exception:
+            return False
+
+    def _run_or_queue(action):
+        """
+        Try to call the launcher-provided function in ctx (start_bot/stop_bot/restart_bot).
+        If it doesn't exist, enqueue a command for your bot supervisor to pick up.
+        """
+        key = {
+            "start": "start_bot",
+            "stop": "stop_bot",
+            "restart": "restart_bot",
+        }.get(action)
+
+        fn = ctx.get(key)
+        if _callable(fn):
+            try:
+                ok = bool(fn())
+            except Exception:
+                ok = False
+        else:
+            _enqueue_command(ctx, f"bot_{action}")
+            ok = True  # accepted for async handling
+
+        return ok
+
+    @bp.get("/bot/status")
+    def bot_status():
+        fn = ctx.get("is_bot_running")
+        running = False
+        if _callable(fn):
+            try:
+                running = bool(fn())
+            except Exception:
+                running = False
+        # Optional timestamps if your launcher sets these refs:
+        last_start = (ctx.get("bot_last_start_ref") or {}).get("value")
+        last_stop  = (ctx.get("bot_last_stop_ref") or {}).get("value")
+        return jsonify({"ok": True, "running": running, "last_start": last_start, "last_stop": last_stop})
+
+    @bp.post("/bot/start")
+    def bot_start():
+        resp = require_admin()
+        if resp is not None: return resp
+        ok = _run_or_queue("start")
+        return jsonify({"ok": ok, "action": "start"})
+
+    @bp.post("/bot/stop")
+    def bot_stop():
+        resp = require_admin()
+        if resp is not None: return resp
+        ok = _run_or_queue("stop")
+        return jsonify({"ok": ok, "action": "stop"})
+
+    @bp.post("/bot/restart")
+    def bot_restart():
+        resp = require_admin()
+        if resp is not None: return resp
+        ok = _run_or_queue("restart")
+        return jsonify({"ok": ok, "action": "restart"})
+
+
+
     # ---- Ownership ----
     def _players_path(ctx):
         return _path(ctx, "players.json")
