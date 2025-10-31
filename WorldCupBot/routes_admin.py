@@ -428,6 +428,52 @@ def create_admin_routes(ctx):
         _enqueue_command(ctx, "split_decline", {"id": sid, "reason": reason})
         return jsonify({"ok": True, "event": event})
 
+    @bp.get("/splits/history")
+    def splits_history():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        raw = _read_json(_split_requests_log_path(), [])
+        # support both { "events": [...] } and [ ... ]
+        events = raw.get("events") if isinstance(raw, dict) else raw
+        if not isinstance(events, list):
+            events = []
+
+        # collect ids to resolve display names
+        id_bucket = set()
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            for k in ("requester_id", "main_owner_id", "from_id", "to_id", "from", "to"):
+                v = ev.get(k)
+                if v:
+                    id_bucket.add(str(v))
+
+        names = _resolve_names(ctx, id_bucket)
+
+        # normalize each event with friendly names
+        norm = []
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            e = dict(ev)
+            req_id = str(ev.get("requester_id") or ev.get("from_id") or ev.get("from") or "")
+            own_id = str(ev.get("main_owner_id") or ev.get("to_id") or ev.get("to") or "")
+            e["from_username"] = names.get(req_id, req_id)
+            e["to_username"]   = names.get(own_id, own_id)
+            norm.append(e)
+
+        # optional limit ?limit=200
+        try:
+            limit = int(request.args.get("limit", "200"))
+        except Exception:
+            limit = 200
+        norm = norm[-abs(limit):]
+
+        return jsonify({"events": norm})
+
+
     # ---- BETS: declare winner (response enriched with display names) ----
     def _bets_path(): return _path(ctx, "bets.json")
 
