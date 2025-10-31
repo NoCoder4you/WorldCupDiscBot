@@ -40,8 +40,17 @@ def _read_config() -> Dict[str, Any]:
             cfg = {}
     return cfg
 
+# ---------- Helpers ----------
+def _norm_channel_pref(v: Any) -> Any:
+    if isinstance(v, str):
+        s = v.strip()
+        if s.startswith("#"):
+            s = s[1:].strip()
+        if s.isdigit():
+            return int(s)
+        return s
+    return v
 
-# ---------- Discord helpers ----------
 async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) -> Optional[discord.Message]:
     channel = bot.get_channel(channel_id)
     if channel is None:
@@ -54,8 +63,7 @@ async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) ->
     except Exception:
         return None
 
-
-# ---------- Betting embed reconstruction ----------
+# ---------- Build public embed exactly like Betting.py, with win flair ----------
 def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) -> discord.Embed:
     title = f"📝 Bet: {bet.get('bet_title', 'Unknown')}"
     wager = bet.get("wager") or "-"
@@ -63,62 +71,31 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     option2 = bet.get("option2") or "Option 2"
     winner = bet.get("winner")
 
-    # user mentions/names
-    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else bet.get("option1_user_name") or "Unclaimed"
-    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else bet.get("option2_user_name") or "Unclaimed"
+    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
+    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
 
-    # Build embed identical to Betting.py
     embed = discord.Embed(
         title=title,
         color=discord.Color.gold(),
         description=f"**Wager:** {wager}"
     )
 
-    # Field formatting identical to Betting.py, except winner markup
     if winner == "option1":
-        embed.add_field(
-            name=f"🏆 {option1} 🏆",
-            value=f"Claimed by: {opt1_user}",
-            inline=False
-        )
-        embed.add_field(
-            name=f"~~{option2}~~",
-            value=f"~~Claimed by: {opt2_user}~~",
-            inline=False
-        )
+        embed.add_field(name=f"🏆 {option1}", value=f"Claimed by: {opt1_user}", inline=False)
+        embed.add_field(name=f"~~{option2}~~", value=f"Claimed by: {opt2_user}", inline=False)
     elif winner == "option2":
-        embed.add_field(
-            name=f"~~{option1}~~",
-            value=f"~~Claimed by: {opt1_user}~~",
-            inline=False
-        )
-        embed.add_field(
-            name=f"🏆 {option2} 🏆",
-            value=f"Claimed by: {opt2_user}",
-            inline=False
-        )
+        embed.add_field(name=f"~~{option1}~~", value=f"Claimed by: {opt1_user}", inline=False)
+        embed.add_field(name=f"🏆 {option2}", value=f"Claimed by: {opt2_user}", inline=False)
     else:
-        # identical pre-result layout
-        embed.add_field(
-            name=option1,
-            value=f"Claimed by: {opt1_user}",
-            inline=False
-        )
-        embed.add_field(
-            name=option2,
-            value=f"Claimed by: {opt2_user}",
-            inline=False
-        )
+        embed.add_field(name=option1, value=f"Claimed by: {opt1_user}", inline=False)
+        embed.add_field(name=option2, value=f"Claimed by: {opt2_user}", inline=False)
 
-    # Footer and thumbnail identical to Betting.py
     if bot_user:
         avatar = bot_user.avatar.url if bot_user.avatar else bot_user.default_avatar.url
         embed.set_thumbnail(url=avatar)
         embed.set_footer(text=f"{bot_user.display_name} • All bets claimed are final.")
     return embed
 
-
-# ---------- Admin embed ----------
 def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[discord.Embed]:
     winner = bet.get("winner")
     if winner not in ("option1", "option2"):
@@ -126,6 +103,8 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
 
     bet_id = bet.get("bet_id") or "Unknown"
     winner_option = bet.get("option1") if winner == "option1" else bet.get("option2")
+    winner_option = winner_option or "Unknown option"
+
     desc = f"## Winner\n{winner_option}"
     if msg_url:
         desc += f"\n-# [Jump to bet]({msg_url})"
@@ -139,39 +118,34 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     emb.set_footer(text="World Cup 2026 • Winner declared")
     return emb
 
-
-# ---------- Channel resolver ----------
-async def _resolve_log_channel(bot: commands.Bot, pref: Any, admin_category: str) -> Optional[discord.TextChannel]:
-    # Try ID first
-    if isinstance(pref, (int, float, str)) and str(pref).isdigit():
-        chan = bot.get_channel(int(pref))
+async def _resolve_admin_channel(bot: commands.Bot, pref: Any, admin_category: str) -> Optional[discord.TextChannel]:
+    pref = _norm_channel_pref(pref)
+    if isinstance(pref, int):
+        chan = bot.get_channel(pref)
         if isinstance(chan, discord.TextChannel):
             return chan
         try:
-            fetched = await bot.fetch_channel(int(pref))
+            fetched = await bot.fetch_channel(pref)
             if isinstance(fetched, discord.TextChannel):
                 return fetched
         except Exception:
             pass
-    # Try by name
-    if isinstance(pref, str) and pref.strip():
+    if isinstance(pref, str) and pref:
         for guild in bot.guilds:
             chan = discord.utils.get(guild.text_channels, name=pref)
             if isinstance(chan, discord.TextChannel):
                 return chan
-    # Fallback: bets-winner in admin category
     for guild in bot.guilds:
         cat = discord.utils.get(guild.categories, name=admin_category)
-        if cat:
-            chan = discord.utils.get(cat.text_channels, name="bets-winner")
-            if isinstance(chan, discord.TextChannel):
-                return chan
+        if not cat:
+            continue
+        chan = discord.utils.get(cat.text_channels, name="bets-winner")
+        if isinstance(chan, discord.TextChannel):
+            return chan
     return None
-
 
 # ---------- Cog ----------
 class WinnerWatcher(commands.Cog):
-    """Updates Betting.py embeds when a winner is set, preserving exact layout."""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._last_winner: Dict[str, Optional[str]] = {}
@@ -183,7 +157,7 @@ class WinnerWatcher(commands.Cog):
     def cog_unload(self):
         self.poll.cancel()
 
-    @tasks.loop(seconds=30.0)
+    @tasks.loop(seconds=25.0)
     async def poll(self):
         await self.bot.wait_until_ready()
         bets = _read_bets()
@@ -200,39 +174,48 @@ class WinnerWatcher(commands.Cog):
             prev_winner = self._last_winner.get(bet_id)
             changed_now = (winner != prev_winner)
 
-            chan_id = int(bet.get("channel_id") or 0)
-            msg_id = int(bet.get("message_id") or 0)
-            msg_url = None
+            chan_id = int(bet.get("channel_id") or 0) if bet.get("channel_id") else 0
+            msg_id = int(bet.get("message_id") or 0) if bet.get("message_id") else 0
 
+            msg_url = None
             if winner in ("option1", "option2") and chan_id and msg_id:
                 msg = await _fetch_message(self.bot, chan_id, msg_id)
                 if msg is not None:
                     try:
-                        new_embed = _rebuild_bet_embed(bet, self.bot.user)
-                        await msg.edit(embed=new_embed)
+                        await msg.edit(embed=_rebuild_bet_embed(bet, self.bot.user))
                         msg_url = msg.jump_url
                     except Exception as e:
                         print(f"[WinnerWatcher] edit failed for bet {bet_id}: {e}")
                 else:
-                    print(f"[WinnerWatcher] could not fetch message for bet {bet_id}")
+                    print(f"[WinnerWatcher] could not fetch message for bet {bet_id} (chan {chan_id}, msg {msg_id})")
 
             if changed_now and winner in ("option1", "option2"):
-                embed = _build_admin_embed(bet, msg_url)
-                if embed:
-                    chan = await _resolve_log_channel(self.bot, self._admin_bet_channel, self._admin_category)
-                    if chan:
+                admin_embed = _build_admin_embed(bet, msg_url)
+                if admin_embed:
+                    admin_chan = await _resolve_admin_channel(self.bot, self._admin_bet_channel, self._admin_category)
+                    if admin_chan is None:
+                        if chan_id:
+                            try:
+                                fallback = self.bot.get_channel(chan_id) or await self.bot.fetch_channel(chan_id)
+                                if isinstance(fallback, discord.TextChannel):
+                                    await fallback.send(content="`[admin-alert fallback]`", embed=admin_embed)
+                                    print(f"[WinnerWatcher] Admin embed fallback -> #{fallback.name} for bet {bet_id}")
+                            except Exception as e:
+                                print(f"[WinnerWatcher] failed to send fallback admin embed for bet {bet_id}: {e}")
+                        else:
+                            print("[WinnerWatcher] admin channel unresolved and no bet channel to fallback to.")
+                    else:
                         try:
-                            await chan.send(embed=embed)
-                            print(f"[WinnerWatcher] announced winner for bet {bet_id} in '{chan.name}'")
+                            await admin_chan.send(embed=admin_embed)
+                            print(f"[WinnerWatcher] Admin embed posted in #{admin_chan.name} for bet {bet_id}")
                         except Exception as e:
-                            print(f"[WinnerWatcher] failed to send admin embed: {e}")
+                            print(f"[WinnerWatcher] failed to send admin embed for bet {bet_id}: {e}")
 
             self._last_winner[bet_id] = winner
 
     @poll.before_loop
     async def before_poll(self):
         await self.bot.wait_until_ready()
-
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(WinnerWatcher(bot))
