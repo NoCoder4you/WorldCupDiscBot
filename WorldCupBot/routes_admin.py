@@ -49,10 +49,10 @@ def _verified_map(ctx):
     out = {}
     if isinstance(raw, list):
         for v in raw:
-            if not isinstance(v, dict): 
+            if not isinstance(v, dict):
                 continue
             did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
-            if not did: 
+            if not did:
                 continue
             disp = (v.get("display_name") or v.get("username") or "").strip()
             out[did] = disp or did
