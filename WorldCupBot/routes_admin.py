@@ -58,22 +58,19 @@ def _verified_map(ctx):
             out[did] = disp or did
     return out
 
-# ---- SIMPLE AUTH: STRICTLY JSON/CONFIG.JSON -> ADMIN_PASSWORD ----
 def _load_config(ctx):
-    """Load config.json either from /JSON or project root."""
+    """Load config.json only from project root."""
     base = ctx.get("BASE_DIR", os.getcwd())
-    json_path = os.path.join(base, "JSON", "config.json")
     root_path = os.path.join(base, "config.json")
 
-    # Prefer JSON/config.json, fall back to root config.json
-    for path in (json_path, root_path):
-        if os.path.isfile(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
+    if os.path.isfile(root_path):
+        try:
+            with open(root_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return {}
+
 
 def _get_admin_password(ctx):
     cfg = _load_config(ctx)
