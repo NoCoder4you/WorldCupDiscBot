@@ -77,23 +77,23 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     # Field formatting identical to Betting.py, except winner markup
     if winner == "option1":
         embed.add_field(
-            name=f"🏆 {option1}",
+            name=f"🏆 {option1} 🏆",
             value=f"Claimed by: {opt1_user}",
             inline=False
         )
         embed.add_field(
             name=f"~~{option2}~~",
-            value=f"Claimed by: {opt2_user}",
+            value=f"~~Claimed by: {opt2_user}~~",
             inline=False
         )
     elif winner == "option2":
         embed.add_field(
             name=f"~~{option1}~~",
-            value=f"Claimed by: {opt1_user}",
+            value=f"~~Claimed by: {opt1_user}~~",
             inline=False
         )
         embed.add_field(
-            name=f"🏆 {option2}",
+            name=f"🏆 {option2} 🏆",
             value=f"Claimed by: {opt2_user}",
             inline=False
         )
