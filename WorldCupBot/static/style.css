@@ -247,7 +247,7 @@ body.admin li.admin-only {
 	display: grid;
 	gap: 16px;
 	max-width: 900px;
-	margin: 40px auto;
+	margin: 300px auto;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	grid-auto-rows: var(--card-h);
 	justify-content: center;
@@ -268,44 +268,10 @@ body.admin li.admin-only {
 	}
 }
 
-/* Public dashboard - center three KPI cards */
-section.dashboard.centered {
-  /* fill the viewport minus navbar/footer, then center contents */
-  min-height: calc(100vh - 140px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* be liberal about the container class your cards live in */
-section.dashboard.centered .card-grid,
-section.dashboard.centered .cards,
-section.dashboard.centered .kpi-wrap,
-section.dashboard.centered .kpi-row {
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
-  gap: 24px;
-  align-items: stretch;
-  justify-content: center; /* horizontal centering */
-}
-
-/* keep it tidy on small screens */
-@media (max-width: 900px) {
-  section.dashboard.centered .card-grid,
-  section.dashboard.centered .cards,
-  section.dashboard.centered .kpi-wrap,
-  section.dashboard.centered .kpi-row {
-    grid-auto-flow: row;
-    grid-template-columns: 1fr;
-  }
-}
-
-
 /* Admin dice-5 grid */
 body.admin .dashboard-grid {
 	max-width: 1200px;
-	margin: 16px auto;
+	margin: 60px auto;
 	gap: 22px;
 	grid-template-columns: 1fr 1fr 1fr;
 	grid-template-rows: var(--card-h) var(--card-h) var(--card-h);

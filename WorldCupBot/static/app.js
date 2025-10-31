@@ -302,9 +302,6 @@
   // --- DASHBOARD ---
   async function loadDash(){
     try{
-    const dash = document.querySelector('section.dashboard');
-    if (dash) dash.classList.toggle('centered', !state.admin === true || state.admin === false);
-
       const upP = fetchJSON('/api/uptime');
       const t0 = performance.now();
       const pingP = fetchJSON('/api/ping');
