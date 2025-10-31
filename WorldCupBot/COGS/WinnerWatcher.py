@@ -43,6 +43,9 @@ def _read_config() -> Dict[str, Any]:
 
 # ---------- Claim helpers ----------
 def _is_claimed(bet: Dict[str, Any]) -> bool:
+    """Consider bet claimed if 'claimed' true, or both side user IDs set,
+       or claims list has 2 entries, or both side-claimed flags are true.
+    """
     if isinstance(bet.get("claimed"), bool):
         return bet.get("claimed") is True
     o1 = str(bet.get("option1_user_id") or "").strip()
@@ -69,35 +72,80 @@ async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) ->
     except Exception:
         return None
 
-# ---------- Winner-state embed (applied ONLY once winner decided) ----------
-def _format_embed_for_bet_card(bet: Dict[str, Any]) -> discord.Embed:
+def _mention_or_name(uid: Optional[str], name: Optional[str]) -> str:
+    if uid and str(uid).isdigit():
+        return f"<@{uid}>"
+    return name or "Unknown"
+
+# ---------- Winner-state embed (preserve original structure, add flair) ----------
+def _format_result_embed_preserve_layout(bet: Dict[str, Any]) -> discord.Embed:
     bet_id = bet.get("bet_id") or "Unknown"
-    title = bet.get("bet_title") or f"Bet {bet_id}"
-    wager = bet.get("wager") or "-"
-    opt1 = bet.get("option1") or "Option 1"
-    opt2 = bet.get("option2") or "Option 2"
+    title = bet.get("bet_title") or f"📝 Bet: {bet_id}"
+    wager = str(bet.get("wager") or "-")
+
+    opt1_text = bet.get("option1") or "Option 1"
+    opt2_text = bet.get("option2") or "Option 2"
     winner = bet.get("winner")
 
-    desc = f"⚔️ **{opt1}** vs **{opt2}**\n\n"
+    # Claimer names/mentions if present
+    o1_uid = str(bet.get("option1_user_id") or "") or None
+    o2_uid = str(bet.get("option2_user_id") or "") or None
+    o1_name = bet.get("option1_user_name") or bet.get("option1_display_name") or ""
+    o2_name = bet.get("option2_user_name") or bet.get("option2_display_name") or ""
+
+    o1_who = _mention_or_name(o1_uid, o1_name) if (o1_uid or o1_name) else "Unclaimed"
+    o2_who = _mention_or_name(o2_uid, o2_name) if (o2_uid or o2_name) else "Unclaimed"
+    lines = [f"**Wager:** {wager}"]
+    lines.append("")  # blank
 
     if winner == "option1":
-        desc += f"🏆 **Winner:** {opt1}\n"
-        desc += f"-# ~~Loser: {opt2}~~\n"
+        # Winner block first, loser second (preserves clarity)
+        lines.append(f"**{opt1_text}**")
+        lines.append(f"Claimed by: {o1_who}")
+        lines.append("")
+        lines.append(f"~~{opt2_text}~~")
+        # If loser was claimed, still show the claimer, just minimised
+        if o2_who != "Unclaimed":
+            lines.append(f"-# Loser • Claimed by: {o2_who}")
+        else:
+            lines.append(f"-# Loser • Unclaimed")
     elif winner == "option2":
-        desc += f"🏆 **Winner:** {opt2}\n"
-        desc += f"-# ~~Loser: {opt1}~~\n"
+        lines.append(f"**{opt2_text}**")
+        lines.append(f"Claimed by: {o2_who}")
+        lines.append("")
+        lines.append(f"~~{opt1_text}~~")
+        if o1_who != "Unclaimed":
+            lines.append(f"-# Loser • Claimed by: {o1_who}")
+        else:
+            lines.append(f"-# Loser • Unclaimed")
     else:
-        desc += "⏳ **Winner:** TBD\n"
+        # Should not be used unless someone accidentally calls for TBD
+        lines.append(f"**{opt1_text}**")
+        lines.append(f"Claimed by: {o1_who}")
+        lines.append("")
+        lines.append(f"**{opt2_text}**")
+        lines.append(f"Claimed by: {o2_who}")
 
-    desc += f"\n💰 **Wager:** {wager}"
+    desc = "\n".join(lines)
 
-    color = 0xFFD700  # gold on result
-    emb = discord.Embed(title=title, description=desc, color=color)
-    emb.set_footer(text="World Cup 2026 • Winner Declared")
+    emb = discord.Embed(
+        title=title,
+        description=desc,
+        color=discord.Color.gold(),
+        timestamp=discord.utils.utcnow()
+    )
+
+    # Optional thumbnail carry-over if your Betting.py sets one
+    thumb = bet.get("thumbnail")
+    if isinstance(thumb, str) and thumb:
+        emb.set_thumbnail(url=thumb)
+
+    emb.set_footer(text="World Cup 2026 • All bets claimed are final.")
     return emb
 
 # ---------- Admin embed ----------
 def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[discord.Embed]:
+    """Admin alert: 'Bet 12345' with winner and jump link."""
     winner = bet.get("winner")
     if winner not in ("option1", "option2"):
         return None
@@ -187,7 +235,7 @@ class WinnerWatcher(commands.Cog):
                 msg = await _fetch_message(self.bot, chan_id, msg_id)
                 if msg is not None:
                     try:
-                        await msg.edit(embed=_format_embed_for_bet_card(bet))
+                        await msg.edit(embed=_format_result_embed_preserve_layout(bet))
                         msg_url = msg.jump_url
                     except Exception as e:
                         print(f"[WinnerWatcher] edit failed for bet {bet_id}: {e}")
