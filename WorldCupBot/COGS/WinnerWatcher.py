@@ -1,8 +1,3 @@
-# COGS/WinnerWatcher.py
-# Watches JSON/bets.json for changes to the "winner" field and updates the original Discord embed.
-# Logs to console and posts updates to the channel defined by ADMIN_BET_CHANNEL in JSON/config.json.
-# Polls every 1 minute. Silent background cog - no slash commands.
-
 import os, json
 from typing import List, Dict, Any, Optional
 
@@ -25,7 +20,6 @@ def _read_json(path: str) -> Any:
         return {}
 
 def _read_bets() -> List[Dict[str, Any]]:
-    """Read bets.json safely."""
     data = _read_json(_path_in_json("bets.json"))
     if isinstance(data, list):
         return data
@@ -39,7 +33,6 @@ def _read_config() -> Dict[str, Any]:
 
 # ---------- Discord helpers ----------
 async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) -> Optional[discord.Message]:
-    """Fetch message safely from cache or API."""
     channel = bot.get_channel(channel_id)
     if channel is None:
         try:

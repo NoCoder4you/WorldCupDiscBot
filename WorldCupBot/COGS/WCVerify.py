@@ -65,7 +65,6 @@ class SpectatorVerify(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         user_id = str(interaction.user.id)
 
-        # If already verified, tell user
         for entry in self.verified_data.get("verified_users", []):
             if entry["discord_id"] == user_id:
                 embed = discord.Embed(
@@ -78,7 +77,6 @@ class SpectatorVerify(commands.Cog):
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
-        # Check for existing verification in progress
         ongoing = self.verification_data["verification_data"].get(user_id)
         if ongoing:
             code = ongoing["code"]
@@ -102,7 +100,6 @@ class SpectatorVerify(commands.Cog):
                         motto = data.get("motto")
                         habbo_name = data.get("name")
                         if motto and code in motto:
-                            # Assign Spectators role and remove Unverified
                             role = interaction.guild.get_role(SPECTATORS_ROLE_ID)
                             if member and role:
                                 try:
@@ -176,8 +173,6 @@ class SpectatorVerify(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        """Auto-verify if user is in verified.json when they rejoin."""
-        # Reload file (handles changes while bot was running)
         verified_data = ensure_json_file(VERIFIED_PATH, {"verified_users": []})
         for entry in verified_data.get("verified_users", []):
             if entry["discord_id"] == str(member.id):
@@ -199,8 +194,6 @@ class SpectatorVerify(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
-        """When a member's server nickname changes, persist their display_name to verified.json."""
-        # Only act when the guild-specific nickname actually changed
         if before.nick == after.nick:
             return
 
@@ -211,7 +204,7 @@ class SpectatorVerify(commands.Cog):
         updated = False
         for entry in data.get("verified_users", []):
             if entry.get("discord_id") == user_id:
-                entry["display_name"] = after.display_name  # display_name = nick if set, else username
+                entry["display_name"] = after.display_name
                 updated = True
                 break
 

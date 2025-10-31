@@ -2,23 +2,28 @@
     "verified_users": [
         {
             "discord_id": "1202812518398169111",
-            "habbo_name": "noah7479"
+            "habbo_name": "noah7479",
+            "display_name": "noah7479"
         },
         {
             "discord_id": "298121351871594497",
-            "habbo_name": "Siren"
+            "habbo_name": "Siren",
+            "display_name": "Noah"
         },
         {
             "discord_id": "570704277840855050",
-            "habbo_name": "Aaelin"
+            "habbo_name": "Aaelin",
+            "display_name": "Tori"
         },
         {
             "discord_id": "513795974330580994",
-            "habbo_name": "Decepted"
+            "habbo_name": "Decepted",
+            "display_name": "Decepted"
         },
         {
             "discord_id": "420236541349068801",
-            "habbo_name": "marsun"
+            "habbo_name": "marsun",
+            "display_name": "marsun"
         }
     ]
 }

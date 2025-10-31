@@ -5,7 +5,7 @@ ALLOWED_GUILD_IDS = [
     1202999519986458765,
     1385778542792544278
 ]
-NOTIFY_CHANNEL_ID = 1385412174180257843  # Channel to notify on illegal join
+NOTIFY_CHANNEL_ID = 1401717560331993119
 
 class GuildLock(commands.Cog):
     def __init__(self, bot):

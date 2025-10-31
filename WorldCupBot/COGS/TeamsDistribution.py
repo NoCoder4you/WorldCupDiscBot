@@ -1,14 +1,12 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
-import random
 import json
+import random
 from pathlib import Path
-from COGS.role_utils import (
-    has_root, has_referee, has_player, has_spectator,
-    check_root_interaction, check_referee_interaction, check_player_interaction, check_spectator_interaction
+import discord
+from discord import app_commands
+from discord.ext import commands
+from role_utils import (
+    check_root_interaction, check_referee_interaction
 )
-
 
 JSON_DIR = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON")
 TEAMS_FILE = JSON_DIR / "teams.json"

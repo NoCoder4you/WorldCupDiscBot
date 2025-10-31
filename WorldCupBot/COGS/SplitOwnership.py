@@ -23,7 +23,6 @@ def save_json(path, data):
         json.dump(data, f, indent=4)
 
 def append_log(log_item):
-    """Append an entry to split_requests_log.json as a list."""
     try:
         if not SPLIT_REQUESTS_LOG_FILE.exists():
             with open(SPLIT_REQUESTS_LOG_FILE, "w", encoding="utf-8") as f:
