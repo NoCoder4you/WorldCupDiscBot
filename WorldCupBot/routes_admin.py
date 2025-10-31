@@ -111,7 +111,86 @@ def create_admin_routes(ctx):
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
-    # ---- COGS (unchanged minimal) ----
+    # ---- Ownership ----
+    def _players_path(ctx):
+        return _path(ctx, "players.json")
+
+    @bp.post("/ownership/reassign")
+    def ownership_reassign():
+        # admin gate
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        data = request.get_json(silent=True) or {}
+        team = (data.get("team") or "").strip()
+        new_owner_id = str(data.get("new_owner_id") or "").strip()
+        if not team or not new_owner_id:
+            return jsonify({"ok": False, "error": "missing team or new_owner_id"}), 400
+
+        # load players.json (dict keyed by discord_id)
+        players = _read_json(_players_path(ctx), {})
+        if not isinstance(players, dict):
+            players = {}
+
+        # convenience: ensure a player's teams list exists
+        def ensure_player(uid):
+            uid = str(uid)
+            if uid not in players or not isinstance(players[uid], dict):
+                players[uid] = {"display_name": uid, "teams": []}
+            players[uid].setdefault("teams", [])
+            return players[uid]
+
+        # 1) clear any existing main_owner for this team
+        found_any = False
+        for uid, pdata in list(players.items()):
+            if not isinstance(pdata, dict):
+                continue
+            for entry in pdata.get("teams", []):
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("team") == team:
+                    entry.setdefault("ownership", {})
+                    if str(entry["ownership"].get("main_owner") or "") == str(uid):
+                        entry["ownership"]["main_owner"] = None
+                    found_any = True
+
+        # 2) set main_owner for new owner; create team entry if they don't have it
+        target = ensure_player(new_owner_id)
+        # try to find existing team entry
+        target_entry = None
+        for entry in target.get("teams", []):
+            if isinstance(entry, dict) and entry.get("team") == team:
+                target_entry = entry
+                break
+        if target_entry is None:
+            target_entry = {"team": team, "ownership": {"main_owner": new_owner_id, "split_with": []}}
+            target["teams"].append(target_entry)
+        else:
+            target_entry.setdefault("ownership", {})
+            target_entry["ownership"]["main_owner"] = new_owner_id
+            target_entry["ownership"].setdefault("split_with", [])
+
+        # save back
+        _write_json_atomic(_players_path(ctx), players)
+
+        # reply with a compact row the UI can use immediately
+        vmap = _verified_map(ctx)  # id -> display_name
+        row = {
+            "country": team,
+            "main_owner": {"id": new_owner_id, "username": vmap.get(new_owner_id, new_owner_id)},
+            "split_with": [
+                {"id": sid, "username": vmap.get(str(sid), str(sid))}
+                for sid in target_entry["ownership"].get("split_with", [])
+            ],
+            "owners_count": 1 + len(target_entry["ownership"].get("split_with", []))
+        }
+        # optionally queue a bot-side action
+        _enqueue_command(ctx, "ownership_reassign", {"team": team, "new_owner_id": new_owner_id})
+
+        return jsonify({"ok": True, "row": row})
+
+    # ---- COGS ----
     def _scan_cogs():
         results = []
         cdir = os.path.join(_base_dir(ctx), "COGS")
