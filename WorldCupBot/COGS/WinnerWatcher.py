@@ -149,7 +149,7 @@ class WinnerWatcher(commands.Cog):
     def cog_unload(self):
         self.poll.cancel()
 
-    @tasks.loop(minutes=1.0)
+    @tasks.loop(seconds=30)
     async def poll(self):
         await self.bot.wait_until_ready()
 
