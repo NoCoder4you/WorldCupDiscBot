@@ -45,20 +45,15 @@ def _read_config() -> Dict[str, Any]:
 def _is_claimed(bet: Dict[str, Any]) -> bool:
     if isinstance(bet.get("claimed"), bool):
         return bet.get("claimed") is True
-
     o1 = str(bet.get("option1_user_id") or "").strip()
     o2 = str(bet.get("option2_user_id") or "").strip()
     if o1 and o2:
         return True
-
     claims = bet.get("claims")
     if isinstance(claims, list) and len(claims) >= 2:
         return True
-
-    # Some schemas may mark per-side flags
     if bet.get("option1_claimed") and bet.get("option2_claimed"):
         return True
-
     return False
 
 # ---------- Discord helpers ----------
@@ -74,7 +69,7 @@ async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) ->
     except Exception:
         return None
 
-# ---------- Fancy original embed ----------
+# ---------- Winner-state embed (applied ONLY once winner decided) ----------
 def _format_embed_for_bet_card(bet: Dict[str, Any]) -> discord.Embed:
     bet_id = bet.get("bet_id") or "Unknown"
     title = bet.get("bet_title") or f"Bet {bet_id}"
@@ -96,11 +91,9 @@ def _format_embed_for_bet_card(bet: Dict[str, Any]) -> discord.Embed:
 
     desc += f"\n💰 **Wager:** {wager}"
 
-    color = 0x00C896 if winner not in ("option1", "option2") else 0xFFD700
-
+    color = 0xFFD700  # gold on result
     emb = discord.Embed(title=title, description=desc, color=color)
-    footer_text = "World Cup 2026 • Winner Declared" if winner in ("option1", "option2") else "World Cup 2026 • Awaiting Result"
-    emb.set_footer(text=footer_text)
+    emb.set_footer(text="World Cup 2026 • Winner Declared")
     return emb
 
 # ---------- Admin embed ----------
@@ -126,7 +119,7 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     emb.set_footer(text="World Cup 2026 • Winner declared")
     return emb
 
-async def _resolve_log_channel(bot: commands.Bot, pref: Any, admin_category: str):
+async def _resolve_log_channel(bot: commands.Bot, pref: Any, admin_category: str) -> Optional[discord.TextChannel]:
     # ID
     if isinstance(pref, (int, float, str)) and str(pref).isdigit():
         chan = bot.get_channel(int(pref))
@@ -144,7 +137,7 @@ async def _resolve_log_channel(bot: commands.Bot, pref: Any, admin_category: str
             chan = discord.utils.get(guild.text_channels, name=pref)
             if isinstance(chan, discord.TextChannel):
                 return chan
-    # Fallback
+    # Fallback bets-winner in admin category
     for guild in bot.guilds:
         cat = discord.utils.get(guild.categories, name=admin_category)
         if not cat:
@@ -159,7 +152,6 @@ class WinnerWatcher(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._last_winner: Dict[str, Optional[str]] = {}
-        self._announced: Dict[str, Optional[str]] = {}
         self._config = _read_config()
         self._admin_category = self._config.get("ADMIN_CATEGORY_NAME", "World Cup Admin")
         self._admin_bet_channel = self._config.get("ADMIN_BET_CHANNEL") or "_admin_bet_channel"
@@ -170,7 +162,6 @@ class WinnerWatcher(commands.Cog):
 
     @tasks.loop(seconds=30.0)
     async def poll(self):
-        """Detects winner changes, updates claimed bet messages only, and posts admin embed."""
         await self.bot.wait_until_ready()
 
         bets = _read_bets()
@@ -191,8 +182,8 @@ class WinnerWatcher(commands.Cog):
             msg_id = int(bet.get("message_id") or 0)
 
             msg_url = None
-            # Update original message ONLY if the bet is claimed
-            if _is_claimed(bet) and chan_id and msg_id:
+            # Only edit the original message when a winner is decided AND the bet is claimed
+            if winner in ("option1", "option2") and _is_claimed(bet) and chan_id and msg_id:
                 msg = await _fetch_message(self.bot, chan_id, msg_id)
                 if msg is not None:
                     try:
@@ -202,11 +193,9 @@ class WinnerWatcher(commands.Cog):
                         print(f"[WinnerWatcher] edit failed for bet {bet_id}: {e}")
                 else:
                     print(f"[WinnerWatcher] could not fetch message for bet {bet_id} (chan {chan_id}, msg {msg_id})")
-            elif not _is_claimed(bet):
-                # Skip editing if unclaimed
-                pass
+            # If winner not decided, DO NOT edit - keep Betting.py embed intact
 
-            # If winner just became option1/option2, announce to admin channel even if unclaimed
+            # Post admin embed when winner changes to an option
             if changed_now and winner in ("option1", "option2"):
                 embed = _build_admin_embed(bet, msg_url)
                 if embed:
@@ -217,11 +206,10 @@ class WinnerWatcher(commands.Cog):
                         try:
                             await chan.send(embed=embed)
                             print(f"[WinnerWatcher] announced winner for bet {bet_id} in '{chan.name}'")
-                            self._announced[bet_id] = winner
                         except Exception as e:
                             print(f"[WinnerWatcher] failed to send admin embed for bet {bet_id}: {e}")
 
-            # Track last seen value
+            # track last seen
             self._last_winner[bet_id] = winner
 
     @poll.before_loop
