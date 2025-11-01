@@ -1503,92 +1503,83 @@ function shortId(id) {
 }
 
 
-async function loadBackups(){
-   try{
-      const d=await fetchJSON('/api/backups'); const w=ensureSectionCard('backups',
-      'Backups',
-      [
-         [
-            'Backup All',
-            {
-               id:'bk-create'
-            }
-         ],
-         [
-            'Restore Latest',
-            {
-               id:'bk-restore'
-            }
-         ],
-         [
-            'Prune',
-            {
-               id:'bk-prune'
-            }
-         ]
-      ]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const files=(d?.backups)||(d?.folders?.[
-         0
-      ]?.files)||[
+    async function loadBackups(){
+      try{
+        // 1) get list from the API
+        const d = await fetchJSON('/api/backups');
 
-      ]; if(!files.length){
-         const p=document.createElement('p'); p.textContent='No backups yet.'; s.appendChild(p);
-      }else{
-         const t=document.createElement('table'); t.className='table'; t.innerHTML='<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>'; const tb=t.querySelector('tbody'); files.forEach(f=>{
-            const tr=document.createElement('tr'); const size=(f.bytes||f.size)||0; const ts=f.mtime||f.ts; const dt=ts?new Date(ts*1000).toLocaleString():''; const a=document.createElement('a'); a.href=`/api/backups/download?rel=${encodeURIComponent(f.rel||f.name)}`; a.textContent='Download'; tr.innerHTML=`<td>${escapeHtml(f.name)}</td><td>${Math.round(size/1024/1024)} MB</td><td>${escapeHtml(dt)}</td><td></td>`; tr.children[
-               3
-            ].appendChild(a); tb.appendChild(tr);
-         }); s.appendChild(t);
-      }qs('#bk-create').onclick=async()=>{
-         try{
-            await fetchJSON('/api/backups/create',
-            {
-               method:'POST',
-               body:JSON.stringify({
+        // 2) build the section header WITHOUT a prune button
+        const w = ensureSectionCard('backups', 'Backups', [
+          ['Backup All',      { id: 'backup-all' }],
+          ['Restore Latest',  { id: 'restore-latest' }]
+        ]);
 
-               })
-            }); notify('Backup created'); await loadBackups();
-         }catch(e){
-            notify(`Backup failed: ${e.message}`,
-            false);
-         }
-      }; qs('#bk-restore').onclick=async()=>{
-         try{
-            if(!files[
-               0
-            ]) return notify('No backups to restore',
-            false); await fetchJSON('/api/backups/restore',
-            {
-               method:'POST',
-               body:JSON.stringify({
-                  name:files[
-                     0
-                  ].name
-               })
-            }); notify('Restored latest backup');
-         }catch(e){
-            notify(`Restore failed: ${e.message}`,
-            false);
-         }
-      }; qs('#bk-prune').onclick=async()=>{
-         try{
-            const r=await fetchJSON('/admin/backups/prune',
-            {
-               method:'POST',
-               body:JSON.stringify({
-                  keep:10
-               })
-            }); if(r&&r.ok) notify(`Pruned ${r.pruned} backups`); else notify('Prune failed',
-            false); await loadBackups();
-         }catch(e){
-            notify(`Prune error: ${e.message}`,
-            false);
-         }
-      };
-   }catch(e){
-      notify(`Backups error: ${e.message}`,
-      false);
-   }
-}async function loadLogs(kind='bot'){
+        // 3) render the table
+        const s = w.querySelector('.table-scroll');
+        s.innerHTML = '';
+
+        const files = (d?.backups) || (d?.folders?.[0]?.files) || [];
+        if (!files.length){
+          const p = document.createElement('p');
+          p.textContent = 'No backups yet.';
+          s.appendChild(p);
+        } else {
+          const t = document.createElement('table');
+          t.className = 'table';
+          t.innerHTML = '<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>';
+          const tb = t.querySelector('tbody');
+
+          files.forEach(f => {
+            const tr  = document.createElement('tr');
+            const sizeBytes = (f.bytes || f.size) || 0;
+            const ts   = f.mtime || f.ts;
+            const dt   = ts ? new Date(ts * 1000).toLocaleString() : '';
+
+            const a = document.createElement('a');
+            a.href = `/api/backups/download?rel=${encodeURIComponent(f.rel || f.name)}`;
+            a.textContent = 'Download';
+
+            tr.innerHTML = `
+              <td>${escapeHtml(f.name)}</td>
+              <td>${Math.round(sizeBytes/1024/1024)} MB</td>
+              <td>${escapeHtml(dt)}</td>
+              <td></td>
+            `;
+            tr.children[3].appendChild(a);
+            tb.appendChild(tr);
+          });
+
+          s.appendChild(t);
+        }
+
+        // 4) hook up the two remaining actions
+        qs('#backup-all').onclick = async () => {
+          try{
+            await fetchJSON('/api/backups/create', { method:'POST', body: JSON.stringify({}) });
+            notify('Backup created');
+            await loadBackups();
+          }catch(e){
+            notify(`Backup failed: ${e.message}`, false);
+          }
+        };
+
+        qs('#restore-latest').onclick = async () => {
+          try{
+            if (!files[0]) return notify('No backups to restore', false);
+            const latest = [...files].sort((a,b) => (b.mtime||b.ts||0) - (a.mtime||a.ts||0))[0];
+            await fetchJSON('/api/backups/restore', { method:'POST', body: JSON.stringify({ name: latest.name }) });
+            notify('Restored latest backup');
+          }catch(e){
+            notify(`Restore failed: ${e.message}`, false);
+          }
+        };
+
+      }catch(e){
+        notify(`Backups error: ${e.message}`, false);
+      }
+    }
+
+async function loadLogs(kind='bot'){
    try{
       const d=await fetchJSON(`/api/log/${kind}`); const w=ensureSectionCard('log',
       'Logs',
