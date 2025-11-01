@@ -23,7 +23,6 @@ def _read_bets() -> List[Dict[str, Any]]:
         return []
 
 def _read_config() -> Dict[str, Any]:
-    """Now loads config.json ONLY from the root of the bot directory."""
     base = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(base, "..", "config.json")
     cfg = _read_json(os.path.normpath(config_path))
@@ -121,7 +120,6 @@ async def _resolve_admin_channel(bot: commands.Bot, pref: Any, admin_category: s
 
 # ---------- Cog ----------
 class WinnerWatcher(commands.Cog):
-    """Uses root config.json only, updates embeds & posts admin embed."""
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._last_winner: Dict[str, Optional[str]] = {}
@@ -133,7 +131,7 @@ class WinnerWatcher(commands.Cog):
     def cog_unload(self):
         self.poll.cancel()
 
-    @tasks.loop(seconds=25.0)
+    @tasks.loop(seconds=30)
     async def poll(self):
         await self.bot.wait_until_ready()
         bets = _read_bets()
