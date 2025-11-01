@@ -11,7 +11,8 @@
     theme: localStorage.getItem('wc:theme') || 'dark',
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
     pollingId: null,
-    logsKind:'bot'
+    logsKind: 'bot',
+    logsInit: false,
   };
 
   const $menu = qs('#main-menu');
@@ -1579,74 +1580,136 @@ function shortId(id) {
       }
     }
 
-async function loadLogs(kind='bot'){
-   try{
-      const d=await fetchJSON(`/api/log/${kind}`); const w=ensureSectionCard('log',
-      'Logs',
-      [
-         [
-            'Bot',
-            {
-               id:'log-kind-bot'
-            }
-         ],
-         [
-            'Health',
-            {
-               id:'log-kind-health'
-            }
-         ],
-         [
-            'Refresh',
-            {
-               id:'log-refresh'
-            }
-         ],
-         [
-            'Clear',
-            {
-               id:'log-clear'
-            }
-         ],
-         [
-            'Download',
-            {
-               id:'log-download'
-            }
-         ],
-         [
-            'Filter',
-            {
-               kind:'input',
-               id:'log-q',
-               placeholder:'Search'
-            }
-         ]
-      ]); const s=w.querySelector('.table-scroll'); s.innerHTML=''; const box=document.createElement('div'); box.className='log-window'; const q=(qs('#log-q').value||'').toLowerCase(); (d.lines||[
+/* ======= BEGIN LOGS MODULE ======= */
+    async function loadLogs(){
+      // Build the card once
+      if (!state.logsInit){
+        buildLogsCard();
+        state.logsInit = true;
+      }
+      await fetchAndRenderLogs();
+    }
 
-      ]).forEach(line=>{
-         if(q && !line.toLowerCase().includes(q)) return; const div=document.createElement('div'); div.textContent=line; box.appendChild(div);
-      }); s.appendChild(box); qs('#log-kind-bot').onclick=()=>loadLogs('bot'); qs('#log-kind-health').onclick=()=>loadLogs('health'); qs('#log-refresh').onclick=()=>loadLogs(kind); qs('#log-clear').onclick=async()=>{
-         try{
-            await fetchJSON(`/api/log/${kind}/clear`,
-            {
-               method:'POST',
-               body:JSON.stringify({
+    function buildLogsCard(){
+      const sec = document.querySelector('#log');
+      if (!sec) return;
 
-               })
-            }); await loadLogs(kind);
-         }catch(e){
-            notify(`Clear failed: ${e.message}`,
-            false);
-         }
-      }; qs('#log-download').onclick=()=>{
-         window.location.href=`/api/log/${kind}/download`;
-      }; qs('#log-q').oninput=()=>loadLogs(kind);
-   }catch(e){
-      notify(`Logs error: ${e.message}`,
-      false);
-   }
-}
+      // wipe the body area, keep your header if you have one
+      // if your section already has a wrapper, target its body element instead
+      sec.innerHTML = '';
+
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+
+      // header bar
+      const head = document.createElement('div');
+      head.className = 'table-head';
+      head.innerHTML = `
+        <div class="table-title">Logs</div>
+        <div class="table-actions">
+          <div class="chip-group" role="tablist" aria-label="Log kind">
+            <button id="log-kind-bot" class="btn btn-chip" data-kind="bot">Bot</button>
+            <button id="log-kind-health" class="btn btn-chip" data-kind="health">Health</button>
+          </div>
+          <button id="log-refresh" class="btn">Refresh</button>
+          <button id="log-clear" class="btn">Clear</button>
+          <a id="log-download" class="btn" href="/api/log/bot/download">Download</a>
+          <input id="log-search" type="text" placeholder="Search">
+        </div>
+      `;
+      wrap.appendChild(head);
+
+      // table
+      const body = document.createElement('div');
+      body.className = 'table-scroll';
+      body.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr><th style="width:120px">Time</th><th>Line</th></tr>
+          </thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      `;
+      wrap.appendChild(body);
+      sec.appendChild(wrap);
+
+      // wire controls
+      head.querySelectorAll('[data-kind]').forEach(btn=>{
+        btn.addEventListener('click', () => {
+          state.logsKind = btn.dataset.kind;
+          head.querySelectorAll('[data-kind]').forEach(b=>b.classList.remove('pill-ok'));
+          btn.classList.add('pill-ok');
+          const a = document.getElementById('log-download');
+          if (a) a.href = `/api/log/${state.logsKind}/download`;
+          fetchAndRenderLogs();
+        });
+      });
+      const active = head.querySelector(`#log-kind-${state.logsKind}`);
+      if (active) active.classList.add('pill-ok');
+
+      document.getElementById('log-refresh').addEventListener('click', fetchAndRenderLogs);
+
+      document.getElementById('log-clear').addEventListener('click', async ()=>{
+        try{
+          await fetch(`/api/log/${state.logsKind}/clear`, {method:'POST'});
+        }catch{}
+        fetchAndRenderLogs();
+      });
+
+      document.getElementById('log-search').addEventListener('input', filterLogs);
+    }
+
+    async function fetchAndRenderLogs(){
+      const tb = document.getElementById('log-tbody');
+      if (!tb) return;
+      try{
+        const lines = await fetchLogs(state.logsKind);
+        renderLogLines(lines);
+        filterLogs(); // apply current search
+      }catch(e){
+        tb.innerHTML = `<tr><td colspan="2" class="muted">Failed to load logs.</td></tr>`;
+      }
+    }
+
+    async function fetchLogs(kind){
+      const r = await fetch(`/api/log/${kind}`);
+      const j = await r.json();
+      return Array.isArray(j.lines) ? j.lines : [];
+    }
+
+    function renderLogLines(lines){
+      const tb = document.getElementById('log-tbody');
+      tb.innerHTML = '';
+      if (!lines.length){
+        tb.innerHTML = `<tr><td colspan="2" class="muted">No log lines yet.</td></tr>`;
+        return;
+      }
+      for (const line of lines){
+        let time = '', msg = line;
+        const pipe = line.indexOf('|'); // split "timestamp | message" if present
+        if (pipe > 0){
+          time = line.slice(0, pipe).trim();
+          msg  = line.slice(pipe+1).trim();
+        }
+        const tr = document.createElement('tr');
+        tr.dataset.text = line.toLowerCase();
+        tr.innerHTML = `<td class="mono">${escapeHTML(time)}</td><td class="mono">${escapeHTML(msg)}</td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    function filterLogs(){
+      const q = (document.getElementById('log-search')?.value || '').trim().toLowerCase();
+      document.querySelectorAll('#log-tbody tr').forEach(tr=>{
+        const match = !q || (tr.dataset.text || '').includes(q);
+        tr.style.display = match ? '' : 'none';
+      });
+    }
+
+    function escapeHTML(s){
+      return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    }
+
 // --- helpers (keep once in your file) ---
 let _wcWebhookUrl = null;
 
