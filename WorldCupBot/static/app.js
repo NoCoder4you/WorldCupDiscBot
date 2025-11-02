@@ -2168,27 +2168,67 @@ async function fetchJSON(url){
     }
 
     function enableClickZoom(svg){
-      const panRoot = svg.querySelector('g') || svg;
       const infoBox = document.getElementById('map-country-info');
       const titleEl = document.getElementById('map-info-title');
       const ownersEl = document.getElementById('map-info-owners');
       const statusEl = document.getElementById('map-info-status');
 
-      let currentCountry = null;
-      let prevTransform = panRoot.getAttribute('transform') || '';
-
-      function zoomTo(el){
-        const bbox = el.getBBox();
-        const view = svg.getBoundingClientRect();
-        const scale = Math.min(view.width / bbox.width, view.height / bbox.height) * 0.35;
-        const cx = bbox.x + bbox.width/2;
-        const cy = bbox.y + bbox.height/2;
-        prevTransform = panRoot.getAttribute('transform') || '';
-        panRoot.setAttribute(
-          'transform',
-          `translate(${view.width/2 - cx*scale},${view.height/2 - cy*scale}) scale(${scale})`
-        );
+      // Cache original viewBox (fallback to current rendered box if missing)
+      let origViewBox = svg.getAttribute('viewBox');
+      if (!origViewBox) {
+        const r = svg.getBBox(); // in SVG units
+        origViewBox = `${r.x} ${r.y} ${r.width} ${r.height}`;
+        svg.setAttribute('viewBox', origViewBox);
       }
+
+      let currentCountry = null;
+
+      function zoomToElement(el, pad=1.25){
+        // el.getBBox() returns bounds in SVG user units (correct space!)
+        const b = el.getBBox();
+        const w = b.width  * pad;
+        const h = b.height * pad;
+        const x = b.x - (w - b.width) / 2;
+        const y = b.y - (h - b.height) / 2;
+        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+      }
+
+      function resetZoom(){
+        svg.setAttribute('viewBox', origViewBox);
+        infoBox.classList.add('hidden');
+        currentCountry = null;
+      }
+      // Attach clicks to each country
+      svg.querySelectorAll('.country').forEach(el=>{
+        // store owners text once (built by classifyCountries)
+        const ownersText = el.dataset.owners || '—';
+
+        el.addEventListener('click', ()=>{
+          if (currentCountry === el) {
+            // toggle out
+            resetZoom();
+            return;
+          }
+
+          currentCountry = el;
+
+          // Info panel
+          const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
+          const name = iso || 'Unknown';
+          const status = el.classList.contains('owned') ? 'Owned'
+                       : el.classList.contains('split') ? 'Split'
+                       : 'Unassigned';
+          titleEl.textContent = name;
+          ownersEl.textContent = 'Owners: ' + ownersText;
+          statusEl.textContent = 'Status: ' + status;
+          infoBox.classList.remove('hidden');
+
+          // Zoom to exact bbox of the clicked country (with padding)
+          zoomToElement(el, 1.3);
+        });
+      });
+    }
+
 
       function resetZoom(){
         panRoot.setAttribute('transform', prevTransform);
