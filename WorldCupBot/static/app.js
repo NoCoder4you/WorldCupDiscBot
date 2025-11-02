@@ -2069,13 +2069,18 @@ async function fetchJSON(url){
           tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
           tip.style.opacity = '1';
           const r = host.getBoundingClientRect();
-          tip.style.left = (ev.clientX - r.left + 5)+'px';
-          tip.style.top  = (ev.clientY - r.top  + 5)+'px';
+          const tRect = tip.getBoundingClientRect();
+          const centeredX = ev.clientX - r.left - tRect.width / 2;
+          const centeredY = ev.clientY - r.top - tRect.height - 18;
+          tip.style.left = `${centeredX}px`;
+          tip.style.top = `${centeredY}px`;
         };
         el.onmousemove = (ev)=>{
-          const r = host.getBoundingClientRect();
-          tip.style.left = (ev.clientX - r.left + 5)+'px';
-          tip.style.top  = (ev.clientY - r.top  + 5)+'px';
+        const tRect = tip.getBoundingClientRect();
+        const centeredX = ev.clientX - r.left - tRect.width / 2;
+        const centeredY = ev.clientY - r.top - tRect.height - 18;
+        tip.style.left = `${centeredX}px`;
+        tip.style.top = `${centeredY}px`;
         };
         el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
         el.onfocus = el.onmouseenter;
