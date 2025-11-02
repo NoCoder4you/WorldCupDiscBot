@@ -1974,6 +1974,7 @@ async function fetchJSON(url){
     return data;
   }
 
+
     async function inlineSVG(path){
       const txt = await fetch(path, {cache:'no-store'}).then(r=>{
         if(!r.ok) throw new Error('map svg not found');
@@ -1982,21 +1983,18 @@ async function fetchJSON(url){
       host.innerHTML = txt;
       const svg = host.querySelector('svg');
 
-      // only consider visible geometry + groups; ignore defs/gradients/etc.
+      // Tag only real country shapes whose id is ISO-2 or "iso-xx"
       const nodes = svg.querySelectorAll('path[id], polygon[id], rect[id], g[id], [data-iso]');
       let tagged = 0;
-
       nodes.forEach(el=>{
         const raw = (el.getAttribute('data-iso') || el.id || '').trim();
         if(!raw) return;
-
-        // accept "gb", "GB", or "iso-gb"/"ISO-GB"
         let iso = '';
-        const m1 = raw.match(/^[A-Za-z]{2}$/);           // GB
-        const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/i); // iso-gb
+        const m1 = raw.match(/^[A-Za-z]{2}$/);            // GB
+        const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/); // iso-GB
         if(m1) iso = m1[0].toLowerCase();
         else if(m2) iso = m2[1].toLowerCase();
-        else return; // not a country id -> skip
+        else return;
 
         el.classList.add('country','free');
         el.setAttribute('data-iso', iso);
@@ -2005,8 +2003,10 @@ async function fetchJSON(url){
         el.setAttribute('aria-label', iso.toUpperCase());
         tagged++;
       });
-
       console.debug('world.svg tagged countries:', tagged);
+
+      // Ensure a dedicated pan root that won't clobber existing transforms
+      ensurePanRoot(svg);
       return svg;
     }
 
@@ -2073,53 +2073,72 @@ async function fetchJSON(url){
     });
   }
 
-  // Basic pan and zoom
-  function enablePanZoom(svg){
-    const g = svg.querySelector('g') || svg;
-    let scale = 1, min=0.7, max=5;
-    let originX=0, originY=0, startX=0, startY=0, panning=false;
+    function ensurePanRoot(svg){
+      if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
+      const panRoot = document.createElementNS('http://www.w3.org/2000/svg','g');
+      panRoot.setAttribute('id','wc-panroot');
 
-    function apply(){
-      g.setAttribute('transform', `translate(${originX},${originY}) scale(${scale})`);
+      // move all visible graphics into panRoot, keep <defs> and <title>/<desc> at top
+      const keep = new Set(['defs','title','desc','metadata']);
+      const toMove = [];
+      [...svg.childNodes].forEach(n=>{
+        if(n.nodeType === 1 && keep.has(n.nodeName.toLowerCase())) return;
+        toMove.push(n);
+      });
+      toMove.forEach(n=>panRoot.appendChild(n));
+      svg.appendChild(panRoot);
+      return panRoot;
     }
 
-    svg.classList.add('map-pannable');
 
-    svg.addEventListener('wheel', (e)=>{
-      e.preventDefault();
-      const delta = Math.sign(e.deltaY);
-      const factor = 1 - (delta * 0.08);
-      const newScale = Math.min(max, Math.max(min, scale * factor));
-      if(newScale === scale) return;
+    function enablePanZoom(svg){
+      const panRoot = ensurePanRoot(svg);
+      const baseTransform = panRoot.getAttribute('transform') || ''; // preserve original
+      let scale = 1, min=0.7, max=5;
+      let originX=0, originY=0, startX=0, startY=0, panning=false;
 
-      // Zoom to cursor
-      const pt = svg.createSVGPoint();
-      pt.x = e.offsetX; pt.y = e.offsetY;
-      try {
-        const ctm = svg.getScreenCTM().inverse();
-        const cursor = pt.matrixTransform(ctm);
-        originX = cursor.x - (cursor.x - originX) * (newScale/scale);
-        originY = cursor.y - (cursor.y - originY) * (newScale/scale);
-      } catch(_){}
+      function apply(){
+        // keep original transform, add our translate/scale afterwards
+        panRoot.setAttribute('transform', `${baseTransform} translate(${originX},${originY}) scale(${scale})`.trim());
+      }
 
-      scale = newScale;
+      svg.classList.add('map-pannable');
+
+      svg.addEventListener('wheel', (e)=>{
+        e.preventDefault();
+        const delta = Math.sign(e.deltaY);
+        const factor = 1 - (delta * 0.08);
+        const newScale = Math.min(max, Math.max(min, scale * factor));
+        if(newScale === scale) return;
+
+        // zoom towards cursor
+        const pt = svg.createSVGPoint();
+        pt.x = e.offsetX; pt.y = e.offsetY;
+        try {
+          const ctm = svg.getScreenCTM().inverse();
+          const cursor = pt.matrixTransform(ctm);
+          originX = cursor.x - (cursor.x - originX) * (newScale/scale);
+          originY = cursor.y - (cursor.y - originY) * (newScale/scale);
+        } catch(_){}
+
+        scale = newScale;
+        apply();
+      }, {passive:false});
+
+      svg.addEventListener('mousedown', (e)=>{
+        panning = true; startX = e.clientX; startY = e.clientY; svg.classList.add('grabbing');
+      });
+      window.addEventListener('mousemove', (e)=>{
+        if(!panning) return;
+        originX += (e.clientX - startX)/scale;
+        originY += (e.clientY - startY)/scale;
+        startX = e.clientX; startY = e.clientY;
+        apply();
+      });
+      window.addEventListener('mouseup', ()=>{ panning=false; svg.classList.remove('grabbing'); });
+
       apply();
-    }, {passive:false});
-
-    svg.addEventListener('mousedown', (e)=>{
-      panning = true; startX = e.clientX; startY = e.clientY; svg.classList.add('grabbing');
-    });
-    window.addEventListener('mousemove', (e)=>{
-      if(!panning) return;
-      originX += (e.clientX - startX)/scale;
-      originY += (e.clientY - startY)/scale;
-      startX = e.clientX; startY = e.clientY;
-      apply();
-    });
-    window.addEventListener('mouseup', ()=>{ panning=false; svg.classList.remove('grabbing'); });
-
-    apply();
-  }
+    }
 
     async function render(){
       try{
