@@ -152,15 +152,19 @@
         <div class="map-body">
           <div id="map-wrap">
             <div id="map-svg-host" aria-label="Interactive world map" role="img"></div>
+
+            <!-- keep legend here -->
             <div id="map-legend" class="map-legend">
               <div><span class="key box owned"></span> Owned</div>
               <div><span class="key box split"></span> Split</div>
               <div><span class="key box free"></span> Unassigned</div>
             </div>
+
+            <!-- MOVE tooltip inside the wrap so it's positioned against this box -->
+            <div id="map-tip" class="hover-tip"></div>
           </div>
         </div>
       </div>
-      <div id="map-tip" class="hover-tip"></div>
     </section>
 
         <!-- ===== Reassign Modal ===== -->

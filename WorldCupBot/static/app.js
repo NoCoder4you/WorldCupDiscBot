@@ -2013,48 +2013,50 @@ async function fetchJSON(url){
     function classifyCountries(svg, teamIso, merged){
       const rows = (merged && merged.rows) || [];
 
-      // Build quick lookup of team -> ownership status
+      // Map: team -> ownership state
       const teamState = {};
-      for(const row of rows){
+      for (const row of rows) {
         const team = row.country;
         const ownersCount = row.owners_count || 0;
         const main = row.main_owner;
         const splits = row.split_with || [];
         let status = 'free';
-        if(ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
-        if(splits && splits.length > 0) status = 'split';
-        teamState[team] = {status, main, splits};
+        if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
+        if (splits && splits.length > 0) status = 'split';
+        teamState[team] = { status, main, splits };
       }
 
-      // Build ISO -> team map
+      // Map: iso -> team
       const isoToTeam = {};
-      Object.keys(teamIso || {}).forEach(team=>{
+      Object.keys(teamIso || {}).forEach(team => {
         const iso = (teamIso[team] || '').toLowerCase();
-        if(iso) isoToTeam[iso] = team;
+        if (iso) isoToTeam[iso] = team;
       });
 
-      // Helper to color both groups and child shapes
-      function setStatus(el, status){
-        el.classList.remove('owned','split','free');
+      // Helper to color both group and its shapes
+      function setStatus(el, status) {
+        el.classList.remove('owned', 'split', 'free');
         el.classList.add(status);
-        el.querySelectorAll('path,polygon,rect,circle').forEach(sh=>{
-          sh.classList.remove('owned','split','free');
+        el.querySelectorAll('path,polygon,rect,circle').forEach(sh => {
+          sh.classList.remove('owned', 'split', 'free');
           sh.classList.add(status);
         });
       }
 
-      // Tooltip positioning helper - keeps it close to the cursor
-      function positionTip(ev){
-        const r = host.getBoundingClientRect();
+      // Tooltip positioning - relative to #map-wrap
+      const wrap = document.getElementById('map-wrap');
+      function positionTip(ev) {
+        const r = wrap.getBoundingClientRect();
         const tipRect = tip.getBoundingClientRect();
 
-        let x = ev.clientX - r.left + 4;
-        let y = ev.clientY - r.top - tipRect.height + 2;
+        // tight offset near cursor
+        let x = ev.clientX - r.left + 6;
+        let y = ev.clientY - r.top - tipRect.height - 2;
 
-        // if not enough room above, show just below
+        // if not enough room above, show below
         if (y < 2) y = ev.clientY - r.top + 10;
 
-        // clamp to map bounds
+        // clamp inside map area
         const maxX = r.width - tipRect.width - 2;
         const maxY = r.height - tipRect.height - 2;
         if (x < 2) x = 2;
@@ -2063,43 +2065,38 @@ async function fetchJSON(url){
         if (y > maxY) y = maxY;
 
         tip.style.left = `${x}px`;
-        tip.style.top  = `${y}px`;
+        tip.style.top = `${y}px`;
       }
 
-      // Iterate through all tagged countries
-      svg.querySelectorAll('.country').forEach(el=>{
-        const iso = (el.getAttribute('data-iso')||'').toLowerCase();
+      // Assign classes and tooltips
+      svg.querySelectorAll('.country').forEach(el => {
+        const iso = (el.getAttribute('data-iso') || '').toLowerCase();
         const team = isoToTeam[iso];
         let status = 'free';
         let ownerNames = [];
         const teamLabel = team || iso.toUpperCase();
 
-        if(team && teamState[team]){
+        if (team && teamState[team]) {
           status = teamState[team].status;
           const main = teamState[team].main;
           const splits = teamState[team].splits || [];
-          if(main && main.username){
-            ownerNames.push(main.username);
-          }
-          if(splits && splits.length){
-            ownerNames.push(...splits.map(s => s.username).filter(Boolean));
-          }
+          if (main && main.username) ownerNames.push(main.username);
+          if (splits && splits.length) ownerNames.push(...splits.map(s => s.username).filter(Boolean));
         }
 
         setStatus(el, status);
 
-        // Tooltip handlers
-        el.onmouseenter = (ev)=>{
+        // Tooltip events
+        el.onmouseenter = ev => {
           const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
           tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
           tip.style.opacity = '1';
           positionTip(ev);
         };
-
-        el.onmousemove = (ev)=>{ positionTip(ev); };
-        el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
+        el.onmousemove = ev => positionTip(ev);
+        el.onmouseleave = () => { tip.style.opacity = '0'; };
         el.onfocus = el.onmouseenter;
-        el.onblur  = el.onmouseleave;
+        el.onblur = el.onmouseleave;
       });
     }
 
