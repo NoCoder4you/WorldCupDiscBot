@@ -1888,7 +1888,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 #map-tip {
   pointer-events: none;
-  transform: translateY(-2px);
+  transform: translateY(0px);
 }
 #map-tip[style*="opacity: 1"] {
   transform: translateY(0);
