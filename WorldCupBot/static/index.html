@@ -149,23 +149,33 @@
             <button id="worldmap-refresh" class="btn sm">Refresh map</button>
           </div>
         </div>
+
         <div class="map-body">
           <div id="map-wrap">
+            <!-- The SVG map will be inlined here -->
             <div id="map-svg-host" aria-label="Interactive world map" role="img"></div>
 
-            <!-- keep legend here -->
+            <!-- Floating legend -->
             <div id="map-legend" class="map-legend">
               <div><span class="key box owned"></span> Owned</div>
               <div><span class="key box split"></span> Split</div>
               <div><span class="key box free"></span> Unassigned</div>
             </div>
 
-            <!-- MOVE tooltip inside the wrap so it's positioned against this box -->
+            <!-- Hover tooltip -->
             <div id="map-tip" class="hover-tip"></div>
+
+            <!-- Country info panel (appears when zoomed in) -->
+            <div id="map-country-info" class="map-info hidden">
+              <h3 id="map-info-title">Country</h3>
+              <p id="map-info-owners">Owners: —</p>
+              <p id="map-info-status">Status: —</p>
+            </div>
           </div>
         </div>
       </div>
     </section>
+
 
         <!-- ===== Reassign Modal ===== -->
         <div id="reassign-backdrop" style="display: none;">
