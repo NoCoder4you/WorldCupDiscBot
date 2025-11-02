@@ -2070,16 +2070,22 @@ async function fetchJSON(url){
           tip.style.opacity = '1';
           const r = host.getBoundingClientRect();
           const tRect = tip.getBoundingClientRect();
-          const offsetX = -tip.offsetWidth / 2;  // centers horizontally
-          const offsetY = -tip.offsetHeight - 6; // small 6px lift above cursor
-          tip.style.left = `${ev.clientX - r.left + offsetX}px`;
-          tip.style.top  = `${ev.clientY - r.top  + offsetY}px`;
+          const offset = 8; // distance from cursor in pixels
+          const tipRect = tip.getBoundingClientRect();
+          const x = ev.offsetX - tipRect.width / 2;
+          const y = ev.offsetY - tipRect.height - offset;
+
+          tip.style.left = `${x}px`;
+          tip.style.top  = `${y}px`;
         };
         el.onmousemove = (ev)=>{
-          const offsetX = -tip.offsetWidth / 2;  // centers horizontally
-          const offsetY = -tip.offsetHeight - 6; // small 6px lift above cursor
-          tip.style.left = `${ev.clientX - r.left + offsetX}px`;
-          tip.style.top  = `${ev.clientY - r.top  + offsetY}px`;
+        const offset = 8; // distance from cursor in pixels
+        const tipRect = tip.getBoundingClientRect();
+        const x = ev.offsetX - tipRect.width / 2;
+        const y = ev.offsetY - tipRect.height - offset;
+
+        tip.style.left = `${x}px`;
+        tip.style.top  = `${y}px`;
         };
         el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
         el.onfocus = el.onmouseenter;
