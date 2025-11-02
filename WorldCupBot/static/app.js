@@ -1974,27 +1974,41 @@ async function fetchJSON(url){
     return data;
   }
 
-  // Load the external SVG (kept in same folder as index.html)
-  async function inlineSVG(path){
-    const txt = await fetch(path, {cache:'no-store'}).then(r=>{
-      if(!r.ok) throw new Error('map svg not found');
-      return r.text();
-    });
-    host.innerHTML = txt;
-    const svg = host.querySelector('svg');
-    // normalize country paths: expect data-iso or id like "GB"
-    svg.querySelectorAll('[id], [data-iso]').forEach(el=>{
-      const id = (el.getAttribute('data-iso') || el.id || '').toLowerCase();
-      const m = id.match(/([a-z]{2})$/);
-      const iso = (m ? m[1] : id).toLowerCase();
-      el.classList.add('country','free');
-      el.setAttribute('data-iso', iso);
-      el.setAttribute('tabindex','0');
-      el.setAttribute('role','button');
-      el.setAttribute('aria-label', iso.toUpperCase());
-    });
-    return svg;
-  }
+    async function inlineSVG(path){
+      const txt = await fetch(path, {cache:'no-store'}).then(r=>{
+        if(!r.ok) throw new Error('map svg not found');
+        return r.text();
+      });
+      host.innerHTML = txt;
+      const svg = host.querySelector('svg');
+
+      // only consider visible geometry + groups; ignore defs/gradients/etc.
+      const nodes = svg.querySelectorAll('path[id], polygon[id], rect[id], g[id], [data-iso]');
+      let tagged = 0;
+
+      nodes.forEach(el=>{
+        const raw = (el.getAttribute('data-iso') || el.id || '').trim();
+        if(!raw) return;
+
+        // accept "gb", "GB", or "iso-gb"/"ISO-GB"
+        let iso = '';
+        const m1 = raw.match(/^[A-Za-z]{2}$/);           // GB
+        const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/i); // iso-gb
+        if(m1) iso = m1[0].toLowerCase();
+        else if(m2) iso = m2[1].toLowerCase();
+        else return; // not a country id -> skip
+
+        el.classList.add('country','free');
+        el.setAttribute('data-iso', iso);
+        el.setAttribute('tabindex','0');
+        el.setAttribute('role','button');
+        el.setAttribute('aria-label', iso.toUpperCase());
+        tagged++;
+      });
+
+      console.debug('world.svg tagged countries:', tagged);
+      return svg;
+    }
 
   function classifyCountries(svg, teamIso, merged){
     const rows = (merged && merged.rows) || [];
