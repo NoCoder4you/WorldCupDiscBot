@@ -2048,16 +2048,15 @@ async function fetchJSON(url){
         const r = host.getBoundingClientRect();
         const tipRect = tip.getBoundingClientRect();
 
-        // snug gap near cursor
-        let x = ev.clientX - r.left ;
-        let y = ev.clientY - r.top - tipRect.height ;
+        let x = ev.clientX - r.left + 4;
+        let y = ev.clientY - r.top - tipRect.height + 2;
 
         // if not enough room above, show just below
-        if (y < 2) y = ev.clientY - r.top + 5;
+        if (y < 2) y = ev.clientY - r.top + 10;
 
         // clamp to map bounds
-        const maxX = r.width - tipRect.width + 4;
-        const maxY = r.height - tipRect.height + 2;
+        const maxX = r.width - tipRect.width - 2;
+        const maxY = r.height - tipRect.height - 2;
         if (x < 2) x = 2;
         if (y < 2) y = 2;
         if (x > maxX) x = maxX;
