@@ -1938,11 +1938,24 @@ async function getCogStatus(name){
     try{ localStorage.setItem(key, JSON.stringify({ts: now(), data})); }catch(e){}
   }
 
-  async function fetchJSON(url){
+async function fetchJSON(url){
+  try{
     const r = await fetch(url, {cache:'no-store'});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(!r.ok){
+      let body = '';
+      try { body = await r.text(); } catch(_){}
+      const err = new Error(`HTTP ${r.status} @ ${url}${body ? ` — ${body.slice(0,200)}` : ''}`);
+      err.status = r.status;
+      err.url = url;
+      throw err;
+    }
     return await r.json();
+  }catch(e){
+    console.error('fetchJSON failed:', e);
+    throw e;
   }
+}
+
 
   async function loadTeamIso(){
     const CK = 'wc:team_iso';
@@ -2094,17 +2107,29 @@ async function getCogStatus(name){
     apply();
   }
 
-  async function render(){
-    try{
-      const [iso, merged] = await Promise.all([loadTeamIso(), loadOwnership()]);
-      const svg = await inlineSVG('world.svg'); // keep world.svg beside index.html
-      classifyCountries(svg, iso, merged);
-      enablePanZoom(svg);
-    }catch(e){
-      console.error('Map render error:', e);
-      host.innerHTML = '<div class="muted" style="padding:10px;">Failed to load map. Ensure world.svg exists.</div>';
+    async function render(){
+      try{
+        console.time('worldmap:fetch');
+        // Fetch separately so the console shows exactly which one fails
+        const iso = await loadTeamIso();               // /api/team_iso
+        console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
+        const merged = await loadOwnership();          // /api/ownership_merged
+        console.debug('ownership_merged ok:', (merged?.rows?.length||0), 'rows');
+        console.timeEnd('worldmap:fetch');
+
+        const svg = await inlineSVG('world.svg');      // local file beside index.html
+        classifyCountries(svg, iso, merged);
+        enablePanZoom(svg);
+      }catch(e){
+        console.error('Map render error:', e);
+        host.innerHTML = `
+          <div class="muted" style="padding:10px;">
+            Failed to load map data.<br>
+            <small>${(e && e.message) ? e.message : e}</small>
+          </div>`;
+      }
     }
-  }
+
 
   if(btnRefresh){
     btnRefresh.addEventListener('click', ()=>{
