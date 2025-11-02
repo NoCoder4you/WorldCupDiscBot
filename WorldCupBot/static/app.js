@@ -2173,46 +2173,75 @@ async function fetchJSON(url){
       const ownersEl = document.getElementById('map-info-owners');
       const statusEl = document.getElementById('map-info-status');
 
-      // Cache original viewBox (fallback to current rendered box if missing)
+      // initial viewBox
       let origViewBox = svg.getAttribute('viewBox');
       if (!origViewBox) {
-        const r = svg.getBBox(); // in SVG units
+        const r = svg.getBBox();
         origViewBox = `${r.x} ${r.y} ${r.width} ${r.height}`;
         svg.setAttribute('viewBox', origViewBox);
       }
 
       let currentCountry = null;
+      let animating = false;
 
-      function zoomToElement(el, pad=1.25){
-        // el.getBBox() returns bounds in SVG user units (correct space!)
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      // Animate from current viewBox to target viewBox
+      function animateViewBox(from, to, duration = 600){
+        if (animating) return;
+        animating = true;
+
+        const start = performance.now();
+
+        function step(now){
+          const t = Math.min((now - start) / duration, 1);
+          const x = lerp(from.x, to.x, t);
+          const y = lerp(from.y, to.y, t);
+          const w = lerp(from.w, to.w, t);
+          const h = lerp(from.h, to.h, t);
+          svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+          if (t < 1) requestAnimationFrame(step);
+          else animating = false;
+        }
+        requestAnimationFrame(step);
+      }
+
+      // Read current viewBox as numbers
+      function parseViewBox(vb){
+        const [x, y, w, h] = vb.split(/\s+/).map(Number);
+        return {x, y, w, h};
+      }
+
+      function zoomToElement(el, pad = 1.25){
         const b = el.getBBox();
-        const w = b.width  * pad;
+        const w = b.width * pad;
         const h = b.height * pad;
-        const x = b.x - (w - b.width) / 2;
-        const y = b.y - (h - b.height) / 2;
-        svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+        const x = b.x - (w - b.width)/2;
+        const y = b.y - (h - b.height)/2;
+        const from = parseViewBox(svg.getAttribute('viewBox'));
+        const to = {x, y, w, h};
+        animateViewBox(from, to);
       }
 
       function resetZoom(){
-        svg.setAttribute('viewBox', origViewBox);
+        const from = parseViewBox(svg.getAttribute('viewBox'));
+        const to = parseViewBox(origViewBox);
+        animateViewBox(from, to);
         infoBox.classList.add('hidden');
         currentCountry = null;
       }
-      // Attach clicks to each country
+
       svg.querySelectorAll('.country').forEach(el=>{
-        // store owners text once (built by classifyCountries)
         const ownersText = el.dataset.owners || '—';
 
         el.addEventListener('click', ()=>{
-          if (currentCountry === el) {
-            // toggle out
+          // toggle back
+          if(currentCountry === el){
             resetZoom();
             return;
           }
 
           currentCountry = el;
-
-          // Info panel
           const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
           const name = iso || 'Unknown';
           const status = el.classList.contains('owned') ? 'Owned'
@@ -2223,7 +2252,6 @@ async function fetchJSON(url){
           statusEl.textContent = 'Status: ' + status;
           infoBox.classList.remove('hidden');
 
-          // Zoom to exact bbox of the clicked country (with padding)
           zoomToElement(el, 1.3);
         });
       });

@@ -1938,3 +1938,10 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .map-info.hidden { opacity: 0; pointer-events: none; }
 .map-info h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--accent); }
 .map-info p { margin: 4px 0; font-size: 0.9rem; line-height: 1.2; }
+
+#map-svg-host svg {
+  transition: filter 0.4s ease;
+}
+#map-svg-host svg.zooming {
+  filter: drop-shadow(0 0 6px rgba(0,200,150,0.3));
+}
