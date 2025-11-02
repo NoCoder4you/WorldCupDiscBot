@@ -2056,8 +2056,8 @@ async function fetchJSON(url){
         if (y < 2) y = ev.clientY - r.top + 10;
 
         // clamp to map bounds
-        const maxX = r.width - tipRect.width - 2;
-        const maxY = r.height - tipRect.height - 2;
+        const maxX = r.width - tipRect.width ;
+        const maxY = r.height - tipRect.height ;
         if (x < 2) x = 2;
         if (y < 2) y = 2;
         if (x > maxX) x = maxX;
