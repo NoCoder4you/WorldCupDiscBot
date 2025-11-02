@@ -2053,11 +2053,11 @@ async function fetchJSON(url){
         let y = ev.clientY - r.top - tipRect.height ;
 
         // if not enough room above, show just below
-        if (y < 2) y = ev.clientY - r.top + 10;
+        if (y < 2) y = ev.clientY - r.top + 5;
 
         // clamp to map bounds
-        const maxX = r.width - tipRect.width ;
-        const maxY = r.height - tipRect.height ;
+        const maxX = r.width - tipRect.width + 4;
+        const maxY = r.height - tipRect.height + 2;
         if (x < 2) x = 2;
         if (y < 2) y = 2;
         if (x > maxX) x = maxX;
