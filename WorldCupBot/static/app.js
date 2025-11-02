@@ -2167,24 +2167,89 @@ async function fetchJSON(url){
       apply();
     }
 
+    function enableClickZoom(svg){
+      const panRoot = svg.querySelector('g') || svg;
+      const infoBox = document.getElementById('map-country-info');
+      const titleEl = document.getElementById('map-info-title');
+      const ownersEl = document.getElementById('map-info-owners');
+      const statusEl = document.getElementById('map-info-status');
+
+      let currentCountry = null;
+      let prevTransform = panRoot.getAttribute('transform') || '';
+
+      function zoomTo(el){
+        const bbox = el.getBBox();
+        const view = svg.getBoundingClientRect();
+        const scale = Math.min(view.width / bbox.width, view.height / bbox.height) * 0.35;
+        const cx = bbox.x + bbox.width/2;
+        const cy = bbox.y + bbox.height/2;
+        prevTransform = panRoot.getAttribute('transform') || '';
+        panRoot.setAttribute(
+          'transform',
+          `translate(${view.width/2 - cx*scale},${view.height/2 - cy*scale}) scale(${scale})`
+        );
+      }
+
+      function resetZoom(){
+        panRoot.setAttribute('transform', prevTransform);
+        infoBox.classList.add('hidden');
+        currentCountry = null;
+      }
+
+      svg.querySelectorAll('.country').forEach(el=>{
+        el.addEventListener('click', ()=>{
+          // clicking the same country toggles back
+          if(currentCountry === el){
+            resetZoom();
+            return;
+          }
+
+          currentCountry = el;
+          const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
+          const name = iso || 'Unknown';
+          const status = el.classList.contains('owned') ? 'Owned'
+                       : el.classList.contains('split') ? 'Split'
+                       : 'Unassigned';
+          const owners = el.dataset.owners || '—';
+
+          titleEl.textContent = name;
+          ownersEl.textContent = 'Owners: ' + owners;
+          statusEl.textContent = 'Status: ' + status;
+
+          zoomTo(el);
+          infoBox.classList.remove('hidden');
+        });
+      });
+    }
+
     async function render(){
-      try{
+      try {
         console.time('worldmap:fetch');
-        // Fetch separately so the console shows exactly which one fails
-        const iso = await loadTeamIso();               // /api/team_iso
+
+        // Fetch both data sets
+        const [iso, merged] = await Promise.all([
+          loadTeamIso(),
+          loadOwnership()
+        ]);
+
         console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
-        const merged = await loadOwnership();          // /api/ownership_merged
-        console.debug('ownership_merged ok:', (merged?.rows?.length||0), 'rows');
+        console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
         console.timeEnd('worldmap:fetch');
 
-        const svg = await inlineSVG('world.svg');      // local file beside index.html
+        // Inline the world.svg file
+        const svg = await inlineSVG('world.svg');
+
+        // Color and set up tooltip data
         classifyCountries(svg, iso, merged);
-        enablePanZoom(svg);
-      }catch(e){
+
+        // Enable click-to-zoom + info card behavior
+        enableClickZoom(svg);
+
+      } catch (e) {
         console.error('Map render error:', e);
         host.innerHTML = `
           <div class="muted" style="padding:10px;">
-            Failed to load map data.<br>
+            Failed to load map. Ensure world.svg exists and /api endpoints return valid JSON.<br>
             <small>${(e && e.message) ? e.message : e}</small>
           </div>`;
       }

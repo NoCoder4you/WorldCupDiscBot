@@ -1914,3 +1914,8 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 #map-svg-host .country.free,
 #map-svg-host .country.free * { fill: #5c6677; }
+
+#map-svg-host svg g {
+  transition: transform 0.6s ease;
+  transform-origin: center center;
+}
