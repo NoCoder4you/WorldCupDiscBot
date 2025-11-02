@@ -10,7 +10,7 @@ from flask import Flask
 HERE = Path(__file__).resolve().parent
 BASE_DIR = HERE
 STATIC_DIR = BASE_DIR / "static"
-LOG_DIR = BASE_DIR / "logs"
+LOG_DIR = BASE_DIR / "LOGS"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_PATH = BASE_DIR / "config.json"
@@ -221,6 +221,12 @@ CTX = {
     "bot_last_start_ref": bot_last_start_ref,
     "bot_last_stop_ref": bot_last_stop_ref,
     "bot_process": None,
+
+    "LOG_PATHS": {
+        "bot": str(LOG_DIR / "bot.log"),
+        "health": str(LOG_DIR / "health.log"),
+        "launcher": str(LOG_DIR / "launcher.log"),
+    }
 }
 
 # Register routes

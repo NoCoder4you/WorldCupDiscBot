@@ -1640,7 +1640,7 @@ function shortId(id) {
           head.querySelectorAll('[data-kind]').forEach(b=>b.classList.remove('pill-ok'));
           btn.classList.add('pill-ok');
           const a = document.getElementById('log-download');
-          if (a) a.href = `/api/log/${state.logsKind}/download`;
+          if (a) a.href = `/admin/log/${state.logsKind}/download`;
           fetchAndRenderLogs();
         });
       });
@@ -1651,7 +1651,7 @@ function shortId(id) {
 
       document.getElementById('log-clear').addEventListener('click', async ()=>{
         try{
-          await fetch(`/api/log/${state.logsKind}/clear`, {method:'POST'});
+          await fetch(`/admin/log/${state.logsKind}/clear`, { method: 'POST' });
         }catch{}
         fetchAndRenderLogs();
       });
@@ -1672,7 +1672,7 @@ function shortId(id) {
     }
 
     async function fetchLogs(kind){
-      const r = await fetch(`/api/log/${kind}`);
+      const r = await fetch(`/admin/log/${kind}`);
       const j = await r.json();
       return Array.isArray(j.lines) ? j.lines : [];
     }

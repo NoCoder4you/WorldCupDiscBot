@@ -3,6 +3,29 @@ from flask import Blueprint, jsonify, request, session
 
 SESSION_KEY = "wc_admin"
 
+# ---- LOG HELPERS ----
+def _logs_dir(ctx):
+    # default to <BASE_DIR>/logs
+    base = _base_dir(ctx)
+    d = os.path.join(base, "logs")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def _log_paths(ctx):
+    # allow launcher to override via CTX["LOG_PATHS"]
+    lp = ctx.get("LOG_PATHS") or {}
+    if isinstance(lp, dict) and lp:
+        return lp
+    d = _logs_dir(ctx)
+    return {
+        "bot":      os.path.join(d, "bot.log"),
+        "health":   os.path.join(d, "health.log"),
+        "launcher": os.path.join(d, "launcher.log"),
+    }
+
+def _log_path(ctx, kind):
+    return _log_paths(ctx).get(str(kind))
+
 def _base_dir(ctx): 
     return ctx.get("BASE_DIR", os.getcwd())
 
@@ -59,7 +82,6 @@ def _verified_map(ctx):
     return out
 
 def _load_config(ctx):
-    """Load config.json only from project root."""
     base = ctx.get("BASE_DIR", os.getcwd())
     root_path = os.path.join(base, "config.json")
 
@@ -116,10 +138,6 @@ def create_admin_routes(ctx):
             return False
 
     def _run_or_queue(action):
-        """
-        Try to call the launcher-provided function in ctx (start_bot/stop_bot/restart_bot).
-        If it doesn't exist, enqueue a command for your bot supervisor to pick up.
-        """
         key = {
             "start": "start_bot",
             "stop": "stop_bot",
@@ -519,5 +537,47 @@ def create_admin_routes(ctx):
         _write_json_atomic(_bets_path(), bets)
         _enqueue_command(ctx, "bet_winner_declared", {"bet_id": bet_id, "winner": found["winner"]})
         return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
+
+
+    # ---- LOGS ----
+    @bp.get("/log/<kind>")
+    def admin_log_get(kind):
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        path = _log_path(ctx, kind)
+        lines = []
+        try:
+            if path and os.path.isfile(path):
+                with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                    lines = f.read().splitlines()[-2000:]  # tail last N lines
+        except Exception:
+            lines = []
+        return jsonify({"lines": lines})
+
+    @bp.post("/log/<kind>/clear")
+    def admin_log_clear(kind):
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        path = _log_path(ctx, kind)
+        if not path:
+            return jsonify({"ok": False, "error": "unknown_log"}), 404
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w", encoding="utf-8").close()
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
+    @bp.get("/log/<kind>/download")
+    def admin_log_download(kind):
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        path = _log_path(ctx, kind)
+        if not (path and os.path.isfile(path)):
+            return jsonify({"ok": False, "error": "not_found"}), 404
+        return send_file(path, as_attachment=True, download_name=f"{kind}.log", mimetype="text/plain")
 
     return bp
