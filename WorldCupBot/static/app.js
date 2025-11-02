@@ -2049,8 +2049,8 @@ async function fetchJSON(url){
         const tipRect = tip.getBoundingClientRect();
 
         // snug gap near cursor
-        let x = ev.clientX - r.left + 10;
-        let y = ev.clientY - r.top - tipRect.height - 6;
+        let x = ev.clientX - r.left ;
+        let y = ev.clientY - r.top - tipRect.height ;
 
         // if not enough room above, show just below
         if (y < 2) y = ev.clientY - r.top + 10;
