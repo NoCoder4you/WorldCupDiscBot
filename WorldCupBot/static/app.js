@@ -2070,7 +2070,8 @@ async function fetchJSON(url){
           tip.style.opacity = '1';
           const r = host.getBoundingClientRect();
           const tRect = tip.getBoundingClientRect();
-          const offset = 2; // distance from cursor in pixels
+          const offset = 4; // distance from cursor in pixels
+          const tipRect = tip.getBoundingClientRect();
           const x = ev.offsetX - tipRect.width / 2;
           const y = ev.offsetY - tipRect.height - offset;
 
@@ -2079,6 +2080,7 @@ async function fetchJSON(url){
         };
         el.onmousemove = (ev)=>{
         const offset = 8; // distance from cursor in pixels
+        const tipRect = tip.getBoundingClientRect();
         const x = ev.offsetX - tipRect.width / 2;
         const y = ev.offsetY - tipRect.height - offset;
 
