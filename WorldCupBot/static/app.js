@@ -2088,7 +2088,7 @@ async function fetchJSON(url){
 
         // Tooltip events
         el.onmouseenter = ev => {
-          const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+          const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Not Qualified';
           tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
           tip.style.opacity = '1';
           positionTip(ev);
@@ -2246,7 +2246,7 @@ async function fetchJSON(url){
           const name = iso || 'Unknown';
           const status = el.classList.contains('owned') ? 'Owned'
                        : el.classList.contains('split') ? 'Split'
-                       : 'Unassigned';
+                       : 'Not Qualified';
           titleEl.textContent = name;
           ownersEl.textContent = 'Owners: ' + ownersText;
           statusEl.textContent = 'Status: ' + status;
