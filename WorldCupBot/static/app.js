@@ -1914,3 +1914,219 @@ async function getCogStatus(name){
   }
   window.addEventListener('load', init);
 })();
+
+/* =========================
+   WORLD MAP - interactive SVG
+   ========================= */
+(function(){
+  const host = document.getElementById('map-svg-host');
+  const tip  = document.getElementById('map-tip');
+  const btnRefresh = document.getElementById('worldmap-refresh');
+
+  const CACHE_TTL_MS = 60*1000; // 60s cache
+
+  function now(){ return Date.now(); }
+  function getCache(key){
+    try{
+      const blob = JSON.parse(localStorage.getItem(key) || 'null');
+      if(!blob) return null;
+      if((now() - (blob.ts||0)) > CACHE_TTL_MS) return null;
+      return blob.data;
+    }catch(e){ return null; }
+  }
+  function setCache(key, data){
+    try{ localStorage.setItem(key, JSON.stringify({ts: now(), data})); }catch(e){}
+  }
+
+  async function fetchJSON(url){
+    const r = await fetch(url, {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return await r.json();
+  }
+
+  async function loadTeamIso(){
+    const CK = 'wc:team_iso';
+    const cached = getCache(CK);
+    if(cached) return cached;
+    const data = await fetchJSON('/api/team_iso');
+    setCache(CK, data);
+    return data;
+  }
+  async function loadOwnership(){
+    const CK = 'wc:ownership_merged';
+    const cached = getCache(CK);
+    if(cached) return cached;
+    const data = await fetchJSON('/api/ownership_merged');
+    setCache(CK, data);
+    return data;
+  }
+
+  // Load the external SVG (kept in same folder as index.html)
+  async function inlineSVG(path){
+    const txt = await fetch(path, {cache:'no-store'}).then(r=>{
+      if(!r.ok) throw new Error('map svg not found');
+      return r.text();
+    });
+    host.innerHTML = txt;
+    const svg = host.querySelector('svg');
+    // normalize country paths: expect data-iso or id like "GB"
+    svg.querySelectorAll('[id], [data-iso]').forEach(el=>{
+      const id = (el.getAttribute('data-iso') || el.id || '').toLowerCase();
+      const m = id.match(/([a-z]{2})$/);
+      const iso = (m ? m[1] : id).toLowerCase();
+      el.classList.add('country','free');
+      el.setAttribute('data-iso', iso);
+      el.setAttribute('tabindex','0');
+      el.setAttribute('role','button');
+      el.setAttribute('aria-label', iso.toUpperCase());
+    });
+    return svg;
+  }
+
+  function classifyCountries(svg, teamIso, merged){
+    const rows = (merged && merged.rows) || [];
+    // build: teamName -> {status, main, splits}
+    const teamState = {};
+    for(const row of rows){
+      const team = row.country;
+      const ownersCount = row.owners_count || 0;
+      const main = row.main_owner;
+      const splits = row.split_with || [];
+      let status = 'free';
+      if(ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
+      if(splits && splits.length > 0) status = 'split';
+      teamState[team] = {status, main, splits};
+    }
+
+    // invert team_iso to iso->team
+    const isoToTeam = {};
+    Object.keys(teamIso||{}).forEach(team=>{
+      const iso = (teamIso[team]||'').toLowerCase();
+      if(iso) isoToTeam[iso] = team;
+    });
+
+    svg.querySelectorAll('.country').forEach(el=>{
+      const iso = (el.getAttribute('data-iso')||'').toLowerCase();
+      const team = isoToTeam[iso];
+      el.classList.remove('owned','split','free');
+      let status = 'free';
+      let ownerNames = [];
+      const teamLabel = team || iso.toUpperCase();
+
+      if(team && teamState[team]){
+        status = teamState[team].status;
+        const main = teamState[team].main;
+        const splits = teamState[team].splits || [];
+        if(main && main.username){
+          ownerNames.push(main.username);
+        }
+        if(splits && splits.length){
+          ownerNames.push(...splits.map(s => s.username).filter(Boolean));
+        }
+      }
+      el.classList.add(status);
+
+      // tooltip
+      el.onmouseenter = (ev)=>{
+        const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+        tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
+        tip.style.opacity = '1';
+        const r = host.getBoundingClientRect();
+        tip.style.left = (ev.clientX - r.left + 12)+'px';
+        tip.style.top  = (ev.clientY - r.top  + 12)+'px';
+      };
+      el.onmousemove = (ev)=>{
+        const r = host.getBoundingClientRect();
+        tip.style.left = (ev.clientX - r.left + 12)+'px';
+        tip.style.top  = (ev.clientY - r.top  + 12)+'px';
+      };
+      el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
+      el.onfocus = el.onmouseenter;
+      el.onblur  = el.onmouseleave;
+    });
+  }
+
+  // Basic pan and zoom
+  function enablePanZoom(svg){
+    const g = svg.querySelector('g') || svg;
+    let scale = 1, min=0.7, max=5;
+    let originX=0, originY=0, startX=0, startY=0, panning=false;
+
+    function apply(){
+      g.setAttribute('transform', `translate(${originX},${originY}) scale(${scale})`);
+    }
+
+    svg.classList.add('map-pannable');
+
+    svg.addEventListener('wheel', (e)=>{
+      e.preventDefault();
+      const delta = Math.sign(e.deltaY);
+      const factor = 1 - (delta * 0.08);
+      const newScale = Math.min(max, Math.max(min, scale * factor));
+      if(newScale === scale) return;
+
+      // Zoom to cursor
+      const pt = svg.createSVGPoint();
+      pt.x = e.offsetX; pt.y = e.offsetY;
+      try {
+        const ctm = svg.getScreenCTM().inverse();
+        const cursor = pt.matrixTransform(ctm);
+        originX = cursor.x - (cursor.x - originX) * (newScale/scale);
+        originY = cursor.y - (cursor.y - originY) * (newScale/scale);
+      } catch(_){}
+
+      scale = newScale;
+      apply();
+    }, {passive:false});
+
+    svg.addEventListener('mousedown', (e)=>{
+      panning = true; startX = e.clientX; startY = e.clientY; svg.classList.add('grabbing');
+    });
+    window.addEventListener('mousemove', (e)=>{
+      if(!panning) return;
+      originX += (e.clientX - startX)/scale;
+      originY += (e.clientY - startY)/scale;
+      startX = e.clientX; startY = e.clientY;
+      apply();
+    });
+    window.addEventListener('mouseup', ()=>{ panning=false; svg.classList.remove('grabbing'); });
+
+    apply();
+  }
+
+  async function render(){
+    try{
+      const [iso, merged] = await Promise.all([loadTeamIso(), loadOwnership()]);
+      const svg = await inlineSVG('world.svg'); // keep world.svg beside index.html
+      classifyCountries(svg, iso, merged);
+      enablePanZoom(svg);
+    }catch(e){
+      console.error('Map render error:', e);
+      host.innerHTML = '<div class="muted" style="padding:10px;">Failed to load map. Ensure world.svg exists.</div>';
+    }
+  }
+
+  if(btnRefresh){
+    btnRefresh.addEventListener('click', ()=>{
+      // bust ownership cache only
+      localStorage.removeItem('wc:ownership_merged');
+      render();
+    });
+  }
+
+  // Render when navigating to the World Map tab
+  const menu = document.getElementById('main-menu');
+  if(menu){
+    menu.addEventListener('click', (e)=>{
+      const a = e.target.closest('a[data-page]');
+      if(!a) return;
+      if(a.getAttribute('data-page') === 'worldmap'){
+        setTimeout(render, 10);
+      }
+    });
+  }
+  // Or render immediately if the section is already visible on load
+  if(document.querySelector('#worldmap.active-section')){
+    render();
+  }
+})();
