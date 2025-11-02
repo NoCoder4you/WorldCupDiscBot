@@ -1899,3 +1899,15 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .map-pannable:active {
   cursor: grabbing;
 }
+/* Force status colors to apply to grouped shapes */
+#map-svg-host .country,
+#map-svg-host .country * { fill: #3a495f; }
+
+#map-svg-host .country.owned,
+#map-svg-host .country.owned * { fill: #18c28a; }
+
+#map-svg-host .country.split,
+#map-svg-host .country.split * { fill: #e7c85a; }
+
+#map-svg-host .country.free,
+#map-svg-host .country.free * { fill: #5c6677; }

@@ -2010,68 +2010,78 @@ async function fetchJSON(url){
       return svg;
     }
 
-  function classifyCountries(svg, teamIso, merged){
-    const rows = (merged && merged.rows) || [];
-    // build: teamName -> {status, main, splits}
-    const teamState = {};
-    for(const row of rows){
-      const team = row.country;
-      const ownersCount = row.owners_count || 0;
-      const main = row.main_owner;
-      const splits = row.split_with || [];
-      let status = 'free';
-      if(ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
-      if(splits && splits.length > 0) status = 'split';
-      teamState[team] = {status, main, splits};
-    }
+      function classifyCountries(svg, teamIso, merged){
+      const rows = (merged && merged.rows) || [];
 
-    // invert team_iso to iso->team
-    const isoToTeam = {};
-    Object.keys(teamIso||{}).forEach(team=>{
-      const iso = (teamIso[team]||'').toLowerCase();
-      if(iso) isoToTeam[iso] = team;
-    });
-
-    svg.querySelectorAll('.country').forEach(el=>{
-      const iso = (el.getAttribute('data-iso')||'').toLowerCase();
-      const team = isoToTeam[iso];
-      el.classList.remove('owned','split','free');
-      let status = 'free';
-      let ownerNames = [];
-      const teamLabel = team || iso.toUpperCase();
-
-      if(team && teamState[team]){
-        status = teamState[team].status;
-        const main = teamState[team].main;
-        const splits = teamState[team].splits || [];
-        if(main && main.username){
-          ownerNames.push(main.username);
-        }
-        if(splits && splits.length){
-          ownerNames.push(...splits.map(s => s.username).filter(Boolean));
-        }
+      // team -> {status, main, splits}
+      const teamState = {};
+      for(const row of rows){
+        const team = row.country;
+        const ownersCount = row.owners_count || 0;
+        const main = row.main_owner;
+        const splits = row.split_with || [];
+        let status = 'free';
+        if(ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
+        if(splits && splits.length > 0) status = 'split';
+        teamState[team] = {status, main, splits};
       }
-      el.classList.add(status);
 
-      // tooltip
-      el.onmouseenter = (ev)=>{
-        const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
-        tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
-        tip.style.opacity = '1';
-        const r = host.getBoundingClientRect();
-        tip.style.left = (ev.clientX - r.left + 12)+'px';
-        tip.style.top  = (ev.clientY - r.top  + 12)+'px';
-      };
-      el.onmousemove = (ev)=>{
-        const r = host.getBoundingClientRect();
-        tip.style.left = (ev.clientX - r.left + 12)+'px';
-        tip.style.top  = (ev.clientY - r.top  + 12)+'px';
-      };
-      el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
-      el.onfocus = el.onmouseenter;
-      el.onblur  = el.onmouseleave;
-    });
-  }
+      // iso -> team
+      const isoToTeam = {};
+      Object.keys(teamIso||{}).forEach(team=>{
+        const iso = (teamIso[team]||'').toLowerCase();
+        if(iso) isoToTeam[iso] = team;
+      });
+
+      function setStatus(el, status){
+        // apply class to group and to visible child shapes
+        el.classList.remove('owned','split','free');
+        el.classList.add(status);
+        el.querySelectorAll('path,polygon,rect,circle').forEach(sh=>{
+          sh.classList.remove('owned','split','free');
+          sh.classList.add(status);
+        });
+      }
+
+      svg.querySelectorAll('.country').forEach(el=>{
+        const iso = (el.getAttribute('data-iso')||'').toLowerCase();
+        const team = isoToTeam[iso];
+        let status = 'free';
+        let ownerNames = [];
+        const teamLabel = team || iso.toUpperCase();
+
+        if(team && teamState[team]){
+          status = teamState[team].status;
+          const main = teamState[team].main;
+          const splits = teamState[team].splits || [];
+          if(main && main.username){
+            ownerNames.push(main.username);
+          }
+          if(splits && splits.length){
+            ownerNames.push(...splits.map(s => s.username).filter(Boolean));
+          }
+        }
+        setStatus(el, status);
+
+        // tooltip handlers
+        el.onmouseenter = (ev)=>{
+          const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+          tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
+          tip.style.opacity = '1';
+          const r = host.getBoundingClientRect();
+          tip.style.left = (ev.clientX - r.left + 12)+'px';
+          tip.style.top  = (ev.clientY - r.top  + 12)+'px';
+        };
+        el.onmousemove = (ev)=>{
+          const r = host.getBoundingClientRect();
+          tip.style.left = (ev.clientX - r.left + 12)+'px';
+          tip.style.top  = (ev.clientY - r.top  + 12)+'px';
+        };
+        el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
+        el.onfocus = el.onmouseenter;
+        el.onblur  = el.onmouseleave;
+      });
+    }
 
     function ensurePanRoot(svg){
       if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
