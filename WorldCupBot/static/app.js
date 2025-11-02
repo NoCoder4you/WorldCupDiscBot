@@ -1677,6 +1677,27 @@ function shortId(id) {
       return Array.isArray(j.lines) ? j.lines : [];
     }
 
+    // Split a log line into [time, message] for common formats
+    function splitTimeMsg(line){
+      // 1) "YYYY-MM-DD HH:MM:SS,mmm rest..."
+      const re1 = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:[,\.]\d{3})?)(?:\s+|\s*\|\s*)(.*)$/;
+      let m = line.match(re1);
+      if (m) return [m[1], m[2]];
+
+      // 2) ISO "YYYY-MM-DDTHH:MM:SS.mmmZ | rest"
+      const re2 = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)(?:\s+|\s*\|\s*)(.*)$/;
+      m = line.match(re2);
+      if (m) return [m[1], m[2]];
+
+      // 3) Fallback split on first pipe if present
+      const i = line.indexOf('|');
+      if (i > 0) return [line.slice(0, i).trim(), line.slice(i + 1).trim()];
+
+      // 4) No detectable time
+      return ['', line];
+    }
+
+
     function renderLogLines(lines){
       const tb = document.getElementById('log-tbody');
       tb.innerHTML = '';
@@ -1684,16 +1705,14 @@ function shortId(id) {
         tb.innerHTML = `<tr><td colspan="2" class="muted">No log lines yet.</td></tr>`;
         return;
       }
-      for (const line of lines){
-        let time = '', msg = line;
-        const pipe = line.indexOf('|'); // split "timestamp | message" if present
-        if (pipe > 0){
-          time = line.slice(0, pipe).trim();
-          msg  = line.slice(pipe+1).trim();
-        }
+      for (const raw of lines){
+        const [time, msg] = splitTimeMsg(raw);
         const tr = document.createElement('tr');
-        tr.dataset.text = line.toLowerCase();
-        tr.innerHTML = `<td class="mono">${escapeHTML(time)}</td><td class="mono">${escapeHTML(msg)}</td>`;
+        tr.dataset.text = raw.toLowerCase();
+        tr.innerHTML = `
+          <td class="mono">${escapeHTML(time)}</td>
+          <td class="mono">${escapeHTML(msg)}</td>
+        `;
         tb.appendChild(tr);
       }
     }
