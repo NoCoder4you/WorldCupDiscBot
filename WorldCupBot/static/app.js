@@ -1665,7 +1665,7 @@ function shortId(id) {
       try{
         const lines = await fetchLogs(state.logsKind);
         renderLogLines(lines);
-        filterLogs(); // apply current search
+        filterLogs();
       }catch(e){
         tb.innerHTML = `<tr><td colspan="2" class="muted">Failed to load logs.</td></tr>`;
       }
