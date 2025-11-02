@@ -2010,10 +2010,10 @@ async function fetchJSON(url){
       return svg;
     }
 
-      function classifyCountries(svg, teamIso, merged){
+    function classifyCountries(svg, teamIso, merged){
       const rows = (merged && merged.rows) || [];
 
-      // team -> {status, main, splits}
+      // Build quick lookup of team -> ownership status
       const teamState = {};
       for(const row of rows){
         const team = row.country;
@@ -2026,15 +2026,15 @@ async function fetchJSON(url){
         teamState[team] = {status, main, splits};
       }
 
-      // iso -> team
+      // Build ISO -> team map
       const isoToTeam = {};
-      Object.keys(teamIso||{}).forEach(team=>{
-        const iso = (teamIso[team]||'').toLowerCase();
+      Object.keys(teamIso || {}).forEach(team=>{
+        const iso = (teamIso[team] || '').toLowerCase();
         if(iso) isoToTeam[iso] = team;
       });
 
+      // Helper to color both groups and child shapes
       function setStatus(el, status){
-        // apply class to group and to visible child shapes
         el.classList.remove('owned','split','free');
         el.classList.add(status);
         el.querySelectorAll('path,polygon,rect,circle').forEach(sh=>{
@@ -2043,6 +2043,31 @@ async function fetchJSON(url){
         });
       }
 
+      // Tooltip positioning helper - keeps it close to the cursor
+      function positionTip(ev){
+        const r = host.getBoundingClientRect();
+        const tipRect = tip.getBoundingClientRect();
+
+        // snug gap near cursor
+        let x = ev.clientX - r.left + 10;
+        let y = ev.clientY - r.top - tipRect.height - 6;
+
+        // if not enough room above, show just below
+        if (y < 2) y = ev.clientY - r.top + 10;
+
+        // clamp to map bounds
+        const maxX = r.width - tipRect.width - 2;
+        const maxY = r.height - tipRect.height - 2;
+        if (x < 2) x = 2;
+        if (y < 2) y = 2;
+        if (x > maxX) x = maxX;
+        if (y > maxY) y = maxY;
+
+        tip.style.left = `${x}px`;
+        tip.style.top  = `${y}px`;
+      }
+
+      // Iterate through all tagged countries
       svg.querySelectorAll('.country').forEach(el=>{
         const iso = (el.getAttribute('data-iso')||'').toLowerCase();
         const team = isoToTeam[iso];
@@ -2061,32 +2086,18 @@ async function fetchJSON(url){
             ownerNames.push(...splits.map(s => s.username).filter(Boolean));
           }
         }
+
         setStatus(el, status);
 
-        // tooltip handlers
+        // Tooltip handlers
         el.onmouseenter = (ev)=>{
           const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
           tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
           tip.style.opacity = '1';
-          const r = host.getBoundingClientRect();
-          const tRect = tip.getBoundingClientRect();
-          const offset = 4; // distance from cursor in pixels
-          const tipRect = tip.getBoundingClientRect();
-          const x = ev.offsetX - tipRect.width / 2;
-          const y = ev.offsetY - tipRect.height - offset;
-
-          tip.style.left = `${x}px`;
-          tip.style.top  = `${y}px`;
+          positionTip(ev);
         };
-        el.onmousemove = (ev)=>{
-        const offset = 8; // distance from cursor in pixels
-        const tipRect = tip.getBoundingClientRect();
-        const x = ev.offsetX - tipRect.width / 2;
-        const y = ev.offsetY - tipRect.height - offset;
 
-        tip.style.left = `${x}px`;
-        tip.style.top  = `${y}px`;
-        };
+        el.onmousemove = (ev)=>{ positionTip(ev); };
         el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
         el.onfocus = el.onmouseenter;
         el.onblur  = el.onmouseleave;
