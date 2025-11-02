@@ -2229,39 +2229,6 @@ async function fetchJSON(url){
       });
     }
 
-
-      function resetZoom(){
-        panRoot.setAttribute('transform', prevTransform);
-        infoBox.classList.add('hidden');
-        currentCountry = null;
-      }
-
-      svg.querySelectorAll('.country').forEach(el=>{
-        el.addEventListener('click', ()=>{
-          // clicking the same country toggles back
-          if(currentCountry === el){
-            resetZoom();
-            return;
-          }
-
-          currentCountry = el;
-          const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
-          const name = iso || 'Unknown';
-          const status = el.classList.contains('owned') ? 'Owned'
-                       : el.classList.contains('split') ? 'Split'
-                       : 'Unassigned';
-          const owners = el.dataset.owners || '—';
-
-          titleEl.textContent = name;
-          ownersEl.textContent = 'Owners: ' + owners;
-          statusEl.textContent = 'Status: ' + status;
-
-          zoomTo(el);
-          infoBox.classList.remove('hidden');
-        });
-      });
-    }
-
     async function render(){
       try {
         console.time('worldmap:fetch');
