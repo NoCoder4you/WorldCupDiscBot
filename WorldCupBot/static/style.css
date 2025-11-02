@@ -1886,9 +1886,12 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   background: #5c6677;
 }
 
-/* Tooltip for map */
 #map-tip {
-  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.2s ease;
+}
+#map-tip[style*="opacity: 1"] {
+  transform: translateY(0);
 }
 
 /* Simple pan/zoom cursors */
