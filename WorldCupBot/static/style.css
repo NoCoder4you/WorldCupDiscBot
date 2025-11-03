@@ -1998,7 +1998,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .country.owned {
-    fill: var(--accent);
+    fill: var();
 }
 
 .country.split {
@@ -2079,7 +2079,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 #map-svg-host .country.split,
 #map-svg-host .country.split * {
-    fill: var(--accent);
+    fill: var(--accent-2);
 }
 
 #map-svg-host .country.free,
@@ -2186,7 +2186,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Split ownership */
 .country.split,
 .country.split * {
-    fill: var(--accent);
+    fill: var(--accent-2);
     opacity: 1;
 }
 
