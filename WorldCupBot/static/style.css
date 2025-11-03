@@ -1998,11 +1998,11 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .country.owned {
-    fill: #18c28a;
+    fill: var(--accent);
 }
 
 .country.split {
-    fill: #e7c85a;
+    fill: var(--accent-2);
 }
 
 .country.free {
