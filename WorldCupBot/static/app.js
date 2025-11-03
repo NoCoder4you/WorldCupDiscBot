@@ -1956,6 +1956,17 @@ async function fetchJSON(url){
   }
 }
 
+    function isoToFlag(iso){
+      if(!iso) return '';
+      iso = iso.toUpperCase();
+      // UK isn't a valid ISO-3166-1 alpha-2 flag, use GB
+      if (iso === 'UK') iso = 'GB';
+      // Must be A-Z chars
+      if (!/^[A-Z]{2}$/.test(iso)) return '';
+      return String.fromCodePoint(127397 + iso.charCodeAt(0))
+           + String.fromCodePoint(127397 + iso.charCodeAt(1));
+    }
+
     // 24h meta cache
     async function loadTeamMeta(){
       const CK = 'wc:team_meta';
@@ -2039,85 +2050,105 @@ async function fetchJSON(url){
     function classifyCountries(svg, teamIso, merged, teamMeta){
       const rows = (merged && merged.rows) || [];
 
-      // 1) Build team -> ownership
+      // 1) team -> ownership state
       const teamState = {};
       for (const row of rows) {
         const team = row.country;
         const ownersCount = row.owners_count || 0;
-        const main = row.main_owner;
         const splits = row.split_with || [];
         let status = 'free';
         if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
         if (splits && splits.length > 0) status = 'split';
-        teamState[team] = { status, main, splits };
+        teamState[team] = { status, main: row.main_owner, splits };
       }
 
-      // 2) Derive group/qual meta lookup
-      const teamGroup = {};  // team -> 'A' | 'B' | ...
-      const teamQual  = {};  // team -> true/false
+      // 2) meta lookups (group, qualified)
+      const teamGroup = {};
+      const teamQual  = {};
       if (teamMeta) {
         if (teamMeta.groups) {
-          // Option B
+          // grouped style: { groups:{A:[...]}, not_qualified:[...] }
           Object.entries(teamMeta.groups).forEach(([g, list])=>{
-            (list||[]).forEach(t => { teamGroup[t] = g; teamQual[t] = true; });
+            (list || []).forEach(t => { teamGroup[t] = g; teamQual[t] = true; });
           });
-          (teamMeta.not_qualified||[]).forEach(t => { teamQual[t] = false; });
+          (teamMeta.not_qualified || []).forEach(t => { teamQual[t] = false; });
         } else {
-          // Option A
+          // per-team style: { "England": {group:"C", qualified:true}, ... }
           Object.entries(teamMeta).forEach(([team, m])=>{
             teamGroup[team] = m.group || null;
-            teamQual[team]  = (m.qualified !== false);
+            teamQual[team]  = (m.qualified === true); // only true counts as qualified
           });
         }
       }
 
-      // 3) iso -> team map
+      // 3) iso -> team map from /api/team_iso
       const isoToTeam = {};
-      Object.keys(teamIso||{}).forEach(team=>{
-        const iso = (teamIso[team]||'').toLowerCase();
-        if(iso) isoToTeam[iso] = team;
+      Object.keys(teamIso || {}).forEach(team=>{
+        const iso = (teamIso[team] || '').toLowerCase();
+        if (iso) isoToTeam[iso] = team;
       });
 
-      // 4) Apply classes and store data attributes
+      // 4) paint countries, store datasets, wire tooltips
       svg.querySelectorAll('.country').forEach(el=>{
-        const iso = (el.getAttribute('data-iso')||'').toLowerCase();
+        const iso = (el.getAttribute('data-iso') || '').toLowerCase();
+        const isoUp = iso.toUpperCase();
         const team = isoToTeam[iso];
-        let status = 'nq'; // 👈 default is "Not Qualified"
-        let ownerNames = [];
-        const teamLabel = team || iso.toUpperCase();
+        const teamLabel = team || isoUp;
 
+        // default: Not Qualified (anything not specified in meta is NQ)
+        let status = 'nq';
+
+        // compute qualification only if we have a team name
         if (team) {
-          const qualified = (teamQual[team] !== false); // undefined → true
-          status = qualified ? 'free' : 'nq'; // base status before ownership
+          // when teamMeta exists, only explicit true is qualified; if no meta, treat as qualified
+          const qualified = teamMeta ? (teamQual[team] === true) : true;
 
-          if (teamState[team]) {
-            status = teamState[team].status;
-            if (!qualified) status = 'nq';
-          }
-
-          // build owner list
-          if (teamState[team]) {
-            const main = teamState[team].main;
-            const splits = teamState[team].splits || [];
-            if (main && main.username) ownerNames.push(main.username);
-            if (splits && splits.length) {
-              ownerNames.push(...splits.map(s => s.username).filter(Boolean));
-            }
+          if (qualified) {
+            status = 'free';
+            if (teamState[team]) status = teamState[team].status;
+          } else {
+            status = 'nq';
           }
         }
 
-        // color classes
+        // owners list for tooltip/panel
+        const ownerNames = [];
+        if (team && teamState[team]) {
+          const main = teamState[team].main;
+          const splits = teamState[team].splits || [];
+          if (main && main.username) ownerNames.push(main.username);
+          if (splits && splits.length) {
+            ownerNames.push(...splits.map(s => s.username).filter(Boolean));
+          }
+        }
+        const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+
+        // apply classes
         el.classList.remove('owned','split','free','nq','dim');
         el.classList.add(status);
 
-        // persist for click panel
-        const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+        // datasets for click panel and filtering
+        const flagEmoji = isoToFlag(isoUp);
         el.dataset.owners = ownersText;
         el.dataset.team   = teamLabel;
         el.dataset.group  = team ? (teamGroup[team] || '') : '';
+        el.dataset.iso    = isoUp;
+        el.dataset.flag   = flagEmoji;
+
+        // tooltip
+        el.onmouseenter = ev=>{
+          tip.innerHTML =
+            `<strong>${flagEmoji ? flagEmoji + ' ' : ''}${teamLabel}</strong>` +
+            `<br><em>${isoUp}</em><br>${ownersText}`;
+          tip.style.opacity = '1';
+          positionTip(ev);
+        };
+        el.onmousemove = ev=> positionTip(ev);
+        el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
+        el.onfocus = el.onmouseenter;
+        el.onblur  = el.onmouseleave;
       });
     }
-
 
     let currentGroup = 'ALL';
 
@@ -2323,24 +2354,32 @@ async function fetchJSON(url){
       }
 
         svg.querySelectorAll('.country').forEach(el=>{
-          el.addEventListener('click', ()=>{
-            if(currentCountry === el){ resetZoom(); return; }
+            el.addEventListener('click', ()=>{
+              if (currentCountry === el) { resetZoom(); return; }
 
-            currentCountry = el;
+              currentCountry = el;
 
-            const name   = el.dataset.team || (el.getAttribute('data-iso')?.toUpperCase() || 'Unknown');
-            const owners = el.dataset.owners || 'Unassigned';
-            const status = el.classList.contains('owned') ? 'Owned'
-                         : el.classList.contains('split') ? 'Split'
-                         : 'Unassigned';
+              const name   = el.dataset.team || el.dataset.iso || 'Unknown';
+              const flag   = el.dataset.flag || '';
+              const group  = el.dataset.group || '—';
+              const owners = el.dataset.owners || 'Unassigned';
+              const status = el.classList.contains('owned') ? 'Owned'
+                           : el.classList.contains('split') ? 'Split'
+                           : el.classList.contains('nq')    ? 'Not Qualified'
+                           : 'Unassigned';
 
-            titleEl.textContent = name;
-            ownersEl.textContent = 'Owners: ' + owners;
-            statusEl.textContent = 'Status: ' + status;
+              // Fill the info panel
+              document.getElementById('map-info-name').textContent = name;
+              document.getElementById('map-info-flag').textContent = flag;
+              document.getElementById('map-info-group').textContent = 'Group: ' + group;
+              document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
+              document.getElementById('map-info-status').textContent = 'Status: ' + status;
 
-            infoBox.classList.remove('hidden');
-            zoomToElement(el, 1.3);
-          });
+              infoBox.classList.remove('hidden');
+
+              // Zoom to the clicked country (uses your viewBox animation)
+              zoomToElement(el, 1.3);
+            });
         });
     }
 
