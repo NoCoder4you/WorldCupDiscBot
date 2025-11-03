@@ -622,6 +622,17 @@ def create_public_routes(ctx):
             return jsonify(out)
         return jsonify(data if isinstance(data, dict) else {})
 
+    @api.get("/team_meta")
+    def get_team_meta():
+        import os, json
+        path = os.path.join(ctx.get("BASE_DIR", ""), "JSON", "team_meta.json")
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return jsonify(data)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     # ---------- Minimal split endpoints exposed publicly (unchanged) ----------
     @api.get("/split_requests")
     def split_requests_get():
