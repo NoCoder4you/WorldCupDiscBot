@@ -1956,20 +1956,29 @@ async function fetchJSON(url){
   }
 }
 
+    // 24h meta cache
     async function loadTeamMeta(){
-      // Optional endpoint. If missing or 404, we gracefully continue.
       const CK = 'wc:team_meta';
-      const cached = (()=>{ try{ return JSON.parse(localStorage.getItem(CK)||'null'); }catch{ return null; } })();
-      if (cached) return cached;
+      const TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+      // read cache
+      try{
+        const blob = JSON.parse(localStorage.getItem(CK) || 'null');
+        if (blob && (Date.now() - (blob.ts || 0)) < TTL) {
+          return blob.data;
+        }
+      }catch{}
+
+      // fetch fresh
       try{
         const r = await fetch('/api/team_meta', {cache:'no-store'});
         if(!r.ok) throw new Error('meta missing');
         const data = await r.json();
-        localStorage.setItem(CK, JSON.stringify(data));
+        localStorage.setItem(CK, JSON.stringify({ ts: Date.now(), data }));
         return data;
       }catch(_){
-        return null; // run without meta
+        // gracefully run without meta
+        return null;
       }
     }
 
@@ -2378,13 +2387,14 @@ async function fetchJSON(url){
     }
 
 
-  if(btnRefresh){
-    btnRefresh.addEventListener('click', ()=>{
-      // bust ownership cache only
-      localStorage.removeItem('wc:ownership_merged');
-      render();
-    });
-  }
+    if (btnRefresh){
+      btnRefresh.addEventListener('click', ()=>{
+        localStorage.removeItem('wc:ownership_merged');
+        localStorage.removeItem('wc:team_iso');
+        localStorage.removeItem('wc:team_meta');   // NEW: clear meta cache
+        render();
+      });
+    }
 
   // Render when navigating to the World Map tab
   const menu = document.getElementById('main-menu');
@@ -2401,4 +2411,22 @@ async function fetchJSON(url){
   if(document.querySelector('#worldmap.active-section')){
     render();
   }
+})();
+// Daily silent refresh of team_meta (and re-render if on World Map)
+(function setupDailyMetaRefresh(){
+  const DAY = 24 * 60 * 60 * 1000;
+  setInterval(async ()=>{
+    // If meta is stale, clear it so next render fetches fresh
+    try{
+      const blob = JSON.parse(localStorage.getItem('wc:team_meta') || 'null');
+      if (!blob || (Date.now() - (blob.ts || 0)) >= DAY) {
+        localStorage.removeItem('wc:team_meta');
+        // Only re-render if user is actually on the World Map section
+        const isActive = document.querySelector('#worldmap.active-section');
+        if (isActive) render();
+      }
+    }catch{
+      localStorage.removeItem('wc:team_meta');
+    }
+  }, DAY);
 })();
