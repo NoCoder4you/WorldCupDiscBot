@@ -1956,6 +1956,23 @@ async function fetchJSON(url){
   }
 }
 
+    async function loadTeamMeta(){
+      // Optional endpoint. If missing or 404, we gracefully continue.
+      const CK = 'wc:team_meta';
+      const cached = (()=>{ try{ return JSON.parse(localStorage.getItem(CK)||'null'); }catch{ return null; } })();
+      if (cached) return cached;
+
+      try{
+        const r = await fetch('/api/team_meta', {cache:'no-store'});
+        if(!r.ok) throw new Error('meta missing');
+        const data = await r.json();
+        localStorage.setItem(CK, JSON.stringify(data));
+        return data;
+      }catch(_){
+        return null; // run without meta
+      }
+    }
+
 
   async function loadTeamIso(){
     const CK = 'wc:team_iso';
@@ -2010,10 +2027,10 @@ async function fetchJSON(url){
       return svg;
     }
 
-    function classifyCountries(svg, teamIso, merged){
+    function classifyCountries(svg, teamIso, merged, teamMeta){
       const rows = (merged && merged.rows) || [];
 
-      // Map: team -> ownership state
+      // 1) Build team -> ownership
       const teamState = {};
       for (const row of rows) {
         const team = row.country;
@@ -2026,12 +2043,108 @@ async function fetchJSON(url){
         teamState[team] = { status, main, splits };
       }
 
-      // Map: iso -> team
+      // 2) Derive group/qual meta lookup
+      const teamGroup = {};  // team -> 'A' | 'B' | ...
+      const teamQual  = {};  // team -> true/false
+      if (teamMeta) {
+        if (teamMeta.groups) {
+          // Option B
+          Object.entries(teamMeta.groups).forEach(([g, list])=>{
+            (list||[]).forEach(t => { teamGroup[t] = g; teamQual[t] = true; });
+          });
+          (teamMeta.not_qualified||[]).forEach(t => { teamQual[t] = false; });
+        } else {
+          // Option A
+          Object.entries(teamMeta).forEach(([team, m])=>{
+            teamGroup[team] = m.group || null;
+            teamQual[team]  = (m.qualified !== false);
+          });
+        }
+      }
+
+      // 3) iso -> team map
       const isoToTeam = {};
-      Object.keys(teamIso || {}).forEach(team => {
-        const iso = (teamIso[team] || '').toLowerCase();
-        if (iso) isoToTeam[iso] = team;
+      Object.keys(teamIso||{}).forEach(team=>{
+        const iso = (teamIso[team]||'').toLowerCase();
+        if(iso) isoToTeam[iso] = team;
       });
+
+      // 4) Apply classes and store data attributes
+      svg.querySelectorAll('.country').forEach(el=>{
+        const iso = (el.getAttribute('data-iso')||'').toLowerCase();
+        const team = isoToTeam[iso];
+        let status = 'nq'; // 👈 default is "Not Qualified"
+        let ownerNames = [];
+        const teamLabel = team || iso.toUpperCase();
+
+        if (team) {
+          const qualified = (teamQual[team] !== false); // undefined → true
+          status = qualified ? 'free' : 'nq'; // base status before ownership
+
+          if (teamState[team]) {
+            status = teamState[team].status;
+            if (!qualified) status = 'nq';
+          }
+
+          // build owner list
+          if (teamState[team]) {
+            const main = teamState[team].main;
+            const splits = teamState[team].splits || [];
+            if (main && main.username) ownerNames.push(main.username);
+            if (splits && splits.length) {
+              ownerNames.push(...splits.map(s => s.username).filter(Boolean));
+            }
+          }
+        }
+
+        // color classes
+        el.classList.remove('owned','split','free','nq','dim');
+        el.classList.add(status);
+
+        // persist for click panel
+        const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+        el.dataset.owners = ownersText;
+        el.dataset.team   = teamLabel;
+        el.dataset.group  = team ? (teamGroup[team] || '') : '';
+      });
+    }
+
+
+    let currentGroup = 'ALL';
+
+    function populateGroupSelector(teamMeta){
+      const sel = document.getElementById('map-group');
+      if(!sel) return;
+      // If no meta, keep only "All"
+      if(!teamMeta) {
+        sel.innerHTML = '<option value="ALL" selected>All</option>';
+        return;
+      }
+
+      // Build group set
+      const groups = new Set();
+      if (teamMeta.groups){
+        Object.keys(teamMeta.groups).forEach(g => groups.add(g));
+      } else {
+        Object.values(teamMeta).forEach(m => { if(m.group) groups.add(m.group); });
+      }
+
+      const sorted = [...groups].sort();
+      sel.innerHTML = '<option value="ALL" selected>All</option>'
+        + sorted.map(g => `<option value="${g}">Group ${g}</option>`).join('');
+    }
+
+    function applyGroupFilter(svg){
+      svg.querySelectorAll('.country').forEach(el=>{
+        const g = (el.dataset.group || '').toUpperCase();
+        if (currentGroup === 'ALL' || (g && g.toUpperCase() === currentGroup.toUpperCase())){
+          el.classList.remove('dim');
+        } else {
+          el.classList.add('dim');
+        }
+      });
+    }
+
 
       // Helper to color both group and its shapes
       function setStatus(el, status) {
@@ -2262,24 +2375,33 @@ async function fetchJSON(url){
     async function render(){
       try {
         console.time('worldmap:fetch');
-
-        // Fetch both data sets
-        const [iso, merged] = await Promise.all([
+        const [iso, merged, meta] = await Promise.all([
           loadTeamIso(),
-          loadOwnership()
+          loadOwnership(),
+          loadTeamMeta()
         ]);
-
         console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
         console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
+        console.debug('team_meta:', meta ? 'loaded' : 'absent');
         console.timeEnd('worldmap:fetch');
 
-        // Inline the world.svg file
         const svg = await inlineSVG('world.svg');
 
-        // Color and set up tooltip data
-        classifyCountries(svg, iso, merged);
+        // Color, store data attributes, and init groups
+        classifyCountries(svg, iso, merged, meta);
+        populateGroupSelector(meta);
+        applyGroupFilter(svg);
 
-        // Enable click-to-zoom + info card behavior
+        // Hook group selector
+        const sel = document.getElementById('map-group');
+        if (sel){
+          sel.onchange = ()=>{
+            currentGroup = sel.value || 'ALL';
+            applyGroupFilter(svg);
+          };
+        }
+
+        // Keep your existing click-to-zoom
         enableClickZoom(svg);
 
       } catch (e) {

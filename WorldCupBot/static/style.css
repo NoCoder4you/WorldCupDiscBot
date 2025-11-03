@@ -1945,3 +1945,21 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #map-svg-host svg.zooming {
   filter: drop-shadow(0 0 6px rgba(0,200,150,0.3));
 }
+
+/* Not Qualified + group filter */
+.country.nq,
+.country.nq * { fill: #84606e; } /* muted wine */
+
+.map-legend .key.box.nq { background: #84606e; }
+
+/* Dimming when a group is selected */
+.country.dim,
+.country.dim * { opacity: .25; }
+
+/* Group selector styling */
+.map-group-label { margin-right: 8px; opacity: .8; font-weight: 700; }
+.map-group {
+  background: #0f1927; color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px; margin-right: 8px;
+}
