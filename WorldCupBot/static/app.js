@@ -2068,37 +2068,42 @@ async function fetchJSON(url){
         tip.style.top = `${y}px`;
       }
 
-      // Assign classes and tooltips
-      svg.querySelectorAll('.country').forEach(el => {
-        const iso = (el.getAttribute('data-iso') || '').toLowerCase();
-        const team = isoToTeam[iso];
-        let status = 'free';
-        let ownerNames = [];
-        const teamLabel = team || iso.toUpperCase();
+    svg.querySelectorAll('.country').forEach(el=>{
+      const iso = (el.getAttribute('data-iso')||'').toLowerCase();
+      const team = isoToTeam[iso];
+      let status = 'free';
+      let ownerNames = [];
+      const teamLabel = team || iso.toUpperCase();
 
-        if (team && teamState[team]) {
-          status = teamState[team].status;
-          const main = teamState[team].main;
-          const splits = teamState[team].splits || [];
-          if (main && main.username) ownerNames.push(main.username);
-          if (splits && splits.length) ownerNames.push(...splits.map(s => s.username).filter(Boolean));
+      if(team && teamState[team]){
+        status = teamState[team].status;
+        const main = teamState[team].main;
+        const splits = teamState[team].splits || [];
+        if(main && main.username) ownerNames.push(main.username);
+        if(splits && splits.length){
+          ownerNames.push(...splits.map(s => s.username).filter(Boolean));
         }
+      }
 
-        setStatus(el, status);
+      // set the class color
+      setStatus(el, status);
 
-        // Tooltip events
-        el.onmouseenter = ev => {
-          const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Not Qualified';
-          tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
-          tip.style.opacity = '1';
-          positionTip(ev);
-        };
-        el.onmousemove = ev => positionTip(ev);
-        el.onmouseleave = () => { tip.style.opacity = '0'; };
-        el.onfocus = el.onmouseenter;
-        el.onblur = el.onmouseleave;
-      });
-    }
+      const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+      el.dataset.owners = ownersText;           // <— store owners
+      el.dataset.team   = teamLabel;            // <— store country name for the panel
+
+      // tooltip events (unchanged, can stay as-is)
+      el.onmouseenter = (ev)=>{
+        tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
+        tip.style.opacity = '1';
+        positionTip(ev);
+      };
+      el.onmousemove = (ev)=> positionTip(ev);
+      el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
+      el.onfocus = el.onmouseenter;
+      el.onblur  = el.onmouseleave;
+    });
+
 
     function ensurePanRoot(svg){
       if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
@@ -2232,30 +2237,26 @@ async function fetchJSON(url){
       }
 
       svg.querySelectorAll('.country').forEach(el=>{
-        const ownersText = el.dataset.owners || '—';
+      el.addEventListener('click', ()=>{
+        if(currentCountry === el){ resetZoom(); return; }
 
-        el.addEventListener('click', ()=>{
-          // toggle back
-          if(currentCountry === el){
-            resetZoom();
-            return;
-          }
+        currentCountry = el;
 
-          currentCountry = el;
-          const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
-          const name = iso || 'Unknown';
-          const status = el.classList.contains('owned') ? 'Owned'
-                       : el.classList.contains('split') ? 'Split'
-                       : 'Not Qualified';
-          titleEl.textContent = name;
-          ownersEl.textContent = 'Owners: ' + ownersText;
-          statusEl.textContent = 'Status: ' + status;
-          infoBox.classList.remove('hidden');
+        const name   = el.dataset.team || (el.getAttribute('data-iso')?.toUpperCase() || 'Unknown');
+        const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
+        const owners = el.dataset.owners || 'Unassigned';
+        const status = el.classList.contains('owned') ? 'Owned'
+                     : el.classList.contains('split') ? 'Split'
+                     : 'Unassigned';
 
-          zoomToElement(el, 1.3);
-        });
+        titleEl.textContent = name;
+        ownersEl.textContent = 'Owners: ' + owners;
+        statusEl.textContent = 'Status: ' + status;
+
+        infoBox.classList.remove('hidden');
+        zoomToElement(el, 1.3);
       });
-    }
+    });
 
     async function render(){
       try {
