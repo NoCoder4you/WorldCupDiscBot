@@ -4,7 +4,7 @@ from pathlib import Path
 import discord
 from discord import app_commands
 from discord.ext import commands
-from role_utils import (
+from COGS.role_utils import (
     check_root_interaction, check_referee_interaction
 )
 
