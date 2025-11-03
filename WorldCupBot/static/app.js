@@ -150,6 +150,27 @@
       if (page === 'splits' && state.admin) loadSplits().catch(()=>{});
     }
 
+function setPage(p) {
+  const adminPages = new Set(['splits','backups','log','cogs']);
+  if (adminPages.has(p) && !state.admin) {
+    notify('That page requires admin login.', false);
+    p = 'dashboard';
+  }
+
+  // remember
+  state.currentPage = p;
+  localStorage.setItem('wc:lastPage', p);
+
+  // nav highlight
+  document.querySelectorAll('#main-menu a').forEach(a => {
+    a.classList.toggle('active', a.dataset.page === p);
+  });
+
+  // show one section
+  document.querySelectorAll('section.page-section, section.dashboard')
+    .forEach(s => s.classList.remove('active-section'));
+  document.getElementById(p)?.classList.add('active-section');
+}
 
 
   function wireNav(){
@@ -186,6 +207,7 @@
         state.admin = false;
       }
       document.body.classList.toggle('admin', state.admin);
+      return state.admin;
     }
 
     // keep session in sync after refresh
