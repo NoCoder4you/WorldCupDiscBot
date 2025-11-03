@@ -124,34 +124,31 @@
     });
   }
 
-  function setPage(p) {
-      // Resolve target element
-    let target = document.getElementById(p);
-    if (!target) return;
+  // === PAGE SWITCHER ===
+    function showPage(page) {
+      // admin-only pages
+      const adminPages = new Set(['splits','backups','log','cogs']);
 
-      // Admin gate: if target is admin-only but user isn't admin, fall back
-    if (target.classList.contains('admin-only') && !state.admin) {
-      p = 'dashboard';
-      target = document.getElementById(p);
-      if (!target) return;
+      // block admin pages when not logged in
+      if (adminPages.has(page) && !state.admin) {
+        notify('That page requires admin login.', false);
+        return;
+      }
+
+      // show the chosen section
+      document.querySelectorAll('section.page-section').forEach(s => s.classList.remove('active-section'));
+      const sec = document.getElementById(page);
+      if (sec) sec.classList.add('active-section');
+
+      // load data for that page
+      if (page === 'dashboard') loadDashboard().catch(()=>{});
+      if (page === 'ownership') loadOwnership().catch(()=>{});
+      if (page === 'bets') loadBets().catch(()=>{});
+      if (page === 'log' && state.admin) loadLogs().catch(()=>{});
+      if (page === 'cogs' && state.admin) loadCogs().catch(()=>{});
+      if (page === 'backups' && state.admin) loadBackups().catch(()=>{});
+      if (page === 'splits' && state.admin) loadSplits().catch(()=>{});
     }
-
-      // Persist
-    state.currentPage = p;
-    localStorage.setItem('wc:lastPage', p);
-
-      // Nav highlight
-    qsa('#main-menu a').forEach(a => {
-      a.classList.toggle('active', a.dataset.page === p);
-    });
-
-      // Clear any legacy inline styles (from earlier patches) once
-    qsa('section.page-section').forEach(sec => sec.removeAttribute('style'));
-
-      // Show exactly one section
-    qsa('section.page-section').forEach(sec => sec.classList.remove('active-section'));
-    target.classList.add('active-section');
-  }
 
 
 
@@ -179,20 +176,20 @@
       }
     }
 
-    async function fetchAdminStatus() {
+    // === AUTH BOOTSTRAP ===
+    async function initAuth() {
       try {
-        const r = await fetch('/admin/auth/status', { credentials: 'include' });
-        const j = await r.json();
-        setAdminUI(!!j.unlocked);
-        return !!j.unlocked;
-      } catch {
-        setAdminUI(false);
-        return false;
+        const r = await fetch('/admin/auth/status', { credentials: 'same-origin' });
+        const j = await r.json().catch(() => ({}));
+        state.admin = !!j.unlocked;
+      } catch (_) {
+        state.admin = false;
       }
+      document.body.classList.toggle('admin', state.admin);
     }
 
     // keep session in sync after refresh
-    document.addEventListener('DOMContentLoaded', fetchAdminStatus);
+    document.addEventListener('DOMContentLoaded', initAuth);
 
     // Existing UI elements (works with your current modal + buttons)
     const loginBtn  = document.querySelector('#admin-button');          // login/open modal button
@@ -256,7 +253,7 @@
     });
 
     // sync on load so refresh keeps your admin state
-    document.addEventListener('DOMContentLoaded', fetchAdminStatus);
+    document.addEventListener('DOMContentLoaded', initAuth);
 
 
     async function fetchVerifiedMap() {
@@ -817,7 +814,7 @@ document.addEventListener('click', function (e) {
       const btn = e.target.closest?.('.reassign-btn');
       if (!btn) return;
 
-      const unlocked = await fetchAdminStatus();
+      const unlocked = await initAuth();
       if (!unlocked) return notify('Admin required', false);
 
       // Prefill + reset
@@ -843,7 +840,7 @@ document.getElementById('reassign-cancel')?.addEventListener('click', () => {
 
 // Submit (no second-stage confirm)
 document.getElementById('reassign-submit')?.addEventListener('click', async () => {
-  const unlocked = await fetchAdminStatus();
+  const unlocked = await initAuth();
   if (!unlocked) return notify('Admin required', false);
 
     const team  = (document.getElementById('reassign-team').value || '').trim();
@@ -1203,48 +1200,30 @@ if (state.splitsHistoryTimer) {
   state.splitsHistoryTimer = null;
 }
 
-async function loadSplits() {
-  try {
-    const data = await fetchJSON('/admin/splits'); // { pending: [] }
+// === SPLITS (admin only) ===
+    async function loadSplits() {
+      if (!state.admin) return; // hard gate
 
-    const wrap = ensureSectionCard('splits', 'Split Requests', [
-      ['Refresh', { id: 'splits-refresh' }]
-    ]);
+      const wrap = ensureSectionCard('splits', 'Split Requests', [
+        ['Refresh', { id: 'splits-refresh' }]
+      ]);
 
-    const scroller = wrap.querySelector('.table-scroll');
-    scroller.innerHTML = '';
+      const scroller = wrap.querySelector('.table-scroll');
+      scroller.innerHTML = '<p class="muted">Loading…</p>';
 
-    const container = document.createElement('div');
-    container.className = 'split-wrap';
+      let data;
+      try {
+        const res = await fetch('/admin/splits', { credentials: 'same-origin' });
+        if (res.status === 401) throw new Error('Unauthorized');
+        data = await res.json();
+      } catch (e) {
+        notify(`History refresh failed: ${e.message}`, false);
+        scroller.innerHTML = '<p class="muted">No data.</p>';
+        return;
+      }
 
-    const pending = Array.isArray(data?.pending) ? data.pending : [];
-    container.appendChild(buildPendingSplits(pending));
-
-    // history section (from log file)
-    const historyBox = document.createElement('div');
-    historyBox.className = 'split-section';
-    historyBox.innerHTML = `
-      <div class="split-head">
-        <div class="split-title">History</div>
-        <div class="split-count badge" id="split-hist-count">0</div>
-      </div>
-      <div id="split-history-body"></div>
-    `;
-    container.appendChild(historyBox);
-
-    scroller.appendChild(container);
-
-    // refresh and polling
-    const btn = document.getElementById('splits-refresh');
-    if (btn) btn.onclick = () => { clearInterval(state.splitsHistoryTimer); loadSplits(); };
-    await loadSplitHistoryOnce();
-    clearInterval(state.splitsHistoryTimer);
-    state.splitsHistoryTimer = setInterval(loadSplitHistoryOnce, 10000);
-
-  } catch (e) {
-    notify(`Failed to fetch splits: ${e.message || e}`, false);
-  }
-}
+      renderSplitsTable(scroller, data?.pending || []);
+    }
 
 function buildPendingSplits(rows) {
   const box = document.createElement('div');
@@ -1394,9 +1373,9 @@ async function submitSplitAction(action, id) {
 }
 
 
-// History loader - simplified columns (When, Action, Team, From, To)
-// Reads /admin/splits/history -> JSON/split_requests_log.json
 async function loadSplitHistoryOnce() {
+  // Hard gate: never try hitting admin endpoint if not admin
+  if (!state.admin) return;
   try {
     const { events = [] } = await fetchJSON('/admin/splits/history?limit=200');
 
@@ -1411,7 +1390,6 @@ async function loadSplitHistoryOnce() {
       return;
     }
 
-    // newest first
     const sorted = events.slice().sort((a, b) => {
       const ta = +new Date(a?.created_at || a?.time || a?.timestamp || 0);
       const tb = +new Date(b?.created_at || b?.time || b?.timestamp || 0);
@@ -1436,12 +1414,10 @@ async function loadSplitHistoryOnce() {
     const tbody = table.querySelector('tbody');
 
     for (const ev of sorted) {
-      const id = ev.id ?? ev.request_id ?? ''; // history may not have an ID; blank keeps alignment
+      const id = ev.id ?? ev.request_id ?? '';
       const team = ev.team || ev.country || ev.country_name || '-';
-      const fromUser =
-        ev.from_username || ev.requester_username || ev.from || ev.requester_id || '-';
-      const toUser =
-        ev.to_username || ev.receiver_username || ev.to || ev.main_owner_id || '-';
+      const fromUser = ev.from_username || ev.requester_username || ev.from || ev.requester_id || '-';
+      const toUser = ev.to_username || ev.receiver_username || ev.to || ev.main_owner_id || '-';
       const when = ev.created_at || ev.time || ev.timestamp || null;
       const actionRaw = (ev.action || ev.status || '').toString().toLowerCase();
 
@@ -1462,7 +1438,9 @@ async function loadSplitHistoryOnce() {
 
   } catch (e) {
     // Non-fatal; keep last known history
-    notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
+    if (e.message !== 'Unauthorized') {
+      notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
+    }
   }
 }
 
