@@ -2243,7 +2243,6 @@ async function fetchJSON(url){
         currentCountry = el;
 
         const name   = el.dataset.team || (el.getAttribute('data-iso')?.toUpperCase() || 'Unknown');
-        const iso = el.getAttribute('data-iso')?.toUpperCase() || '';
         const owners = el.dataset.owners || 'Unassigned';
         const status = el.classList.contains('owned') ? 'Owned'
                      : el.classList.contains('split') ? 'Split'
