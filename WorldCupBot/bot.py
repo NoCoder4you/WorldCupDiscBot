@@ -41,7 +41,7 @@ def load_config() -> dict:
 CONFIG = load_config()
 BOT_TOKEN = CONFIG.get("BOT_TOKEN", "").strip()
 
-WEBHOOK_HELPER_CATEGORY = "Webhook Helpers"
+WorldCupAdminCategory = "World Cup Admin"
 
 ADMIN_CATEGORY_NAME = str(CONFIG.get("ADMIN_CATEGORY_NAME", "") or "")
 ADMIN_ROLE_NAME = str(CONFIG.get("ADMIN_ROLE_NAME", "") or "")
@@ -241,7 +241,7 @@ def admin_only_context():
 
 def in_webhook_helpers(ctx):
     """Allow commands only inside the 'Webhook Helpers' category."""
-    if not in_admin_category(ctx.channel, WEBHOOK_HELPER_CATEGORY):
+    if not in_admin_category(ctx.channel, WorldCupAdminCategory):
         return False
     return True
 
@@ -257,7 +257,7 @@ async def cmd_ping(ctx: commands.Context):
 @admin_only_context()
 async def cmd_load(ctx: commands.Context, name: str):
     if not in_webhook_helpers(ctx):
-        await ctx.reply(f"Use this command inside the '{WEBHOOK_HELPER_CATEGORY}' category.", delete_after=6)
+        await ctx.reply(f"Use this command inside the '{WorldCupAdminCategory}' category.", delete_after=6)
         return
     try:
         msg = await bot.load_cog(name)
@@ -271,7 +271,7 @@ async def cmd_load(ctx: commands.Context, name: str):
 @admin_only_context()
 async def cmd_unload(ctx: commands.Context, name: str):
     if not in_webhook_helpers(ctx):
-        await ctx.reply(f"Use this command inside the '{WEBHOOK_HELPER_CATEGORY}' category.", delete_after=6)
+        await ctx.reply(f"Use this command inside the '{WorldCupAdminCategory}' category.", delete_after=6)
         return
     try:
         msg = await bot.unload_cog(name)
@@ -285,7 +285,7 @@ async def cmd_unload(ctx: commands.Context, name: str):
 @admin_only_context()
 async def cmd_reload(ctx: commands.Context, name: str):
     if not in_webhook_helpers(ctx):
-        await ctx.reply(f"Use this command inside the '{WEBHOOK_HELPER_CATEGORY}' category.", delete_after=6)
+        await ctx.reply(f"Use this command inside the '{WorldCupAdminCategory}' category.", delete_after=6)
         return
     try:
         msg = await bot.reload_cog(name)

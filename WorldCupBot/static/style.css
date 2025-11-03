@@ -2043,7 +2043,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .map-legend .key.box.split {
-    background: #e7c85a;
+    background: var(--accent-2);
 }
 
 .map-legend .key.box.free {
