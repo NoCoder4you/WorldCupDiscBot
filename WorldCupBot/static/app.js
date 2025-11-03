@@ -2217,7 +2217,7 @@ async function fetchJSON(url){
           el.onfocus = el.onmouseenter;
           el.onblur  = el.onmouseleave;
         });
-    }
+
 
     function ensurePanRoot(svg){
       if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
