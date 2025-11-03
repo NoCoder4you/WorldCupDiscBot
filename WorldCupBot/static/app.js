@@ -2181,43 +2181,6 @@ async function fetchJSON(url){
         tip.style.top = `${y}px`;
       }
 
-        svg.querySelectorAll('.country').forEach(el=>{
-          const iso = (el.getAttribute('data-iso')||'').toLowerCase();
-          const team = isoToTeam[iso];
-          let status = 'free';
-          let ownerNames = [];
-          const teamLabel = team || iso.toUpperCase();
-
-          if(team && teamState[team]){
-            status = teamState[team].status;
-            const main = teamState[team].main;
-            const splits = teamState[team].splits || [];
-            if(main && main.username) ownerNames.push(main.username);
-            if(splits && splits.length){
-              ownerNames.push(...splits.map(s => s.username).filter(Boolean));
-            }
-          }
-
-          // set the class color
-          setStatus(el, status);
-
-          // ✨ NEW: persist for click-to-zoom info panel
-          const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
-          el.dataset.owners = ownersText;           // <— store owners
-          el.dataset.team   = teamLabel;            // <— store country name for the panel
-
-          // tooltip events (unchanged, can stay as-is)
-          el.onmouseenter = (ev)=>{
-            tip.innerHTML = `<strong>${teamLabel}</strong><br><em>${iso.toUpperCase()}</em><br>${ownersText}`;
-            tip.style.opacity = '1';
-            positionTip(ev);
-          };
-          el.onmousemove = (ev)=> positionTip(ev);
-          el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
-          el.onfocus = el.onmouseenter;
-          el.onblur  = el.onmouseleave;
-        });
-    }
 
     function ensurePanRoot(svg){
       if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
