@@ -850,7 +850,7 @@ def create_public_routes(ctx):
 
     @api.get("/me/ownership")
     def me_ownership():
-        base = ctx.get("BASE_DIR","")
+        base = ctx.get("BASE_DIR", "")
         user = session.get(_session_key())
         if not user or not user.get("discord_id"):
             return jsonify({"ok": True, "owned": [], "split": []})
@@ -859,18 +859,26 @@ def create_public_routes(ctx):
         teams_iso = _json_load(_team_iso_path(base), {})
         uid = str(user["discord_id"])
 
-        owned, split = [], []
-        pdata = players.get(uid) if isinstance(players, dict) else None
-        if isinstance(pdata, dict):
-            for entry in (pdata.get("teams") or []):
-                if not isinstance(entry, dict): continue
-                team = entry.get("team")
-                own = entry.get("ownership") or {}
-                if not team: continue
-                if str(own.get("main_owner")) == uid:
-                    owned.append(team)
-                elif uid in [str(x) for x in (own.get("split_with") or [])]:
-                    split.append(team)
+        owned_set, split_set = set(), set()
+
+        if isinstance(players, dict):
+            for _, pdata in players.items():
+                if not isinstance(pdata, dict):
+                    continue
+                for entry in (pdata.get("teams") or []):
+                    if not isinstance(entry, dict):
+                        continue
+                    team = entry.get("team")
+                    if not team:
+                        continue
+                    own = entry.get("ownership") or {}
+                    main_owner = str(own.get("main_owner")) if own.get("main_owner") is not None else None
+                    splits = [str(x) for x in (own.get("split_with") or [])]
+
+                    if main_owner == uid:
+                        owned_set.add(team)
+                    elif uid in splits:
+                        split_set.add(team)
 
         def flag(team):
             code = None
@@ -878,11 +886,9 @@ def create_public_routes(ctx):
                 code = teams_iso.get(team)
             return f"https://flagcdn.com/w80/{(code or '').lower()}.png" if code else None
 
-        return jsonify({
-            "ok": True,
-            "owned": [{"team": t, "flag": flag(t)} for t in owned],
-            "split": [{"team": t, "flag": flag(t)} for t in split]
-        })
+        owned = [{"team": t, "flag": flag(t)} for t in sorted(owned_set)]
+        split = [{"team": t, "flag": flag(t)} for t in sorted(split_set)]
+        return jsonify({"ok": True, "owned": owned, "split": split})
 
     @api.get("/me/matches")
     def me_matches():
