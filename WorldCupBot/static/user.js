@@ -129,6 +129,7 @@
     `;
     renderUserTeamsWithStages(owned || []);
     renderUserTeamsWithStages(split || []);
+  }
 
   async function refreshUser(){
     try{
