@@ -134,8 +134,10 @@
                      : `<p class="muted">No upcoming matches found for your teams.</p>`}
       </div>
     `;
-    renderUserTeamsWithStages(owned || []);
-    renderUserTeamsWithStages(split || []);
+    renderUserTeamsWithStages(owned || [], 'Your Teams (Progress)');
+    if (split && split.length) {
+    renderUserTeamsWithStages(split || [], 'Co-owned Teams (Progress)');
+    }
   }
 
   async function refreshUser(){
