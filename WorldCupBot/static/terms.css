@@ -19,29 +19,19 @@ body {
   padding: 24px;
 }
 
-.shell {
-  max-width: 920px;
-  margin: 0 auto;
-}
+.shell { max-width: 920px; margin: 0 auto; }
 
 .card {
   background: linear-gradient(180deg, var(--card), #0f1319);
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+  box-shadow: 0 10px 40px rgba(0,0,0,.35);
   padding: 22px;
 }
 
-h1 {
-  margin: 0 0 10px;
-  font-size: 28px;
-  letter-spacing: .2px;
-}
+h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: .2px; }
 
-.sub {
-  color: var(--muted);
-  margin: 0 0 22px;
-}
+.sub { color: var(--muted); margin: 0 0 22px; }
 
 .pill {
   display: inline-block;
@@ -54,22 +44,10 @@ h1 {
   margin-left: 8px;
 }
 
-.content {
-  color: #cfe0f5;
-}
-
-.content h2 {
-  font-size: 18px;
-  margin: 18px 0 6px;
-}
-
-.content ul {
-  margin: 0 0 8px 18px;
-}
-
-.content li {
-  margin: 6px 0;
-}
+.content { color: #cfe0f5; }
+.content h2 { font-size: 18px; margin: 18px 0 6px; }
+.content ul { margin: 0 0 8px 18px; }
+.content li { margin: 6px 0; }
 
 .bar {
   display: flex;
@@ -89,9 +67,7 @@ h1 {
   transition: background .2s;
 }
 
-.btn:hover {
-  background: #151b25;
-}
+.btn:hover { background: #151b25; }
 
 .btn.primary {
   background: linear-gradient(180deg, #38c27f, #1ea964);
@@ -100,10 +76,7 @@ h1 {
   font-weight: 800;
 }
 
-.btn[disabled] {
-  opacity: .6;
-  cursor: not-allowed;
-}
+.btn[disabled] { opacity: .6; cursor: not-allowed; }
 
 label.chk {
   display: flex;
@@ -113,8 +86,4 @@ label.chk {
   color: #d4e2f7;
 }
 
-#msg {
-  color: #ffc277;
-  margin: 8px 0 0 0;
-  min-height: 1.2em;
-}
+#msg { color: #ffc277; margin: 8px 0 0 0; min-height: 1.2em; }

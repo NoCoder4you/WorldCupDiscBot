@@ -1925,6 +1925,26 @@ async function getCogStatus(name){
       startPolling();
     }
   window.addEventListener('load', init);
+
+// === Auto redirect new Discord-linked users to /terms ===
+async function checkUserTOS() {
+  try {
+    const res = await fetch('/api/me/tos', { credentials: 'include' });
+    const data = await res.json();
+    if (data.connected && (!data.accepted || !data.in_players)) {
+      console.log('[WorldCupBot] redirecting first-time user to /terms');
+      window.location.href = data.url || '/terms';
+    }
+  } catch (err) {
+    console.warn('TOS check failed:', err);
+  }
+}
+
+// run this early after page load, before dashboard routing
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(checkUserTOS, 1000);
+});
+
 })();
 
 /* =========================
@@ -2002,6 +2022,116 @@ async function fetchJSON(url){
       }catch(_){
         // gracefully run without meta
         return null;
+      }
+    }
+
+    // -------------------------------
+    // User Page
+    // -------------------------------
+    async function loadUser() {
+      try {
+        const section = ensureSectionCard('user', 'User', [
+          ['Refresh', { id: 'user-refresh' }]
+        ]);
+        const scroller = section.querySelector('.table-scroll');
+        scroller.innerHTML = '<div class="loading">Loading user data...</div>';
+
+        // 1. Check if user has accepted T&Cs
+        const tos = await fetchJSON('/api/me/tos');
+        if (tos.connected && (!tos.accepted || !tos.in_players)) {
+          console.log('[WorldCupBot] redirecting to /terms');
+          window.location.href = tos.url || '/terms';
+          return;
+        }
+
+        // 2. Get user info
+        const { user } = await fetchJSON('/api/me');
+        if (!user) {
+          scroller.innerHTML = `
+            <div class="user-guest">
+              <p>You are not connected with Discord.</p>
+              <button id="btn-discord-login" class="btn">Connect Discord</button>
+            </div>`;
+          const btn = document.getElementById('btn-discord-login');
+          btn && (btn.onclick = () => (window.location.href = '/auth/discord/login'));
+          return;
+        }
+
+        // 3. Render base profile layout
+        scroller.innerHTML = `
+          <div class="user-card">
+            <div class="user-head">
+              <img class="user-ava" src="${user.avatar || '/static/img/avatar.png'}" alt="">
+              <div class="user-meta">
+                <div class="user-name">${escapeHtml(user.global_name || user.username)}</div>
+                <div class="user-id">${user.discord_id}</div>
+              </div>
+              <button id="btn-discord-logout" class="btn subtle">Sign out</button>
+            </div>
+            <div class="user-grids">
+              <div class="user-col">
+                <h3>Owned Teams</h3>
+                <div id="owned" class="flag-grid"></div>
+                <h3>Split Teams</h3>
+                <div id="split" class="flag-grid"></div>
+              </div>
+              <div class="user-col">
+                <h3>Upcoming Matches</h3>
+                <div id="matches" class="match-list"></div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // 4. Logout button
+        const out = document.getElementById('btn-discord-logout');
+        out && (out.onclick = async () => { await postJSON('/auth/discord/logout', {}); location.reload(); });
+
+        // 5. Load owned teams & matches
+        const [own, matches] = await Promise.all([
+          fetchJSON('/api/me/ownership'),
+          fetchJSON('/api/me/matches')
+        ]);
+
+        // Render owned/split teams
+        function renderFlags(wrapId, items) {
+          const wrap = document.getElementById(wrapId);
+          if (!wrap) return;
+          if (!items || !items.length) { wrap.innerHTML = `<div class="muted">None</div>`; return; }
+          wrap.innerHTML = items.map(x => `
+            <div class="flag-card" title="${escapeHtml(x.team)}">
+              ${x.flag ? `<img src="${x.flag}" alt="">` : ''}
+              <span>${escapeHtml(x.team)}</span>
+            </div>`).join('');
+        }
+        renderFlags('owned', own?.owned || []);
+        renderFlags('split', own?.split || []);
+
+        // Render matches
+        const mEl = document.getElementById('matches');
+        if (mEl) {
+          const list = (matches?.matches || []);
+          if (!list.length) {
+            mEl.innerHTML = `<div class="muted">No upcoming matches</div>`;
+          } else {
+            mEl.innerHTML = list.map(m => {
+              const when = m.utc || m.time || '';
+              const dt = when ? new Date(when).toLocaleString() : '';
+              return `
+                <div class="match-row">
+                  <div class="match-when">${dt}</div>
+                  <div class="match-vs"><strong>${escapeHtml(m.home)}</strong> vs <strong>${escapeHtml(m.away)}</strong></div>
+                  ${m.group ? `<div class="match-group">${escapeHtml(m.group)}</div>` : ``}
+                </div>`;
+            }).join('');
+          }
+        }
+
+      } catch (err) {
+        console.error('loadUser error:', err);
+        const section = ensureSectionCard('user', 'User');
+        const scroller = section.querySelector('.table-scroll');
+        scroller.innerHTML = `<div class="error">Failed to load user data.</div>`;
       }
     }
 
