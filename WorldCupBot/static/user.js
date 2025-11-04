@@ -8,13 +8,14 @@
   const STAGE_PROGRESS = {
   "Eliminated": 0,
   "Group Stage": 15,
-  "Round of 32": 32,
-  "Round of 16": 50,
-  "Quarter Final": 66,
-  "Semi Final": 82,
+  "Round of 32": 25,
+  "Round of 16": 35,
+  "Quarter Final": 55,
+  "Semi Final": 70,
   "Final": 90,
   "Winner": 100
 };
+
 
   async function jget(url){
     const r = await fetch(url, {credentials:'include'});

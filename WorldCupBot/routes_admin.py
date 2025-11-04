@@ -5,7 +5,14 @@ from flask import Blueprint, jsonify, request, session, send_file
 USER_SESSION_KEY = "wc_user"   # e.g. {"discord_id": "...", "username": "...", ...}
 ADMIN_IDS_KEY    = "ADMIN_IDS" # list of Discord IDs allowed as admins
 STAGE_ALLOWED = {
-    "Eliminated", "Group", "R16", "QF", "SF", "F", "Second Place", "Winner"
+    "Eliminated",
+    "Group Stage",
+    "Round of 32",
+    "Round of 16",
+    "Quarter Final",
+    "Semi Final",
+    "Final",
+    "Winner",
 }
 
 # ---- PATH / IO HELPERS ----
