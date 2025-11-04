@@ -1,38 +1,18 @@
 import os, json, time, glob, sys
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request, session, send_file
 
-SESSION_KEY = "wc_admin"
+# Public OAuth flow (in routes_public.py) stores the logged-in user bundle here
+USER_SESSION_KEY = "wc_user"   # e.g. {"discord_id": "...", "username": "...", ...}
+ADMIN_IDS_KEY    = "ADMIN_IDS" # list of Discord IDs allowed as admins
 
-# ---- LOG HELPERS ----
-def _logs_dir(ctx):
-    # default to <BASE_DIR>/logs
-    base = _base_dir(ctx)
-    d = os.path.join(base, "logs")
-    os.makedirs(d, exist_ok=True)
-    return d
-
-def _log_paths(ctx):
-    # allow launcher to override via CTX["LOG_PATHS"]
-    lp = ctx.get("LOG_PATHS") or {}
-    if isinstance(lp, dict) and lp:
-        return lp
-    d = _logs_dir(ctx)
-    return {
-        "bot":      os.path.join(d, "bot.log"),
-        "health":   os.path.join(d, "health.log"),
-        "launcher": os.path.join(d, "launcher.log"),
-    }
-
-def _log_path(ctx, kind):
-    return _log_paths(ctx).get(str(kind))
-
-def _base_dir(ctx): 
+# ---- PATH / IO HELPERS ----
+def _base_dir(ctx):
     return ctx.get("BASE_DIR", os.getcwd())
 
-def _json_dir(ctx): 
+def _json_dir(ctx):
     return os.path.join(_base_dir(ctx), "JSON")
 
-def _path(ctx, name): 
+def _path(ctx, name):
     return os.path.join(_json_dir(ctx), name)
 
 def _read_json(path, default):
@@ -65,7 +45,27 @@ def _enqueue_command(ctx, kind, payload=None):
     with open(_commands_path(ctx), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd, separators=(",", ":")) + "\n")
 
-# ---- VERIFIED HELPERS (expects {"verified_users":[...]}) ----
+# ---- LOG HELPERS ----
+def _logs_dir(ctx):
+    d = os.path.join(_base_dir(ctx), "logs")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def _log_paths(ctx):
+    lp = ctx.get("LOG_PATHS") or {}
+    if isinstance(lp, dict) and lp:
+        return lp
+    d = _logs_dir(ctx)
+    return {
+        "bot":      os.path.join(d, "bot.log"),
+        "health":   os.path.join(d, "health.log"),
+        "launcher": os.path.join(d, "launcher.log"),
+    }
+
+def _log_path(ctx, kind):
+    return _log_paths(ctx).get(str(kind))
+
+# ---- VERIFIED MAP (discord id -> display name) ----
 def _verified_map(ctx):
     blob = _read_json(_path(ctx, "verified.json"), {})
     raw = blob.get("verified_users") if isinstance(blob, dict) else blob
@@ -81,52 +81,56 @@ def _verified_map(ctx):
             out[did] = disp or did
     return out
 
+# ---- ADMIN SESSION / CONFIG ----
 def _load_config(ctx):
-    base = ctx.get("BASE_DIR", os.getcwd())
-    root_path = os.path.join(base, "config.json")
-
-    if os.path.isfile(root_path):
-        try:
-            with open(root_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    cfg_path = os.path.join(_base_dir(ctx), "config.json")
+    try:
+        if os.path.isfile(cfg_path):
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                return json.load(f) or {}
+    except Exception:
+        pass
     return {}
 
+def _current_user():
+    u = session.get(USER_SESSION_KEY) or None
+    if isinstance(u, dict) and u.get("discord_id"):
+        return u
+    return None
 
-def _get_admin_password(ctx):
+def _is_admin(ctx):
+    u = _current_user()
+    if not u:
+        return False
     cfg = _load_config(ctx)
-    pw = cfg.get("ADMIN_PASSWORD")
-    return str(pw) if pw else None
+    allow = cfg.get(ADMIN_IDS_KEY) or []
+    try:
+        allow = [str(x) for x in allow]
+    except Exception:
+        allow = []
+    return str(u.get("discord_id")) in allow
 
+# ---- BLUEPRINT ----
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-    # Auth endpoints
-    @bp.post("/auth/login")
-    def auth_login():
-        data = request.get_json(silent=True) or {}
-        submitted = (data.get("password") or "")
-        expected = _get_admin_password(ctx)
-        if expected is None:
-            return jsonify({"ok": False, "error": "ADMIN_PASSWORD missing in JSON/config.json"}), 500
-        if str(submitted) == str(expected):
-            session[SESSION_KEY] = True
-            return jsonify({"ok": True, "unlocked": True})
-        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
-
-    @bp.post("/auth/logout")
-    def auth_logout():
-        session.pop(SESSION_KEY, None)
-        return jsonify({"ok": True, "unlocked": False})
-
+    # ---------- Auth endpoints (Discord-session based) ----------
     @bp.get("/auth/status")
     def auth_status():
-        return jsonify({"unlocked": bool(session.get(SESSION_KEY) is True)})
+        u = _current_user()
+        return jsonify({
+            "unlocked": bool(_is_admin(ctx)),
+            "user": {
+                "discord_id": (u or {}).get("discord_id"),
+                "username":   (u or {}).get("username"),
+                "global_name":(u or {}).get("global_name"),
+                "avatar":     (u or {}).get("avatar"),
+            }
+        })
 
-    # Require admin helper
+    # Helper: gate every admin action
     def require_admin():
-        if session.get(SESSION_KEY) is True:
+        if _is_admin(ctx):
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
@@ -152,8 +156,7 @@ def create_admin_routes(ctx):
                 ok = False
         else:
             _enqueue_command(ctx, f"bot_{action}")
-            ok = True  # accepted for async handling
-
+            ok = True
         return ok
 
     @bp.get("/bot/status")
@@ -165,9 +168,8 @@ def create_admin_routes(ctx):
                 running = bool(fn())
             except Exception:
                 running = False
-        # Optional timestamps if your launcher sets these refs:
         last_start = (ctx.get("bot_last_start_ref") or {}).get("value")
-        last_stop  = (ctx.get("bot_last_stop_ref") or {}).get("value")
+        last_stop  = (ctx.get("bot_last_stop_ref")  or {}).get("value")
         return jsonify({"ok": True, "running": running, "last_start": last_start, "last_stop": last_stop})
 
     @bp.post("/bot/start")
@@ -191,18 +193,14 @@ def create_admin_routes(ctx):
         ok = _run_or_queue("restart")
         return jsonify({"ok": ok, "action": "restart"})
 
-
-
-    # ---- Ownership ----
+    # ---------- Ownership (reassign) ----------
     def _players_path(ctx):
         return _path(ctx, "players.json")
 
     @bp.post("/ownership/reassign")
     def ownership_reassign():
-        # admin gate
         resp = require_admin()
-        if resp is not None:
-            return resp
+        if resp is not None: return resp
 
         data = request.get_json(silent=True) or {}
         team = (data.get("team") or "").strip()
@@ -210,12 +208,10 @@ def create_admin_routes(ctx):
         if not team or not new_owner_id:
             return jsonify({"ok": False, "error": "missing team or new_owner_id"}), 400
 
-        # load players.json (dict keyed by discord_id)
         players = _read_json(_players_path(ctx), {})
         if not isinstance(players, dict):
             players = {}
 
-        # convenience: ensure a player's teams list exists
         def ensure_player(uid):
             uid = str(uid)
             if uid not in players or not isinstance(players[uid], dict):
@@ -223,8 +219,7 @@ def create_admin_routes(ctx):
             players[uid].setdefault("teams", [])
             return players[uid]
 
-        # 1) clear any existing main_owner for this team
-        found_any = False
+        # Clear existing main_owner for this team
         for uid, pdata in list(players.items()):
             if not isinstance(pdata, dict):
                 continue
@@ -235,11 +230,9 @@ def create_admin_routes(ctx):
                     entry.setdefault("ownership", {})
                     if str(entry["ownership"].get("main_owner") or "") == str(uid):
                         entry["ownership"]["main_owner"] = None
-                    found_any = True
 
-        # 2) set main_owner for new owner; create team entry if they don't have it
+        # Set new main
         target = ensure_player(new_owner_id)
-        # try to find existing team entry
         target_entry = None
         for entry in target.get("teams", []):
             if isinstance(entry, dict) and entry.get("team") == team:
@@ -253,11 +246,9 @@ def create_admin_routes(ctx):
             target_entry["ownership"]["main_owner"] = new_owner_id
             target_entry["ownership"].setdefault("split_with", [])
 
-        # save back
         _write_json_atomic(_players_path(ctx), players)
 
-        # reply with a compact row the UI can use immediately
-        vmap = _verified_map(ctx)  # id -> display_name
+        vmap = _verified_map(ctx)
         row = {
             "country": team,
             "main_owner": {"id": new_owner_id, "username": vmap.get(new_owner_id, new_owner_id)},
@@ -267,16 +258,14 @@ def create_admin_routes(ctx):
             ],
             "owners_count": 1 + len(target_entry["ownership"].get("split_with", []))
         }
-        # optionally queue a bot-side action
         _enqueue_command(ctx, "ownership_reassign", {"team": team, "new_owner_id": new_owner_id})
-
         return jsonify({"ok": True, "row": row})
 
-    # ---- COGS ----
+    # ---------- COGS ----------
     def _scan_cogs():
         results = []
         cdir = os.path.join(_base_dir(ctx), "COGS")
-        if not os.path.isdir(cdir): 
+        if not os.path.isdir(cdir):
             return results
         loaded_exts = set()
         try:
@@ -294,7 +283,7 @@ def create_admin_routes(ctx):
         sysmods = set(sys.modules.keys())
         for py in sorted(glob.glob(os.path.join(cdir, "*.py"))):
             name = os.path.splitext(os.path.basename(py))[0]
-            if name.startswith("_"): 
+            if name.startswith("_"):
                 continue
             module_name = f"COGS.{name}"
             is_loaded = ((module_name in loaded_exts) or (not loaded_exts and module_name in sysmods))
@@ -331,7 +320,7 @@ def create_admin_routes(ctx):
         _enqueue_cog(cog, "reload")
         return jsonify({"ok": True})
 
-    # ---- SPLITS (uses verified display names) ----
+    # ---------- SPLITS ----------
     def _split_requests_path(): return _path(ctx, "split_requests.json")
     def _split_requests_log_path(): return _path(ctx, "split_requests_log.json")
 
@@ -373,7 +362,6 @@ def create_admin_routes(ctx):
                 pending.append({
                     "id": key,
                     "team": v.get("team"),
-                    # keep raw ids
                     "requester_id": req_id,
                     "main_owner_id": own_id,
                     "expires_at": v.get("expires_at"),
@@ -384,12 +372,10 @@ def create_admin_routes(ctx):
         for p in pending:
             rid = p.get("requester_id", "")
             oid = p.get("main_owner_id", "")
-            # add explicit name fields
             p["from_username"] = names.get(rid, rid)
-            p["to_username"] = names.get(oid, oid)
-            # also set the legacy columns your table renders
+            p["to_username"]   = names.get(oid, oid)
             p["from"] = p["from_username"]
-            p["to"] = p["to_username"]
+            p["to"]   = p["to_username"]
 
         return jsonify({"pending": pending})
 
@@ -406,7 +392,7 @@ def create_admin_routes(ctx):
         if not isinstance(pending_raw, dict): pending_raw = {}
 
         entry = pending_raw.pop(sid, None)
-        if not isinstance(entry, dict): return jsonify({"ok": False, "error": "not found"}), 404
+        if not isinstance(entry, dict): return jsonify({"ok": False, "error": "not_found"}), 404
         _write_json_atomic(req_path, pending_raw)
 
         req_id = str(entry.get("requester_id") or "")
@@ -435,7 +421,7 @@ def create_admin_routes(ctx):
         if not isinstance(pending_raw, dict): pending_raw = {}
 
         entry = pending_raw.pop(sid, None)
-        if not isinstance(entry, dict): return jsonify({"ok": False, "error": "not found"}), 404
+        if not isinstance(entry, dict): return jsonify({"ok": False, "error": "not_found"}), 404
         _write_json_atomic(req_path, pending_raw)
 
         req_id = str(entry.get("requester_id") or "")
@@ -462,7 +448,6 @@ def create_admin_routes(ctx):
         if not isinstance(events, list):
             events = []
 
-        # collect ids to resolve
         id_bucket = set()
         for ev in events:
             if not isinstance(ev, dict):
@@ -481,15 +466,12 @@ def create_admin_routes(ctx):
             e = dict(ev)
             req_id = str(ev.get("requester_id") or ev.get("from_id") or ev.get("from") or "")
             own_id = str(ev.get("main_owner_id") or ev.get("to_id") or ev.get("to") or "")
-            # keep ids
             e["from_id"] = req_id
-            e["to_id"] = own_id
-            # add name fields
+            e["to_id"]   = own_id
             e["from_username"] = names.get(req_id, req_id)
-            e["to_username"] = names.get(own_id, own_id)
-            # set legacy columns so your UI shows names
+            e["to_username"]   = names.get(own_id, own_id)
             e["from"] = e["from_username"]
-            e["to"] = e["to_username"]
+            e["to"]   = e["to_username"]
             norm.append(e)
 
         try:
@@ -500,7 +482,7 @@ def create_admin_routes(ctx):
 
         return jsonify({"events": norm})
 
-    # ---- BETS: declare winner (response enriched with display names) ----
+    # ---------- BETS: declare winner ----------
     def _bets_path(): return _path(ctx, "bets.json")
 
     def _enrich_bet_names(b):
@@ -538,8 +520,7 @@ def create_admin_routes(ctx):
         _enqueue_command(ctx, "bet_winner_declared", {"bet_id": bet_id, "winner": found["winner"]})
         return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
 
-
-    # ---- LOGS ----
+    # ---------- LOGS ----------
     @bp.get("/log/<kind>")
     def admin_log_get(kind):
         resp = require_admin()
@@ -550,7 +531,7 @@ def create_admin_routes(ctx):
         try:
             if path and os.path.isfile(path):
                 with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                    lines = f.read().splitlines()[-2000:]  # tail last N lines
+                    lines = f.read().splitlines()[-2000:]
         except Exception:
             lines = []
         return jsonify({"lines": lines})
