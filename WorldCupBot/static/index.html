@@ -1,272 +1,288 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>World Cup 2026 Panel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="style.css" rel="stylesheet">
-</head>
-<body>
-  <header class="header-bar">
-    <div class="brand">World Cup 2026</div>
-    <nav class="nav-wrap">
-      <input type="checkbox" id="menu-toggle">
-      <label class="menu-icon" for="menu-toggle">&#9776;</label>
-      <ul class="menu" id="main-menu">
-        <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
-        <li><a href="#" data-page="bets">Bets</a></li>
-        <li><a href="#" data-page="ownership">Ownership</a></li>
-        <li><a href="#" data-page="worldmap">World Map</a></li>
-        <!-- Admin-only items -->
-        <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
-        <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
-        <li class="admin-only"><a href="#" data-page="log">Logs</a></li>
-        <li class="admin-only"><a href="#" data-page="cogs">Cogs</a></li>
-      </ul>
-    </nav>
-    <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
-  </header>
+    <head>
+      <meta charset="UTF-8">
+      <title>World Cup 2026 Panel</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link href="style.css" rel="stylesheet">
+    </head>
+    <body>
+      <header class="header-bar">
+        <div class="brand">World Cup 2026</div>
+        <nav class="nav-wrap">
+          <input type="checkbox" id="menu-toggle">
+          <label class="menu-icon" for="menu-toggle">&#9776;</label>
+          <ul class="menu" id="main-menu">
+            <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+            <li><a href="#" data-page="bets">Bets</a></li>
+            <li><a href="#" data-page="ownership">Ownership</a></li>
+            <li><a href="#" data-page="worldmap">World Map</a></li>
+            <!-- Admin-only items -->
+            <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
+            <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
+            <li class="admin-only"><a href="#" data-page="log">Logs</a></li>
+            <li class="admin-only"><a href="#" data-page="cogs">Cogs</a></li>
+           <li><a href="#" data-page="user">User</a></li>
 
-  <main id="app-main">
-    <!-- DASHBOARD -->
-    <section id="dashboard" class="page-section active-section">
-      <!-- Default: 3 equal cards. When admin: dice-5 (2-1-2). -->
-      <div class="dashboard-grid">
-        <!-- A -->
-        <div class="card card-a">
-          <div class="card-title" id="uptime-label">Uptime</div>
-          <div class="card-value-wrapper"><span class="card-value" id="uptime-value">--:--:--</span></div>
-        </div>
+          </ul>
+        </nav>
+        <button id="theme-toggle" class="theme-toggle-btn" title="Toggle theme"><span id="theme-icon">🌙</span></button>
+      </header>
 
-        <!-- B -->
-        <div class="card card-b">
-          <div class="card-title">Ping</div>
-          <div class="card-value-wrapper"><span class="card-value" id="ping-value">-- ms</span></div>
-        </div>
-
-        <!-- C -->
-        <div class="card card-c">
-          <div class="card-title">Bot Process</div>
-          <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
-        </div>
-
-        <!-- D - admin-only -->
-        <div class="card card-d admin-only">
-          <div class="card-title">System Usage</div>
-
-          <!-- Overlapping gauges stack -->
-          <div class="gauges-flex gauges-overlap">
-            <!-- Memory -->
-            <div class="gauge-container gauge--mem">
-              <div class="gauge-label">Memory</div>
-              <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
-                <path class="gauge-bar" id="mem-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
-                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="mem-text">Mem. 0%</text>
-              </svg>
-              <div class="gauge-extra-scroll"><span class="gauge-extra" id="mem-extra"></span></div>
+      <main id="app-main">
+        <!-- DASHBOARD -->
+        <section id="dashboard" class="page-section active-section">
+          <!-- Default: 3 equal cards. When admin: dice-5 (2-1-2). -->
+          <div class="dashboard-grid">
+            <!-- A -->
+            <div class="card card-a">
+              <div class="card-title" id="uptime-label">Uptime</div>
+              <div class="card-value-wrapper"><span class="card-value" id="uptime-value">--:--:--</span></div>
             </div>
 
-            <!-- CPU -->
-            <div class="gauge-container gauge--cpu">
-              <div class="gauge-label">CPU</div>
-              <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
-                <path class="gauge-bar" id="cpu-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
-                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="cpu-text">CPU. 0%</text>
-              </svg>
-              <div class="gauge-extra-scroll"><span class="gauge-extra" id="cpu-extra"></span></div>
+            <!-- B -->
+            <div class="card card-b">
+              <div class="card-title">Ping</div>
+              <div class="card-value-wrapper"><span class="card-value" id="ping-value">-- ms</span></div>
             </div>
 
-            <!-- Disk -->
-            <div class="gauge-container gauge--disk">
-              <div class="gauge-label">Disk</div>
-              <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
-                <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
-                <path class="gauge-bar" id="disk-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
-                <text x="60" y="55" text-anchor="middle" class="gauge-text" id="disk-text">Disk 0%</text>
-              </svg>
-              <div class="gauge-extra-scroll"><span class="gauge-extra" id="disk-extra"></span></div>
-            </div>
-          </div>
-
-          <!-- Compact legend for overlapping colors -->
-          <div class="gauge-legend">
-            <span class="dot dot--mem"></span><span id="mem-legend">--%</span>
-            <span class="dot dot--cpu"></span><span id="cpu-legend">--%</span>
-            <span class="dot dot--disk"></span><span id="disk-legend">--%</span>
-          </div>
-        </div>
-
-        <!-- E - admin-only -->
-        <div class="card card-e admin-only">
-          <div class="card-title">Bot Actions</div>
-          <div class="actions-row actions-bot" id="bot-actions">
-            <!-- Buttons are NOT admin-only; JS toggles them by bot state -->
-            <button id="restart-bot" class="btn btn-restart">Restart</button>
-            <button id="stop-bot" class="btn btn-stop">Stop</button>
-            <button id="start-bot" class="btn btn-restart">Start</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- LOGS -->
-    <section id="log" class="page-section admin-only"></section>
-
-    <!-- OWNERSHIP -->
-    <section id="ownership" class="page-section">
-      <div class="ownership-card">
-        <div class="ownership-header">
-          <div class="ownership-title">Team Ownership</div>
-          <div class="ownership-actions">
-            <button id="sort-country" class="btn btn-outline sm">Country A-Z</button>
-            <button id="sort-player" class="btn btn-outline sm">Player A-Z</button>
-          </div>
-        </div>
-        <div class="ownership-table-scroll">
-          <table class="ownership-table" id="ownership-table">
-            <thead>
-              <tr>
-                <th>Team</th>
-                <th>Owner</th>
-                <th>Split with</th>
-                <th class="admin-col" data-admin="true">Action</th>
-              </tr>
-            </thead>
-            <tbody id="ownership-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- WORLD MAP -->
-    <section id="worldmap" class="page-section">
-      <div class="map-card">
-        <div class="map-head">
-          <div class="map-title">World Map</div>
-
-          <div class="map-actions">
-            <!-- Group selector is populated by JS if /api/team_meta exists -->
-            <label for="map-group" class="map-group-label">Group</label>
-            <select id="map-group" class="map-group">
-              <option value="ALL" selected>All</option>
-              <!-- JS will append Group A, Group B, etc -->
-            </select>
-
-            <button id="worldmap-refresh" class="btn sm">Refresh map</button>
-          </div>
-        </div>
-
-        <div class="map-body">
-          <div id="map-wrap">
-            <!-- The SVG map will be inlined here -->
-            <div id="map-svg-host" aria-label="Interactive world map" role="img"></div>
-
-            <div id="map-legend" class="map-legend">
-              <div><span class="key box owned"></span> Owned</div>
-              <div><span class="key box split"></span> Split</div>
-              <div><span class="key box free"></span> Unassigned</div>
-              <div><span class="key box nq"></span> Not Qualified</div>
+            <!-- C -->
+            <div class="card card-c">
+              <div class="card-title">Bot Process</div>
+              <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
             </div>
 
-            <!-- Hover tooltip -->
-            <div id="map-tip" class="hover-tip"></div>
+            <!-- D - admin-only -->
+            <div class="card card-d admin-only">
+              <div class="card-title">System Usage</div>
 
-            <div id="map-country-info" class="map-info hidden">
-              <h3 id="map-info-title">
-                <span id="map-info-flag" class="flag"></span>
-                <span id="map-info-name">Country</span>
-              </h3>
-              <p id="map-info-group">Group: —</p>
-              <p id="map-info-owners">Owners: —</p>
-              <p id="map-info-status">Status: —</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-
-        <!-- ===== Reassign Modal ===== -->
-        <div id="reassign-backdrop" style="display: none;">
-          <div id="reassign-modal">
-            <div class="modal-head">
-              <h3>Reassign Team</h3>
-              <button id="reassign-close" title="Close">×</button>
-            </div>
-
-            <div class="modal-body">
-              <label for="reassign-team">Team</label>
-              <input id="reassign-team" type="text" readonly>
-
-                <label>Pick known player</label>
-                <div class="select-dark" id="verified-select">
-                  <button type="button" id="reassign-picker" aria-haspopup="listbox" aria-expanded="false">
-                    -- Select a player --
-                  </button>
-                  <ul id="reassign-options" role="listbox" tabindex="-1" hidden></ul>
+              <!-- Overlapping gauges stack -->
+              <div class="gauges-flex gauges-overlap">
+                <!-- Memory -->
+                <div class="gauge-container gauge--mem">
+                  <div class="gauge-label">Memory</div>
+                  <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+                    <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
+                    <path class="gauge-bar" id="mem-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-text" id="mem-text">Mem. 0%</text>
+                  </svg>
+                  <div class="gauge-extra-scroll"><span class="gauge-extra" id="mem-extra"></span></div>
                 </div>
 
+                <!-- CPU -->
+                <div class="gauge-container gauge--cpu">
+                  <div class="gauge-label">CPU</div>
+                  <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+                    <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
+                    <path class="gauge-bar" id="cpu-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-text" id="cpu-text">CPU. 0%</text>
+                  </svg>
+                  <div class="gauge-extra-scroll"><span class="gauge-extra" id="cpu-extra"></span></div>
+                </div>
 
-              <label for="reassign-id">Or enter Discord ID</label>
-              <input
-                id="reassign-id"
-                type="text"
-                placeholder="123456789012345678"
-                maxlength="20"
-              >
-              <p class="hint">You can either pick a verified user above or manually enter a Discord ID.</p>
+                <!-- Disk -->
+                <div class="gauge-container gauge--disk">
+                  <div class="gauge-label">Disk</div>
+                  <svg class="gauge-svg" width="120" height="70" viewBox="0 0 120 70">
+                    <path class="gauge-bg" d="M15,65 A50,50 0 0 1 105,65"></path>
+                    <path class="gauge-bar" id="disk-bar" d="M15,65 A50,50 0 0 1 105,65" stroke-dasharray="0,125.66"></path>
+                    <text x="60" y="55" text-anchor="middle" class="gauge-text" id="disk-text">Disk 0%</text>
+                  </svg>
+                  <div class="gauge-extra-scroll"><span class="gauge-extra" id="disk-extra"></span></div>
+                </div>
+              </div>
+
+              <!-- Compact legend for overlapping colors -->
+              <div class="gauge-legend">
+                <span class="dot dot--mem"></span><span id="mem-legend">--%</span>
+                <span class="dot dot--cpu"></span><span id="cpu-legend">--%</span>
+                <span class="dot dot--disk"></span><span id="disk-legend">--%</span>
+              </div>
             </div>
 
-            <div class="modal-foot">
-              <button id="reassign-cancel">Cancel</button>
-              <button id="reassign-submit">Reassign</button>
+            <!-- E - admin-only -->
+            <div class="card card-e admin-only">
+              <div class="card-title">Bot Actions</div>
+              <div class="actions-row actions-bot" id="bot-actions">
+                <!-- Buttons are NOT admin-only; JS toggles them by bot state -->
+                <button id="restart-bot" class="btn btn-restart">Restart</button>
+                <button id="stop-bot" class="btn btn-stop">Stop</button>
+                <button id="start-bot" class="btn btn-restart">Start</button>
+              </div>
             </div>
           </div>
+        </section>
+
+        <!-- LOGS -->
+        <section id="log" class="page-section admin-only"></section>
+
+        <!-- OWNERSHIP -->
+        <section id="ownership" class="page-section">
+          <div class="ownership-card">
+            <div class="ownership-header">
+              <div class="ownership-title">Team Ownership</div>
+              <div class="ownership-actions">
+                <button id="sort-country" class="btn btn-outline sm">Country A-Z</button>
+                <button id="sort-player" class="btn btn-outline sm">Player A-Z</button>
+              </div>
+            </div>
+            <div class="ownership-table-scroll">
+              <table class="ownership-table" id="ownership-table">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Owner</th>
+                    <th>Split with</th>
+                    <th class="admin-col" data-admin="true">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="ownership-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- WORLD MAP -->
+        <section id="worldmap" class="page-section">
+          <div class="map-card">
+            <div class="map-head">
+              <div class="map-title">World Map</div>
+
+              <div class="map-actions">
+                <!-- Group selector is populated by JS if /api/team_meta exists -->
+                <label for="map-group" class="map-group-label">Group</label>
+                <select id="map-group" class="map-group">
+                  <option value="ALL" selected>All</option>
+                  <!-- JS will append Group A, Group B, etc -->
+                </select>
+
+                <button id="worldmap-refresh" class="btn sm">Refresh map</button>
+              </div>
+            </div>
+
+            <div class="map-body">
+              <div id="map-wrap">
+                <!-- The SVG map will be inlined here -->
+                <div id="map-svg-host" aria-label="Interactive world map" role="img"></div>
+
+                <div id="map-legend" class="map-legend">
+                  <div><span class="key box owned"></span> Owned</div>
+                  <div><span class="key box split"></span> Split</div>
+                  <div><span class="key box free"></span> Unassigned</div>
+                  <div><span class="key box nq"></span> Not Qualified</div>
+                </div>
+
+                <!-- Hover tooltip -->
+                <div id="map-tip" class="hover-tip"></div>
+
+                <div id="map-country-info" class="map-info hidden">
+                  <h3 id="map-info-title">
+                    <span id="map-info-flag" class="flag"></span>
+                    <span id="map-info-name">Country</span>
+                  </h3>
+                  <p id="map-info-group">Group: —</p>
+                  <p id="map-info-owners">Owners: —</p>
+                  <p id="map-info-status">Status: —</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="user" class="page-section">
+          <div class="table-wrap">
+            <div class="table-head">
+              <div class="table-title">Your World Cup</div>
+              <div class="table-actions">
+                <button id="btn-discord-login" class="btn">Connect Discord</button>
+                <button id="btn-discord-logout" class="btn btn-stop" style="display:none">Sign out</button>
+              </div>
+            </div>
+            <div class="table-scroll" id="user-body" style="padding:12px"></div>
+          </div>
+        </section>
+
+
+            <!-- ===== Reassign Modal ===== -->
+            <div id="reassign-backdrop" style="display: none;">
+              <div id="reassign-modal">
+                <div class="modal-head">
+                  <h3>Reassign Team</h3>
+                  <button id="reassign-close" title="Close">×</button>
+                </div>
+
+                <div class="modal-body">
+                  <label for="reassign-team">Team</label>
+                  <input id="reassign-team" type="text" readonly>
+
+                    <label>Pick known player</label>
+                    <div class="select-dark" id="verified-select">
+                      <button type="button" id="reassign-picker" aria-haspopup="listbox" aria-expanded="false">
+                        -- Select a player --
+                      </button>
+                      <ul id="reassign-options" role="listbox" tabindex="-1" hidden></ul>
+                    </div>
+
+
+                  <label for="reassign-id">Or enter Discord ID</label>
+                  <input
+                    id="reassign-id"
+                    type="text"
+                    placeholder="123456789012345678"
+                    maxlength="20"
+                  >
+                  <p class="hint">You can either pick a verified user above or manually enter a Discord ID.</p>
+                </div>
+
+                <div class="modal-foot">
+                  <button id="reassign-cancel">Cancel</button>
+                  <button id="reassign-submit">Reassign</button>
+                </div>
+              </div>
+            </div>
+
+
+
+
+        <!-- COGS -->
+        <section id="cogs" class="page-section admin-only"></section>
+
+        <!-- SPLITS -->
+        <section id="splits" class="page-section admin-only"></section>
+
+        <!-- BETS -->
+        <section id="bets" class="page-section"></section>
+
+        <!-- BACKUPS -->
+        <section id="backups" class="page-section admin-only"></section>
+      </main>
+
+      <!-- Floating Action Button (login/settings) -->
+      <button id="fab-auth" class="fab" title="Login">
+        <span id="fab-icon" aria-hidden="true">🔑</span>
+      </button>
+
+      <!-- Modal -->
+      <div id="auth-backdrop" class="modal-backdrop">
+        <div class="modal">
+          <h3 id="modal-title">Admin login</h3>
+          <div id="modal-body">
+            <label for="admin-password">Password</label>
+            <input type="password" id="admin-password" placeholder="Enter admin password">
+          </div>
+          <div class="modal-actions">
+            <button id="auth-cancel" class="btn btn-outline">Cancel</button>
+            <button id="auth-submit" class="btn btn-restart">Unlock</button>
+          </div>
         </div>
-
-    </section>
-
-
-
-    <!-- COGS -->
-    <section id="cogs" class="page-section admin-only"></section>
-
-    <!-- SPLITS -->
-    <section id="splits" class="page-section admin-only"></section>
-
-    <!-- BETS -->
-    <section id="bets" class="page-section"></section>
-
-    <!-- BACKUPS -->
-    <section id="backups" class="page-section admin-only"></section>
-  </main>
-
-  <!-- Floating Action Button (login/settings) -->
-  <button id="fab-auth" class="fab" title="Login">
-    <span id="fab-icon" aria-hidden="true">🔑</span>
-  </button>
-
-  <!-- Modal -->
-  <div id="auth-backdrop" class="modal-backdrop">
-    <div class="modal">
-      <h3 id="modal-title">Admin login</h3>
-      <div id="modal-body">
-        <label for="admin-password">Password</label>
-        <input type="password" id="admin-password" placeholder="Enter admin password">
       </div>
-      <div class="modal-actions">
-        <button id="auth-cancel" class="btn btn-outline">Cancel</button>
-        <button id="auth-submit" class="btn btn-restart">Unlock</button>
-      </div>
-    </div>
-  </div>
 
-  <div class="notify-bar" id="notify"></div>
+      <div class="notify-bar" id="notify"></div>
 
-  <footer><small>World Cup 2026 Dashboard</small></footer>
+      <footer><small>World Cup 2026 Dashboard</small></footer>
 
-  <script src="app.js"></script>
-</body>
+      <script src="app.js"></script>
+      <script src="user.js"></script>
+
+    </body>
 </html>

@@ -1,8 +1,25 @@
-from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file
+from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for
 import os, time, json, shutil, zipfile, datetime, glob
 import psutil
+import secrets
+import urllib.parse
+import requests
 
-# ---------- Helpers ----------
+# ======================
+# Core helpers
+# ======================
+
+
+def _load_config(base_dir):
+    cfg_path = os.path.join(base_dir, "config.json")
+    try:
+        if os.path.isfile(cfg_path):
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                return json.load(f) or {}
+    except Exception:
+        pass
+    return {}
+
 def _json_load(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -31,15 +48,15 @@ def _enqueue_command(base_dir, cmd: dict):
     with open(_cmd_queue_path(base_dir), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd) + "\n")
 
-def _bets_path(base_dir):       return os.path.join(_json_dir(base_dir), "bets.json")
-def _ownership_path(base_dir):  return os.path.join(_json_dir(base_dir), "ownership.json")
-def _verified_path(base_dir):   return os.path.join(_json_dir(base_dir), "verified.json")
-def _guilds_path(base_dir):     return os.path.join(_json_dir(base_dir), "guilds.json")
+def _bets_path(base_dir):        return os.path.join(_json_dir(base_dir), "bets.json")
+def _ownership_path(base_dir):   return os.path.join(_json_dir(base_dir), "ownership.json")
+def _verified_path(base_dir):    return os.path.join(_json_dir(base_dir), "verified.json")
+def _guilds_path(base_dir):      return os.path.join(_json_dir(base_dir), "guilds.json")
 def _split_requests_path(base_dir): return os.path.join(_json_dir(base_dir), "split_requests.json")
-def _players_path(base_dir):    return os.path.join(_json_dir(base_dir), "players.json")
-def _teams_path(base_dir):      return os.path.join(_json_dir(base_dir), "teams.json")
-def _team_iso_path(base_dir):   return os.path.join(_json_dir(base_dir), "team_iso.json")
-
+def _players_path(base_dir):     return os.path.join(_json_dir(base_dir), "players.json")
+def _teams_path(base_dir):       return os.path.join(_json_dir(base_dir), "teams.json")
+def _team_iso_path(base_dir):    return os.path.join(_json_dir(base_dir), "team_iso.json")
+def _matches_path(base_dir):     return os.path.join(_json_dir(base_dir), "matches.json")  # optional
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
     out = []
@@ -100,10 +117,35 @@ def _tail_file(path, max_lines=500):
             f.seek(0)
             return f.read().decode("utf-8", "ignore").splitlines()[-max_lines:]
 
+# ======================
+# Discord OAuth helpers
+# ======================
+
+def _discord_oauth_urls():
+    return {
+        "authorize": "https://discord.com/api/oauth2/authorize",
+        "token":     "https://discord.com/api/oauth2/token",
+        "me":        "https://discord.com/api/users/@me",
+        "cdn":       "https://cdn.discordapp.com"
+    }
+
+def _discord_client_info(ctx):
+    base = ctx.get("BASE_DIR", "")
+    cfg = _load_config(base)
+    return (
+        str(cfg.get("DISCORD_CLIENT_ID") or ""),
+        str(cfg.get("DISCORD_CLIENT_SECRET") or ""),
+        str(cfg.get("DISCORD_REDIRECT_URI") or ""),
+    )
+
+def _session_key():
+    return "wc_user"
+
 # ---------- Blueprints ----------
 def create_public_routes(ctx):
     root = Blueprint("root_public", __name__)
     api  = Blueprint("public_api", __name__, url_prefix="/api")
+    auth = Blueprint("auth", __name__, url_prefix="/auth/discord")
 
     # ---------- Root ----------
     @root.route("/", methods=["GET"])
@@ -714,4 +756,173 @@ def create_public_routes(ctx):
             return jsonify({"ok": False, "error": str(e)}), 500
         return jsonify({"ok": True, "restored": name})
 
-    return [root, api]
+    # =====================
+    # Discord OAuth routes
+    # =====================
+
+    @auth.get("/login")
+    def discord_login():
+        client_id, _, redirect_uri = _discord_client_info(ctx)
+        if not (client_id and redirect_uri):
+            return jsonify({"ok": False, "error": "Discord OAuth not configured in config.json"}), 500
+
+        state = secrets.token_urlsafe(20)
+        session["oauth_state"] = state
+
+        params = {
+            "response_type": "code",
+            "client_id": client_id,
+            "scope": "identify",
+            "state": state,
+            "redirect_uri": redirect_uri,
+            "prompt": "consent"
+        }
+        url = _discord_oauth_urls()["authorize"] + "?" + urllib.parse.urlencode(params)
+        return redirect(url, code=302)
+
+    @auth.get("/callback")
+    def discord_callback():
+        code = request.args.get("code","")
+        state = request.args.get("state","")
+        if not code or state != session.get("oauth_state"):
+            return jsonify({"ok": False, "error": "Invalid state or code"}), 400
+
+        client_id, client_secret, redirect_uri = _discord_client_info(ctx)
+        if not (client_id and client_secret and redirect_uri):
+            return jsonify({"ok": False, "error": "Discord OAuth not configured"}), 500
+
+        data = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        try:
+            tok = requests.post(_discord_oauth_urls()["token"], data=data, headers=headers, timeout=10)
+            tok.raise_for_status()
+            tok_json = tok.json()
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"token_exchange_failed: {e}"}), 500
+
+        access_token = tok_json.get("access_token")
+        if not access_token:
+            return jsonify({"ok": False, "error": "no_access_token"}), 500
+
+        try:
+            me = requests.get(
+                _discord_oauth_urls()["me"],
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=10
+            )
+            me.raise_for_status()
+            info = me.json() or {}
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"userinfo_failed: {e}"}), 500
+
+        avatar = None
+        if info.get("id") and info.get("avatar"):
+            avatar = f'{_discord_oauth_urls()["cdn"]}/avatars/{info["id"]}/{info["avatar"]}.png?size=128'
+
+        session[_session_key()] = {
+            "discord_id": str(info.get("id") or ""),
+            "username": f'{info.get("username","")}#{info.get("discriminator","")}',
+            "global_name": info.get("global_name") or info.get("username"),
+            "avatar": avatar,
+            "ts": int(time.time())
+        }
+        return redirect(url_for("root_public.index"))
+
+    @auth.post("/logout")
+    def discord_logout():
+        session.pop(_session_key(), None)
+        return jsonify({"ok": True})
+
+    # ==========================
+    # User-facing APIs (session)
+    # ==========================
+
+    @api.get("/me")
+    def me_get():
+        user = session.get(_session_key())
+        return jsonify({"ok": True, "user": user})
+
+    @api.get("/me/ownership")
+    def me_ownership():
+        base = ctx.get("BASE_DIR","")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": True, "owned": [], "split": []})
+
+        players = _json_load(_players_path(base), {})
+        teams_iso = _json_load(_team_iso_path(base), {})
+        uid = str(user["discord_id"])
+
+        owned, split = [], []
+        pdata = players.get(uid) if isinstance(players, dict) else None
+        if isinstance(pdata, dict):
+            for entry in (pdata.get("teams") or []):
+                if not isinstance(entry, dict): continue
+                team = entry.get("team")
+                own = entry.get("ownership") or {}
+                if not team: continue
+                if str(own.get("main_owner")) == uid:
+                    owned.append(team)
+                elif uid in [str(x) for x in (own.get("split_with") or [])]:
+                    split.append(team)
+
+        def flag(team):
+            code = None
+            if isinstance(teams_iso, dict):
+                code = teams_iso.get(team)
+            return f"https://flagcdn.com/w80/{(code or '').lower()}.png" if code else None
+
+        return jsonify({
+            "ok": True,
+            "owned": [{"team": t, "flag": flag(t)} for t in owned],
+            "split": [{"team": t, "flag": flag(t)} for t in split]
+        })
+
+    @api.get("/me/matches")
+    def me_matches():
+        base = ctx.get("BASE_DIR","")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": True, "matches": []})
+
+        uid = str(user["discord_id"])
+        players = _json_load(_players_path(base), {})
+        owned_set = set()
+        pdata = players.get(uid) if isinstance(players, dict) else None
+        if isinstance(pdata, dict):
+            for entry in (pdata.get("teams") or []):
+                if not isinstance(entry, dict): continue
+                team = entry.get("team"); own = entry.get("ownership") or {}
+                if not team: continue
+                if str(own.get("main_owner")) == uid or uid in [str(x) for x in (own.get("split_with") or [])]:
+                    owned_set.add(team)
+
+        all_matches = _json_load(_matches_path(base), [])
+        out = []
+        now = time.time()
+        for m in all_matches if isinstance(all_matches, list) else []:
+            try:
+                when = m.get("utc") or m.get("time") or ""
+                dt = datetime.datetime.fromisoformat(when.replace("Z","+00:00"))
+                ts = dt.timestamp()
+            except Exception:
+                ts = None
+            team_hit = (m.get("home") in owned_set) or (m.get("away") in owned_set)
+            if ts and ts >= now and team_hit:
+                out.append({
+                    "utc": m.get("utc") or m.get("time"),
+                    "home": m.get("home"),
+                    "away": m.get("away"),
+                    "stadium": m.get("stadium",""),
+                    "ts": int(ts)
+                })
+        out.sort(key=lambda x: x["ts"])
+        return jsonify({"ok": True, "matches": out})
+
+    return [root, api, auth]
