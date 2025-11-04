@@ -139,7 +139,7 @@
       </div>
     `;
     renderTeamsProgressMerged(owned || [], split || []);
-    }
+
   }
 
   async function refreshUser(){
