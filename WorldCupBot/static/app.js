@@ -22,6 +22,17 @@
   const $btnSubmit = qs('#auth-submit');
   const $themeToggle = qs('#theme-toggle');
   const $themeIcon = qs('#theme-icon');
+  const STAGE_OPTIONS = [
+  "Eliminated","Group","R16","QF","SF","F","Second Place","Winner"
+];
+
+function stagePill(stage){
+  const s = stage || 'Group';
+  const cls = (s === 'Winner') ? 'pill-ok'
+            : (s === 'Eliminated') ? 'pill-off'
+            : 'pill';
+  return `<span class="${cls}">${s}</span>`;
+}
 
   function notify(msg, ok=true){
     const div = document.createElement('div');
@@ -632,53 +643,64 @@ function flagHTML(country) {
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
 var playerNames = {}; // id -> username
 
-function renderOwnershipTable(list) {
-  var tbody = document.querySelector('#ownership-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
+    function renderOwnershipTable(list) {
+      const tbody = document.querySelector('#ownership-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
 
-  list.forEach(function (row) {
-    var tr = document.createElement('tr');
-    if (!row.main_owner) tr.classList.add('row-unassigned');
-    else tr.classList.add('row-assigned');
+      list.forEach(function (row) {
+        const tr = document.createElement('tr');
+        tr.className = row.main_owner ? 'row-assigned' : 'row-unassigned';
 
-    // Prefer username; only show numeric ID when logged in as admin
-    var label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
-    var idVal = row.main_owner ? row.main_owner.id : '';
-    var showId = !!(window.adminUnlocked && idVal && label !== idVal);
+        // Owner cell
+        const idVal = row.main_owner ? row.main_owner.id : '';
+        const label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
+        const showId = !!(window.adminUnlocked && idVal && label !== idVal);
+        const ownerCell = row.main_owner
+          ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? ' <span class="muted">(' + idVal + ')</span>' : ''}`
+          : 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
 
-    var ownerCell = '';
-    if (row.main_owner) {
-      ownerCell =
-        '<span class="owner-name" title="' + idVal + '">' + label + '</span>' +
-        (showId ? ' <span class="muted">(' + idVal + ')</span>' : '');
-    } else {
-      ownerCell = 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
+        // Split cell
+        const splitStr = (row.split_with && row.split_with.length)
+          ? row.split_with.map(s => s.username || s.id).join(', ')
+          : '—';
+
+        // Stage cell
+        const current = (ownershipState.stages && ownershipState.stages[row.country]) || 'Group';
+        let stageCell = '';
+        if (state.admin) {
+          // editable select for admins
+          const opts = STAGE_OPTIONS.map(v =>
+            `<option value="${v}" ${v===current?'selected':''}>${v}</option>`
+          ).join('');
+          stageCell = `
+            <select class="stage-select" data-team="${row.country}">
+              ${opts}
+            </select>
+          `;
+        } else {
+          // read-only pill for public
+          stageCell = stagePill(current);
+        }
+
+        tr.innerHTML = `
+          <td>${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
+          <td>${ownerCell}</td>
+          <td>${splitStr}</td>
+          <td>${stageCell}</td>
+          <td class="admin-col" data-admin="true">
+            <button class="btn btn-outline xs reassign-btn" data-team="${row.country}">Reassign</button>
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      // If not admin, hide the Action column gracefully
+      document.querySelectorAll('.admin-col').forEach(el => {
+        el.style.display = state.admin ? '' : 'none';
+      });
     }
-
-    var splitStr = '—';
-    if (row.split_with && row.split_with.length) {
-      splitStr = row.split_with.map(function (s) {
-        return s.username || s.id;
-      }).join(', ');
-    }
-
-    tr.innerHTML = `
-       <td>
-         ${flagHTML(row.country)}
-         <span class="country-name">${row.country}</span>
-       </td>
-      <td>${ownerCell}</td>
-      <td>${splitStr}</td>
-      <td class="admin-col" data-admin="true">
-        <button class="btn btn-outline xs reassign-btn" data-team="${row.country}">Reassign</button>
-      </td>
-    `;
-
-
-    tbody.appendChild(tr);
-  });
-}
 
 function sortMerged(by) {
   ownershipState.lastSort = by;
@@ -804,7 +826,25 @@ async function initOwnership() {
     // 4) Ensure flag map is loaded BEFORE rendering
     await ensureTeamIsoLoaded();
 
-    // 5) Render
+    // 5) Load current stages map
+    let stages = {};
+    try {
+      // admin route returns { ok, stages: { Team: Stage } }
+      if (state.admin) {
+        const r = await fetch('/admin/teams/stage', { credentials: 'include' });
+        if (r.ok) {
+          const j = await r.json();
+          stages = (j && j.stages) || {};
+        }
+      } else {
+        // public route returns { Team: Stage }
+        const r = await fetch('/team_stage', { credentials: 'include' });
+        if (r.ok) stages = await r.json();
+      }
+    } catch { stages = {}; }
+    ownershipState.stages = stages || {};
+
+    // 6) Render
     ownershipState.merged = list;
     ownershipState.loaded = true;
     sortMerged(ownershipState.lastSort || 'country');
@@ -832,6 +872,47 @@ document.addEventListener('click', function (e) {
   document.getElementById('reassign-select').value = '';
   document.getElementById('reassign-id').value = '';
   document.getElementById('reassign-backdrop').style.display = 'flex';
+});
+
+document.addEventListener('change', async (e) => {
+  const sel = e.target.closest && e.target.closest('.stage-select');
+  if (!sel) return;                     // not a stage dropdown
+  if (!state.admin) {                   // only admins can save
+    notify('Admin required', false);
+    return;
+  }
+
+  const team  = sel.getAttribute('data-team') || '';
+  const stage = sel.value || 'Group';
+  if (!team) return;
+
+  try {
+    const r = await fetch('/admin/teams/stage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ team, stage })
+    });
+    const j = await r.json().catch(() => ({}));
+
+    if (!r.ok || j.ok === false)
+      throw new Error(j.error || 'save failed');
+
+    // ✅ Update local cache and notify success
+    ownershipState.stages = ownershipState.stages || {};
+    ownershipState.stages[team] = stage;
+    notify(`Stage updated: ${team} → ${stage}`, true);
+
+    // Optional visual confirmation flash
+    sel.style.borderColor = '#22c55e';
+    setTimeout(() => (sel.style.borderColor = ''), 800);
+
+  } catch (err) {
+    // ❌ Notify and revert if failed
+    notify(`Failed to update stage: ${err.message || err}`, false);
+    const prev = (ownershipState.stages && ownershipState.stages[team]) || 'Group';
+    sel.value = prev;
+  }
 });
 
     // ===== Reassign flow (custom dropdown version - no native <select>) =====

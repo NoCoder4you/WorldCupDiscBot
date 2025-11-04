@@ -2226,4 +2226,17 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   border-radius: 2px;
 }
 
-
+/* Stage select in Ownership table */
+.stage-select {
+  background: rgba(255,255,255,.06);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font: inherit;
+}
+.stage-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,184,255,.15);
+}

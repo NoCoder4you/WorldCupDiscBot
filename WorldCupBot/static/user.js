@@ -7,12 +7,12 @@
   const $body = qs('#user-body');
   const STAGE_PROGRESS = {
   "Eliminated": 0,
-  "Group": 15,
-  "R16": 35,
-  "QF": 55,
-  "SF": 70,
-  "F": 90,
-  "Second Place": 95,
+  "Group Stage": 15,
+  "Round of 32": 32,
+  "Round of 16": 50,
+  "Quarter Final": 66,
+  "Semi Final": 82,
+  "Final": 90,
   "Winner": 100
 };
 
