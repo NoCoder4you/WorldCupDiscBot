@@ -23,7 +23,14 @@
   const $themeToggle = qs('#theme-toggle');
   const $themeIcon = qs('#theme-icon');
   const STAGE_OPTIONS = [
-  "Eliminated","Group","R16","QF","SF","F","Second Place","Winner"
+  "Eliminated",
+  "Group Stage",
+  "Round of 32",
+  "Round of 16",
+  "Quarter Final",
+  "Semi Final",
+  "Final",
+  "Winner"
 ];
 
 function stagePill(stage){
