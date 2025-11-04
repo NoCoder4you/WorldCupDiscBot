@@ -37,26 +37,48 @@ def _ensure_dir(p):
     os.makedirs(p, exist_ok=True)
     return p
 
-def _backup_dir(base_dir):   return _ensure_dir(os.path.join(base_dir, "Backups"))
-def _json_dir(base_dir):     return _ensure_dir(os.path.join(base_dir, "JSON"))
-def _runtime_dir(base_dir):  return _ensure_dir(os.path.join(base_dir, "runtime"))
-def _cmd_queue_path(base_dir): return os.path.join(_runtime_dir(base_dir), "bot_commands.jsonl")
+def _backup_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "Backups"))
+def _json_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "JSON"))
+def _runtime_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "runtime"))
+def _cmd_queue_path(base_dir):
+    return os.path.join(_runtime_dir(base_dir), "bot_commands.jsonl")
 
 def _enqueue_command(base_dir, cmd: dict):
     cmd = dict(cmd); cmd["ts"] = int(time.time())
     with open(_cmd_queue_path(base_dir), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd) + "\\n")
 
-def _bets_path(base_dir):        return os.path.join(_json_dir(base_dir), "bets.json")
-def _ownership_path(base_dir):   return os.path.join(_json_dir(base_dir), "ownership.json")
-def _verified_path(base_dir):    return os.path.join(_json_dir(base_dir), "verified.json")
-def _guilds_path(base_dir):      return os.path.join(_json_dir(base_dir), "guilds.json")
-def _split_requests_path(base_dir): return os.path.join(_json_dir(base_dir), "split_requests.json")
-def _players_path(base_dir):     return os.path.join(_json_dir(base_dir), "players.json")
-def _teams_path(base_dir):       return os.path.join(_json_dir(base_dir), "teams.json")
-def _team_iso_path(base_dir):    return os.path.join(_json_dir(base_dir), "team_iso.json")
-def _matches_path(base_dir):     return os.path.join(_json_dir(base_dir), "matches.json")  # optional
-def _tos_path(base_dir):         return os.path.join(_json_dir(base_dir), "terms_accept.json")
+def _bets_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "bets.json")
+def _ownership_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "ownership.json")
+def _verified_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "verified.json")
+def _guilds_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "guilds.json")
+def _split_requests_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "split_requests.json")
+def _players_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "players.json")
+def _teams_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "teams.json")
+def _team_iso_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "team_iso.json")
+def _matches_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "matches.json")  # optional
+def _tos_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "terms_accept.json")
+def _team_stage_path(ctx):
+    return os.path.join(_json_dir(ctx), "team_stage.json")
+
+def _json_read(path, default):
+    try:
+        if not os.path.isfile(path):
+            return default
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
@@ -280,6 +302,11 @@ def create_public_routes(ctx):
         data = _json_load(_guilds_path(ctx.get("BASE_DIR","")), {"guild_count": 0, "guilds": []})
         return jsonify(data)
 
+    @api.get("/team_stage")
+    def api_team_stage():
+        data = _json_read(_team_stage_path(ctx), {})
+        return jsonify(data if isinstance(data, dict) else {})
+
     # ---------- Bot controls ----------
     @api.post("/bot/start")
     def bot_start():
@@ -389,22 +416,6 @@ def create_public_routes(ctx):
     @api.get("/ownership_merged")
     def ownership_merged():
         base = ctx.get("BASE_DIR", "")
-
-        def _json_load(path, default):
-            try:
-                import json, os
-                if not os.path.isfile(path):
-                    return default
-                with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                return default
-
-        import os
-
-        def _players_path(base_dir):
-            return os.path.join(base_dir, "JSON", "players.json")
-
         try:
             teams_raw = _json_load(_teams_path(base), [])
             if isinstance(teams_raw, dict):
@@ -485,18 +496,6 @@ def create_public_routes(ctx):
     @api.get("/ownership_from_players")
     def ownership_from_players():
         base = ctx.get("BASE_DIR", "")
-
-        def _json_load(path, default):
-            try:
-                import json, os
-                if not os.path.isfile(path): return default
-                with open(path, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                return default
-
-        def _players_path(base_dir):
-            return os.path.join(base_dir, "JSON", "players.json")
 
         players = _json_load(_players_path(base), {})
         id_to_name = {}

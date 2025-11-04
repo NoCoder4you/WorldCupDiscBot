@@ -2145,3 +2145,22 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 .map-info h3 { display: flex; align-items: center; gap: 8px; }
 .map-info .flag { font-size: 1.35rem; line-height: 1; }
+
+/* === SVG Progress Rings === */
+.user-team-row {
+  display: grid;
+  grid-template-columns: 1fr 56px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.user-team-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stage-ring { display:block; margin:0 auto; }
+.stage-ring text { font-weight:600; pointer-events:none; }

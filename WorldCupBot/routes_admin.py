@@ -4,6 +4,9 @@ from flask import Blueprint, jsonify, request, session, send_file
 # Public OAuth flow (in routes_public.py) stores the logged-in user bundle here
 USER_SESSION_KEY = "wc_user"   # e.g. {"discord_id": "...", "username": "...", ...}
 ADMIN_IDS_KEY    = "ADMIN_IDS" # list of Discord IDs allowed as admins
+STAGE_ALLOWED = {
+    "Eliminated", "Group", "R16", "QF", "SF", "F", "Second Place", "Winner"
+}
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -560,5 +563,37 @@ def create_admin_routes(ctx):
         if not (path and os.path.isfile(path)):
             return jsonify({"ok": False, "error": "not_found"}), 404
         return send_file(path, as_attachment=True, download_name=f"{kind}.log", mimetype="text/plain")
+
+    # === view/update stages ===
+    def _team_stage_path(ctx):
+        return os.path.join(_json_dir(ctx), "team_stage.json")
+
+    @bp.get("/teams/stage")
+    def admin_team_stage_get():
+        resp = require_admin()
+        if resp is not None: return resp
+        data = _read_json(_team_stage_path(ctx), {})
+        if not isinstance(data, dict): data = {}
+        return jsonify({"ok": True, "stages": data})
+
+    @bp.post("/teams/stage")
+    def admin_team_stage_set():
+        resp = require_admin()
+        if resp is not None: return resp
+        body = request.get_json(silent=True) or {}
+        team = (body.get("team") or "").strip()
+        stage = (body.get("stage") or "").strip()
+
+        if not team or not stage:
+            return jsonify({"ok": False, "error": "missing team or stage"}), 400
+        if stage not in STAGE_ALLOWED:
+            return jsonify({"ok": False, "error": "invalid stage"}), 400
+
+        path = _team_stage_path(ctx)
+        data = _read_json(path, {})
+        if not isinstance(data, dict): data = {}
+        data[team] = stage
+        _write_json_atomic(path, data)
+        return jsonify({"ok": True, "team": team, "stage": stage})
 
     return bp

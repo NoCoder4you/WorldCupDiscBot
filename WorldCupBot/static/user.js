@@ -5,6 +5,16 @@
   const $btnLogin = qs('#btn-discord-login');
   const $btnLogout = qs('#btn-discord-logout');
   const $body = qs('#user-body');
+  const STAGE_PROGRESS = {
+  "Eliminated": 0,
+  "Group": 15,
+  "R16": 35,
+  "QF": 55,
+  "SF": 70,
+  "F": 90,
+  "Second Place": 95,
+  "Winner": 100
+};
 
   async function jget(url){
     const r = await fetch(url, {credentials:'include'});
@@ -29,6 +39,48 @@
         <p>Connect your Discord account to see your teams and upcoming matches.</p>
       </div>`;
   }
+
+// === SVG progress ring ===
+    function makeStageRing(stage) {
+      const p = STAGE_PROGRESS[stage] ?? 0;
+      const r = 18;
+      const C = 2 * Math.PI * r;
+      const off = C * (1 - p / 100);
+      const color = p === 100 ? '#ffd700' : '#00aaff';
+      return `
+        <svg class="stage-ring" width="48" height="48" viewBox="0 0 48 48" aria-label="Stage ${stage}">
+          <circle cx="24" cy="24" r="${r}" stroke="#222" stroke-width="5" fill="none"></circle>
+          <circle cx="24" cy="24" r="${r}" stroke="${color}" stroke-width="5"
+            stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" fill="none"></circle>
+          <text x="24" y="28" text-anchor="middle" fill="#fff" font-size="9">${p}%</text>
+        </svg>
+      `;
+    }
+
+    // === Render stage progress rings ===
+    async function renderUserTeamsWithStages(ownedTeams) {
+      const stages = await jget('/team_stage');   // { "France": "Winner", ... }
+      const body = document.getElementById('user-body');
+      if (!body) return;
+
+      const stageData = stages || {};
+      body.innerHTML = `
+        <div class="card" style="height:auto">
+          <div class="card-title">Your Teams (Progress)</div>
+          ${ownedTeams.length
+            ? ownedTeams.map(team => {
+                const stage = stageData[team.team] || 'Group';
+                const ring = makeStageRing(stage);
+                const flag = team.flag ? `<img class="flag-img" src="${team.flag}" alt="">` : '';
+                return `
+                  <div class="user-team-row" title="${stage}">
+                    <span class="user-team-name">${flag}${team.team}</span>
+                    <span class="user-team-ring">${ring}</span>
+                  </div>`;
+              }).join('')
+            : '<p class="muted">No teams yet.</p>'}
+        </div>`;
+    }
 
 
   function teamChip(t){
@@ -75,7 +127,8 @@
                      : `<p class="muted">No upcoming matches found for your teams.</p>`}
       </div>
     `;
-  }
+    renderUserTeamsWithStages(owned || []);
+    renderUserTeamsWithStages(split || []);
 
   async function refreshUser(){
     try{
