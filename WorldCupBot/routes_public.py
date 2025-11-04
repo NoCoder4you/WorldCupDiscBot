@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for
+from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for, make_response
 import os, time, json, shutil, zipfile, datetime, glob
 import psutil
 import secrets
@@ -8,7 +8,6 @@ import requests
 # ======================
 # Core helpers
 # ======================
-
 
 def _load_config(base_dir):
     cfg_path = os.path.join(base_dir, "config.json")
@@ -46,7 +45,7 @@ def _cmd_queue_path(base_dir): return os.path.join(_runtime_dir(base_dir), "bot_
 def _enqueue_command(base_dir, cmd: dict):
     cmd = dict(cmd); cmd["ts"] = int(time.time())
     with open(_cmd_queue_path(base_dir), "a", encoding="utf-8") as f:
-        f.write(json.dumps(cmd) + "\n")
+        f.write(json.dumps(cmd) + "\\n")
 
 def _bets_path(base_dir):        return os.path.join(_json_dir(base_dir), "bets.json")
 def _ownership_path(base_dir):   return os.path.join(_json_dir(base_dir), "ownership.json")
@@ -57,6 +56,8 @@ def _players_path(base_dir):     return os.path.join(_json_dir(base_dir), "playe
 def _teams_path(base_dir):       return os.path.join(_json_dir(base_dir), "teams.json")
 def _team_iso_path(base_dir):    return os.path.join(_json_dir(base_dir), "team_iso.json")
 def _matches_path(base_dir):     return os.path.join(_json_dir(base_dir), "matches.json")  # optional
+def _tos_path(base_dir):         return os.path.join(_json_dir(base_dir), "terms_accept.json")
+
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
     out = []
@@ -163,6 +164,16 @@ def create_public_routes(ctx):
             path = os.path.join(static_folder, name)
             if os.path.exists(path): return send_from_directory(static_folder, name)
         abort(404)
+
+    # ---------- First-class Terms page ----------
+    @root.route("/terms", methods=["GET"])
+    def terms_page():
+        # Serve the dedicated static HTML file only (no inline HTML/JS/CSS here)
+        static_folder = current_app.static_folder or os.path.join(ctx.get("BASE_DIR", ""), "static")
+        terms_path = os.path.join(static_folder, "terms.html")
+        if os.path.exists(terms_path):
+            return send_from_directory(static_folder, "terms.html")
+        return jsonify({"ok": False, "error": "terms.html not found"}), 404
 
     # ---------- Dashboard ----------
     @api.get("/ping")
@@ -317,7 +328,7 @@ def create_public_routes(ctx):
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
 
-    # ---------- VERIFIED (normalize from {"verified_users":[...]}) ----------
+    # ---------- VERIFIED ----------
     @api.get("/verified")
     def api_verified():
         base = ctx.get("BASE_DIR", "")
@@ -329,14 +340,14 @@ def create_public_routes(ctx):
                 if not isinstance(v, dict): continue
                 user = {
                     "discord_id": str(v.get("discord_id") or v.get("id") or v.get("user_id") or ""),
-                    "username": v.get("username") or v.get("name") or "",   # may be empty in your schema
+                    "username": v.get("username") or v.get("name") or "",
                     "display_name": (v.get("display_name") or v.get("username") or ""),
                     "habbo_name": v.get("habbo_name") or ""
                 }
                 out.append(user)
         return jsonify(out)
 
-    # ---------- Bets (enriched with display_name using verified_users) ----------
+    # ---------- Bets (enriched with display_name) ----------
     @api.get("/bets")
     def api_bets():
         base = ctx.get("BASE_DIR", "")
@@ -344,7 +355,6 @@ def create_public_routes(ctx):
         verified_blob = _json_load(_verified_path(base), {})
         verified = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
 
-        # id -> display_name (or username if needed)
         id_to_disp = {}
         if isinstance(verified, list):
             for v in verified:
@@ -365,7 +375,7 @@ def create_public_routes(ctx):
         for b in seq or []:
             if not isinstance(b, dict):
                 continue
-            item = dict(b)  # do not mutate file
+            item = dict(b)
             o1 = resolve(item.get("option1_user_id"), item.get("option1_user_name"))
             o2 = resolve(item.get("option2_user_id"), item.get("option2_user_name"))
             item["option1_user_name"] = o1
@@ -388,22 +398,14 @@ def create_public_routes(ctx):
                 with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
-                # Malformed JSON -> return safe default instead of crashing
                 return default
 
         import os
 
-        def _json_dir(base_dir):
-            return os.path.join(base_dir, "JSON")
-
         def _players_path(base_dir):
-            return os.path.join(_json_dir(base_dir), "players.json")
-
-        def _teams_path(base_dir):
-            return os.path.join(_json_dir(base_dir), "teams.json")
+            return os.path.join(base_dir, "JSON", "players.json")
 
         try:
-            # 1) teams list (support list or {"teams":[...]})
             teams_raw = _json_load(_teams_path(base), [])
             if isinstance(teams_raw, dict):
                 teams = teams_raw.get("teams", [])
@@ -414,55 +416,43 @@ def create_public_routes(ctx):
             if not isinstance(teams, list):
                 teams = []
 
-            # 2) players -> id -> display name
             players = _json_load(_players_path(base), {})
             id_to_name = {}
             if isinstance(players, dict):
                 for uid, pdata in players.items():
                     nm = None
                     if isinstance(pdata, dict):
-                        nm = (
-                                pdata.get("display_name")
-                                or pdata.get("username")
-                                or pdata.get("name")
-                        )
+                        nm = (pdata.get("display_name") or pdata.get("username") or pdata.get("name"))
                     id_to_name[str(uid)] = str(nm or uid)
 
-            # 3) Build country -> ownership map safely
             country_map = {}
             if isinstance(players, dict):
                 for uid, pdata in players.items():
                     if not isinstance(pdata, dict):
                         continue
                     for entry in (pdata.get("teams") or []):
-                        if not isinstance(entry, dict):
-                            # legacy flat entry -> {"team": entry}
-                            team = str(entry)
-                            if not team:
+                        if isinstance(entry, dict):
+                            team = entry.get("team")
+                            if not team: 
                                 continue
-                            rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
-                            # nothing else we can infer here
-                            continue
-
-                        team = entry.get("team")
-                        if not team:
-                            continue
-                        own = entry.get("ownership") or {}
-                        main_owner = own.get("main_owner")
-                        split_with = own.get("split_with") or []
+                            own = entry.get("ownership") or {}
+                            main_owner = own.get("main_owner")
+                            split_with = own.get("split_with") or []
+                        else:
+                            team = str(entry)
+                            own = {}
+                            main_owner = None
+                            split_with = []
 
                         rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
-                        # Set/overwrite main owner if it's this uid or if empty
                         if main_owner is not None:
                             if rec["main_owner"] is None or str(main_owner) == str(uid):
                                 rec["main_owner"] = str(main_owner)
-                        # Append splits
                         for sid in split_with if isinstance(split_with, list) else [split_with]:
                             sid = str(sid).strip()
                             if sid and sid not in rec["split_with"]:
                                 rec["split_with"].append(sid)
 
-            # 4) Emit rows for all known teams; if teams list is empty, at least emit rows for whatever we saw in players
             team_names = set([str(t) for t in teams if t]) or set(country_map.keys())
             rows = []
             for team in sorted(team_names, key=lambda s: s.lower()):
@@ -483,7 +473,6 @@ def create_public_routes(ctx):
             return jsonify({"rows": rows, "count": len(rows)})
 
         except Exception as e:
-            # Return JSON instead of HTML error page, so the frontend prints a clear message
             import traceback
             current_app.logger.exception("ownership_merged failed")
             return jsonify({
@@ -497,7 +486,6 @@ def create_public_routes(ctx):
     def ownership_from_players():
         base = ctx.get("BASE_DIR", "")
 
-        # players.json -> { "<discord_id>": { "display_name": "...", "teams": [ { "team": "...", "ownership": { "main_owner": "...", "split_with": ["..."] } } ] } }
         def _json_load(path, default):
             try:
                 import json, os
@@ -507,15 +495,10 @@ def create_public_routes(ctx):
             except Exception:
                 return default
 
-        import os
-        def _json_dir(base_dir):
-            return os.path.join(base_dir, "JSON")
-
         def _players_path(base_dir):
-            return os.path.join(_json_dir(base_dir), "players.json")
+            return os.path.join(base_dir, "JSON", "players.json")
 
         players = _json_load(_players_path(base), {})
-        # id -> nice name
         id_to_name = {}
         if isinstance(players, dict):
             for uid, pdata in players.items():
@@ -525,7 +508,6 @@ def create_public_routes(ctx):
                     nm = str(uid)
                 id_to_name[str(uid)] = str(nm)
 
-        # build country -> owners
         country_map = {}
         if isinstance(players, dict):
             for uid, pdata in players.items():
@@ -548,7 +530,6 @@ def create_public_routes(ctx):
                         if sid and sid not in rec["split_with"]:
                             rec["split_with"].append(sid)
 
-        # normalize rows that the UI expects
         rows = []
         for team in sorted(country_map.keys(), key=lambda x: x.lower()):
             rec = country_map[team]
@@ -567,7 +548,6 @@ def create_public_routes(ctx):
     def ownerships_get():
         base = ctx.get("BASE_DIR", "")
 
-        # Build id -> display_name map from verified.json {"verified_users":[...]}
         verified_blob = _json_load(_verified_path(base), {})
         vlist = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
         id_to_display = {}
@@ -582,14 +562,12 @@ def create_public_routes(ctx):
         def resolve_name(x):
             if x is None:
                 return ""
-            # dict?
             if isinstance(x, dict):
                 did = str(x.get("discord_id") or x.get("id") or x.get("user_id") or "").strip()
                 disp = (x.get("display_name") or x.get("username") or x.get("name") or "").strip()
                 if did and id_to_display.get(did):
                     return id_to_display[did]
                 return disp or did
-            # string id?
             sx = str(x).strip()
             if sx.isdigit() and id_to_display.get(sx):
                 return id_to_display[sx]
@@ -601,7 +579,6 @@ def create_public_routes(ctx):
         if isinstance(raw, dict):
             for team, val in raw.items():
                 owners = []
-                # val can be list (owners) or dict with owners/splits
                 if isinstance(val, list):
                     owners = val
                     splits = []
@@ -615,8 +592,7 @@ def create_public_routes(ctx):
                     splits = []
 
                 owners_disp = [resolve_name(o) for o in owners if o is not None]
-                splits_disp = [resolve_name(s) for s in (splits or owners_disp[1:]) if
-                               s]  # if no explicit splits, treat extra owners as splits
+                splits_disp = [resolve_name(s) for s in (splits or owners_disp[1:]) if s]
 
                 owner_main = owners_disp[0] if owners_disp else ""
                 split_with = ", ".join([n for n in splits_disp if n and n != owner_main])
@@ -675,7 +651,7 @@ def create_public_routes(ctx):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # ---------- Minimal split endpoints exposed publicly (unchanged) ----------
+    # ---------- Minimal split endpoints exposed publicly ----------
     @api.get("/split_requests")
     def split_requests_get():
         base = ctx.get("BASE_DIR","")
@@ -693,7 +669,7 @@ def create_public_routes(ctx):
         _enqueue_command(base, {"kind": "split_force", "request_id": req_id, "action": action})
         return jsonify({"ok": True, "msg": "queued"})
 
-    # ---------- Cogs + Backups (unchanged) ----------
+    # ---------- Cogs + Backups ----------
     @api.get("/cogs")
     def cogs_list():
         base = ctx.get("BASE_DIR","")
@@ -827,7 +803,7 @@ def create_public_routes(ctx):
 
         session[_session_key()] = {
             "discord_id": str(info.get("id") or ""),
-            "username": f'{info.get("username","")}#{info.get("discriminator","")}',
+            "username": f'{info.get("username","")}#{info.get("discriminator","")}' if info.get("discriminator") else info.get("username",""),
             "global_name": info.get("global_name") or info.get("username"),
             "avatar": avatar,
             "ts": int(time.time())
@@ -847,6 +823,78 @@ def create_public_routes(ctx):
     def me_get():
         user = session.get(_session_key())
         return jsonify({"ok": True, "user": user})
+
+    # ------- T&Cs status + accept endpoints -------
+    def _in_players(base, uid: str) -> bool:
+        players = _json_load(_players_path(base), {})
+        if not isinstance(players, dict):
+            return False
+        return str(uid) in players
+
+    def _ensure_player(base, uid: str, display_name: str):
+        players_path = _players_path(base)
+        players = _json_load(players_path, {})
+        if not isinstance(players, dict):
+            players = {}
+        rec = players.get(uid)
+        if not isinstance(rec, dict):
+            players[uid] = {"display_name": display_name or uid, "teams": []}
+        else:
+            rec.setdefault("display_name", display_name or uid)
+            rec.setdefault("teams", [])
+        _json_save(players_path, players)
+
+    @api.get("/me/tos")
+    def me_tos_status():
+        base = ctx.get("BASE_DIR","")
+        cfg = _load_config(base)
+        version = str(cfg.get("TERMS_VERSION") or "2026.1")
+        # If no external URL is set, we default to our first-class /terms page
+        tos_url = cfg.get("TERMS_URL") or "/terms"
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"connected": False, "in_players": False, "accepted": False, "version": version, "url": tos_url})
+
+        uid = str(user["discord_id"])
+        accepted_map = _json_load(_tos_path(base), {})
+        accepted = False
+        if isinstance(accepted_map, dict):
+            rec = accepted_map.get(uid) or {}
+            accepted = (str(rec.get("version") or "") == version)
+
+        return jsonify({
+            "connected": True,
+            "in_players": _in_players(base, uid),
+            "accepted": bool(accepted),
+            "version": version,
+            "url": tos_url
+        })
+
+    @api.post("/me/tos/accept")
+    def me_tos_accept():
+        base = ctx.get("BASE_DIR","")
+        cfg = _load_config(base)
+        version = str(cfg.get("TERMS_VERSION") or "2026.1")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": False, "error": "not_authenticated"}), 401
+
+        uid = str(user["discord_id"])
+        disp = user.get("global_name") or user.get("username") or uid
+
+        # store acceptance
+        path = _tos_path(base)
+        data = _json_load(path, {})
+        if not isinstance(data, dict):
+            data = {}
+        data[uid] = {"version": version, "ts": int(time.time()), "display_name": disp}
+        _json_save(path, data)
+
+        # ensure a players.json entry exists so the user area can work
+        if not _in_players(base, uid):
+            _ensure_player(base, uid, disp)
+
+        return jsonify({"ok": True, "version": version})
 
     @api.get("/me/ownership")
     def me_ownership():
@@ -911,24 +959,19 @@ def create_public_routes(ctx):
 
         all_matches = _json_load(_matches_path(base), [])
         out = []
-        now = time.time()
         for m in all_matches if isinstance(all_matches, list) else []:
             try:
                 when = m.get("utc") or m.get("time") or ""
                 dt = datetime.datetime.fromisoformat(when.replace("Z","+00:00"))
                 ts = dt.timestamp()
             except Exception:
-                ts = None
-            team_hit = (m.get("home") in owned_set) or (m.get("away") in owned_set)
-            if ts and ts >= now and team_hit:
-                out.append({
-                    "utc": m.get("utc") or m.get("time"),
-                    "home": m.get("home"),
-                    "away": m.get("away"),
-                    "stadium": m.get("stadium",""),
-                    "ts": int(ts)
-                })
-        out.sort(key=lambda x: x["ts"])
+                ts = 0
+            if not ts: 
+                continue
+            if owned_set.intersection(set([m.get("home"), m.get("away")])):
+                out.append(m)
+
+        out.sort(key=lambda x: x.get("utc") or x.get("time") or "")
         return jsonify({"ok": True, "matches": out})
 
-    return [root, api, auth]
+    return root, api, auth

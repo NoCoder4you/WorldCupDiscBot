@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terms and Conditions - World Cup 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/terms.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <h1>Terms and Conditions <span id="ver" class="pill">v?</span></h1>
+      <p class="sub">Read carefully. You must agree before joining the game.</p>
+      <div class="content" id="content">
+        <h2>Fair Play</h2>
+        <ul>
+          <li>Follow Discord Community Guidelines and server rules.</li>
+          <li>No multi-accounting, collusion, or exploit attempts.</li>
+          <li>Admins may void actions that exploit bugs or loopholes.</li>
+        </ul>
+        <h2>Gameplay Data</h2>
+        <ul>
+          <li>We store your Discord ID and display name to operate features.</li>
+          <li>Bets, transfers, and ownership changes are logged for audits.</li>
+        </ul>
+        <h2>Disputes</h2>
+        <ul>
+          <li>Admin decisions are final for resolving disputes.</li>
+          <li>Material rule changes bump the terms version.</li>
+        </ul>
+      </div>
+
+      <label class="chk">
+        <input type="checkbox" id="chk-accept">
+        <span>I have read and agree to the Terms and Conditions.</span>
+      </label>
+      <div id="msg"></div>
+
+      <div class="bar">
+        <a class="btn" href="/">Back</a>
+        <button class="btn primary" id="btn-accept">Accept and continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/terms.js"></script>
+</body>
+</html>
