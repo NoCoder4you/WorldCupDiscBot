@@ -58,28 +58,35 @@
     }
 
     // === Render stage progress rings ===
-    async function renderUserTeamsWithStages(ownedTeams) {
+    async function renderUserTeamsWithStages(ownedTeams, title = 'Your Teams (Progress)') {
       const stages = await jget('/team_stage');   // { "France": "Winner", ... }
       const body = document.getElementById('user-body');
       if (!body) return;
 
       const stageData = stages || {};
-      body.innerHTML = `
-        <div class="card" style="height:auto">
-          <div class="card-title">Your Teams (Progress)</div>
-          ${ownedTeams.length
-            ? ownedTeams.map(team => {
-                const stage = stageData[team.team] || 'Group';
-                const ring = makeStageRing(stage);
-                const flag = team.flag ? `<img class="flag-img" src="${team.flag}" alt="">` : '';
-                return `
-                  <div class="user-team-row" title="${stage}">
-                    <span class="user-team-name">${flag}${team.team}</span>
-                    <span class="user-team-ring">${ring}</span>
-                  </div>`;
-              }).join('')
-            : '<p class="muted">No teams yet.</p>'}
-        </div>`;
+      const html = `
+        <div class="card" style="height:auto; margin-top:12px">
+          <div class="card-title">${title}</div>
+          ${
+            (ownedTeams && ownedTeams.length)
+              ? ownedTeams.map(team => {
+                  const name = team.team || team.name || String(team);
+                  const stage = stageData[name] || 'Group';
+                  const ring = makeStageRing(stage);
+                  const flag = team.flag ? `<img class="flag-img" src="${team.flag}" alt="">` : '';
+                  return `
+                    <div class="user-team-row" title="${stage}">
+                      <span class="user-team-name">${flag}${name}</span>
+                      <span class="user-team-ring">${ring}</span>
+                    </div>`;
+                }).join('')
+              : '<p class="muted">No teams yet.</p>'
+          }
+        </div>
+      `;
+
+      // APPEND instead of replace
+      body.insertAdjacentHTML('beforeend', html);
     }
 
 
@@ -127,9 +134,10 @@
                      : `<p class="muted">No upcoming matches found for your teams.</p>`}
       </div>
     `;
-    renderUserTeamsWithStages(owned || []);
-    renderUserTeamsWithStages(split || []);
-  }
+    renderUserTeamsWithStages(owned || [], 'Your Teams (Progress)');
+    if (split && split.length) {
+      renderUserTeamsWithStages(split || [], 'Co-owned Teams (Progress)');
+    }
 
   async function refreshUser(){
     try{
