@@ -17,8 +17,6 @@
 
   const $menu = qs('#main-menu');
   const $notify = qs('#notify');
-  const $fab = qs('#fab-auth');
-  const $fabIcon = qs('#fab-icon');
   const $backdrop = qs('#auth-backdrop');
   const $btnCancel = qs('#auth-cancel');
   const $btnSubmit = qs('#auth-submit');
@@ -164,7 +162,6 @@ function setPage(p) {
       const btnLogin = document.getElementById('btn-discord-login');
       const btnLogout = document.getElementById('btn-discord-logout');
 
-      if (fabIcon) fabIcon.textContent = loggedIn ? '⚙️' : '🔑';
       if (btnLogin)  btnLogin.style.display  = loggedIn ? 'none' : '';
       if (btnLogout) btnLogout.style.display = loggedIn ? '' : 'none';
     }
@@ -206,20 +203,8 @@ function setPage(p) {
           location.reload();
         });
       }
-      if(fab){
-        fab.addEventListener('click', async () => {
-          const loggedIn = fab.textContent.includes('⚙️');
-          if(loggedIn){
-            if(confirm('Sign out of Discord on this panel?')){
-              try{ await fetch('/auth/discord/logout', { method:'POST' }); }catch(_){}
-              location.reload();
-            }
-          }else{
-            window.location.href = '/auth/discord/login';
-          }
-        });
-      }
     }
+
 
     // === AUTH BOOTSTRAP ===
     async function initAuth() {
