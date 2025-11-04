@@ -27,11 +27,9 @@
       <div class="card" style="height:auto">
         <div class="card-title">Not signed in</div>
         <p>Connect your Discord account to see your teams and upcoming matches.</p>
-        <p><button class="btn" id="btn-connect-now">Connect Discord</button></p>
       </div>`;
-    const b = qs('#btn-connect-now', $body);
-    if(b) b.onclick = ()=> window.location.href = '/auth/discord/login';
   }
+
 
   function teamChip(t){
     const img = t.flag ? `<img class="flag-img" src="${t.flag}" alt="">` : '';
@@ -95,6 +93,7 @@
 
   function wire(){
     if(!$userPage) return;
+    setTimeout(refreshUser, 0);
     if($btnLogin) $btnLogin.onclick = ()=> window.location.href = '/auth/discord/login';
     if($btnLogout) $btnLogout.onclick = async ()=>{ await jpost('/auth/discord/logout',{}); refreshUser(); };
     document.addEventListener('click', (e)=>{
