@@ -43,50 +43,54 @@
 // === SVG progress ring ===
     function makeStageRing(stage) {
       const p = STAGE_PROGRESS[stage] ?? 0;
-      const r = 18;
+      const r = 52;                       // bigger ring
       const C = 2 * Math.PI * r;
       const off = C * (1 - p / 100);
-      const color = p === 100 ? '#ffd700' : '#00aaff';
+      const color = p === 100 ? '#ffd700' : '#00b8ff';
+
+      // Fit text nicely even for "Second Place"
+      const label = String(stage || 'Group');
+      const fontSize = (label.length > 10) ? 10 : 12;
+
       return `
-        <svg class="stage-ring" width="48" height="48" viewBox="0 0 48 48" aria-label="Stage ${stage}">
-          <circle cx="24" cy="24" r="${r}" stroke="#222" stroke-width="5" fill="none"></circle>
-          <circle cx="24" cy="24" r="${r}" stroke="${color}" stroke-width="5"
+        <svg class="stage-ring stage-ring--lg" width="120" height="120" viewBox="0 0 120 120" aria-label="Stage ${label}">
+          <circle cx="60" cy="60" r="${r}" stroke="rgba(255,255,255,.08)" stroke-width="10" fill="none"></circle>
+          <circle cx="60" cy="60" r="${r}" stroke="${color}" stroke-width="10"
             stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" fill="none"></circle>
-          <text x="24" y="28" text-anchor="middle" fill="#fff" font-size="9">${p}%</text>
+          <text x="60" y="64" text-anchor="middle" fill="#fff" font-size="${fontSize}" font-weight="700">${label}</text>
         </svg>
       `;
     }
 
-    // === Render stage progress rings ===
-    async function renderUserTeamsWithStages(ownedTeams, title = 'Your Teams (Progress)') {
-      const stages = await jget('/team_stage');   // { "France": "Winner", ... }
+    async function renderTeamsProgressMerged(ownedTeams, splitTeams){
       const body = document.getElementById('user-body');
-      if (!body) return;
+      if(!body) return;
 
-      const stageData = stages || {};
-      const html = `
+      const stages = await jget('/team_stage');   // { Country: Stage }
+      const all = [...(ownedTeams||[]), ...(splitTeams||[])];
+
+      const items = all.map(t => {
+        const name = t.team || t.name || String(t);
+        const stage = stages?.[name] || 'Group';
+        const ring = makeStageRing(stage);
+        const flag = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
+        return `
+          <div class="team-tile" title="${name} - ${stage}">
+            <div class="ring-wrap">${ring}</div>
+            <div class="team-caption">${flag}<span>${name}</span></div>
+          </div>
+        `;
+      }).join('');
+
+      const card = `
         <div class="card" style="height:auto; margin-top:12px">
-          <div class="card-title">${title}</div>
-          ${
-            (ownedTeams && ownedTeams.length)
-              ? ownedTeams.map(team => {
-                  const name = team.team || team.name || String(team);
-                  const stage = stageData[name] || 'Group';
-                  const ring = makeStageRing(stage);
-                  const flag = team.flag ? `<img class="flag-img" src="${team.flag}" alt="">` : '';
-                  return `
-                    <div class="user-team-row" title="${stage}">
-                      <span class="user-team-name">${flag}${name}</span>
-                      <span class="user-team-ring">${ring}</span>
-                    </div>`;
-                }).join('')
-              : '<p class="muted">No teams yet.</p>'
-          }
+          <div class="card-title">Your Teams</div>
+          ${all.length ? `<div class="teams-grid">${items}</div>` : `<p class="muted">No teams yet.</p>`}
         </div>
       `;
 
-      // APPEND instead of replace
-      body.insertAdjacentHTML('beforeend', html);
+      // Append under your profile card (do not overwrite)
+      body.insertAdjacentHTML('beforeend', card);
     }
 
 
@@ -134,9 +138,7 @@
                      : `<p class="muted">No upcoming matches found for your teams.</p>`}
       </div>
     `;
-    renderUserTeamsWithStages(owned || [], 'Your Teams (Progress)');
-    if (split && split.length) {
-    renderUserTeamsWithStages(split || [], 'Co-owned Teams (Progress)');
+    renderTeamsProgressMerged(owned || [], split || []);
     }
   }
 

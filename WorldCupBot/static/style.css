@@ -2164,3 +2164,53 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 .stage-ring { display:block; margin:0 auto; }
 .stage-ring text { font-weight:600; pointer-events:none; }
+
+/* Big ring layout for merged teams card */
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px 18px;
+  padding: 6px 2px 2px;
+}
+
+.team-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 6px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.06);
+}
+
+.team-tile:hover {
+  background: rgba(255,255,255,.04);
+}
+
+.ring-wrap {
+  width: 120px;
+  height: 120px;
+  display: grid;
+  place-items: center;
+}
+
+.stage-ring--lg text {
+  pointer-events: none;
+}
+
+.team-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.flag-img {
+  width: 18px;
+  height: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 2px;
+}
+
