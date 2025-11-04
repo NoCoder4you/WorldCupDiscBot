@@ -83,45 +83,7 @@
     localStorage.setItem('wc:theme', t);
     $themeIcon.textContent = t==='light' ? '🌞' : '🌙';
   }
-  function wireTheme(){ $themeToggle.addEventListener('click', ()=>setTheme(state.theme==='light'?'dark':'light')); }
-
-  function setAdminMode(on){
-    state.admin = on;
-    document.body.classList.toggle('admin', on);
-    $fabIcon.textContent = on ? '⚙️' : '🔑';
-    const title = qs('#modal-title');
-    const body = qs('#modal-body');
-    const btn = $btnSubmit;
-    if(on){
-      title.textContent = 'Admin';
-      body.innerHTML = '<p>You are logged in.</p>';
-      btn.textContent = 'Logout'; btn.dataset.action='logout';
-    }else{
-      title.textContent = 'Admin login';
-      body.innerHTML = '<label for="admin-password">Password</label><input type="password" id="admin-password" placeholder="Enter admin password">';
-      btn.textContent = 'Unlock'; btn.dataset.action='login';
-    }
-  }
-
-  function openModal(){ $backdrop.style.display='flex'; if(!state.admin){ const i=qs('#admin-password'); i&&setTimeout(()=>i.focus(),50);} }
-  function closeModal(){ $backdrop.style.display='none'; }
-  function wireAuth(){
-    $fab.addEventListener('click', openModal);
-    $btnCancel.addEventListener('click', closeModal);
-    document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $backdrop.style.display==='flex') closeModal(); });
-    $backdrop.addEventListener('click', e=>{ if(!e.target.closest('.modal')) closeModal(); });
-    $btnSubmit.addEventListener('click', async ()=>{
-      try{
-        if($btnSubmit.dataset.action==='logout'){
-          await fetchJSON('/admin/auth/logout',{method:'POST',body:JSON.stringify({})});
-          setAdminMode(false); closeModal(); notify('Logged out'); routePage(); return;
-        }
-        const pw = (qs('#admin-password')||{}).value||'';
-        const r = await fetchJSON('/admin/auth/login',{method:'POST',body:JSON.stringify({password:pw})});
-        if(r && (r.ok || r.unlocked)){ setAdminMode(true); closeModal(); notify('Admin unlocked'); routePage(); }
-        else notify('Login failed', false);
-      }catch(e){ notify(`Login error: ${e.message}`, false); }
-    });
+  function wireTheme(){ $themeToggle.addEventListener('click', ()=>setTheme(state.theme==='light'?'dark':'light'));
   }
 
   // === PAGE SWITCHER ===
@@ -188,12 +150,74 @@ function setPage(p) {
     // ===== Admin state (single source of truth) =====
     window.adminUnlocked = false;
 
-    function setAdminUI(unlocked) {
-      window.adminUnlocked = !!unlocked;
-      document.body.classList.toggle('admin', window.adminUnlocked);
-      // If on Ownership, re-render so admin-only bits refresh
-      if (document.querySelector('#ownership')?.classList.contains('active-section') && window.sortMerged) {
-        sortMerged((window.ownershipState && ownershipState.lastSort) || 'country');
+    function setAdminUI(unlocked){
+      const isAdmin = !!unlocked;
+      state.admin = isAdmin;
+      document.body.classList.toggle('admin', isAdmin);
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? '' : 'none');
+      document.querySelectorAll('[data-admin]').forEach(el => el.style.display = isAdmin ? '' : 'none');
+    }
+
+    function setUserUI(user){
+      const loggedIn = !!(user && (user.discord_id || user.id));
+      const fabIcon = document.getElementById('fab-icon');
+      const btnLogin = document.getElementById('btn-discord-login');
+      const btnLogout = document.getElementById('btn-discord-logout');
+
+      if (fabIcon) fabIcon.textContent = loggedIn ? '⚙️' : '🔑';
+      if (btnLogin)  btnLogin.style.display  = loggedIn ? 'none' : '';
+      if (btnLogout) btnLogout.style.display = loggedIn ? '' : 'none';
+    }
+
+    async function refreshAuth(){
+      try{
+        const r = await fetch('/admin/auth/status', { credentials:'include' });
+        if(r.ok){
+          const j = await r.json();
+          setAdminUI(!!j.unlocked);
+          setUserUI(j.user || null);
+          return;
+        }
+      }catch(_){}
+      try{
+        const m = await fetch('/api/me', { credentials:'include' });
+        if(m.ok){
+          const j = await m.json();
+          setAdminUI(false);
+          setUserUI(j.user || null);
+          return;
+        }
+      }catch(_){}
+      setAdminUI(false);
+      setUserUI(null);
+    }
+
+    function wireAuthButtons(){
+      const fab = document.getElementById('fab-auth');
+      const btnLogin = document.getElementById('btn-discord-login');
+      const btnLogout = document.getElementById('btn-discord-logout');
+
+      if(btnLogin){
+        btnLogin.addEventListener('click', () => window.location.href = '/auth/discord/login');
+      }
+      if(btnLogout){
+        btnLogout.addEventListener('click', async () => {
+          try{ await fetch('/auth/discord/logout', { method:'POST' }); }catch(_){}
+          location.reload();
+        });
+      }
+      if(fab){
+        fab.addEventListener('click', async () => {
+          const loggedIn = fab.textContent.includes('⚙️');
+          if(loggedIn){
+            if(confirm('Sign out of Discord on this panel?')){
+              try{ await fetch('/auth/discord/logout', { method:'POST' }); }catch(_){}
+              location.reload();
+            }
+          }else{
+            window.location.href = '/auth/discord/login';
+          }
+        });
       }
     }
 
@@ -1904,14 +1928,17 @@ async function getCogStatus(name){
   }
   function stopPolling(){ if(state.pollingId) clearInterval(state.pollingId); state.pollingId=null; }
 
-  async function init(){
-    try{ const s = await fetchJSON('/admin/auth/status'); setAdminMode(!!(s && s.unlocked)); }catch{ setAdminMode(false); }
-    setTheme(state.theme);
-    wireTheme(); wireAuth(); wireNav(); wireBotButtons();
-    setPage(state.currentPage);
-    await routePage();
-    startPolling();
-  }
+    async function init(){
+      await refreshAuth();
+      setTheme(state.theme);
+      wireTheme();
+      wireAuthButtons();
+      wireNav();
+      wireBotButtons();
+      setPage(state.currentPage);
+      await routePage();
+      startPolling();
+    }
   window.addEventListener('load', init);
 })();
 
