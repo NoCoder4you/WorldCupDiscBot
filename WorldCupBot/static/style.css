@@ -2216,7 +2216,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   background: rgba(255,255,255,.06);
 }
 .owner-pill--main  { color: #22c55e; border-color: rgba(34,197,94,.45); }
-.owner-pill--split { color: #00b8ff; border-color: rgba(0,184,255,.45); }
+.owner-pill--split { color: #00b8ff; border-color: rgba(0,184,255,.45); font-size: 10px;}
 
 .flag-img {
   width: 18px;
