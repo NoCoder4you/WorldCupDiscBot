@@ -2165,19 +2165,18 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .stage-ring { display:block; margin:0 auto; }
 .stage-ring text { font-weight:600; pointer-events:none; }
 
-/* Big ring layout for merged teams card */
 .teams-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 16px 18px;
-  padding: 6px 2px 2px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 18px 20px;
+  padding: 6px 4px 2px;
 }
 
 .team-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 6px;
+  padding: 10px 8px;
   border-radius: 10px;
   background: rgba(255,255,255,.02);
   border: 1px solid rgba(255,255,255,.06);
@@ -2202,9 +2201,22 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
   font-weight: 700;
 }
+
+/* ownership pill */
+.owner-pill {
+  margin-left: 8px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+}
+.owner-pill--main  { color: #22c55e; border-color: rgba(34,197,94,.45); }
+.owner-pill--split { color: #00b8ff; border-color: rgba(0,184,255,.45); }
 
 .flag-img {
   width: 18px;
@@ -2213,4 +2225,5 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   border: 1px solid rgba(255,255,255,.2);
   border-radius: 2px;
 }
+
 

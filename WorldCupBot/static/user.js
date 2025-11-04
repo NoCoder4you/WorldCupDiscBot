@@ -41,22 +41,23 @@
   }
 
 // === SVG progress ring ===
-    function makeStageRing(stage) {
+    function makeStageRing(stage, color) {
       const p = STAGE_PROGRESS[stage] ?? 0;
-      const r = 52;                       // bigger ring
+      const r = 52;
       const C = 2 * Math.PI * r;
       const off = C * (1 - p / 100);
-      const color = p === 100 ? '#ffd700' : '#00b8ff';
-
-      // Fit text nicely even for "Second Place"
       const label = String(stage || 'Group');
       const fontSize = (label.length > 10) ? 10 : 12;
+      const track = 'rgba(255,255,255,.08)';
 
       return `
         <svg class="stage-ring stage-ring--lg" width="120" height="120" viewBox="0 0 120 120" aria-label="Stage ${label}">
-          <circle cx="60" cy="60" r="${r}" stroke="rgba(255,255,255,.08)" stroke-width="10" fill="none"></circle>
+          <!-- track -->
+          <circle cx="60" cy="60" r="${r}" stroke="${track}" stroke-width="10" fill="none"></circle>
+          <!-- progress; rotate -90deg so 0% is at 12 o'clock -->
           <circle cx="60" cy="60" r="${r}" stroke="${color}" stroke-width="10"
-            stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" fill="none"></circle>
+            stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" fill="none"
+            transform="rotate(-90 60 60)"></circle>
           <text x="60" y="64" text-anchor="middle" fill="#fff" font-size="${fontSize}" font-weight="700">${label}</text>
         </svg>
       `;
@@ -67,25 +68,33 @@
       if(!body) return;
 
       const stages = await jget('/team_stage');   // { Country: Stage }
-      const all = [...(ownedTeams||[]), ...(splitTeams||[])];
+      const MAIN_COLOR  = '#22c55e';              // green you can tweak
+      const SPLIT_COLOR = '#00b8ff';              // blue
 
-      const items = all.map(t => {
+      const makeTile = (t, isMain) => {
         const name = t.team || t.name || String(t);
         const stage = stages?.[name] || 'Group';
-        const ring = makeStageRing(stage);
-        const flag = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
+        const color = isMain ? MAIN_COLOR : SPLIT_COLOR;
+        const ring  = makeStageRing(stage, color);
+        const flag  = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
+        const badge = isMain ? '<span class="owner-pill owner-pill--main">Main</span>'
+                             : '<span class="owner-pill owner-pill--split">Co-owner</span>';
         return `
-          <div class="team-tile" title="${name} - ${stage}">
+          <div class="team-tile ${isMain ? 'is-main' : 'is-split'}" title="${name} - ${stage}">
             <div class="ring-wrap">${ring}</div>
-            <div class="team-caption">${flag}<span>${name}</span></div>
+            <div class="team-caption">${flag}<span>${name}</span>${badge}</div>
           </div>
         `;
-      }).join('');
+      };
+
+      const mainTiles  = (ownedTeams||[]).map(t => makeTile(t, true)).join('');
+      const splitTiles = (splitTeams||[]).map(t => makeTile(t, false)).join('');
+      const tiles = mainTiles + splitTiles;
 
       const card = `
         <div class="card" style="height:auto; margin-top:12px">
           <div class="card-title">Your Teams</div>
-          ${all.length ? `<div class="teams-grid">${items}</div>` : `<p class="muted">No teams yet.</p>`}
+          ${tiles ? `<div class="teams-grid">${tiles}</div>` : `<p class="muted">No teams yet.</p>`}
         </div>
       `;
 
@@ -122,14 +131,6 @@
       <div class="card" style="height:auto">
         <div class="card-title">Profile</div>
         ${title}
-      </div>
-
-      <div class="card" style="height:auto; margin-top:12px">
-        <div class="card-title">Your Teams</div>
-        <div><strong>Main owner</strong></div>
-        <div style="margin:6px 0 10px">${ownRow}</div>
-        <div><strong>Co-owner</strong></div>
-        <div style="margin-top:6px">${splitRow}</div>
       </div>
 
       <div class="card" style="height:auto; margin-top:12px">
