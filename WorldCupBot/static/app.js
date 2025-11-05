@@ -1525,13 +1525,13 @@ function renderPendingSplits(rows){
         const res = await submitSplitAction(action, sid); // unified helper below
         if (!res || res.ok === false) throw new Error(res?.error || 'unknown error');
 
-        // optimistic UI: remove the processed row
+        // success path
         row.remove();
         if (!tbody.children.length) {
           body.innerHTML = '<div class="split-empty">No pending split requests.</div>';
         }
-
-        // refresh history so the event appears
+        // refresh both panels so UI is in sync with files
+        await loadSplits();
         await loadSplitHistoryOnce();
         notify(`Split ${action}ed`, true);
       } catch (err) {
