@@ -1496,46 +1496,49 @@ function renderPendingSplits(rows){
       cell.querySelector('.chip-group--split')?.classList.add('hidden');
     });
   }
-  table.addEventListener('click', async (e) => {
-    const pill = e.target.closest('.pill-click');
-    if (pill) {
-      const cell = pill.closest('.action-cell');
-      const chips = cell.querySelector('.chip-group--split');
-      const isOpen = !chips.classList.contains('hidden');
-      collapseAll();
-      if (!isOpen) {
+    // interaction (delegated so it survives re-renders)
+    table.addEventListener('click', async (e) => {
+      // expand pill
+      const pill = e.target.closest('.pill-click');
+      if (pill) {
+        const cell = pill.closest('.action-cell');
+        const chips = cell.querySelector('.chip-group--split');
+        table.querySelectorAll('.action-cell').forEach(c => {
+          c.querySelector('.pill-click')?.classList.remove('hidden');
+          c.querySelector('.chip-group--split')?.classList.add('hidden');
+        });
         pill.classList.add('hidden');
         chips.classList.remove('hidden');
+        return;
       }
-      return;
-    }
 
-    const chip = e.target.closest('.btn-split[data-action]');
-    if (chip) {
-      const action = chip.getAttribute('data-action');
-      const sid = chip.getAttribute('data-id');
+      // accept/decline chip
+      const chip = e.target.closest('.btn-split[data-action][data-id]');
+      if (!chip) return;
+
+      const action = chip.getAttribute('data-action'); // accept | decline
+      const sid = chip.getAttribute('data-id');        // real split id
       const row = chip.closest('tr');
       row.querySelectorAll('.btn-split').forEach(b => b.disabled = true);
 
       try {
-        const res = await submitSplitAction(action, sid); // { ok, pending_count, history_count, event }
+        const res = await submitSplitAction(action, sid); // unified helper below
         if (!res || res.ok === false) throw new Error(res?.error || 'unknown error');
 
-        // remove row and update pending count
+        // optimistic UI: remove the processed row
         row.remove();
         if (!tbody.children.length) {
           body.innerHTML = '<div class="split-empty">No pending split requests.</div>';
         }
 
-        // refresh history so the new event appears
+        // refresh history so the event appears
         await loadSplitHistoryOnce();
         notify(`Split ${action}ed`, true);
       } catch (err) {
         notify(`Failed to ${action} split: ${err.message || err}`, false);
         row.querySelectorAll('.btn-split').forEach(b => b.disabled = false);
       }
-    }
-  });
+    });
 
   document.addEventListener('click', (ev) => {
     if (!table.contains(ev.target)) collapseAll();
