@@ -33,6 +33,19 @@
   "Winner"
 ];
 
+function normalizeStage(label){
+  const s = String(label || '').trim();
+  const map = {
+    "Group":"Group Stage",
+    "R32":"Round of 32",
+    "R16":"Round of 16",
+    "QF":"Quarter Final",
+    "SF":"Semi Final",
+    "F":"Final"
+  };
+  return map[s] || s;
+}
+
 function stagePill(stage){
   const s = stage || 'Group';
   const cls = (s === 'Winner') ? 'pill-ok'
