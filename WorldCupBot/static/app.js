@@ -3034,11 +3034,14 @@ async function fetchGoalsData(){
       else { slice.forEach(r=>body.appendChild(scorersRowEl(r))); }
       document.querySelector('#lb-scorers-page').textContent=`${cur}/${total}`;
       state.lb.scorersPage=cur;
+      const s = (window.state=window.state||{}); s.lb=s.lb||{};
+      if (s.lb.scorersDense) document.querySelector('#lb-scorers-body')?.classList.add('dense-mode');
     }
 
     function toggleDense(which){
-      const body=document.querySelector(which); if(!body) return;
-      [...body.querySelectorAll('.lb-row')].forEach(r=>r.classList.toggle('dense'));
+      const body = document.querySelector(which);
+      if(!body) return;
+      body.classList.toggle('dense-mode');
     }
 
     async function renderLeaderboards(){
@@ -3073,7 +3076,11 @@ async function fetchGoalsData(){
     if(!slice.length){ body.innerHTML='<div class="lb-empty">No owners to show.</div>'; }
     else { slice.forEach(r=>body.appendChild(ownersRowEl(r, state.lb.iso||{}))); }
     qs('#lb-owners-page').textContent=`${cur}/${total}`; state.lb.ownersPage=cur;
+    const s = (window.state=window.state||{}); s.lb=s.lb||{};
+    if (s.lb.ownersDense) document.querySelector('#lb-owners-body')?.classList.add('dense-mode');
+
     }
+
     function paintBettors(page=1){
     const state=(window.state=window.state||{}); state.lb=state.lb||{};
     const body=qs('#lb-bettors-body'); if(!body) return;
@@ -3084,6 +3091,8 @@ async function fetchGoalsData(){
     if(!slice.length){ body.innerHTML='<div class="lb-empty">No bettors to show.</div>'; }
     else { slice.forEach(r=>body.appendChild(bettorsRowEl(r))); }
     qs('#lb-bettors-page').textContent=`${cur}/${total}`; state.lb.bettorsPage=cur;
+    const s = (window.state=window.state||{}); s.lb=s.lb||{};
+    if (s.lb.bettorsDense) document.querySelector('#lb-bettors-body')?.classList.add('dense-mode');
     }
 
     function toggleDense(which){
@@ -3102,14 +3111,26 @@ async function fetchGoalsData(){
       e.currentTarget.textContent=`include splits: ${on==='1'?'on':'off'}`;
       state.lb.loaded=false; await loadLeaderboardsOnce();
     });
-    qs('#lb-owners-density')?.addEventListener('click', ()=>toggleDense('#lb-owners-body'));
-    qs('#lb-bettors-density')?.addEventListener('click', ()=>toggleDense('#lb-bettors-body'));
+    document.querySelector('#lb-owners-density')?.addEventListener('click', ()=>{
+      toggleDense('#lb-owners-body');
+      const s = (window.state=window.state||{}); s.lb=s.lb||{};
+      s.lb.ownersDense = document.querySelector('#lb-owners-body')?.classList.contains('dense-mode');
+    });
+    document.querySelector('#lb-bettors-density')?.addEventListener('click', ()=>{
+      toggleDense('#lb-bettors-body');
+      const s = (window.state=window.state||{}); s.lb=s.lb||{};
+      s.lb.bettorsDense = document.querySelector('#lb-bettors-body')?.classList.contains('dense-mode');
+    });
     qs('#lb-owners-prev')?.addEventListener('click', ()=>paintOwners((state.lb.ownersPage||1)-1));
     qs('#lb-owners-next')?.addEventListener('click', ()=>paintOwners((state.lb.ownersPage||1)+1));
     qs('#lb-bettors-prev')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)-1));
     qs('#lb-bettors-next')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)+1));
     document.querySelector('#lb-scorers-search')?.addEventListener('input', debounce(()=>paintScorers(1),200));
-    document.querySelector('#lb-scorers-density')?.addEventListener('click', ()=>toggleDense('#lb-scorers-body'));
+    document.querySelector('#lb-scorers-density')?.addEventListener('click', ()=>{
+      toggleDense('#lb-scorers-body');
+      const s = (window.state=window.state||{}); s.lb=s.lb||{};
+      s.lb.scorersDense = document.querySelector('#lb-scorers-body')?.classList.contains('dense-mode');
+    });
     document.querySelector('#lb-scorers-refresh')?.addEventListener('click', async ()=>{
       const s=(window.state=window.state||{}); s.lb=s.lb||{}; s.lb.loaded=false; await loadLeaderboardsOnce();
     });

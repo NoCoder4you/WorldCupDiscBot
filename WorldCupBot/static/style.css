@@ -2677,3 +2677,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .lb-row:focus-within {
 	outline: 2px solid var(--accent)
 }
+.lb-body.dense-mode .lb-row {
+    padding:6px 8px !important;
+}
