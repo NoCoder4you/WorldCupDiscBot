@@ -73,7 +73,7 @@ function resolveStageFor(stages, name){
 
 
     async function fetchTeamStagesFresh(){
-      const url = `/team_stage?t=${Date.now()}`;
+      const url = `/api/team_stage?t=${Date.now()}`;
       const r = await fetch(url, { cache: 'no-store' });
       if (!r.ok) return {};
       return r.json();

@@ -858,8 +858,7 @@ async function initOwnership() {
         }
       } else {
         // public route returns { Team: Stage }
-        const r = await fetch('/team_stage', { credentials: 'include' });
-        if (r.ok) stages = await r.json();
+        const r = await fetch('/api/team_stage', { credentials: 'include' });        if (r.ok) stages = await r.json();
       }
     } catch { stages = {}; }
     ownershipState.stages = stages || {};
