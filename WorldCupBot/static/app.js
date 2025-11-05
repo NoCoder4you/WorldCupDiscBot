@@ -1324,172 +1324,117 @@ if (state.splitsHistoryTimer) {
   clearInterval(state.splitsHistoryTimer);
   state.splitsHistoryTimer = null;
 }
+state.splitsBuilt = false;
 
-    async function loadSplits(){
-      if (!state.admin) { notify('Admin required', false); return; }
-      try {
-        // GET pending split requests
-        const data = await fetchJSON('/admin/splits'); // { pending: [...] } or []
-        const pending = Array.isArray(data) ? data : (data.pending || []);
+// entry point called by router
+async function loadSplits(){
+  if (!state.admin) { notify('Admin required', false); return; }
+  try {
+    if (!state.splitsBuilt) buildSplitsShell();
 
-        // render requests table
-        await renderSplitsTable(pending);
+    // GET pending requests
+    const data = await fetchJSON('/admin/splits'); // { pending:[...] } or []
+    const pending = Array.isArray(data) ? data : (data.pending || []);
+    renderPendingSplits(pending);
 
-        // best-effort: refresh the history panel
-        try { await loadSplitHistoryOnce(); } catch(_) {}
-      } catch(e){
-        notify(`Splits error: ${e.message || e}`, false);
-      }
-    }
+    // load history below
+    await loadSplitHistoryOnce();
+  } catch(e){
+    notify(`Splits error: ${e.message || e}`, false);
+  }
+}
+window.loadSplits = loadSplits;
 
-    // --- make sure anything calling them from elsewhere can see them ---
-    window.loadSplits = loadSplits;
-    window.renderSplitsTable = typeof renderSplitsTable === 'function' ? renderSplitsTable : undefined;
-    window.loadSplitHistoryOnce = typeof loadSplitHistoryOnce === 'function' ? loadSplitHistoryOnce : undefined;
+// build two stacked cards inside #splits
+function buildSplitsShell(){
+  const sec = document.getElementById('splits');
+  if (!sec) return;
 
-    async function renderSplitsTable(pending = []) {
-      // ensure the section shell exists
-      const wrap = ensureSectionCard('splits', 'Split Requests', [
-        ['Refresh', { id: 'splits-refresh' }]
-      ]);
+  sec.innerHTML = `
+    <div class="table-wrap" id="splits-requests-card">
+      <div class="table-head">
+        <div class="table-title">Split Requests</div>
+        <div class="table-actions">
+          <button id="splits-refresh" class="btn">Refresh</button>
+        </div>
+      </div>
+      <div class="table-scroll" id="splits-pending-body">
+        <div class="split-empty">Loading…</div>
+      </div>
+    </div>
 
-      // wire the refresh button
-      const btn = wrap.querySelector('#splits-refresh');
-      if (btn && !btn._wired) {
-        btn._wired = true;
-        btn.addEventListener('click', () => loadSplits());
-      }
-
-      const scroller = wrap.querySelector('.table-scroll');
-      scroller.innerHTML = '';
-
-      if (!Array.isArray(pending) || pending.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'split-empty';
-        empty.textContent = 'No pending split requests.';
-        scroller.appendChild(empty);
-        return;
-      }
-
-      // table layout matches your CSS: .table.splits with fixed columns
-      const table = document.createElement('table');
-      table.className = 'table splits';
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th class="col-id">ID</th>
-            <th class="col-team">TEAM</th>
-            <th class="col-user">FROM</th>
-            <th class="col-user">TO</th>
-            <th class="col-status">STATUS</th>
-            <th class="col-when">EXPIRES</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      `;
-      const tbody = table.querySelector('tbody');
-
-      const fmt = (ts) => {
-        if (!ts) return '';
-        try { return new Date(ts * 1000).toLocaleString(); } catch { return ''; }
-      };
-
-      pending.forEach(p => {
-        const tr = document.createElement('tr');
-
-        // fallbacks keep old keys working if API varies
-        const id    = p.id ?? '';
-        const team  = p.team ?? '';
-        const from  = p.from_username ?? p.from ?? p.requester_id ?? '';
-        const to    = p.to_username ?? p.to ?? p.main_owner_id ?? '';
-        const when  = p.expires_at ? fmt(p.expires_at) : (p.timestamp ? fmt(p.timestamp) : '');
-
-        // status pill that expands to Accept/Decline chips
-        const statusCell = document.createElement('td');
-        statusCell.className = 'col-status';
-        const pill = document.createElement('span');
-        pill.className = 'pill pill-warn pill-click';
-        pill.textContent = 'Pending';
-        statusCell.appendChild(pill);
-
-        // compact chip group, initially hidden
-        const chips = document.createElement('div');
-        chips.className = 'chip-group chip-group--split hidden';
-        chips.innerHTML = `
-          <button class="btn-split split-accept"  title="Force Accept">Accept</button>
-          <button class="btn-split split-decline" title="Force Decline">Decline</button>
-        `;
-        statusCell.appendChild(chips);
-
-        // toggle pill -> chips
-        pill.addEventListener('click', () => {
-          pill.classList.add('hidden');
-          chips.classList.remove('hidden');
-        });
-
-        // handlers call /admin/splits/accept or /admin/splits/decline then refresh
-        const doAction = async (action) => {
-          try {
-            const res = await fetch(`/admin/splits/${action}`, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ id })
-            });
-            const j = await res.json();
-            if (!res.ok || j.ok === false) throw new Error(j.error || 'Failed');
-            notify(`Split ${action}ed`, true);
-            // reflect result immediately
-            pill.textContent = action === 'accept' ? 'Accepted' : 'Declined';
-            pill.className = action === 'accept' ? 'pill pill-ok' : 'pill pill-off';
-            chips.remove();
-            pill.classList.remove('hidden');
-
-            // best-effort: refresh history panel if present
-            try { await loadSplitHistoryOnce?.(); } catch {}
-          } catch (e) {
-            notify(`Split ${action} failed`, false);
-          }
-        };
-
-        chips.querySelector('.split-accept') ?.addEventListener('click', () => doAction('accept'));
-        chips.querySelector('.split-decline')?.addEventListener('click', () => doAction('decline'));
-
-        tr.innerHTML = `
-          <td class="col-id mono clip">${id}</td>
-          <td class="col-team clip">${team}</td>
-          <td class="col-user clip">${from}</td>
-          <td class="col-user clip">${to}</td>
-        `;
-        tr.appendChild(statusCell);
-
-        const tdWhen = document.createElement('td');
-        tdWhen.className = 'col-when mono clip';
-        tdWhen.textContent = when || '';
-        tr.appendChild(tdWhen);
-
-        tbody.appendChild(tr);
-      });
-
-      scroller.appendChild(table);
-    }
-function buildPendingSplits(rows) {
-  const box = document.createElement('div');
-  box.className = 'split-section';
-
-  const head = document.createElement('div');
-  head.className = 'split-head';
-  head.innerHTML = `
-    <div class="split-title">Pending</div>
-    <div class="split-count badge" id="pending-count">${rows.length}</div>
+    <div class="table-wrap" id="splits-history-card" style="margin-top:16px">
+      <div class="table-head">
+        <div class="table-title">
+          History <span class="badge" id="split-hist-count">0</span>
+        </div>
+        <div class="table-actions">
+          <button id="splits-history-refresh" class="btn">Refresh</button>
+        </div>
+      </div>
+      <div class="table-scroll" id="split-history-body">
+        <div class="split-empty">Loading…</div>
+      </div>
+    </div>
   `;
-  box.appendChild(head);
 
-  if (!rows.length) {
+  // wire refresh buttons
+  const btnReq = document.getElementById('splits-refresh');
+  if (btnReq && !btnReq._wired) {
+    btnReq._wired = true;
+    btnReq.addEventListener('click', loadSplits);
+  }
+  const btnHist = document.getElementById('splits-history-refresh');
+  if (btnHist && !btnHist._wired) {
+    btnHist._wired = true;
+    btnHist.addEventListener('click', loadSplitHistoryOnce);
+  }
+
+  state.splitsBuilt = true;
+}
+
+// short utilities
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtDateTime(x) {
+  let t = x;
+  if (typeof t === 'string' && /^\d+(\.\d+)?$/.test(t)) t = Number(t);
+  if (typeof t === 'number' && t < 1e12) t = t * 1000; // seconds -> ms
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '-';
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function shortId(id) {
+  if (!id) return '-';
+  const str = String(id);
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return '#' + (hash % 90000 + 10000); // 5 digits
+}
+function splitStatusPill(status) {
+  const map = { pending:'pill-warn', approved:'pill-ok', accepted:'pill-ok', resolved:'pill-ok', denied:'pill-off', rejected:'pill-off' };
+  const cls = map[status] || 'pill-off';
+  const label = status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
+  return `<span class="pill ${cls}">${label}</span>`;
+}
+
+/* Requests table */
+function renderPendingSplits(rows){
+  const body = document.getElementById('splits-pending-body');
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (!Array.isArray(rows) || rows.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'split-empty';
-    empty.textContent = 'No pending requests.';
-    box.appendChild(empty);
-    return box;
+    empty.textContent = 'No pending split requests.';
+    body.appendChild(empty);
+    return;
   }
 
   const table = document.createElement('table');
@@ -1510,8 +1455,8 @@ function buildPendingSplits(rows) {
   const tbody = table.querySelector('tbody');
 
   const sorted = rows.slice().sort((a, b) => {
-    const ta = +new Date(a?.expires_at || 0);
-    const tb = +new Date(b?.expires_at || 0);
+    const ta = +new Date(a?.expires_at || a?.timestamp || 0);
+    const tb = +new Date(b?.expires_at || b?.timestamp || 0);
     return tb - ta;
   });
 
@@ -1521,7 +1466,7 @@ function buildPendingSplits(rows) {
     const team = r.team ?? '-';
     const from = r.from_username ?? r.requester_id ?? '-';
     const to = r.to_username ?? r.main_owner_id ?? '-';
-    const when = r.expires_at ?? null;
+    const when = r.expires_at ?? r.timestamp ?? null;
 
     const tr = document.createElement('tr');
     tr.dataset.sid = realId;
@@ -1544,15 +1489,13 @@ function buildPendingSplits(rows) {
     tbody.appendChild(tr);
   }
 
-  // collapse any open chip groups
+  // interaction
   function collapseAll() {
     table.querySelectorAll('.action-cell').forEach(cell => {
       cell.querySelector('.pill-click')?.classList.remove('hidden');
       cell.querySelector('.chip-group--split')?.classList.add('hidden');
     });
   }
-
-  // delegate clicks
   table.addEventListener('click', async (e) => {
     const pill = e.target.closest('.pill-click');
     if (pill) {
@@ -1569,29 +1512,23 @@ function buildPendingSplits(rows) {
 
     const chip = e.target.closest('.btn-split[data-action]');
     if (chip) {
-      const action = chip.getAttribute('data-action');   // "accept" | "decline"
+      const action = chip.getAttribute('data-action');
       const sid = chip.getAttribute('data-id');
       const row = chip.closest('tr');
-
       row.querySelectorAll('.btn-split').forEach(b => b.disabled = true);
 
       try {
         const res = await submitSplitAction(action, sid); // { ok, pending_count, history_count, event }
         if (!res || res.ok === false) throw new Error(res?.error || 'unknown error');
 
-        // remove row; update counter
+        // remove row and update pending count
         row.remove();
-        const countEl = document.getElementById('pending-count');
-        if (countEl && typeof res.pending_count === 'number') countEl.textContent = res.pending_count;
-
         if (!tbody.children.length) {
-          const empty = document.createElement('div');
-          empty.className = 'split-empty';
-          empty.textContent = 'No pending requests.';
-          table.replaceWith(empty);
+          body.innerHTML = '<div class="split-empty">No pending split requests.</div>';
         }
 
-        loadSplitHistoryOnce(); // refresh history to show event
+        // refresh history so the new event appears
+        await loadSplitHistoryOnce();
         notify(`Split ${action}ed`, true);
       } catch (err) {
         notify(`Failed to ${action} split: ${err.message || err}`, false);
@@ -1604,33 +1541,30 @@ function buildPendingSplits(rows) {
     if (!table.contains(ev.target)) collapseAll();
   }, { once: true });
 
-  box.appendChild(table);
-  return box;
+  body.appendChild(table);
 }
 
-/* POST helper for force accept/decline – matches routes_admin.py */
+/* POST helper for force accept or decline */
 async function submitSplitAction(action, id) {
   const url = action === 'accept' ? '/admin/splits/accept' : '/admin/splits/decline';
-  const res = await fetchJSON(url, {
+  return fetchJSON(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id })
   });
-  return res; // { ok, pending_count, history_count, event }
 }
 
-
+/* History table */
 async function loadSplitHistoryOnce() {
-  // Hard gate: never try hitting admin endpoint if not admin
   if (!state.admin) return;
+  const body = document.getElementById('split-history-body');
+  const countEl = document.getElementById('split-hist-count');
+  if (!body) return;
+
   try {
     const { events = [] } = await fetchJSON('/admin/splits/history?limit=200');
 
-    const body = document.getElementById('split-history-body');
-    const count = document.getElementById('split-hist-count');
-    if (!body) return;
-
-    count && (count.textContent = events.length);
+    countEl && (countEl.textContent = events.length);
 
     if (!events.length) {
       body.innerHTML = `<div class="split-empty">No history recorded yet.</div>`;
@@ -1682,12 +1616,8 @@ async function loadSplitHistoryOnce() {
 
     body.innerHTML = '';
     body.appendChild(table);
-
   } catch (e) {
-    // Non-fatal; keep last known history
-    if (e.message !== 'Unauthorized') {
-      notify(`History refresh failed: ${e.status || ''} ${e.message}`, false);
-    }
+    notify(`History refresh failed: ${e.message || e}`, false);
   }
 }
 
