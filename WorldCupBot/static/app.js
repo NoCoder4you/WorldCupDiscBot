@@ -1547,14 +1547,40 @@ function renderPendingSplits(rows){
   body.appendChild(table);
 }
 
-/* POST helper for force accept or decline */
-async function submitSplitAction(action, id) {
-  const url = action === 'accept' ? '/admin/splits/accept' : '/admin/splits/decline';
-  return fetchJSON(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id })
-  });
+async function submitSplitAction(action, requestId) {
+  // choose endpoint
+  const url =
+    action === 'accept'
+      ? '/admin/splits/accept'
+      : '/admin/splits/decline';
+
+  // some older routes expect {request_id}, newer ones expect {id}
+  const payloads = [
+    { id: requestId },
+    { request_id: requestId }
+  ];
+
+  // try both payload shapes once each
+  for (const body of payloads) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      // some routes return text, some json
+      const contentType = res.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await res.json()
+        : { ok: res.ok, raw: await res.text() };
+
+      if (res.ok && (data.ok !== false)) return data;
+    } catch (_) {
+    }
+  }
+  return { ok: false, error: 'Request failed' };
 }
 
 /* History table */
