@@ -1264,19 +1264,19 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Column widths */
 #ownership .ownership-table th:nth-child(1),
 #ownership .ownership-table td:nth-child(1) {
-    width: 30%;
+    width: 20%;
 }
 #ownership .ownership-table th:nth-child(2),
 #ownership .ownership-table td:nth-child(2) {
-    width: 36%;
+    width: 20%;
 }
 #ownership .ownership-table th:nth-child(3),
 #ownership .ownership-table td:nth-child(3) {
-    width: 24%;
+    width: 20%;
 }
 #ownership .ownership-table th:nth-child(4),
 #ownership .ownership-table td:nth-child(4) {
-    width: 10%;
+    width: 20%;
 }
 
 /* Keep content tidy */
