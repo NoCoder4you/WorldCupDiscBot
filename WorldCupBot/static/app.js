@@ -1725,7 +1725,7 @@ function shortId(id) {
 
         const files = (d?.backups) || (d?.folders?.[0]?.files) || [];
         if (!files.length){
-          const p = document.createElement('p');
+          const p = document.createElement('p class="no-backup"');
           p.textContent = 'No backups yet.';
           s.appendChild(p);
         } else {
