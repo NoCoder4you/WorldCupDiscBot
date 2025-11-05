@@ -68,8 +68,8 @@ def _matches_path(base_dir):
     return os.path.join(_json_dir(base_dir), "matches.json")  # optional
 def _tos_path(base_dir):
     return os.path.join(_json_dir(base_dir), "terms_accept.json")
-def _team_stage_path(ctx):
-    return os.path.join(_json_dir(ctx), "team_stage.json")
+def _team_stage_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "team_stage.json")
 
 def _json_read(path, default):
     try:
@@ -304,7 +304,8 @@ def create_public_routes(ctx):
 
     @api.get("/team_stage")
     def api_team_stage():
-        data = _json_read(_team_stage_path(ctx), {})
+        base = ctx.get("BASE_DIR", "")
+        data = _json_read(_team_stage_path(base), {})
         resp = make_response(jsonify(data if isinstance(data, dict) else {}))
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         resp.headers["Pragma"] = "no-cache"
