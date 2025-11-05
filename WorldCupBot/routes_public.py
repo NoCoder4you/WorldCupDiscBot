@@ -512,45 +512,83 @@ def create_public_routes(ctx):
     def _when(b):
         return (b.get("created_at") or b.get("time") or b.get("timestamp") or b.get("when"))
 
+    def _s(x):
+        return str(x or "").strip()
+
+    def _status_from_winner(winner):
+        w = _s(winner).lower()
+        return "Open" if not w else "Settled"
+
+    def _roles_for_uid(bet, uid):
+        """Return a role label like 'On Option 1 (Wins)' based on your schema."""
+        uid = _s(uid)
+        if not uid:
+            return []
+
+        o1_id = _s(bet.get("option1_user_id"))
+        o2_id = _s(bet.get("option2_user_id"))
+        o1 = _s(bet.get("option1")) or "Option 1"
+        o2 = _s(bet.get("option2")) or "Option 2"
+
+        roles = []
+        if uid == o1_id:
+            roles.append(f"On Option 1 ({o1})")
+        if uid == o2_id:
+            roles.append(f"On Option 2 ({o2})")
+        return roles
+
+    def _winner_label(bet):
+        """Return a readable winner label based on your schema."""
+        w = _s(bet.get("winner"))  # could be '', 'option1', 'option2', or the text
+        o1 = _s(bet.get("option1")) or "Option 1"
+        o2 = _s(bet.get("option2")) or "Option 2"
+        wl = w.lower()
+        if not w:
+            return ""
+        if wl in ("option1", "1", "a"):
+            return f"Option 1 ({o1})"
+        if wl in ("option2", "2", "b"):
+            return f"Option 2 ({o2})"
+        # if it's already text, return as-is
+        return w
+
+    def _title_for(bet):
+        return _s(bet.get("bet_title")) or f"Bet {_s(bet.get('bet_id'))}"
+
     @api.get("/my_bets")
     def api_my_bets():
         base = ctx.get("BASE_DIR", "")
-        uid = request.args.get("uid", "").strip()
+        uid = _s(request.args.get("uid"))
 
         if not uid:
-            me = _json_load(os.path.join(_json_dir(base), "_session_user.json"), {})  # optional
-            uid = _str(me.get("discord_id") or me.get("id") or "")
+            # If you want, fetch session user here; otherwise return empty
+            return jsonify({"ok": True, "bets": [], "uid": uid})
 
-        if not uid:
-            return jsonify({"ok": True, "bets": []})
-
-        data = _json_load(_bets_path(base), [])
-        if not isinstance(data, list):
-            # if file is an object with "bets": [...]
-            data = data.get("bets") if isinstance(data, dict) else []
+        blob = _json_load(_bets_path(base), [])
+        bets = blob if isinstance(blob, list) else blob.get("bets", [])
 
         out = []
-        for b in data:
+        for b in bets:
             if not isinstance(b, dict):
                 continue
-            roles = _roles_for_user(b, uid)
+
+            roles = _roles_for_uid(b, uid)
             if not roles:
                 continue
 
-            status = "Settled" if (b.get("winner") or b.get("settled")) else "Open"
             out.append({
-                "id": _bet_id(b),
-                "title": _title_for_bet(b),
-                "roles": roles,
-                "status": status,
-                "winner": b.get("winner"),
-                "wager": (b.get("wagers") or {}).get(uid) if isinstance(b.get("wagers"), dict) else None,
-                "when": _when(b),
-                "url": b.get("url") or b.get("message_url") or b.get("jump_url")
+                "id": _s(b.get("bet_id")),
+                "title": _title_for(b),
+                "roles": roles,  # e.g., ["On Option 1 (Wins)"]
+                "status": _status_from_winner(b.get("winner")),  # "Open" or "Settled"
+                "winner": _winner_label(b),  # human-friendly winner text
+                "wager": _s(b.get("wager")),
+                "when": b.get("created_at") or b.get("time") or b.get("timestamp") or None,
+                "url": None  # you can build a jump URL from guild+channel+message if you store them
             })
 
-        # newest first by time if present
-        out.sort(key=lambda x: (x.get("when") or 0), reverse=True)
+        # newest first if there is a time; stable otherwise
+        out.sort(key=lambda x: x.get("when") or 0, reverse=True)
 
         resp = make_response(jsonify({"ok": True, "bets": out, "uid": uid}))
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
