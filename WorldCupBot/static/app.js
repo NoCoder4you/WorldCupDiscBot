@@ -1325,31 +1325,131 @@ if (state.splitsHistoryTimer) {
   state.splitsHistoryTimer = null;
 }
 
-// === SPLITS (admin only) ===
-    async function loadSplits() {
-      if (!state.admin) return; // hard gate
-
+    async function renderSplitsTable(pending = []) {
+      // ensure the section shell exists
       const wrap = ensureSectionCard('splits', 'Split Requests', [
         ['Refresh', { id: 'splits-refresh' }]
       ]);
 
-      const scroller = wrap.querySelector('.table-scroll');
-      scroller.innerHTML = '<p class="muted">Loading…</p>';
+      // wire the refresh button
+      const btn = wrap.querySelector('#splits-refresh');
+      if (btn && !btn._wired) {
+        btn._wired = true;
+        btn.addEventListener('click', () => loadSplits());
+      }
 
-      let data;
-      try {
-        const res = await fetch('/admin/splits', { credentials: 'same-origin' });
-        if (res.status === 401) throw new Error('Unauthorized');
-        data = await res.json();
-      } catch (e) {
-        notify(`History refresh failed: ${e.message}`, false);
-        scroller.innerHTML = '<p class="muted">No data.</p>';
+      const scroller = wrap.querySelector('.table-scroll');
+      scroller.innerHTML = '';
+
+      if (!Array.isArray(pending) || pending.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'split-empty';
+        empty.textContent = 'No pending split requests.';
+        scroller.appendChild(empty);
         return;
       }
 
-      renderSplitsTable(scroller, data?.pending || []);
-    }
+      // table layout matches your CSS: .table.splits with fixed columns
+      const table = document.createElement('table');
+      table.className = 'table splits';
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="col-id">ID</th>
+            <th class="col-team">TEAM</th>
+            <th class="col-user">FROM</th>
+            <th class="col-user">TO</th>
+            <th class="col-status">STATUS</th>
+            <th class="col-when">EXPIRES</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
 
+      const fmt = (ts) => {
+        if (!ts) return '';
+        try { return new Date(ts * 1000).toLocaleString(); } catch { return ''; }
+      };
+
+      pending.forEach(p => {
+        const tr = document.createElement('tr');
+
+        // fallbacks keep old keys working if API varies
+        const id    = p.id ?? '';
+        const team  = p.team ?? '';
+        const from  = p.from_username ?? p.from ?? p.requester_id ?? '';
+        const to    = p.to_username ?? p.to ?? p.main_owner_id ?? '';
+        const when  = p.expires_at ? fmt(p.expires_at) : (p.timestamp ? fmt(p.timestamp) : '');
+
+        // status pill that expands to Accept/Decline chips
+        const statusCell = document.createElement('td');
+        statusCell.className = 'col-status';
+        const pill = document.createElement('span');
+        pill.className = 'pill pill-warn pill-click';
+        pill.textContent = 'Pending';
+        statusCell.appendChild(pill);
+
+        // compact chip group, initially hidden
+        const chips = document.createElement('div');
+        chips.className = 'chip-group chip-group--split hidden';
+        chips.innerHTML = `
+          <button class="btn-split split-accept"  title="Force Accept">Accept</button>
+          <button class="btn-split split-decline" title="Force Decline">Decline</button>
+        `;
+        statusCell.appendChild(chips);
+
+        // toggle pill -> chips
+        pill.addEventListener('click', () => {
+          pill.classList.add('hidden');
+          chips.classList.remove('hidden');
+        });
+
+        // handlers call /admin/splits/accept or /admin/splits/decline then refresh
+        const doAction = async (action) => {
+          try {
+            const res = await fetch(`/admin/splits/${action}`, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ id })
+            });
+            const j = await res.json();
+            if (!res.ok || j.ok === false) throw new Error(j.error || 'Failed');
+            notify(`Split ${action}ed`, true);
+            // reflect result immediately
+            pill.textContent = action === 'accept' ? 'Accepted' : 'Declined';
+            pill.className = action === 'accept' ? 'pill pill-ok' : 'pill pill-off';
+            chips.remove();
+            pill.classList.remove('hidden');
+
+            // best-effort: refresh history panel if present
+            try { await loadSplitHistoryOnce?.(); } catch {}
+          } catch (e) {
+            notify(`Split ${action} failed`, false);
+          }
+        };
+
+        chips.querySelector('.split-accept') ?.addEventListener('click', () => doAction('accept'));
+        chips.querySelector('.split-decline')?.addEventListener('click', () => doAction('decline'));
+
+        tr.innerHTML = `
+          <td class="col-id mono clip">${id}</td>
+          <td class="col-team clip">${team}</td>
+          <td class="col-user clip">${from}</td>
+          <td class="col-user clip">${to}</td>
+        `;
+        tr.appendChild(statusCell);
+
+        const tdWhen = document.createElement('td');
+        tdWhen.className = 'col-when mono clip';
+        tdWhen.textContent = when || '';
+        tr.appendChild(tdWhen);
+
+        tbody.appendChild(tr);
+      });
+
+      scroller.appendChild(table);
+    }
 function buildPendingSplits(rows) {
   const box = document.createElement('div');
   box.className = 'split-section';
