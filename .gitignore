@@ -65,3 +65,4 @@ worldcupbot.service
 updater.sh
 token_test.py
 config.json
+*.txt
