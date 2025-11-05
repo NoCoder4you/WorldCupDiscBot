@@ -233,7 +233,11 @@ async function renderUserBetsCard(user){
     async function renderSignedIn(user, owned, split, matches){
       if($btnLogin) $btnLogin.style.display = 'none';
       if($btnLogout) $btnLogout.style.display = '';
-      const avatar = user.avatar ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">` : '';
+
+      const avatar = user.avatar
+        ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
+        : '';
+
       const title = `<div style="display:flex;align-items:center;gap:10px">
           ${avatar}
           <div>
@@ -244,7 +248,7 @@ async function renderUserBetsCard(user){
 
       const matchRows = (matches||[]).map(m=>{
         const when = (m.utc||'').replace('T',' ').replace('Z',' UTC');
-        return `<tr><td>${when}</td><td>${m.home}</td><td>${m.away}</td><td>${m.stadium||''}</td></tr>`;
+        return `<tr><td>${when}</td><td>${m.home||''}</td><td>${m.away||''}</td><td>${m.stadium||''}</td></tr>`;
       }).join('');
 
       if($body) $body.innerHTML = `
@@ -255,14 +259,18 @@ async function renderUserBetsCard(user){
 
         <div class="card" style="height:auto; margin-top:12px">
           <div class="card-title">Upcoming Matches</div>
-          ${matchRows ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
-                       : `<p class="muted">No upcoming matches found for your teams.</p>`}
+          ${
+            matchRows
+              ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
+              : `<p class="muted">No upcoming matches found for your teams.</p>`
+          }
         </div>
       `;
 
+      // Teams grid with big progress rings
       renderTeamsProgressMerged(owned || [], split || []);
 
-      // NEW: Your Bets
+      // Your Bets card (kept separate and tidy)
       await renderUserBetsCard(user);
     }
 
