@@ -2817,44 +2817,87 @@ async function fetchJSON(url){
   const idHue = id => String(id||'').split('').reduce((h,ch)=>(h*31+ch.charCodeAt(0))%360,0);
   const initials = n => (n||'').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase() || '??';
 
-  function avatarEl(user){
-    const dname = user.display_name || user.username || user.id || 'Unknown';
-    const wrap = document.createElement('div'); wrap.className='lb-ava';
-    const url = user.avatar_url || user.avatar || null;
-    if(url){ const img=document.createElement('img'); img.alt=`${dname} avatar`; img.src=url; wrap.appendChild(img); return wrap; }
-    const span=document.createElement('span'); span.textContent=initials(dname);
-    wrap.style.background=`hsl(${idHue(user.id)} 55% 38%)`; wrap.appendChild(span); return wrap;
-  }
-  function barEl(value, max){
+    // Build a Discord CDN avatar URL from id + avatar hash
+    function discordAvatarUrl(id, avatarHash){
+      if(!id || !avatarHash) return null;
+      const ext = String(avatarHash).startsWith('a_') ? 'gif' : 'png';
+      return `https://cdn.discordapp.com/avatars/${id}/${avatarHash}.${ext}?size=64`;
+    }
+
+    function avatarEl(user){
+      const dname = user.display_name || user.username || user.id || 'Unknown';
+      const wrap = document.createElement('div');
+      wrap.className = 'lb-ava';
+
+      const url = user.avatar_url || null;
+      if(url){
+        const img = document.createElement('img');
+        img.alt = `${dname} avatar`;
+        img.src = url;
+        wrap.appendChild(img);
+        return wrap;
+      }
+      // initials fallback with stable hue by ID
+      const span = document.createElement('span');
+      span.textContent = (dname || '').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase() || '??';
+      const hue = String(user.id||'').split('').reduce((h,ch)=>(h*31+ch.charCodeAt(0))%360,0);
+      wrap.style.background = `hsl(${hue} 55% 38%)`;
+      wrap.appendChild(span);
+      return wrap;
+    }
+    function barEl(value, max){
     const w=document.createElement('div'); w.className='lb-bar';
     const f=document.createElement('div'); f.className='lb-fill';
     const pct = (!max||max<=0)?0:Math.max(0,Math.min(1,value/max));
     w.setAttribute('aria-label', `${value} of ${max}`);
     requestAnimationFrame(()=>{f.style.width=`${(pct*100).toFixed(1)}%`}); w.appendChild(f); return w;
-  }
-  function flagChip(country, iso){
+    }
+    function flagChip(country, iso){
     const chip=document.createElement('span'); chip.className='lb-flag'; const code=iso[country]||'';
     if(code){ const img=document.createElement('img'); img.alt=`${country} flag`; img.src=`https://flagcdn.com/w20/${code}.png`; chip.appendChild(img); const t=document.createElement('span'); t.textContent=country; chip.appendChild(t); }
     else { chip.textContent=(country||'').slice(0,3).toUpperCase()||'N/A'; }
     chip.title=country; return chip;
-  }
+    }
 
-  const state = (window.state=window.state||{}); state.lb=state.lb||{loaded:false};
+    const state = (window.state=window.state||{}); state.lb=state.lb||{loaded:false};
 
-  async function fetchAll(){
+    async function fetchAll(){
     const [ownersResp,bets,iso,verified]=await Promise.all([
       fetchJSON('/api/ownership_from_players'),
       fetchJSON('/api/bets'),
       fetchJSON('/api/team_iso'),
       fetchJSON('/api/verified')
     ]);
-    const vmap={}; (verified||[]).forEach(v=>{ const id=String(v.discord_id||v.id||v.user_id||'').trim(); if(!id) return;
-      vmap[id]={ id, username:v.username||'', display_name:v.display_name||v.username||id, avatar_url:v.avatar_url||v.avatar||null };
+    const vmap = {};
+    (verified || []).forEach(v => {
+      const id = String(v.discord_id || v.id || v.user_id || '').trim();
+      if(!id) return;
+
+      // accept common field names: avatar_url, avatar, avatar_hash, avatarHash
+      const avatarHash = v.avatar_hash || v.avatarHash || (
+        // sometimes "avatar" is a hash, sometimes it's already a URL
+        (v.avatar && /^a?_?[0-9a-f]{2,}$/.test(String(v.avatar))) ? v.avatar : null
+      );
+
+      // prefer explicit URL, else build from hash
+      const avatar_url =
+        v.avatar_url || v.avatarUrl ||
+        (avatarHash ? discordAvatarUrl(id, avatarHash) : (
+          // fallback: if v.avatar looked like an URL already
+          (v.avatar && /^https?:\/\//i.test(String(v.avatar))) ? v.avatar : null
+        ));
+
+      vmap[id] = {
+        id,
+        username: v.username || '',
+        display_name: v.display_name || v.username || id,
+        avatar_url
+      };
     });
     return { rows:(ownersResp&&ownersResp.rows)||[], bets:(bets||[]), iso:(iso||{}), vmap };
-  }
+    }
 
-  function aggregateOwners(rows, vmap, includeSplits){
+    function aggregateOwners(rows, vmap, includeSplits){
     const owners=new Map();
     for(const r of rows){
       const mid=r?.main_owner?.id?String(r.main_owner.id):null;
@@ -2873,9 +2916,61 @@ async function fetchJSON(url){
     }
     const list=[...owners.values()].map(r=>({...r, count:r.teams.length + (includeSplits?r.split_count:0)}));
     list.sort((a,b)=>(b.count-a.count)||String(a.name).localeCompare(String(b.name))); return list;
-  }
+    }
 
-  function aggregateBettors(bets, vmap){
+// Tries a few paths so you don't need backend changes if you already have one.
+// Expected payload shape (any of these is fine):
+//   [{ id, goals, name? }] OR { rows:[{ id, goals, name? }]} OR { players:[...] }
+async function fetchGoalsData(){
+  const tryPaths = ['/api/goals', '/api/stats/goals', '/api/leaderboards/scorers'];
+  for(const path of tryPaths){
+    try{
+      const res = await fetch(path, { headers:{'Accept':'application/json'} });
+      if(!res.ok) continue;
+      const data = await res.json();
+      if(Array.isArray(data)) return data;
+      if(Array.isArray(data.rows)) return data.rows;
+      if(Array.isArray(data.players)) return data.players;
+    }catch(_) { /* keep trying */ }
+  }
+  return []; // nothing available
+}
+
+    function aggregateScorers(raw, vmap){
+      const out = (raw||[]).map(p => {
+        const id = String(p.id||p.discord_id||'').trim();
+        const prof = vmap[id] || { id, display_name: p.name || p.username || id, username: p.username || '' };
+        return {
+          id,
+          name: prof.display_name || prof.username || id,
+          goals: Number(p.goals||0),
+          avatar_url: prof.avatar_url || null
+        };
+      }).filter(x => x.id);
+      out.sort((a,b) => (b.goals - a.goals) || String(a.name).localeCompare(String(b.name)));
+      return out;
+    }
+
+    function scorersRowEl(rec){
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      const left = document.createElement('div'); left.className='lb-left';
+      left.appendChild(avatarEl({id:rec.id, display_name:rec.name, avatar_url:rec.avatar_url}));
+      const t = document.createElement('div'); t.innerHTML = `<div class="lb-name">${rec.name}</div>`;
+      left.appendChild(t);
+
+      const right = document.createElement('div'); right.className='lb-right';
+      right.appendChild(barEl(rec.goals, rec._max || rec.goals));
+      const stats = document.createElement('div'); stats.className='lb-stats';
+      const chip = document.createElement('span'); chip.className='lb-chip'; chip.textContent = `G: ${rec.goals}`;
+      stats.appendChild(chip); right.appendChild(stats);
+
+      row.appendChild(left); row.appendChild(right);
+      return row;
+    }
+
+
+    function aggregateBettors(bets, vmap){
     const stats=new Map();
     for(const b of (bets||[])){
       const o1=String(b.option1_user_id||'').trim(), o2=String(b.option2_user_id||'').trim();
@@ -2887,9 +2982,9 @@ async function fetchJSON(url){
     }
     const list=[...stats.values()].map(r=>({...r, wr:r.wins+r.losses?Math.round(100*r.wins/(r.wins+r.losses)):null}));
     list.sort((a,b)=>(b.wins-a.wins)||String(a.name).localeCompare(String(b.name))); return list;
-  }
+    }
 
-  function ownersRowEl(rec, iso){
+    function ownersRowEl(rec, iso){
     const row=document.createElement('div'); row.className='lb-row';
     const left=document.createElement('div'); left.className='lb-left';
     left.appendChild(avatarEl({id:rec.id,display_name:rec.name,avatar_url:rec.avatar_url}));
@@ -2901,8 +2996,8 @@ async function fetchJSON(url){
     if(rec.teams.length>show.length){ const more=document.createElement('span'); more.className='lb-chip'; more.textContent=`+${rec.teams.length-show.length} more`; more.title=rec.teams.join(', '); flags.appendChild(more); }
     right.appendChild(flags);
     row.appendChild(left); row.appendChild(right); return row;
-  }
-  function bettorsRowEl(rec){
+    }
+    function bettorsRowEl(rec){
     const row=document.createElement('div'); row.className='lb-row';
     const left=document.createElement('div'); left.className='lb-left';
     left.appendChild(avatarEl({id:rec.id,display_name:rec.name,avatar_url:rec.avatar_url}));
@@ -2913,33 +3008,62 @@ async function fetchJSON(url){
     const chip=document.createElement('span'); chip.className='lb-chip'; chip.textContent=(rec.wr!=null)?`W: ${rec.wins} | L: ${rec.losses} | WR: ${rec.wr}%`:`W: ${rec.wins}`;
     stats.appendChild(chip); right.appendChild(stats);
     row.appendChild(left); row.appendChild(right); return row;
-  }
+    }
 
-  function paginate(list, page, per=50){
-    const total=Math.max(1,Math.ceil(list.length/per));
-    const p=Math.max(1,Math.min(total,page));
-    const start=(p-1)*per;
-    return {page:p,total,slice:list.slice(start,start+per)};
-  }
-  function filterByQuery(list,q){
-    if(!q) return list;
-    const s=q.toLowerCase();
+    function filterByQuery(list,q){
+    if(!q)
+    return list; const s=q.toLowerCase();
     return list.filter(x=>String(x.name||'').toLowerCase().includes(s));
-  }
+    }
 
-  async function renderLeaderboards(){
-    const {rows,bets,iso,vmap}=await fetchAll();
-    const includeSplits = !!(+qs('#lb-owners-toggle-splits')?.dataset.on || 0);
-    let owners=aggregateOwners(rows,vmap,includeSplits);
-    const maxOwn=owners[0]?.count||0; owners.forEach(o=>o._max=maxOwn);
-    let bettors=aggregateBettors(bets,vmap);
-    const maxWin=bettors[0]?.wins||0; bettors.forEach(b=>b._max=maxWin);
-    const state=(window.state=window.state||{}); state.lb=state.lb||{};
-    state.lb.ownersAll=owners; state.lb.bettorsAll=bettors; state.lb.iso=iso;
-    paintOwners(); paintBettors(); wireControls();
-  }
+    function paginate(list, page, per=50){
+      const total=Math.max(1,Math.ceil(list.length/per));
+      const p=Math.max(1,Math.min(total,page));
+      const start=(p-1)*per;
+      return {page:p,total,slice:list.slice(start,start+per)};
+    }
 
-  function paintOwners(page=1){
+    function paintScorers(page=1){
+      const state=(window.state=window.state||{}); state.lb=state.lb||{};
+      const body=document.querySelector('#lb-scorers-body'); if(!body) return;
+      const q=document.querySelector('#lb-scorers-search')?.value||'';
+      const list=filterByQuery(state.lb.scorersAll||[], q);
+      const {page:cur,total,slice}=paginate(list,page,50);
+      body.innerHTML='';
+      if(!slice.length){ body.innerHTML='<div class="lb-empty">No goal data to show.</div>'; }
+      else { slice.forEach(r=>body.appendChild(scorersRowEl(r))); }
+      document.querySelector('#lb-scorers-page').textContent=`${cur}/${total}`;
+      state.lb.scorersPage=cur;
+    }
+
+    function toggleDense(which){
+      const body=document.querySelector(which); if(!body) return;
+      [...body.querySelectorAll('.lb-row')].forEach(r=>r.classList.toggle('dense'));
+    }
+
+    async function renderLeaderboards(){
+      const {rows,bets,iso,vmap}=await fetchAll();
+
+      // owners/bettors as you already do...
+      const includeSplits = !!(+document.querySelector('#lb-owners-toggle-splits')?.dataset.on || 0);
+      let owners=aggregateOwners(rows,vmap,includeSplits);
+      const maxOwn=owners[0]?.count||0; owners.forEach(o=>o._max=maxOwn);
+      let bettors=aggregateBettors(bets,vmap);
+      const maxWin=bettors[0]?.wins||0; bettors.forEach(b=>b._max=maxWin);
+
+      // NEW: scorers
+      const rawGoals = await fetchGoalsData();
+      let scorers = aggregateScorers(rawGoals, vmap);
+      const maxGoals = scorers[0]?.goals || 0; scorers.forEach(s=>s._max=maxGoals);
+
+      const state=(window.state=window.state||{}); state.lb=state.lb||{};
+      state.lb.ownersAll=owners; state.lb.bettorsAll=bettors; state.lb.scorersAll=scorers; state.lb.iso=iso;
+
+      paintOwners(); paintBettors(); paintScorers();
+      wireControls();
+    }
+
+    function paintOwners(page=1){
     const state=(window.state=window.state||{}); state.lb=state.lb||{};
     const body=qs('#lb-owners-body'); if(!body) return;
     const q=qs('#lb-owners-search')?.value||'';
@@ -2949,8 +3073,8 @@ async function fetchJSON(url){
     if(!slice.length){ body.innerHTML='<div class="lb-empty">No owners to show.</div>'; }
     else { slice.forEach(r=>body.appendChild(ownersRowEl(r, state.lb.iso||{}))); }
     qs('#lb-owners-page').textContent=`${cur}/${total}`; state.lb.ownersPage=cur;
-  }
-  function paintBettors(page=1){
+    }
+    function paintBettors(page=1){
     const state=(window.state=window.state||{}); state.lb=state.lb||{};
     const body=qs('#lb-bettors-body'); if(!body) return;
     const q=qs('#lb-bettors-search')?.value||'';
@@ -2960,13 +3084,13 @@ async function fetchJSON(url){
     if(!slice.length){ body.innerHTML='<div class="lb-empty">No bettors to show.</div>'; }
     else { slice.forEach(r=>body.appendChild(bettorsRowEl(r))); }
     qs('#lb-bettors-page').textContent=`${cur}/${total}`; state.lb.bettorsPage=cur;
-  }
+    }
 
-  function toggleDense(which){
+    function toggleDense(which){
     const body=qs(which); if(!body) return;
     [...body.querySelectorAll('.lb-row')].forEach(r=>r.classList.toggle('dense'));
-  }
-  function wireControls(){
+    }
+    function wireControls(){
     const state=(window.state=window.state||{}); state.lb=state.lb||{};
     qs('#lb-owners-search')?.addEventListener('input', debounce(()=>paintOwners(1),200));
     qs('#lb-bettors-search')?.addEventListener('input', debounce(()=>paintBettors(1),200));
@@ -2984,21 +3108,28 @@ async function fetchJSON(url){
     qs('#lb-owners-next')?.addEventListener('click', ()=>paintOwners((state.lb.ownersPage||1)+1));
     qs('#lb-bettors-prev')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)-1));
     qs('#lb-bettors-next')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)+1));
-  }
+    document.querySelector('#lb-scorers-search')?.addEventListener('input', debounce(()=>paintScorers(1),200));
+    document.querySelector('#lb-scorers-density')?.addEventListener('click', ()=>toggleDense('#lb-scorers-body'));
+    document.querySelector('#lb-scorers-refresh')?.addEventListener('click', async ()=>{
+      const s=(window.state=window.state||{}); s.lb=s.lb||{}; s.lb.loaded=false; await loadLeaderboardsOnce();
+    });
+    document.querySelector('#lb-scorers-prev')?.addEventListener('click', ()=>paintScorers((window.state?.lb?.scorersPage||1)-1));
+    document.querySelector('#lb-scorers-next')?.addEventListener('click', ()=>paintScorers((window.state?.lb?.scorersPage||1)+1));
+    }
 
-  async function loadLeaderboardsOnce(){
+    async function loadLeaderboardsOnce(){
     const state=(window.state=window.state||{}); state.lb=state.lb||{};
     if(state.lb.loaded) return;
     try{ await renderLeaderboards(); state.lb.loaded=true; }catch(e){ console.error('Leaderboards error',e); }
-  }
+    }
 
-  // hook: first time Leaderboards is opened
-  function hookNav(){
+    // hook: first time Leaderboards is opened
+    function hookNav(){
     const link=[...document.querySelectorAll('#main-menu a')].find(a=>a.dataset.page==='leaderboards');
     if(link){ link.addEventListener('click', ()=>loadLeaderboardsOnce(), {once:true}); }
     const sec=document.querySelector('#leaderboards');
     const obs=new IntersectionObserver((es)=>{ es.forEach(e=>{ if(e.isIntersecting) loadLeaderboardsOnce(); }); }, {root:document.querySelector('#app-main')||null, threshold:0.01});
     sec&&obs.observe(sec);
-  }
-  document.addEventListener('DOMContentLoaded', hookNav);
+    }
+    document.addEventListener('DOMContentLoaded', hookNav);
 })();
