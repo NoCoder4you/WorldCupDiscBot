@@ -173,54 +173,112 @@ function resolveStageFor(stages, name){
     return `<span class="pill pill-off" style="margin:2px 6px 2px 0">${img}${t.team}</span>`;
   }
 
-  function renderSignedIn(user, owned, split, matches){
-    if($btnLogin) $btnLogin.style.display = 'none';
-    if($btnLogout) $btnLogout.style.display = '';
-    const avatar = user.avatar ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">` : '';
-    const title = `<div style="display:flex;align-items:center;gap:10px">
-        ${avatar}
-        <div>
-          <div style="font-weight:900;font-size:1.1rem">${user.global_name || user.username}</div>
-          <div class="muted mono">${user.username}</div>
+async function fetchMyBets(uid){
+  const r = await fetch(`/api/my_bets?uid=${encodeURIComponent(uid)}&t=${Date.now()}`, { cache:'no-store' });
+  if(!r.ok) throw new Error('Failed to load bets');
+  return r.json();
+}
+
+function betRowHTML(b){
+  const roles = (b.roles||[]).join(', ');
+  const when = b.when ? new Date(b.when).toLocaleString() : '';
+  const statusPill = b.status === 'Settled'
+    ? '<span class="pill-ok">Settled</span>'
+    : '<span class="pill">Open</span>';
+  const link = b.url ? `<a href="${b.url}" target="_blank" rel="noopener">link</a>` : '';
+  return `
+    <tr>
+      <td class="col-id">${b.id || ''}</td>
+      <td class="col-title">${b.title || ''}</td>
+      <td class="col-roles">${roles}</td>
+      <td class="col-status">${statusPill}</td>
+      <td class="col-when">${when}</td>
+      <td class="col-link">${link}</td>
+    </tr>`;
+}
+
+async function renderUserBetsCard(user){
+  const body = document.getElementById('user-body');
+  if(!body || !user) return;
+
+  let data = { bets: [] };
+  try{
+    data = await fetchMyBets(user.discord_id || user.id);
+  }catch(_){}
+
+  const rows = (data.bets||[]).map(betRowHTML).join('');
+  const table = rows
+    ? `<div class="table-scroll">
+         <table class="table">
+           <thead>
+             <tr>
+               <th>ID</th><th>Bet</th><th>Your role</th><th>Status</th><th>When</th><th></th>
+             </tr>
+           </thead>
+           <tbody>${rows}</tbody>
+         </table>
+       </div>`
+    : `<p class="muted">No bets found for your account.</p>`;
+
+  body.insertAdjacentHTML('beforeend', `
+    <div class="card" style="height:auto; margin-top:12px">
+      <div class="card-title">Your Bets</div>
+      ${table}
+    </div>
+  `);
+}
+
+
+
+    async function renderSignedIn(user, owned, split, matches){
+      if($btnLogin) $btnLogin.style.display = 'none';
+      if($btnLogout) $btnLogout.style.display = '';
+      const avatar = user.avatar ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">` : '';
+      const title = `<div style="display:flex;align-items:center;gap:10px">
+          ${avatar}
+          <div>
+            <div style="font-weight:900;font-size:1.1rem">${user.global_name || user.username}</div>
+            <div class="muted mono">${user.username}</div>
+          </div>
+        </div>`;
+
+      const matchRows = (matches||[]).map(m=>{
+        const when = (m.utc||'').replace('T',' ').replace('Z',' UTC');
+        return `<tr><td>${when}</td><td>${m.home}</td><td>${m.away}</td><td>${m.stadium||''}</td></tr>`;
+      }).join('');
+
+      if($body) $body.innerHTML = `
+        <div class="card" style="height:auto">
+          <div class="card-title">Profile</div>
+          ${title}
         </div>
-      </div>`;
 
-    const ownRow = (owned||[]).length ? owned.map(teamChip).join(' ') : '<span class="muted">None yet</span>';
-    const splitRow = (split||[]).length ? split.map(teamChip).join(' ') : '<span class="muted">None</span>';
-    const matchRows = (matches||[]).map(m=>{
-      const when = (m.utc||'').replace('T',' ').replace('Z',' UTC');
-      return `<tr><td>${when}</td><td>${m.home}</td><td>${m.away}</td><td>${m.stadium||''}</td></tr>`;
-    }).join('');
+        <div class="card" style="height:auto; margin-top:12px">
+          <div class="card-title">Upcoming Matches</div>
+          ${matchRows ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
+                       : `<p class="muted">No upcoming matches found for your teams.</p>`}
+        </div>
+      `;
 
-    if($body) $body.innerHTML = `
-      <div class="card" style="height:auto">
-        <div class="card-title">Profile</div>
-        ${title}
-      </div>
+      renderTeamsProgressMerged(owned || [], split || []);
 
-      <div class="card" style="height:auto; margin-top:12px">
-        <div class="card-title">Upcoming Matches</div>
-        ${matchRows ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
-                     : `<p class="muted">No upcoming matches found for your teams.</p>`}
-      </div>
-    `;
-    renderTeamsProgressMerged(owned || [], split || []);
-
-  }
-
-  async function refreshUser(){
-    try{
-      const me = await jget('/api/me');
-      if(!me?.user){ renderSignedOut(); return; }
-      const [own, games] = await Promise.all([
-        jget('/api/me/ownership'),
-        jget('/api/me/matches')
-      ]);
-      renderSignedIn(me.user, own.owned||[], own.split||[], games.matches||[]);
-    }catch(e){
-      renderSignedOut();
+      // NEW: Your Bets
+      await renderUserBetsCard(user);
     }
-  }
+
+    async function refreshUser(){
+      try{
+        const me = await jget('/api/me');
+        if(!me?.user){ renderSignedOut(); return; }
+        const [own, games] = await Promise.all([
+          jget('/api/me/ownership'),
+          jget('/api/me/matches')
+        ]);
+        await renderSignedIn(me.user, own.owned||[], own.split||[], games.matches||[]);
+      }catch(e){
+        renderSignedOut();
+      }
+    }
 
   function wire(){
     if(!$userPage) return;

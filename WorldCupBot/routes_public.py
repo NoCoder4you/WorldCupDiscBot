@@ -456,6 +456,108 @@ def create_public_routes(ctx):
             out.append(item)
         return jsonify(out)
 
+    def _str(x):  # normalize IDs
+        return str(x).strip()
+
+    def _user_in_list(lst, uid):
+        return any(_str(v) == uid for v in lst)
+
+    def _roles_for_user(bet, uid):
+        roles = set()
+        # creator
+        if _str(bet.get("creator_id") or bet.get("author_id") or bet.get("owner_id")) == uid:
+            roles.add("Creator")
+
+        claims = bet.get("claims")
+        if isinstance(claims, dict):
+            side = claims.get(uid)
+            if side: roles.add(f"On {side}")
+        elif isinstance(claims, list):
+            for c in claims:
+                if _str((c or {}).get("user_id")) == uid:
+                    s = (c or {}).get("side") or (c or {}).get("option")
+                    if s: roles.add(f"On {s}")
+
+        # side objects: a/b/option_a/option_b with claimed_by|bettors|players|participants
+        for side_key in ("a", "b", "A", "B", "option_a", "option_b", "optionA", "optionB"):
+            side = bet.get(side_key)
+            if not isinstance(side, dict):
+                continue
+            for field in ("claimed_by", "claimants", "bettors", "players", "users", "participants"):
+                v = side.get(field)
+                if isinstance(v, list) and _user_in_list(v, uid):
+                    label = side_key.upper()[0]  # A or B
+                    roles.add(f"On {label}")
+                elif isinstance(v, str) and _str(v) == uid:
+                    label = side_key.upper()[0]
+                    roles.add(f"On {label}")
+
+        # flat participants list at root
+        for field in ("participants", "players", "bettors"):
+            v = bet.get(field)
+            if isinstance(v, list) and _user_in_list(v, uid):
+                roles.add("Participant")
+
+        return sorted(roles)
+
+    def _title_for_bet(b):
+        return (b.get("title") or b.get("match") or
+                (f'{b.get("home")} vs {b.get("away")}' if (b.get("home") or b.get("away")) else None) or
+                (f'{b.get("team1")} vs {b.get("team2")}' if (b.get("team1") or b.get("team2")) else None) or
+                f'Bet {b.get("id") or b.get("bet_id") or ""}'.strip())
+
+    def _bet_id(b):
+        return _str(b.get("id") or b.get("bet_id") or b.get("uid") or b.get("slug") or "")
+
+    def _when(b):
+        return (b.get("created_at") or b.get("time") or b.get("timestamp") or b.get("when"))
+
+    @api.get("/my_bets")
+    def api_my_bets():
+        base = ctx.get("BASE_DIR", "")
+        uid = request.args.get("uid", "").strip()
+
+        if not uid:
+            me = _json_load(os.path.join(_json_dir(base), "_session_user.json"), {})  # optional
+            uid = _str(me.get("discord_id") or me.get("id") or "")
+
+        if not uid:
+            return jsonify({"ok": True, "bets": []})
+
+        data = _json_load(_bets_path(base), [])
+        if not isinstance(data, list):
+            # if file is an object with "bets": [...]
+            data = data.get("bets") if isinstance(data, dict) else []
+
+        out = []
+        for b in data:
+            if not isinstance(b, dict):
+                continue
+            roles = _roles_for_user(b, uid)
+            if not roles:
+                continue
+
+            status = "Settled" if (b.get("winner") or b.get("settled")) else "Open"
+            out.append({
+                "id": _bet_id(b),
+                "title": _title_for_bet(b),
+                "roles": roles,
+                "status": status,
+                "winner": b.get("winner"),
+                "wager": (b.get("wagers") or {}).get(uid) if isinstance(b.get("wagers"), dict) else None,
+                "when": _when(b),
+                "url": b.get("url") or b.get("message_url") or b.get("jump_url")
+            })
+
+        # newest first by time if present
+        out.sort(key=lambda x: (x.get("when") or 0), reverse=True)
+
+        resp = make_response(jsonify({"ok": True, "bets": out, "uid": uid}))
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+
     # ---------- Ownership from players ----------
     @api.get("/ownership_merged")
     def ownership_merged():
@@ -1016,5 +1118,6 @@ def create_public_routes(ctx):
 
         out.sort(key=lambda x: x.get("utc") or x.get("time") or "")
         return jsonify({"ok": True, "matches": out})
+
 
     return root, api, auth
