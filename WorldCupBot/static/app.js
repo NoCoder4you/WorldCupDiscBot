@@ -1479,10 +1479,10 @@ function renderPendingSplits(rows){
       <td class="col-status">
         <div class="action-cell">
           <button type="button" class="pill pill-warn pill-click">Pending</button>
-          <div class="chip-group--split hidden">
-            <button class="btn-split split-accept" data-action="accept" data-id="${escapeHTML(realId)}">Accept</button>
-            <button class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
-          </div>
+            <div class="chip-group--split hidden">
+              <button type="button" class="btn-split split-accept"  data-action="accept"  data-id="${escapeHTML(realId)}">Accept</button>
+              <button type="button" class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
+            </div>
         </div>
       </td>
     `;
@@ -1649,6 +1649,10 @@ async function loadSplitHistoryOnce() {
     notify(`History refresh failed: ${e.message || e}`, false);
   }
 }
+
+window.loadSplits = loadSplits;
+window.loadSplitHistoryOnce = loadSplitHistoryOnce;
+
 
 /* ---------- small utils ---------- */
 function splitStatusPill(status) {
