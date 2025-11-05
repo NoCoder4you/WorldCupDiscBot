@@ -190,6 +190,53 @@
           </div>
         </section>
 
+
+        <!-- ===== Leaderboards (NEW) ===== -->
+        <section id="leaderboards" class="page-section">
+          <div class="lb-grid">
+            <!-- Card A -->
+            <div class="lb-card">
+              <div class="lb-head">
+                <div class="lb-title">Top Team Owners</div>
+                <div class="lb-actions">
+                  <input id="lb-owners-search" class="lb-search" type="text" placeholder="Filter players">
+                  <div class="lb-chips">
+                    <button id="lb-owners-toggle-splits" class="btn-chip" data-on="0" title="Include split co-owners in counts">include splits: off</button>
+                    <button id="lb-owners-density" class="btn-chip">dense</button>
+                    <button id="lb-owners-refresh" class="btn-chip">refresh</button>
+                  </div>
+                </div>
+              </div>
+              <div class="lb-body" id="lb-owners-body" aria-live="polite"></div>
+              <div class="lb-foot">
+                <button id="lb-owners-prev" class="btn sm">&lt; Prev</button>
+                <span class="lb-page" id="lb-owners-page">1</span>
+                <button id="lb-owners-next" class="btn sm">Next &gt;</button>
+              </div>
+            </div>
+
+            <!-- Card B -->
+            <div class="lb-card">
+              <div class="lb-head">
+                <div class="lb-title">Top Bettors</div>
+                <div class="lb-actions">
+                  <input id="lb-bettors-search" class="lb-search" type="text" placeholder="Filter players">
+                  <div class="lb-chips">
+                    <button id="lb-bettors-density" class="btn-chip">dense</button>
+                    <button id="lb-bettors-refresh" class="btn-chip">refresh</button>
+                  </div>
+                </div>
+              </div>
+              <div class="lb-body" id="lb-bettors-body" aria-live="polite"></div>
+              <div class="lb-foot">
+                <button id="lb-bettors-prev" class="btn sm">&lt; Prev</button>
+                <span class="lb-page" id="lb-bettors-page">1</span>
+                <button id="lb-bettors-next" class="btn sm">Next &gt;</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="user" class="page-section">
           <div class="table-wrap">
             <div class="table-head">
