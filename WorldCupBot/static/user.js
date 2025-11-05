@@ -5,7 +5,7 @@
   const $btnLogin = qs('#btn-discord-login');
   const $btnLogout = qs('#btn-discord-logout');
   const $body = qs('#user-body');
-  const STAGE_PROGRESS = {
+const STAGE_PROGRESS = {
   "Eliminated": 0,
   "Group Stage": 15,
   "Round of 32": 25,
@@ -15,6 +15,28 @@
   "Final": 90,
   "Winner": 100
 };
+
+function normalizeStage(label){
+  const s = String(label || '').trim();
+  const map = {
+    "Group": "Group Stage",
+    "R32": "Round of 32",
+    "R16": "Round of 16",
+    "QF": "Quarter Final",
+    "SF": "Semi Final",
+    "F": "Final",
+    "Second Place": "Final" // or remove if you bring it back later
+  };
+  return map[s] || s;
+}
+
+
+    async function fetchTeamStagesFresh(){
+      const url = `/team_stage?t=${Date.now()}`;
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) return {};
+      return r.json();
+    }
 
 
   async function jget(url){
@@ -68,14 +90,16 @@
       const body = document.getElementById('user-body');
       if(!body) return;
 
-      const stages = await jget('/team_stage');   // { Country: Stage }
-      const MAIN_COLOR  = '#22c55e';              // green you can tweak
-      const SPLIT_COLOR = '#00b8ff';              // blue
+      const stages = await fetchTeamStagesFresh();
+      const MAIN_COLOR  = '#22c55e';
+      const SPLIT_COLOR = '#00b8ff';
 
       const makeTile = (t, isMain) => {
         const name = t.team || t.name || String(t);
         const stage = stages?.[name] || 'Group';
         const color = isMain ? MAIN_COLOR : SPLIT_COLOR;
+        const raw = stages?.[name];
+        const stage = normalizeStage(raw) || 'Group Stage';
         const ring  = makeStageRing(stage, color);
         const flag  = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
         const badge = isMain ? '<span class="owner-pill owner-pill--main">Main</span>'

@@ -896,11 +896,8 @@ document.addEventListener('click', function (e) {
 
 document.addEventListener('change', async (e) => {
   const sel = e.target.closest && e.target.closest('.stage-select');
-  if (!sel) return;                     // not a stage dropdown
-  if (!state.admin) {                   // only admins can save
-    notify('Admin required', false);
-    return;
-  }
+  if (!sel) return;
+  if (!state.admin) return notify('Admin required', false);
 
   const team  = sel.getAttribute('data-team') || '';
   const stage = sel.value || 'Group';
@@ -914,23 +911,20 @@ document.addEventListener('change', async (e) => {
       body: JSON.stringify({ team, stage })
     });
     const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) throw new Error(j.error || 'save failed');
 
-    if (!r.ok || j.ok === false)
-      throw new Error(j.error || 'save failed');
-
-    // ✅ Update local cache and notify success
     ownershipState.stages = ownershipState.stages || {};
     ownershipState.stages[team] = stage;
     notify(`Stage updated: ${team} → ${stage}`, true);
 
-    // Optional visual confirmation flash
-    sel.style.borderColor = '#22c55e';
-    setTimeout(() => (sel.style.borderColor = ''), 800);
+    // ✅ INSERT THIS BLOCK HERE
+    if (location.hash === '#user' || state.currentPage === 'user') {
+      try { await refreshUser(); } catch (_) {}
+    }
 
   } catch (err) {
-    // ❌ Notify and revert if failed
     notify(`Failed to update stage: ${err.message || err}`, false);
-    const prev = (ownershipState.stages && ownershipState.stages[team]) || 'Group';
+    const prev = (ownershipState.stages && ownershipState.stages[team]) || 'Group Stage';
     sel.value = prev;
   }
 });
