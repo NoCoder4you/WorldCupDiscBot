@@ -1901,7 +1901,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     border: 1px solid var(--border);
     border-radius: 14px;
     max-width: 1320px;
-    margin: 16px auto;
+    margin: 5px auto;
     overflow: hidden;
 }
 
@@ -2289,5 +2289,150 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   select.stage-select::-ms-expand {
     display: none;
   }
+}
+
+/* =======================
+   Backups page - visual polish
+   ======================= */
+#backups .table-wrap,
+#backups .section-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  max-width: 1320px;
+  margin: 16px auto;
+}
+
+#backups .table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+#backups .table-title {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+#backups .table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#backups .table-scroll {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* Table column sizing and alignment */
+#backups .table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#backups .table thead th,
+#backups .table tbody td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#backups .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(8, 14, 22, 0.96);
+  backdrop-filter: saturate(1.2) blur(4px);
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+/* Column widths */
+#backups .table th:nth-child(1),
+#backups .table td:nth-child(1) {  /* name */
+  width: 56%;
+}
+#backups .table th:nth-child(2),
+#backups .table td:nth-child(2) {  /* size */
+  width: 14%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+#backups .table th:nth-child(3),
+#backups .table td:nth-child(3) {  /* modified */
+  width: 20%;
+  text-align: right;
+}
+#backups .table th:nth-child(4),
+#backups .table td:nth-child(4) {  /* actions */
+  width: 10%;
+  text-align: right;
+}
+
+/* Zebra and hover */
+#backups .table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,0.02);
+}
+#backups .table tbody tr:hover td {
+  background: rgba(77,164,255,0.08);
+}
+
+/* File name with subtle icon and stronger contrast */
+#backups .table td .file-name {
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+#backups .table td .file-name::before {
+  content: "📦";
+  margin-right: 8px;
+  filter: saturate(0.9);
+  opacity: 0.9;
+}
+
+/* Empty state */
+#backups .table-empty,
+#backups .empty,
+#backups .no-backups {
+  padding: 14px 16px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* Turn the last-cell link into a pill button even if JS only outputs <a> */
+#backups .table tbody td:last-child a,
+#backups .table a.download-link {
+  display: inline-block;
+  background: var(--btn);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  text-decoration: none;
+}
+#backups .table tbody td:last-child a:hover,
+#backups .table a.download-link:hover {
+  background: var(--btn-hover);
+}
+
+/* Align the top-right action buttons to feel balanced with table */
+#backups .table-actions .btn {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 800;
+  padding: 8px 12px;
+}
+#backups .table-actions .btn:active {
+  transform: translateY(1px);
 }
 

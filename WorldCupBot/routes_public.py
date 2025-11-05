@@ -462,56 +462,6 @@ def create_public_routes(ctx):
     def _user_in_list(lst, uid):
         return any(_str(v) == uid for v in lst)
 
-    def _roles_for_user(bet, uid):
-        roles = set()
-        # creator
-        if _str(bet.get("creator_id") or bet.get("author_id") or bet.get("owner_id")) == uid:
-            roles.add("Creator")
-
-        claims = bet.get("claims")
-        if isinstance(claims, dict):
-            side = claims.get(uid)
-            if side: roles.add(f"On {side}")
-        elif isinstance(claims, list):
-            for c in claims:
-                if _str((c or {}).get("user_id")) == uid:
-                    s = (c or {}).get("side") or (c or {}).get("option")
-                    if s: roles.add(f"On {s}")
-
-        # side objects: a/b/option_a/option_b with claimed_by|bettors|players|participants
-        for side_key in ("a", "b", "A", "B", "option_a", "option_b", "optionA", "optionB"):
-            side = bet.get(side_key)
-            if not isinstance(side, dict):
-                continue
-            for field in ("claimed_by", "claimants", "bettors", "players", "users", "participants"):
-                v = side.get(field)
-                if isinstance(v, list) and _user_in_list(v, uid):
-                    label = side_key.upper()[0]  # A or B
-                    roles.add(f"On {label}")
-                elif isinstance(v, str) and _str(v) == uid:
-                    label = side_key.upper()[0]
-                    roles.add(f"On {label}")
-
-        # flat participants list at root
-        for field in ("participants", "players", "bettors"):
-            v = bet.get(field)
-            if isinstance(v, list) and _user_in_list(v, uid):
-                roles.add("Participant")
-
-        return sorted(roles)
-
-    def _title_for_bet(b):
-        return (b.get("title") or b.get("match") or
-                (f'{b.get("home")} vs {b.get("away")}' if (b.get("home") or b.get("away")) else None) or
-                (f'{b.get("team1")} vs {b.get("team2")}' if (b.get("team1") or b.get("team2")) else None) or
-                f'Bet {b.get("id") or b.get("bet_id") or ""}'.strip())
-
-    def _bet_id(b):
-        return _str(b.get("id") or b.get("bet_id") or b.get("uid") or b.get("slug") or "")
-
-    def _when(b):
-        return (b.get("created_at") or b.get("time") or b.get("timestamp") or b.get("when"))
-
     def _s(x):
         return str(x or "").strip()
 
@@ -520,7 +470,6 @@ def create_public_routes(ctx):
         return "Open" if not w else "Settled"
 
     def _roles_for_uid(bet, uid):
-        """Return a role label like 'On Option 1 (Wins)' based on your schema."""
         uid = _s(uid)
         if not uid:
             return []
@@ -532,13 +481,12 @@ def create_public_routes(ctx):
 
         roles = []
         if uid == o1_id:
-            roles.append(f"On Option 1 ({o1})")
+            roles.append(f"{o1}")
         if uid == o2_id:
-            roles.append(f"On Option 2 ({o2})")
+            roles.append(f"{o2}")
         return roles
 
     def _winner_label(bet):
-        """Return a readable winner label based on your schema."""
         w = _s(bet.get("winner"))  # could be '', 'option1', 'option2', or the text
         o1 = _s(bet.get("option1")) or "Option 1"
         o2 = _s(bet.get("option2")) or "Option 2"

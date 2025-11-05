@@ -1742,15 +1742,15 @@ function shortId(id) {
 
             const a = document.createElement('a');
             a.href = `/api/backups/download?rel=${encodeURIComponent(f.rel || f.name)}`;
-            a.textContent = 'Download';
+            a.className = 'download-link';
+            a.innerHTML = `<span class="file-name">${escapeHtml(f.name)}</span>`;
 
             tr.innerHTML = `
-              <td>${escapeHtml(f.name)}</td>
+              <td>${a.outerHTML}</td>
               <td>${Math.round(sizeBytes/1024/1024)} MB</td>
               <td>${escapeHtml(dt)}</td>
-              <td></td>
+              <td><a href="${a.href}" class="download-link">Download</a></td>
             `;
-            tr.children[3].appendChild(a);
             tb.appendChild(tr);
           });
 
