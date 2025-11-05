@@ -96,7 +96,6 @@ function normalizeStage(label){
 
       const makeTile = (t, isMain) => {
         const name = t.team || t.name || String(t);
-        const stage = stages?.[name] || 'Group';
         const color = isMain ? MAIN_COLOR : SPLIT_COLOR;
         const raw = stages?.[name];
         const stage = normalizeStage(raw) || 'Group Stage';
