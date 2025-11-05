@@ -1533,6 +1533,7 @@ function renderPendingSplits(rows){
         // refresh both panels so UI is in sync with files
         await loadSplits();
         await loadSplitHistoryOnce();
+        try { await loadOwnership(); } catch(_) {}
         notify(`Split ${action}ed`, true);
       } catch (err) {
         notify(`Failed to ${action} split: ${err.message || err}`, false);
