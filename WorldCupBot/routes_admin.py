@@ -578,9 +578,13 @@ def create_admin_routes(ctx):
     @bp.get("/teams/stage")
     def admin_team_stage_get():
         resp = require_admin()
-        if resp is not None: return resp
-        data = _read_json(_team_stage_path(ctx), {})
-        if not isinstance(data, dict): data = {}
+        if resp is not None:
+            return resp
+        base_dir = ctx.get("BASE_DIR", "")
+        path = _team_stage_path(base_dir)
+        data = _read_json(path, {})
+        if not isinstance(data, dict):
+            data = {}
         return jsonify({"ok": True, "stages": data})
 
     @bp.post("/teams/stage")

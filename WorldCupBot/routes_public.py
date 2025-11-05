@@ -378,6 +378,45 @@ def create_public_routes(ctx):
                 out.append(user)
         return jsonify(out)
 
+    @api.get("/player_names")
+    def api_player_names():
+        base = ctx.get("BASE_DIR", "")
+        verified_blob = _json_load(_verified_path(base), {})
+        players_blob = _json_load(_players_path(base), {})
+
+        # Build { discord_id: display_name }
+        out = {}
+
+        # 1) verified.json (preferred)
+        vlist = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
+        if isinstance(vlist, list):
+            for v in vlist:
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                disp = (v.get("display_name") or v.get("username") or v.get("name") or "").strip()
+                if did:
+                    out[did] = disp or did
+
+        # 2) players.json fallback for any IDs not in verified.json
+        if isinstance(players_blob, dict):
+            for uid, pdata in players_blob.items():
+                did = str(uid).strip()
+                if not did or did in out:
+                    continue
+                if isinstance(pdata, dict):
+                    disp = (pdata.get("display_name") or pdata.get("username") or pdata.get("name") or "").strip()
+                else:
+                    disp = did
+                out[did] = disp or did
+
+        # no-cache so UI always sees freshest names
+        resp = make_response(jsonify(out))
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+
     # ---------- Bets (enriched with display_name) ----------
     @api.get("/bets")
     def api_bets():
