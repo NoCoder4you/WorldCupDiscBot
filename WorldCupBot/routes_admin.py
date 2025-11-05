@@ -578,21 +578,15 @@ def create_admin_routes(ctx):
     @bp.get("/teams/stage")
     def admin_team_stage_get():
         resp = require_admin()
-        if resp is not None:
-            return resp
-        base_dir = ctx.get("BASE_DIR", "")
-        path = _team_stage_path(base_dir)
-        data = _read_json(path, {})
-        if not isinstance(data, dict):
-            data = {}
+        if resp is not None: return resp
+        data = _read_json(_team_stage_path(ctx), {})
+        if not isinstance(data, dict): data = {}
         return jsonify({"ok": True, "stages": data})
 
     @bp.post("/teams/stage")
     def admin_team_stage_set():
         resp = require_admin()
-        if resp is not None:
-            return resp
-
+        if resp is not None: return resp
         body = request.get_json(silent=True) or {}
         team = (body.get("team") or "").strip()
         stage = (body.get("stage") or "").strip()
@@ -602,14 +596,11 @@ def create_admin_routes(ctx):
         if stage not in STAGE_ALLOWED:
             return jsonify({"ok": False, "error": "invalid stage"}), 400
 
-        base_dir = ctx.get("BASE_DIR", "")
-        path = _team_stage_path(base_dir)
+        path = _team_stage_path(ctx)
         data = _read_json(path, {})
-        if not isinstance(data, dict):
-            data = {}
+        if not isinstance(data, dict): data = {}
         data[team] = stage
         _write_json_atomic(path, data)
         return jsonify({"ok": True, "team": team, "stage": stage})
-
 
     return bp
