@@ -1325,6 +1325,28 @@ if (state.splitsHistoryTimer) {
   state.splitsHistoryTimer = null;
 }
 
+    async function loadSplits(){
+      if (!state.admin) { notify('Admin required', false); return; }
+      try {
+        // GET pending split requests
+        const data = await fetchJSON('/admin/splits'); // { pending: [...] } or []
+        const pending = Array.isArray(data) ? data : (data.pending || []);
+
+        // render requests table
+        await renderSplitsTable(pending);
+
+        // best-effort: refresh the history panel
+        try { await loadSplitHistoryOnce(); } catch(_) {}
+      } catch(e){
+        notify(`Splits error: ${e.message || e}`, false);
+      }
+    }
+
+    // --- make sure anything calling them from elsewhere can see them ---
+    window.loadSplits = loadSplits;
+    window.renderSplitsTable = typeof renderSplitsTable === 'function' ? renderSplitsTable : undefined;
+    window.loadSplitHistoryOnce = typeof loadSplitHistoryOnce === 'function' ? loadSplitHistoryOnce : undefined;
+
     async function renderSplitsTable(pending = []) {
       // ensure the section shell exists
       const wrap = ensureSectionCard('splits', 'Split Requests', [
