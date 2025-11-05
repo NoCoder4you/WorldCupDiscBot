@@ -392,30 +392,97 @@ def create_admin_routes(ctx):
     @bp.post("/splits/accept")
     def splits_accept():
         resp = require_admin()
-        if resp is not None: return resp
-        data = request.get_json(silent=True) or {}
-        sid = data.get("id"); reason = data.get("reason") or ""
-        if not sid: return jsonify({"ok": False, "error": "missing id"}), 400
+        if resp is not None:
+            return resp
 
+        data = request.get_json(silent=True) or {}
+        sid = data.get("id")
+        reason = data.get("reason") or ""
+        if not sid:
+            return jsonify({"ok": False, "error": "missing id"}), 400
+
+        # 1) pull the pending request
         req_path = _split_requests_path()
         pending_raw = _read_json(req_path, {})
-        if not isinstance(pending_raw, dict): pending_raw = {}
+        if not isinstance(pending_raw, dict):
+            pending_raw = {}
 
         entry = pending_raw.pop(sid, None)
-        if not isinstance(entry, dict): return jsonify({"ok": False, "error": "not_found"}), 404
+        if not isinstance(entry, dict):
+            return jsonify({"ok": False, "error": "not_found"}), 404
+
+        # Persist removal of the pending request now
         _write_json_atomic(req_path, pending_raw)
 
+        team = entry.get("team")
         req_id = str(entry.get("requester_id") or "")
         own_id = str(entry.get("main_owner_id") or "")
+        if not team or not req_id or not own_id:
+            return jsonify({"ok": False, "error": "bad_request"}), 400
+
+        # 2) Apply the split directly in players.json
+        players_path = _path(ctx, "players.json")
+        players = _read_json(players_path, {})
+        if not isinstance(players, dict):
+            players = {}
+
+        def ensure_player(uid: str):
+            uid = str(uid)
+            if uid not in players or not isinstance(players[uid], dict):
+                players[uid] = {"display_name": uid, "teams": []}
+            players[uid].setdefault("teams", [])
+            return players[uid]
+
+        def ensure_team_entry(pdict: dict, team_name: str):
+            for t in pdict["teams"]:
+                if isinstance(t, dict) and t.get("team") == team_name:
+                    t.setdefault("ownership", {})
+                    t["ownership"].setdefault("split_with", [])
+                    return t
+            new_entry = {"team": team_name, "ownership": {"main_owner": None, "split_with": []}}
+            pdict["teams"].append(new_entry)
+            return new_entry
+
+        # main owner record
+        owner = ensure_player(own_id)
+        owner_team = ensure_team_entry(owner, team)
+        # ensure main_owner remains owner
+        owner_team["ownership"]["main_owner"] = int(own_id) if own_id.isdigit() else own_id
+        # add requester to split_with (dedup)
+        sw = owner_team["ownership"].get("split_with", [])
+        req_as_num = int(req_id) if req_id.isdigit() else req_id
+        if req_as_num not in sw:
+            sw.append(req_as_num)
+        owner_team["ownership"]["split_with"] = sw
+
+        # requester record: make sure they have the team entry pointing to main owner
+        requester = ensure_player(req_id)
+        req_team = ensure_team_entry(requester, team)
+        req_team["ownership"]["main_owner"] = int(own_id) if own_id.isdigit() else own_id
+        # requester-side split_with usually empty in your schema
+        req_team["ownership"].setdefault("split_with", [])
+
+        # save players.json
+        _write_json_atomic(players_path, players)
+
+        # 3) Log the action with resolved names
         names = _resolve_names(ctx, {req_id, own_id})
         event = {
-            "id": sid, "action": "accepted", "team": entry.get("team"),
-            "requester_id": req_id, "main_owner_id": own_id,
-            "from_username": names.get(req_id, req_id), "to_username": names.get(own_id, own_id),
-            "reason": reason, "timestamp": _now_iso(),
+            "id": sid,
+            "action": "accepted",
+            "team": team,
+            "requester_id": req_id,
+            "main_owner_id": own_id,
+            "from_username": names.get(req_id, req_id),
+            "to_username": names.get(own_id, own_id),
+            "reason": reason,
+            "timestamp": _now_iso(),
         }
         _append_split_history(event)
+
+        # optional: still enqueue for bot-side notifications or embeds
         _enqueue_command(ctx, "split_accept", {"id": sid, "reason": reason})
+
         return jsonify({"ok": True, "event": event})
 
     @bp.post("/splits/decline")
