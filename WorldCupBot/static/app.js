@@ -880,17 +880,29 @@ var sortPlayerBtn = document.querySelector('#sort-player');
 if (sortCountryBtn) sortCountryBtn.addEventListener('click', function () { sortMerged('country'); });
 if (sortPlayerBtn) sortPlayerBtn.addEventListener('click', function () { sortMerged('player'); });
 
-// Delegated Reassign button
-document.addEventListener('click', function (e) {
-  var btn = e.target.closest ? e.target.closest('.reassign-btn') : null;
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('.reassign-btn');
   if (!btn) return;
-  if (!window.adminUnlocked) return notify('Admin required', false);
-  var team = btn.getAttribute('data-team') || '';
-  if (!team) return;
-  document.getElementById('reassign-team').value = team;
-  document.getElementById('reassign-select').value = '';
-  document.getElementById('reassign-id').value = '';
-  document.getElementById('reassign-backdrop').style.display = 'flex';
+
+  // Always sync admin status before gating UI
+  try {
+    const s = await fetch('/admin/auth/status', { credentials: 'include' }).then(r => r.json());
+    const isAdmin = !!(s && s.unlocked);
+    state.admin = isAdmin;
+    document.body.classList.toggle('admin', isAdmin);
+  } catch (_) {
+    state.admin = false;
+    document.body.classList.remove('admin');
+  }
+
+  if (!state.admin) {
+    notify('Admin required', false);
+    return;
+  }
+
+  // Open the modal
+  const team = btn.getAttribute('data-team') || btn.dataset.team || '';
+  openReassignModal(team.trim());
 });
 
 document.addEventListener('change', async (e) => {
@@ -928,67 +940,92 @@ document.addEventListener('change', async (e) => {
   }
 });
 
-    // ===== Reassign flow (custom dropdown version - no native <select>) =====
-    const reassignBackdrop = document.getElementById('reassign-backdrop');
-    const reassignTeamInp  = document.getElementById('reassign-team');
-    const reassignIdInp    = document.getElementById('reassign-id');
-    const pickerBtn        = document.getElementById('reassign-picker');   // button label of custom dropdown
+    function openReassignModal(teamName) {
+      const backdrop = document.getElementById('reassign-backdrop');
+      const modal    = document.getElementById('reassign-modal');
+      const inputT   = document.getElementById('reassign-team');
+      const inputId  = document.getElementById('reassign-id');
+      const picker   = document.getElementById('reassign-picker');
+      const listbox  = document.getElementById('reassign-options');
 
-    // Open modal (ensure admin first)
-    document.addEventListener('click', async (e) => {
-      const btn = e.target.closest?.('.reassign-btn');
-      if (!btn) return;
+      if (!backdrop || !modal) return;
 
-      const unlocked = await initAuth();
-      if (!unlocked) return notify('Admin required', false);
+      // never show a toast here — the gate lives in the click handler
+      inputT.value = teamName || '';
 
-      // Prefill + reset
-      const team = btn.getAttribute('data-team') || '';
-      document.getElementById('reassign-team').value = team;
-      document.getElementById('reassign-id').value = '';
-      const pickerBtn = document.getElementById('reassign-picker');
-      if (pickerBtn) pickerBtn.textContent = '-- Select a player --';
+      // populate verified users for the picker (best-effort)
+      (async () => {
+        try {
+          const users = await fetchJSON('/api/verified'); // public route
+          listbox.innerHTML = '';
+          (users || []).forEach(u => {
+            const li = document.createElement('li');
+            li.role = 'option';
+            li.tabIndex = -1;
+            li.textContent = (u.display_name || u.username || u.discord_id || '').trim();
+            li.dataset.id = String(u.discord_id || '').trim();
+            li.addEventListener('click', () => {
+              picker.textContent = li.textContent;
+              picker.dataset.id = li.dataset.id;
+              listbox.hidden = true;
+            });
+            listbox.appendChild(li);
+          });
+          picker.onclick = () => { listbox.hidden = !listbox.hidden; };
+          document.addEventListener('click', (e) => {
+            if (!picker.contains(e.target) && !listbox.contains(e.target)) listbox.hidden = true;
+          }, { once: true });
+        } catch (_) {}
+      })();
 
-      // PRELOAD silently, do NOT open
-      await setupVerifiedPicker(true);   // true = preload, still hidden
+      backdrop.style.display = 'flex';
+      modal.focus();
+    }
 
-      document.getElementById('reassign-backdrop').style.display = 'flex';
-    });
-
-// Close/cancel
-document.getElementById('reassign-close')?.addEventListener('click', () => {
-  reassignBackdrop.style.display = 'none';
-});
 document.getElementById('reassign-cancel')?.addEventListener('click', () => {
-  reassignBackdrop.style.display = 'none';
+  document.getElementById('reassign-backdrop').style.display = 'none';
 });
 
-// Submit (no second-stage confirm)
+document.getElementById('reassign-close')?.addEventListener('click', () => {
+  document.getElementById('reassign-backdrop').style.display = 'none';
+});
+
 document.getElementById('reassign-submit')?.addEventListener('click', async () => {
-  const unlocked = await initAuth();
-  if (!unlocked) return notify('Admin required', false);
+  const team = (document.getElementById('reassign-team')?.value || '').trim();
+  const pickedId = (document.getElementById('reassign-picker')?.dataset.id || '').trim();
+  const typedId  = (document.getElementById('reassign-id')?.value || '').trim();
+  const newOwner = pickedId || typedId;
 
-    const team  = (document.getElementById('reassign-team').value || '').trim();
-    const newId = (document.getElementById('reassign-id').value || '').trim();
-    const label = (document.getElementById('reassign-picker')?.textContent || '').trim();
-
-  if (!team || !newId) return notify('Team and new owner ID required', false);
+  if (!team || !newOwner) return notify('Team and new owner required', false);
 
   try {
-    const r = await fetch('/admin/ownership/reassign', {
+    const res = await fetch('/admin/ownership/reassign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ team, new_owner_id: newId })
+      body: JSON.stringify({ team, new_owner_id: newOwner })
     });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok || j.ok === false) return notify(j.error || 'Reassign failed', false);
 
+    if (res.status === 401) {
+      state.admin = false;
+      document.body.classList.remove('admin');
+      notify('Admin required', false);
+      return; // do not keep the modal open pretending it worked
+    }
+
+    const data = await res.json();
+    if (!data.ok) {
+      notify(data.error || 'Failed to reassign', false);
+      return;
+    }
+
+    // success: close modal, toast, and refresh the row if you keep a table renderer
     document.getElementById('reassign-backdrop').style.display = 'none';
-    notify(`Reassigned ${team} to ${label || newId}`, true);
-    await refreshOwnershipNow(); // hard refresh of the Ownership card
-  } catch {
-    notify('Network error', false);
+    notify('Team reassigned', true);
+
+    try { await refreshOwnershipOnce?.(data.row); } catch (_) {}
+  } catch (e) {
+    notify('Failed to reassign', false);
   }
 });
 
