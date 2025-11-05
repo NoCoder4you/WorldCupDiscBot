@@ -2846,14 +2846,6 @@ async function fetchJSON(url){
       wrap.appendChild(img);
       return wrap;
     }
-      // initials fallback with stable hue by ID
-      const span = document.createElement('span');
-      span.textContent = (dname || '').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase() || '??';
-      const hue = String(user.id||'').split('').reduce((h,ch)=>(h*31+ch.charCodeAt(0))%360,0);
-      wrap.style.background = `hsl(${hue} 55% 38%)`;
-      wrap.appendChild(span);
-      return wrap;
-    }
     function barEl(value, max){
     const w=document.createElement('div'); w.className='lb-bar';
     const f=document.createElement('div'); f.className='lb-fill';
