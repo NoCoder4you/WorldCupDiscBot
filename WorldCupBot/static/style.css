@@ -2435,4 +2435,23 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #backups .table-actions .btn:active {
   transform: translateY(1px);
 }
+#backups p {
+  text-align: center;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+  font-size: 1.05rem;
+  padding: 24px 0;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  margin: 20px auto;
+  max-width: 480px;
+}
+#backups p::before {
+  content: "📁 ";
+  font-size: 1.2em;
+  vertical-align: middle;
+  opacity: 0.8;
+}
 
