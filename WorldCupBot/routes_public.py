@@ -305,11 +305,7 @@ def create_public_routes(ctx):
     @api.get("/team_stage")
     def api_team_stage():
         data = _json_read(_team_stage_path(ctx), {})
-        from flask import make_response, jsonify
-        resp = make_response(jsonify(data if isinstance(data, dict) else {}))
-        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        resp.headers["Pragma"] = "no-cache"
-        return resp
+        return jsonify(data if isinstance(data, dict) else {})
 
     # ---------- Bot controls ----------
     @api.post("/bot/start")
