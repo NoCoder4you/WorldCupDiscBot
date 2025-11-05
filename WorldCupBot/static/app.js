@@ -2824,19 +2824,28 @@ async function fetchJSON(url){
       return `https://cdn.discordapp.com/avatars/${id}/${avatarHash}.${ext}?size=64`;
     }
 
+    // Default avatar when the user has no custom avatar
+    function discordDefaultAvatarUrl(id){
+      try {
+        const idx = Number(BigInt(String(id)) % 6n); // 0..5
+        return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+      } catch {
+        return `https://cdn.discordapp.com/embed/avatars/0.png`;
+      }
+    }
+
     function avatarEl(user){
       const dname = user.display_name || user.username || user.id || 'Unknown';
       const wrap = document.createElement('div');
       wrap.className = 'lb-ava';
 
-      const url = user.avatar_url || null;
-      if(url){
-        const img = document.createElement('img');
-        img.alt = `${dname} avatar`;
-        img.src = url;
-        wrap.appendChild(img);
-        return wrap;
-      }
+      const url = user.avatar_url || discordDefaultAvatarUrl(user.id);
+      const img = document.createElement('img');
+      img.alt = `${dname} avatar`;
+      img.src = url;
+      wrap.appendChild(img);
+      return wrap;
+    }
       // initials fallback with stable hue by ID
       const span = document.createElement('span');
       span.textContent = (dname || '').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase() || '??';
@@ -2873,19 +2882,18 @@ async function fetchJSON(url){
       const id = String(v.discord_id || v.id || v.user_id || '').trim();
       if(!id) return;
 
-      // accept common field names: avatar_url, avatar, avatar_hash, avatarHash
-      const avatarHash = v.avatar_hash || v.avatarHash || (
-        // sometimes "avatar" is a hash, sometimes it's already a URL
-        (v.avatar && /^a?_?[0-9a-f]{2,}$/.test(String(v.avatar))) ? v.avatar : null
-      );
+      // avatar can be a full URL or just a hash from Discord's API
+      const raw = v.avatar_url || v.avatarUrl || v.avatar || v.avatar_hash || v.avatarHash || null;
 
-      // prefer explicit URL, else build from hash
-      const avatar_url =
-        v.avatar_url || v.avatarUrl ||
-        (avatarHash ? discordAvatarUrl(id, avatarHash) : (
-          // fallback: if v.avatar looked like an URL already
-          (v.avatar && /^https?:\/\//i.test(String(v.avatar))) ? v.avatar : null
-        ));
+      // If it's a full URL, use it. If it's a hash, build the CDN URL. Else use default avatar.
+      let avatar_url = null;
+      if (raw && /^https?:\/\//i.test(String(raw))) {
+        avatar_url = raw;
+      } else if (raw && /^[aA]?_?[0-9a-f]{6,}$/.test(String(raw))) {
+        avatar_url = discordAvatarUrl(id, String(raw));
+      } else {
+        avatar_url = discordDefaultAvatarUrl(id);
+      }
 
       vmap[id] = {
         id,
