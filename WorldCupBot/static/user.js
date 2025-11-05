@@ -30,6 +30,47 @@ function normalizeStage(label){
   return map[s] || s;
 }
 
+// Map common team-name variants to your JSON keys
+const TEAM_ALIASES = {
+  'USA': 'United States',
+  'U.S.A.': 'United States',
+  'United States of America': 'United States',
+  'South Korea': 'Korea Republic',   // use this if your JSON uses "Korea Republic"; otherwise set to "South Korea"
+  'Cote d\'Ivoire': 'Ivory Coast',
+  'Côte d’Ivoire': 'Ivory Coast',
+  'Cape Verde': 'Cape Verde',        // keep if your JSON key is "Cape Verde"
+  'DR Congo': 'Congo DR',
+  'Iran': 'Iran',                    // adjust if your JSON uses "IR Iran"
+  'UAE': 'United Arab Emirates'      // example if it appears later
+};
+
+// simplify string for fuzzy match
+function canon(s){
+  return String(s||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // strip accents
+    .toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+}
+
+// Find the stage value in a tolerant way: exact → alias → fuzzy key match
+function resolveStageFor(stages, name){
+  if (!stages || !name) return undefined;
+
+  // 1) exact
+  if (Object.prototype.hasOwnProperty.call(stages, name)) return stages[name];
+
+  // 2) alias
+  const alias = TEAM_ALIASES[name];
+  if (alias && Object.prototype.hasOwnProperty.call(stages, alias)) return stages[alias];
+
+  // 3) fuzzy: case/space/diacritic-insensitive
+  const want = canon(name);
+  for (const k of Object.keys(stages)) {
+    if (canon(k) === want) return stages[k];
+  }
+
+  return undefined;
+}
+
 
     async function fetchTeamStagesFresh(){
       const url = `/team_stage?t=${Date.now()}`;
@@ -97,7 +138,7 @@ function normalizeStage(label){
       const makeTile = (t, isMain) => {
         const name = t.team || t.name || String(t);
         const color = isMain ? MAIN_COLOR : SPLIT_COLOR;
-        const raw = stages?.[name];
+        const raw = resolveStageFor(stages, name);
         const stage = normalizeStage(raw) || 'Group Stage';
         const ring  = makeStageRing(stage, color);
         const flag  = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';

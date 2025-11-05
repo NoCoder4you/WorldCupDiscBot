@@ -904,6 +904,7 @@ document.addEventListener('change', async (e) => {
   if (!team) return;
 
   try {
+    console.log('Stage updated, refreshing User page...');
     const r = await fetch('/admin/teams/stage', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -917,7 +918,6 @@ document.addEventListener('change', async (e) => {
     ownershipState.stages[team] = stage;
     notify(`Stage updated: ${team} → ${stage}`, true);
 
-    // ✅ INSERT THIS BLOCK HERE
     if (location.hash === '#user' || state.currentPage === 'user') {
       try { await refreshUser(); } catch (_) {}
     }
