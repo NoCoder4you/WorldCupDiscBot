@@ -2847,10 +2847,10 @@ async function fetchJSON(url){
     function barEl(value, max){
     const w=document.createElement('div'); w.className='lb-bar';
     const f=document.createElement('div'); f.className='lb-fill';
-    const pct = (!max||max<=0)?0:Math.max(0,Math.min(1,value/max));
-    w.setAttribute('aria-label', `${value} of ${max}`);
-    requestAnimationFrame(()=>{f.style.width=`${(pct*100).toFixed(1)}%`}); w.appendChild(f); return w;
-    }
+    const pct = (!max || max <= 0) ? 0
+               : (value >= max ? 1 : Math.max(0, Math.min(1, value / max)));
+    wrap.setAttribute('aria-label', `${value} of ${max}`);
+    requestAnimationFrame(() => { fill.style.width = (pct === 1 ? '100%' : `${(pct*100).toFixed(1)}%`); });
     function flagChip(country, iso){
     const chip=document.createElement('span'); chip.className='lb-flag'; const code=iso[country]||'';
     if(code){ const img=document.createElement('img'); img.alt=`${country} flag`; img.src=`https://flagcdn.com/w20/${code}.png`; chip.appendChild(img); const t=document.createElement('span'); t.textContent=country; chip.appendChild(t); }
@@ -2955,8 +2955,15 @@ async function fetchJSON(url){
         ...r,
         count: r.teams.length + r.split_teams.length
       }));
-      list.sort((a,b)=> (b.count-a.count) || String(a.name).localeCompare(String(b.name)));
-      return list;
+    list.sort((a, b) =>
+      // 1) prioritize main-owned teams
+      (b.teams.length - a.teams.length) ||
+      // 2) then total count (main + split)
+      (b.count - a.count) ||
+      // 3) then name
+      String(a.name).localeCompare(String(b.name))
+    );
+    return list;
     }
 
 // Tries a few paths so you don't need backend changes if you already have one.
