@@ -2928,25 +2928,35 @@ async function fetchJSON(url){
     return { rows:(ownersResp&&ownersResp.rows)||[], bets:(bets||[]), iso:(iso||{}), vmap };
     }
 
-    function aggregateOwners(rows, vmap, includeSplits){
-    const owners=new Map();
-    for(const r of rows){
-      const mid=r?.main_owner?.id?String(r.main_owner.id):null;
-      if(mid){ const prof=vmap[mid]||{id:mid,display_name:r.main_owner.username||mid,username:r.main_owner.username||mid};
-        const rec=owners.get(mid)||{id:mid,name:prof.display_name||prof.username||mid,teams:[],split_count:0,avatar_url:prof.avatar_url||null};
-        rec.teams.push(r.country); owners.set(mid,rec);
-      }
-      if(includeSplits && Array.isArray(r.split_with)){
-        for(const sw of r.split_with){
-          const sid=sw?.id?String(sw.id):null; if(!sid) continue;
-          const prof=vmap[sid]||{id:sid,display_name:sw.username||sid,username:sw.username||sid};
-          const rec=owners.get(sid)||{id:sid,name:prof.display_name||prof.username||sid,teams:[],split_count:0,avatar_url:prof.avatar_url||null};
-          rec.split_count+=1; owners.set(sid,rec);
+    function aggregateOwners(rows, vmap){
+      // Map id -> {id, name, teams:[], split_teams:[], count, split_count, avatar_url}
+      const owners = new Map();
+      for (const r of rows) {
+        const main = r?.main_owner?.id ? String(r.main_owner.id) : null;
+        if (main) {
+          const prof = vmap[main] || { id:main, display_name:r.main_owner.username||main, username:r.main_owner.username||main };
+          const rec = owners.get(main) || { id:main, name:prof.display_name||prof.username||main, teams:[], split_teams:[], split_count:0, avatar_url:prof.avatar_url||null };
+          rec.teams.push(r.country);
+          owners.set(main, rec);
+        }
+        if (Array.isArray(r.split_with)) {
+          for (const sw of r.split_with) {
+            const sid = sw?.id ? String(sw.id) : null;
+            if (!sid) continue;
+            const prof = vmap[sid] || { id:sid, display_name: sw.username||sid, username: sw.username||sid };
+            const rec = owners.get(sid) || { id:sid, name:prof.display_name||prof.username||sid, teams:[], split_teams:[], split_count:0, avatar_url:prof.avatar_url||null };
+            rec.split_teams.push(r.country);
+            rec.split_count = rec.split_teams.length;
+            owners.set(sid, rec);
+          }
         }
       }
-    }
-    const list=[...owners.values()].map(r=>({...r, count:r.teams.length + (includeSplits?r.split_count:0)}));
-    list.sort((a,b)=>(b.count-a.count)||String(a.name).localeCompare(String(b.name))); return list;
+      const list = [...owners.values()].map(r => ({
+        ...r,
+        count: r.teams.length + r.split_teams.length
+      }));
+      list.sort((a,b)=> (b.count-a.count) || String(a.name).localeCompare(String(b.name)));
+      return list;
     }
 
 // Tries a few paths so you don't need backend changes if you already have one.
@@ -3016,17 +3026,53 @@ async function fetchGoalsData(){
     }
 
     function ownersRowEl(rec, iso){
-    const row=document.createElement('div'); row.className='lb-row';
-    const left=document.createElement('div'); left.className='lb-left';
-    left.appendChild(avatarEl({id:rec.id,display_name:rec.name,avatar_url:rec.avatar_url}));
-    const t=document.createElement('div'); t.innerHTML=`<div class="lb-name">${rec.name}</div><div class="lb-sub lb-muted">Teams: ${rec.teams.length}${rec.split_count?` • splits: ${rec.split_count}`:''}</div>`; left.appendChild(t);
-    const right=document.createElement('div'); right.className='lb-right';
-    right.appendChild(barEl(rec.count, rec._max||rec.count));
-    const flags=document.createElement('div'); flags.className='lb-flags';
-    const show=rec.teams.slice(0,6); show.forEach(c=>flags.appendChild(flagChip(c, iso)));
-    if(rec.teams.length>show.length){ const more=document.createElement('span'); more.className='lb-chip'; more.textContent=`+${rec.teams.length-show.length} more`; more.title=rec.teams.join(', '); flags.appendChild(more); }
-    right.appendChild(flags);
-    row.appendChild(left); row.appendChild(right); return row;
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+
+      const left = document.createElement('div');
+      left.className = 'lb-left';
+      left.appendChild(avatarEl({id:rec.id, display_name:rec.name, avatar_url:rec.avatar_url}));
+      const txt = document.createElement('div');
+      txt.innerHTML = `<div class="lb-name">${rec.name}</div>
+                       <div class="lb-sub lb-muted">Teams: ${rec.teams.length}${rec.split_count?` • splits: ${rec.split_count}`:''}</div>`;
+      left.appendChild(txt);
+
+      const right = document.createElement('div');
+      right.className = 'lb-right';
+      right.appendChild(barEl(rec.count, rec._max || rec.count));
+
+      const flags = document.createElement('div');
+      flags.className = 'lb-flags';
+
+      // combine main first, then splits; cap total chips to 6 for performance
+      const main = (rec.teams || []).map(c => ({ c, cls: '' }));
+      const split = (rec.split_teams || []).map(c => ({ c, cls: 'split' }));
+      const combined = [...main, ...split];
+      const show = combined.slice(0, 6);
+
+      show.forEach(({c, cls}) => {
+        const chip = flagChip(c, iso);
+        if (cls) chip.classList.add(cls);
+        flags.appendChild(chip);
+      });
+
+      // tooltip for the full list
+      const allNames = [
+        ...rec.teams.map(t=>`${t}`),
+        ...rec.split_teams.map(t=>`${t} (split)`)
+      ];
+      if (combined.length > show.length) {
+        const more = document.createElement('span');
+        more.className = 'lb-chip';
+        more.textContent = `+${combined.length - show.length} more`;
+        more.title = allNames.join(', ');
+        flags.appendChild(more);
+      }
+
+      right.appendChild(flags);
+      row.appendChild(left);
+      row.appendChild(right);
+      return row;
     }
     function bettorsRowEl(rec){
     const row=document.createElement('div'); row.className='lb-row';
@@ -3076,22 +3122,29 @@ async function fetchGoalsData(){
     }
 
     async function renderLeaderboards(){
-      const {rows,bets,iso,vmap}=await fetchAll();
+      const { rows, bets, iso, vmap } = await fetchAll();
 
-      // owners/bettors as you already do...
-      const includeSplits = !!(+document.querySelector('#lb-owners-toggle-splits')?.dataset.on || 0);
-      let owners=aggregateOwners(rows,vmap,includeSplits);
-      const maxOwn=owners[0]?.count||0; owners.forEach(o=>o._max=maxOwn);
-      let bettors=aggregateBettors(bets,vmap);
-      const maxWin=bettors[0]?.wins||0; bettors.forEach(b=>b._max=maxWin);
+      // Owners - splits always included inside aggregateOwners now
+      let owners = aggregateOwners(rows, vmap);
+      const maxOwn = owners[0]?.count || 0;
+      owners.forEach(o => o._max = maxOwn);
 
-      // NEW: scorers
+      // Bettors
+      let bettors = aggregateBettors(bets, vmap);
+      const maxWin = bettors[0]?.wins || 0;
+      bettors.forEach(b => b._max = maxWin);
+
+      // Scorers (if you added Goals)
       const rawGoals = await fetchGoalsData();
       let scorers = aggregateScorers(rawGoals, vmap);
-      const maxGoals = scorers[0]?.goals || 0; scorers.forEach(s=>s._max=maxGoals);
+      const maxGoals = scorers[0]?.goals || 0;
+      scorers.forEach(s => s._max = maxGoals);
 
-      const state=(window.state=window.state||{}); state.lb=state.lb||{};
-      state.lb.ownersAll=owners; state.lb.bettorsAll=bettors; state.lb.scorersAll=scorers; state.lb.iso=iso;
+      const state = (window.state = window.state || {}); state.lb = state.lb || {};
+      state.lb.ownersAll = owners;
+      state.lb.bettorsAll = bettors;
+      state.lb.scorersAll = scorers;
+      state.lb.iso = iso;
 
       paintOwners(); paintBettors(); paintScorers();
       wireControls();

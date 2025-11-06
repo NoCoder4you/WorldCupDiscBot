@@ -2639,6 +2639,29 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	font-size: .78rem
 }
 
+.lb-flag.split {
+  border-style: dashed;
+  opacity: .95;
+  position: relative;
+}
+.lb-flag.split::after {
+  content: 'S';
+  font-weight: 900;
+  font-size: .65rem;
+  line-height: 14px;
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  margin-left: 4px;
+  background: #0e1520;
+  color: var(--text);
+  border: 1px solid #2e3f5a;
+  border-radius: 50%;
+}
+.lb-flag.split img { opacity: 0.95; }
+
+
 .lb-flag img {
 	width: 20px;
 	height: 15px;
