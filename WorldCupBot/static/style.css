@@ -43,7 +43,6 @@ body.light {
     box-sizing: border-box
 }
 
-html,
 body {
     height: 100%;
     margin: 0;font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
@@ -53,10 +52,6 @@ body {
     flex-direction: column;
     min-height: 100vh;
     overflow: hidden;
-}
-
-body:not(.admin) section.page-section.admin-only {
-    display: none;
 }
 
 body:not(.admin) .card.admin-only {
@@ -177,6 +172,11 @@ section.page-section {
 
 section.page-section.active-section {
     display: block;
+}
+
+/* Admin gating */
+body:not(.admin) section.page-section.admin-only {
+    display: none;
 }
 
 /* Hide Action column unless logged in as admin */
@@ -535,32 +535,6 @@ body.admin .dashboard-grid .card {
     color: #fff
 }
 
-/* ===== TABLES ===== */
-.table-wrap {
-    background: var(--card);
-    border: 1px solid var(--border);
-    max-width: 1200px;
-    margin: 16px auto;
-    overflow: hidden;background-color: rgba(255,255,255,0.02);
-  border-radius: 6px;
-  padding: 8px 10px 10px;
-}
-
-.table-head {
-    
-    border-bottom: 1px solid var(--border);
-    gap: 10px;display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 8px 10px;
-}
-
-.table-title {
-    font-size: 16px;
-  font-weight: 600;
-  color: var(--accent, #00ff99);
-}
-
 .table-actions {
     display: flex;
     gap: 8px;
@@ -681,14 +655,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     flex: 1;
 }
 
-/* --- Cogs chip buttons --- */
-.chip-group {
-    
-    align-items: center;
-    justify-content: flex-start;display: flex;
-    gap: 8px;
-}
-
 .btn-chip {
     --bg: var(--btn);
     --bg-h: var(--btn-hover);
@@ -732,59 +698,11 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     --fg: #fff
 }
 
-/* --- Cog Status Pill --- */
-.pill {
-    
-    transition: background 0.2s ease, color 0.2s ease;
-    text-align: center;
-    align-items: center;
-    justify-content: center;
-    letter-spacing: .2px;
-    min-width: 92px;
-    white-space: nowrap;
-    box-sizing: border-box;display:inline-block;
-  padding:4px 10px;
-  border-radius:999px;
-  font-weight:700;
-  font-size:0.85rem;
-  text-transform:uppercase;
-}
-
-.pill-ok {
-    background: var(--accent);
-    color: #08131d;
-}
-
-.pill-off {
-    background: #334154;
-    color: var(--text);
-}
-
-.pill-wait {
-    
-    opacity: 0.85;background:#334155; color:#fff;
-}
-
-/* Split Requests styling */
-.split-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
 .split-section {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 8px 10px 12px;
-}
-
-.split-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 6px 10px;
-    border-bottom: 1px solid var(--border);
 }
 
 .split-title {
@@ -811,11 +729,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     padding: 10px 0 0;
 }
 
-.pill-warn {
-    background: #a1a63e;
-    color: #0b1320;
-}
-
 /* small utility */
 .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -823,6 +736,12 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 .muted {
     color: var(--muted);
+}
+
+.split-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .table.splits {
@@ -867,38 +786,9 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .table.splits .col-user   { width: 18%; }
 .table.splits .col-when   { width: 20%; }
 .table.splits .col-status { width: 14%; text-align: right; }
-
-/* Pill buttons unified look */
-.pill,
-.btn-split {
-  
-  outline: none;background: transparent;
-  color: var(--accent, #1fc881);font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 999px;
-    border: none;
-    cursor: pointer;
-    line-height: 1.2;
-    white-space: nowrap;
-    transition: opacity 0.15s ease, transform 0.08s ease;
-}
-
-/* Hover enhancement */
-.pill:hover,
 .btn-split:hover {
   background: var(--accent, #1fc881);
   color: #fff;
-}
-
-/* Chip group (Accept / Decline buttons) */
-.chip-group--split {
-  display: flex;
-    gap: 6px;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
 }
 
 /* Remove horizontal scroll, balance cards */
@@ -909,6 +799,32 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   padding-right: 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+/* Table wrap: gentle rounding and consistent spacing */
+.table-wrap {
+  background: var(--card);
+    border: 1px solid var(--border);
+    max-width: 1200px;
+    margin: 16px auto;
+    overflow: hidden;background-color: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  padding: 8px 10px 10px;
+}
+
+/* Section titles and counts alignment */
+.table-head {
+
+    border-bottom: 1px solid var(--border);
+    gap: 10px;display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px 10px;
+}
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent, #00ff99);
 }
 
 /* Refresh button styling */
@@ -923,16 +839,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .table-actions .btn:hover {
   background: rgba(255,255,255,0.08);
 }
-/* Column sizing (works with table-layout: fixed) */
-.col-id {
-    font-weight: 800;
-    color: var(--accent);width:80px; text-align:center;
-}
-/* used for From and To */
-.col-status {
-    
-    white-space: nowrap;width:100px; text-align:center;
-}
 
 .col-when {
     width: 24%;
@@ -944,6 +850,30 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Make section headers consistent */
+.split-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 6px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.pill-ok {
+    background: var(--accent);
+    color: #08131d;
+}
+
+.pill-off {
+    background: #334154;
+    color: var(--text);
+}
+
+.pill-warn {
+    background: #a1a63e;
+    color: #0b1320;
 }
 
 /* Subtle zebra to help scan */
@@ -993,6 +923,37 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     align-items: center;
     justify-content: center;
     gap: 8px;
+}
+
+.chip-group {
+
+    align-items: center;
+    justify-content: flex-start;display: flex;
+    gap: 8px;
+}
+
+/* ---------- SPLITS action chips (small, pill-sized) ---------- */
+.chip-group--split {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-split {
+
+  outline: none;background: transparent;
+  color: var(--accent, #1fc881);font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: opacity 0.15s ease, transform 0.08s ease;
 }
 .btn-split:active {
     transform: scale(0.96);
@@ -1052,19 +1013,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     background: var(--danger);
     color: #334154;
 }
-
-
-/* =========================
-   Ownership page - controls
-   ========================= */
-.ownership-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: 0;
-    max-width: 1200px;
-    margin: 16px auto;border-radius: 14px;
-    overflow: hidden;
-}
 .ownership-header {
     display: flex;
     align-items: center;
@@ -1084,6 +1032,20 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .btn.sm {
     padding: 6px 10px;
     font-size: 14px;
+}
+
+/* =========================
+   Ownership visual polish
+   ========================= */
+
+/* Card breathing room and soft edges */
+.ownership-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 0;
+    max-width: 1200px;
+    margin: 16px auto;border-radius: 14px;
+    overflow: hidden;
 }
 
 /* Sticky header with slight backdrop */
@@ -1178,35 +1140,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     }
 }
 
-/* === Ownership layout fix (aligned headings) === */
-#ownership .ownership-card {
-    width: 100%;
-    max-width: 1320px;
-    margin: 24px auto;
-    overflow: hidden;
-}
-
-/* Remove inner scroll wrapper – let the table scroll itself */
-#ownership .ownership-table-scroll {
-    overflow: visible;
-    /* no scroll container here */;width: 100%;
-    overflow-x: auto;
-    /* scroll wrapper handles overflow again */
-}
-
-/* Make the table control layout and scroll */
-#ownership .ownership-table {
-    
-    border-spacing: 0;
-    /* ensures all columns sync */
-    display: block;
-    /* allows table itself to scroll */
-    overflow-x: auto;scrollbar-gutter: stable;
-    /* reserve space for scrollbar to avoid header/body shift */;width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
 /* Match widths across head/body */
 #ownership .ownership-table thead,
 #ownership .ownership-table tbody,
@@ -1225,39 +1158,11 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #ownership .ownership-table td:nth-child(2) {
     width: 20%;
 }
-#ownership .ownership-table th:nth-child(3),
-#ownership .ownership-table td:nth-child(3) {
-    width: 20%;color: var(--muted);
-}
+
+/* Action column */
 #ownership .ownership-table th:nth-child(4),
 #ownership .ownership-table td:nth-child(4) {
     width: 20%;text-align: center;
-}
-
-/* Keep content tidy */
-#ownership .ownership-table th,
-#ownership .ownership-table td {
-    padding: 10px 12px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    border-bottom: 1px solid var(--border);
-}
-
-/* Sticky header */
-#ownership .ownership-table thead th {
-    position: sticky;
-    top: 0;
-    backdrop-filter: saturate(1.2) blur(4px);
-    z-index: 5;background: rgba(8, 14, 22, 0.96);
-    /* match row color closely */
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
-    /* subtle bottom line to separate */;
-}
-
-/* Buttons */
-#ownership .reassign-btn.btn.xs {
-    min-width: 88px;
 }
 
 /* Responsive tweak */
@@ -1289,22 +1194,51 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     /* no extra band above header */
 }
 
-/* make first column left-padded a touch more to align visually with card edge */
-#ownership .ownership-table td:first-child,
-#ownership .ownership-table th:first-child {
-    padding-left: 16px;
+#ownership .ownership-table thead th {
+    position: sticky;
+    top: 0;
+    backdrop-filter: saturate(1.2) blur(4px);
+    z-index: 5;background: rgba(8, 14, 22, 0.96);
+    /* match row color closely */
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04);
+    /* subtle bottom line to separate */
 }
 
-/* keep last column tidy and right-anchored */
-#ownership .ownership-table td:nth-child(4),
-#ownership .ownership-table th:nth-child(4) {
-    text-align: left;
-    padding-right: 16px;
+/* === Ownership layout fix (final header alignment) === */
+#ownership .ownership-card {
+    width: 100%;
+    max-width: 1320px;
+    margin: 24px auto;
+    overflow: hidden;
 }
 
-/* consistent row height */
-#ownership .ownership-table tbody tr {
-    height: 46px;
+#ownership .ownership-table-scroll {
+    overflow: visible;
+    /* no scroll container here */;width: 100%;
+    overflow-x: auto;
+    /* scroll wrapper handles overflow again */
+}
+
+#ownership .ownership-table {
+
+    border-spacing: 0;
+    /* ensures all columns sync */
+    display: block;
+    /* allows table itself to scroll */
+    overflow-x: auto;scrollbar-gutter: stable;
+    /* reserve space for scrollbar to avoid header/body shift */;width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+/* --- Cells --- */
+#ownership .ownership-table th,
+#ownership .ownership-table td {
+    padding: 10px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--border);
 }
 
 #ownership .ownership-table th {
@@ -1317,11 +1251,35 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     top: 0;
     z-index: 2;
 }
+
+/* --- Column-specific --- */
+#ownership .ownership-table td:first-child,
+#ownership .ownership-table th:first-child {
+    padding-left: 16px;
+}
+#ownership .ownership-table td:nth-child(4),
+#ownership .ownership-table th:nth-child(4) {
+    text-align: left;
+    padding-right: 16px;
+}
+
+#ownership .ownership-table td:nth-child(3) {
+    width: 20%;color: var(--muted);
+}
+
+/* --- Misc --- */
+#ownership .ownership-table tbody tr {
+    height: 46px;
+}
 #ownership .ownership-table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
 }
 #ownership .ownership-table tbody tr:hover {
     background: rgba(77, 164, 255, 0.08);
+}
+
+#ownership .reassign-btn.btn.xs {
+    min-width: 88px;
 }
 
 /* --- Ownership Table Fixes --- */
@@ -1467,29 +1425,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     color: #a8b7c6;
 }
 
-/* Inputs and selects */
-#reassign-team,
-#reassign-id,
-#reassign-select {
-    width: 100%;
-    line-height: 1.3;
-    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;background: #0d141d;
-    color: #dce6f0;
-    border: 1px solid #1b2838;
-    border-radius: 8px;
-    outline: none;
-    font-size: 15px;
-    padding: 10px 12px;
-    cursor: pointer;
-}
-#reassign-team:focus,
-#reassign-id:focus,
-#reassign-select:focus {
-    
-    background: rgba(255, 255, 255, 0.06);border-color: #4da4ff;
-    box-shadow: 0 0 0 3px rgba(77, 164, 255, 0.25);
-}
-
 /* Foot */
 #reassign-backdrop .modal-foot {
     display: flex;
@@ -1497,19 +1432,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     gap: 10px;
     padding: 10px 18px 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-#reassign-cancel,
-#reassign-submit {
-    appearance: none;
-    border: 1px solid transparent;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-weight: 800;
-    cursor: pointer;
-    transition: filter .12s ease, transform .06s ease, background .15s ease, border-color .15s ease;background: #05c46b;
-    color: #082016;
-    border-color: #05b462;
 }
 
 #reassign-cancel {
@@ -1522,6 +1444,18 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 #reassign-cancel:active {
     transform: translateY(1px);
+}
+
+#reassign-submit {
+    appearance: none;
+    border: 1px solid transparent;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: filter .12s ease, transform .06s ease, background .15s ease, border-color .15s ease;background: #05c46b;
+    color: #082016;
+    border-color: #05b462;
 }
 #reassign-submit:hover {
     filter: brightness(1.04);
@@ -1551,14 +1485,24 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     }
 }
 
-/* === Reassign modal improvements === */
-#reassign-team[readonly] {
-    
-    cursor: default;pointer-events: none;
-    background: rgba(255, 255, 255, 0.04);
-    color: #aeb8c5;
+/* Dark dropdown styling */
+#reassign-select {
+    width: 100%;
+    line-height: 1.3;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;background: #0d141d;
+    color: #dce6f0;
     border: 1px solid #1b2838;
-    user-select: none;
+    border-radius: 8px;
+    outline: none;
+    font-size: 15px;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+#reassign-select:focus {
+
+    background: rgba(255, 255, 255, 0.06);border-color: #4da4ff;
+    box-shadow: 0 0 0 3px rgba(77, 164, 255, 0.25);
 }
 
 /* Options list - completely dark */
@@ -1649,17 +1593,13 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     background: #0d141d;
 }
 
-/* Flags inline with country */
-.flag-img {
-    
-    /* matches 24x18 assets */
-    margin-right: 8px;
-    vertical-align: -2px;
-    image-rendering: crisp-edges;width: 18px;
-  height: 12px;
-  object-fit: cover;
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 2px;
+#reassign-team[readonly] {
+
+    cursor: default;pointer-events: none;
+    background: rgba(255, 255, 255, 0.04);
+    color: #aeb8c5;
+    border: 1px solid #1b2838;
+    user-select: none;
 }
 .flag-emoji {
     display: inline-block;
@@ -1802,18 +1742,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     height: 100%;
 }
 
-#map-svg-host svg {
-    width: 100%;
-    height: 100%;
-    display: block;transition: filter 0.4s ease;
-}
-
-.country {
-    fill: #3a495f;stroke: #0b1320;
-    stroke-width: 0.4;
-    transition: fill 0.2s ease, opacity 0.2s ease;
-}
-
 .country.owned {
     fill: var();
 }
@@ -1928,38 +1856,24 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     opacity: 0;
     pointer-events: none;
 }
-.map-info h3 {
-    margin: 0 0 6px;
-    font-size: 1.1rem;
-    color: var(--accent);display: flex; align-items: center; gap: 8px;
-}
 .map-info p {
     margin: 4px 0;
     font-size: 0.9rem;
     line-height: 1.2;
 }
+
+#map-svg-host svg {
+    width: 100%;
+    height: 100%;
+    display: block;transition: filter 0.4s ease;
+}
 #map-svg-host svg.zooming {
     filter: drop-shadow(0 0 6px rgba(0, 200, 150, 0.3));
-}
-
-/* Not Qualified + group filter */
-.country.nq,
-.country.nq * {
-    fill: #3d2d36;
-    /* darker muted plum tone */
-    opacity: 0.35;
-    /* 👈 transparency makes them subtle */;
 }
 /* muted wine */
 
 .map-legend .key.box.nq {
     background: #84606e;
-}
-
-/* Dimming when a group is selected */
-.country.dim,
-.country.dim * {
-    opacity: 0.15;
 }
 
 /* Group selector styling */
@@ -1983,6 +1897,15 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     filter: brightness(1.15);
 }
 
+/* === COUNTRY COLOR THEMES === */
+
+/* Base look for all paths */
+.country {
+    fill: #3a495f;stroke: #0b1320;
+    stroke-width: 0.4;
+    transition: fill 0.2s ease, opacity 0.2s ease;
+}
+
 /* Owned */
 .country.owned,
 .country.owned * {
@@ -2003,6 +1926,25 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     fill: #5c6677;
     opacity: 0.85;
 }
+
+/* Not Qualified — dimmer and less saturated */
+.country.nq,
+.country.nq * {
+    fill: #3d2d36;
+    /* darker muted plum tone */
+    opacity: 0.35;
+    /* 👈 transparency makes them subtle */
+}
+
+/* Dimmed (from group filter) — overrides above when filtering */
+.country.dim,
+.country.dim * {
+    opacity: 0.15;
+}
+
+.map-info h3 { margin: 0 0 6px;
+    font-size: 1.1rem;
+    color: var(--accent);display: flex; align-items: center; gap: 8px; }
 .map-info .flag { font-size: 1.35rem; line-height: 1; }
 
 /* === SVG Progress Rings === */
@@ -2076,6 +2018,18 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 .owner-pill--main  { color: #22c55e; border-color: rgba(34,197,94,.45); }
 .owner-pill--split { color: #00b8ff; border-color: rgba(0,184,255,.45); font-size: 10px;}
+
+.flag-img {
+
+    /* matches 24x18 assets */
+    margin-right: 8px;
+    vertical-align: -2px;
+    image-rendering: crisp-edges;width: 18px;
+  height: 12px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 2px;
+}
 
 /* --- Ownership page: stage dropdown styling --- */
 .stage-select {
@@ -2383,11 +2337,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   min-width:0;
   overflow:hidden;
 }
-.lb-name{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;font-weight: 800;
-}
 
 .lb-right{
   display:flex;
@@ -2395,13 +2344,11 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   gap:6px;
   min-width:0;
 }
-.lb-bar{
-    width:100%; box-sizing:border-box;height: 12px;
-	border-radius: 999px;
-	background: #0f1622;
-	border: 1px solid var(--border);
-	overflow: hidden;
-	position: relative;
+
+.lb-name {
+	white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;font-weight: 800
 }
 
 .lb-sub {
@@ -2435,6 +2382,15 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .lb-ava.big {
 	width: 40px;
 	height: 40px
+}
+
+.lb-bar {
+	width:100%; box-sizing:border-box;height: 12px;
+	border-radius: 999px;
+	background: #0f1622;
+	border: 1px solid var(--border);
+	overflow: hidden;
+	position: relative
 }
 
 .lb-fill {
@@ -2526,7 +2482,31 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .lb-body.dense-mode .lb-row {
     padding:6px 8px !important;
 }
+.pill {
+
+    transition: background 0.2s ease, color 0.2s ease;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: .2px;
+    min-width: 92px;
+    white-space: nowrap;
+    box-sizing: border-box;display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:0.85rem;
+  text-transform:uppercase;
+}
 
 .pill-win  { background:#22c55e; color:#08131d; }
 .pill-loss { background:#ef4444; color:#fff; }
+.pill-wait {
+    opacity: 0.85;background:#334155; color:#fff; }
+
+/* tighten column widths */
+.col-id { font-weight: 800;
+    color: var(--accent);width:80px; text-align:center; }
+.col-status {
+    white-space: nowrap;width:100px; text-align:center; }
 .col-roles { text-align:left; }
