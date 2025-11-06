@@ -585,7 +585,7 @@ body.admin .dashboard-grid .card {
 }
 
 .table-scroll {
-    max-height: 85vh;
+    max-height: 70vh;
     overflow: auto
 }
 
@@ -863,140 +863,17 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     gap: 20px;
 }
 
-/* === SPLITS TABLE REFINEMENTS === */
+/* Uniform table layout for Splits */
 .table.splits {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  font-size: 14px;
+    table-layout: fixed;
+    width: 100%;
 }
 
 .table.splits th,
 .table.splits td {
-  padding: 10px 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-bottom: 1px solid var(--border-muted, rgba(255,255,255,0.06));
+    vertical-align: middle;
+    height: 44px;
 }
-
-/* Headings */
-.table.splits thead th {
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 600;
-  color: var(--text-dim, #aaa);
-}
-
-/* Body rows */
-.table.splits tbody tr:hover {
-  background-color: rgba(255,255,255,0.03);
-  transition: background 0.15s ease;
-}
-
-/* ID column — slimmer, monospaced */
-.table.splits .col-id {
-  width: 10%;
-  font-family: var(--mono, monospace);
-  color: var(--text-muted, #bbb);
-}
-
-/* Team, From, To — balanced widths */
-.table.splits .col-team   { width: 20%; }
-.table.splits .col-user   { width: 18%; }
-.table.splits .col-when   { width: 20%; }
-.table.splits .col-status { width: 14%; text-align: right; }
-
-/* Pill buttons unified look */
-.pill,
-.btn-split {
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
-  cursor: pointer;
-  text-transform: uppercase;
-  border: none;
-  outline: none;
-}
-
-/* Pending pill */
-.pill-warn {
-  background: #f5a62320;
-  color: #f5a623;
-}
-
-/* Accepted / Declined pills */
-.pill-ok  { background: #1fc88120; color: #1fc881; }
-.pill-off { background: #f5424220; color: #f54242; }
-
-/* Hover enhancement */
-.pill:hover,
-.btn-split:hover {
-  background: rgba(255,255,255,0.08);
-}
-
-/* Chip group (Accept / Decline buttons) */
-.chip-group--split {
-  display: flex;
-  gap: 6px;
-}
-.btn-split {
-  background: transparent;
-  color: var(--accent, #1fc881);
-  border: 1px solid var(--accent, #1fc881);
-  padding: 3px 8px;
-  border-radius: 5px;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.btn-split:hover {
-  background: var(--accent, #1fc881);
-  color: #fff;
-}
-
-/* Remove horizontal scroll, balance cards */
-#splits-requests-card .table-scroll,
-#splits-history-card .table-scroll {
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding-right: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.2) transparent;
-}
-
-/* Table wrap: gentle rounding and consistent spacing */
-.table-wrap {
-  background-color: rgba(255,255,255,0.02);
-  border-radius: 6px;
-  padding: 8px 10px 10px;
-}
-
-/* Section titles and counts alignment */
-.table-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 8px 10px;
-}
-.table-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--accent, #00ff99);
-}
-
-/* Refresh button styling */
-.table-actions .btn {
-  font-size: 12px;
-  padding: 4px 10px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 4px;
-  color: var(--text, #ddd);
-}
-.table-actions .btn:hover {
-  background: rgba(255,255,255,0.08);
-}
-
 
 /* Column sizing (works with table-layout: fixed) */
 .col-id {
@@ -2447,7 +2324,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 #backups .table-scroll {
-  max-height: 85vh;
+  max-height: 70vh;
   overflow: auto;
 }
 
@@ -2660,38 +2537,34 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	font-weight: 800
 }
 
-/* fixed left column so bars align perfectly across rows */
-.lb-row{
-  display:grid;
-  grid-template-columns: var(--lb-left, 170px) 1fr; /* was: auto 1fr */
-  gap:10px;
-  align-items:center;
-  padding:8px 10px;
-  border-bottom:1px solid var(--border);
+.lb-row {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 10px;
+	align-items: center;
+	padding: 8px 10px;
+	border-bottom: 1px solid var(--border)
 }
 
-/* truncate long names so left column never grows */
-.lb-left{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  overflow:hidden;
-}
-.lb-name{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+.lb-row:hover {
+	background: rgba(255, 255, 255, .03)
 }
 
-.lb-right{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  min-width:0;
+.lb-row.dense {
+	padding: 6px 8px
 }
-.lb-bar{
-    width:100%; box-sizing:border-box;
+
+.lb-left {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0
+}
+
+.lb-right {
+	display: flex;
+	flex-direction: column;
+	gap: 6px
 }
 
 .lb-name {
@@ -2765,27 +2638,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	font-weight: 700;
 	font-size: .78rem
 }
-.lb-flag.split {
-  border-style: dashed;
-  opacity: .95;
-  position: relative;
-}
-.lb-flag.split::after {
-  content: 'S';
-  font-weight: 900;
-  font-size: .65rem;
-  line-height: 14px;
-  width: 14px;
-  height: 14px;
-  display: inline-grid;
-  place-items: center;
-  margin-left: 4px;
-  background: #0e1520;
-  color: var(--text);
-  border: 1px solid #2e3f5a;
-  border-radius: 50%;
-}
-.lb-flag.split img { opacity: 0.95; }
+
 
 
 .lb-flag img {
