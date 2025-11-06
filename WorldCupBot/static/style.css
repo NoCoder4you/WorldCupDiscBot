@@ -2706,3 +2706,20 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .lb-body.dense-mode .lb-row {
     padding:6px 8px !important;
 }
+.pill {
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:0.85rem;
+  text-transform:uppercase;
+}
+
+.pill-win  { background:#22c55e; color:#08131d; }
+.pill-loss { background:#ef4444; color:#fff; }
+.pill-wait { background:#334155; color:#fff; }
+
+/* tighten column widths */
+.col-id { width:80px; text-align:center; }
+.col-status { width:100px; text-align:center; }
+.col-roles { text-align:left; }

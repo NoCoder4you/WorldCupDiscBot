@@ -179,54 +179,69 @@ async function fetchMyBets(uid){
   return r.json();
 }
 
-function betRowHTML(b){
-  const roles = (b.roles||[]).join(', ');
-  const when = b.when ? new Date(b.when).toLocaleString() : '';
-  const statusPill = b.status === 'Settled'
-    ? '<span class="pill-ok">Settled</span>'
-    : '<span class="pill">Open</span>';
-  const link = b.url ? `<a href="${b.url}" target="_blank" rel="noopener">link</a>` : '';
-  return `
-    <tr>
-      <td class="col-id">${b.id || ''}</td>
-      <td class="col-title">${b.title || ''}</td>
-      <td class="col-roles">${roles}</td>
-      <td class="col-status">${statusPill}</td>
-      <td class="col-when">${when}</td>
-      <td class="col-link">${link}</td>
-    </tr>`;
-}
+    function betRowHTML(b){
+      const roles = (b.roles || []).join(', ');
+      let statusLabel = '';
+      let statusClass = '';
 
-async function renderUserBetsCard(user){
-  const body = document.getElementById('user-body');
-  if(!body || !user) return;
+      // Convert to friendly wording
+      if (!b.status || b.status === 'Open') {
+        statusLabel = 'Pending';
+        statusClass = 'pill-wait';
+      } else if (b.winner) {
+        // determine if user won or lost
+        const userWon = roles.toLowerCase().includes(b.winner.toLowerCase());
+        statusLabel = userWon ? 'Won' : 'Lost';
+        statusClass = userWon ? 'pill-win' : 'pill-loss';
+      } else {
+        statusLabel = 'Pending';
+        statusClass = 'pill-wait';
+      }
 
-  let data = { bets: [] };
-  try{
-    data = await fetchMyBets(user.discord_id || user.id);
-  }catch(_){}
+      const statusPill = `<span class="pill ${statusClass}">${statusLabel}</span>`;
 
-  const rows = (data.bets||[]).map(betRowHTML).join('');
-  const table = rows
-    ? `<div class="table-scroll">
-         <table class="table">
-           <thead>
-             <tr>
-               <th>ID</th><th>Bet</th><th>Choice</th><th>Status</th><th>When</th><th></th>
-             </tr>
-           </thead>
-           <tbody>${rows}</tbody>
-         </table>
-       </div>`
-    : `<p class="muted">No bets found for your account.</p>`;
+      return `
+        <tr>
+          <td class="col-id mono">${b.id || ''}</td>
+          <td class="col-title">${b.title || ''}</td>
+          <td class="col-roles">${roles || '—'}</td>
+          <td class="col-status">${statusPill}</td>
+        </tr>`;
+    }
 
-  body.insertAdjacentHTML('beforeend', `
-    <div class="card" style="height:auto; margin-top:12px">
-      <div class="card-title">Your Bets</div>
-      ${table}
-    </div>
-  `);
-}
+    async function renderUserBetsCard(user){
+      const body = document.getElementById('user-body');
+      if(!body || !user) return;
+
+      let data = { bets: [] };
+      try{
+        data = await fetchMyBets(user.discord_id || user.id);
+      }catch(_){}
+
+      const rows = (data.bets||[]).map(betRowHTML).join('');
+      const table = rows
+        ? `<div class="table-scroll">
+             <table class="table">
+               <thead>
+                 <tr>
+                   <th>ID</th>
+                   <th>Bet</th>
+                   <th>Your Choice</th>
+                   <th>Status</th>
+                 </tr>
+               </thead>
+               <tbody>${rows}</tbody>
+             </table>
+           </div>`
+        : `<p class="muted">No bets found for your account.</p>`;
+
+      body.insertAdjacentHTML('beforeend', `
+        <div class="card" style="height:auto; margin-top:12px">
+          <div class="card-title">Your Bets</div>
+          ${table}
+        </div>
+      `);
+    }
 
 
 
