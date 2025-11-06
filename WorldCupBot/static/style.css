@@ -2722,3 +2722,136 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .col-status { width:100px; text-align:center; }
 .col-roles { text-align:left; }
 
+/* === SPLITS TABLE REFINEMENTS === */
+.table.splits {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table.splits th,
+.table.splits td {
+  padding: 10px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--border-muted, rgba(255,255,255,0.06));
+}
+
+/* Headings */
+.table.splits thead th {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  color: var(--text-dim, #aaa);
+}
+
+/* Body rows */
+.table.splits tbody tr:hover {
+  background-color: rgba(255,255,255,0.03);
+  transition: background 0.15s ease;
+}
+
+/* ID column — slimmer, monospaced */
+.table.splits .col-id {
+  width: 10%;
+  font-family: var(--mono, monospace);
+  color: var(--text-muted, #bbb);
+}
+
+/* Team, From, To — balanced widths */
+.table.splits .col-team   { width: 20%; }
+.table.splits .col-user   { width: 18%; }
+.table.splits .col-when   { width: 20%; }
+.table.splits .col-status { width: 14%; text-align: right; }
+
+/* Pill buttons unified look */
+.pill,
+.btn-split {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  border: none;
+  outline: none;
+}
+
+/* Pending pill */
+.pill-warn {
+  background: #f5a62320;
+  color: #f5a623;
+}
+
+/* Accepted / Declined pills */
+.pill-ok  { background: #1fc88120; color: #1fc881; }
+.pill-off { background: #f5424220; color: #f54242; }
+
+/* Hover enhancement */
+.pill:hover,
+.btn-split:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+/* Chip group (Accept / Decline buttons) */
+.chip-group--split {
+  display: flex;
+  gap: 6px;
+}
+.btn-split {
+  background: transparent;
+  color: var(--accent, #1fc881);
+  border: 1px solid var(--accent, #1fc881);
+  padding: 3px 8px;
+  border-radius: 5px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.btn-split:hover {
+  background: var(--accent, #1fc881);
+  color: #fff;
+}
+
+/* Remove horizontal scroll, balance cards */
+#splits-requests-card .table-scroll,
+#splits-history-card .table-scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+/* Table wrap: gentle rounding and consistent spacing */
+.table-wrap {
+  background-color: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  padding: 8px 10px 10px;
+}
+
+/* Section titles and counts alignment */
+.table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px 10px;
+}
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent, #00ff99);
+}
+
+/* Refresh button styling */
+.table-actions .btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  color: var(--text, #ddd);
+}
+.table-actions .btn:hover {
+  background: rgba(255,255,255,0.08);
+}
