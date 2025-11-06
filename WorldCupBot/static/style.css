@@ -2537,34 +2537,39 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	font-weight: 800
 }
 
-.lb-row {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 10px;
-	align-items: center;
-	padding: 8px 10px;
-	border-bottom: 1px solid var(--border)
+/* fixed left column so bars align perfectly across rows */
+.lb-row{
+  display:grid;
+  grid-template-columns: var(--lb-left, 220px) 1fr; /* was: auto 1fr */
+  gap:10px;
+  align-items:center;
+  padding:8px 10px;
+  border-bottom:1px solid var(--border);
 }
 
-.lb-row:hover {
-	background: rgba(255, 255, 255, .03)
+/* truncate long names so left column never grows */
+.lb-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  overflow:hidden;
+}
+.lb-name{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
-.lb-row.dense {
-	padding: 6px 8px
+/* ensure bar area uses the whole right column */
+.lb-right{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
 }
-
-.lb-left {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	min-width: 0
-}
-
-.lb-right {
-	display: flex;
-	flex-direction: column;
-	gap: 6px
+.lb-bar{
+    width:100%; box-sizing:border-box;
 }
 
 .lb-name {
@@ -2638,9 +2643,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 	font-weight: 700;
 	font-size: .78rem
 }
-.lb-right { flex: 1; min-width: 0; }
-.lb-bar   { width: 100%; box-sizing: border-box; }
-
 .lb-flag.split {
   border-style: dashed;
   opacity: .95;
