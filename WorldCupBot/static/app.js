@@ -2847,9 +2847,10 @@ async function fetchJSON(url){
     function barEl(value, max){
     const w=document.createElement('div'); w.className='lb-bar';
     const f=document.createElement('div'); f.className='lb-fill';
-    const pct = (!max||max<=0)?0:Math.max(0,Math.min(1,value/max));
-    w.setAttribute('aria-label', `${value} of ${max}`);
-    requestAnimationFrame(()=>{f.style.width=`${(pct*100).toFixed(1)}%`}); w.appendChild(f); return w;
+const pct = (!max || max <= 0) ? 0
+           : (value >= max ? 1 : Math.max(0, Math.min(1, value / max)));
+wrap.setAttribute('aria-label', `${value} of ${max}`);
+requestAnimationFrame(() => { fill.style.width = (pct === 1 ? '100%' : `${(pct*100).toFixed(1)}%`); });
     }
 
     function flagChip(country, iso){
