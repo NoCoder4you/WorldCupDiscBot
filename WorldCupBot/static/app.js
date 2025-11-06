@@ -1403,7 +1403,7 @@ function buildSplitsShell(){
     <div class="table-wrap" id="splits-history-card" style="margin-top:16px">
       <div class="table-head">
         <div class="table-title">
-          History <span class="badge" id="split-hist-count">0</span>
+          History
         </div>
         <div class="table-actions">
           <button id="splits-history-refresh" class="btn">Refresh</button>
