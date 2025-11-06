@@ -164,6 +164,20 @@ def _discord_client_info(ctx):
 def _session_key():
     return "wc_user"
 
+def _discord_avatar_url(user_id: str, avatar_hash: str, size: int = 64) -> str | None:
+    if not user_id or not avatar_hash:
+        return None
+    ext = "gif" if str(avatar_hash).startswith("a_") else "png"
+    return f"https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.{ext}?size={size}"
+
+def _discord_default_avatar_url(user_id: str) -> str:
+    try:
+        idx = int(int(user_id) % 6)  # safe for numeric ids
+    except Exception:
+        idx = 0
+    return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
+
+
 # ---------- Blueprints ----------
 def create_public_routes(ctx):
     root = Blueprint("root_public", __name__)
@@ -369,12 +383,39 @@ def create_public_routes(ctx):
         out = []
         if isinstance(raw, list):
             for v in raw:
-                if not isinstance(v, dict): continue
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                if not did:
+                    continue
+
+                # Accept various avatar fields from your JSON:
+                # - avatar_url (full URL)
+                # - avatar (may be hash OR full URL)
+                # - avatar_hash
+                avatar_field = v.get("avatar_url") or v.get("avatarUrl") or v.get("avatar") or v.get(
+                    "avatar_hash") or v.get("avatarHash")
+                avatar_url = None
+                avatar_hash = None
+
+                if isinstance(avatar_field, str) and avatar_field.startswith("http"):
+                    avatar_url = avatar_field
+                elif isinstance(avatar_field, str) and avatar_field:
+                    # looks like a hash
+                    avatar_hash = avatar_field
+                    avatar_url = _discord_avatar_url(did, avatar_hash, size=64)
+
+                # Fallback to default avatar if nothing known
+                if not avatar_url:
+                    avatar_url = _discord_default_avatar_url(did)
+
                 user = {
-                    "discord_id": str(v.get("discord_id") or v.get("id") or v.get("user_id") or ""),
+                    "discord_id": did,
                     "username": v.get("username") or v.get("name") or "",
                     "display_name": (v.get("display_name") or v.get("username") or ""),
-                    "habbo_name": v.get("habbo_name") or ""
+                    "habbo_name": v.get("habbo_name") or "",
+                    "avatar_hash": avatar_hash,
+                    "avatar_url": avatar_url,
                 }
                 out.append(user)
         return jsonify(out)
