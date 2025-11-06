@@ -2844,13 +2844,28 @@ async function fetchJSON(url){
       wrap.appendChild(img);
       return wrap;
     }
-    function barEl(value, max){
-    const w=document.createElement('div'); w.className='lb-bar';
-    const f=document.createElement('div'); f.className='lb-fill';
-const pct = (!max || max <= 0) ? 0
-           : (value >= max ? 1 : Math.max(0, Math.min(1, value / max)));
-wrap.setAttribute('aria-label', `${value} of ${max}`);
-requestAnimationFrame(() => { fill.style.width = (pct === 1 ? '100%' : `${(pct*100).toFixed(1)}%`); });
+
+    function barEl(value, max) {
+      const wrap = document.createElement('div');
+      wrap.className = 'lb-bar';
+
+      const fill = document.createElement('div');
+      fill.className = 'lb-fill';
+
+      // Clamp ratio between 0–1 and make top value exactly 100%
+      const pct = (!max || max <= 0)
+        ? 0
+        : (value >= max ? 1 : Math.max(0, Math.min(1, value / max)));
+
+      wrap.setAttribute('aria-label', `${value} of ${max}`);
+
+      // Smooth animation, but keep full width perfectly aligned for max value
+      requestAnimationFrame(() => {
+        fill.style.width = (pct === 1 ? '100%' : `${(pct * 100).toFixed(1)}%`);
+      });
+
+      wrap.appendChild(fill);
+      return wrap;
     }
 
     function flagChip(country, iso){
