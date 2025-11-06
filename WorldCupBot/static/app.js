@@ -2847,10 +2847,11 @@ async function fetchJSON(url){
     function barEl(value, max){
     const w=document.createElement('div'); w.className='lb-bar';
     const f=document.createElement('div'); f.className='lb-fill';
-    const pct = (!max || max <= 0) ? 0
-               : (value >= max ? 1 : Math.max(0, Math.min(1, value / max)));
-    wrap.setAttribute('aria-label', `${value} of ${max}`);
-    requestAnimationFrame(() => { fill.style.width = (pct === 1 ? '100%' : `${(pct*100).toFixed(1)}%`); });
+    const pct = (!max||max<=0)?0:Math.max(0,Math.min(1,value/max));
+    w.setAttribute('aria-label', `${value} of ${max}`);
+    requestAnimationFrame(()=>{f.style.width=`${(pct*100).toFixed(1)}%`}); w.appendChild(f); return w;
+    }
+
     function flagChip(country, iso){
     const chip=document.createElement('span'); chip.className='lb-flag'; const code=iso[country]||'';
     if(code){ const img=document.createElement('img'); img.alt=`${country} flag`; img.src=`https://flagcdn.com/w20/${code}.png`; chip.appendChild(img); const t=document.createElement('span'); t.textContent=country; chip.appendChild(t); }
