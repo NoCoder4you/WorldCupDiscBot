@@ -3058,7 +3058,7 @@ async function fetchGoalsData(){
       left.appendChild(avatarEl({id:rec.id, display_name:rec.name, avatar_url:rec.avatar_url}));
       const txt = document.createElement('div');
       txt.innerHTML = `<div class="lb-name">${rec.name}</div>
-                       <div class="lb-sub lb-muted">Teams: ${rec.teams.length}${rec.split_count?` • splits: ${rec.split_count}`:''}</div>`;
+                       <div class="lb-sub lb-muted">Teams: ${rec.teams.length}${rec.split_count?` • Split: ${rec.split_count}`:''}</div>`;
       left.appendChild(txt);
 
       const right = document.createElement('div');
