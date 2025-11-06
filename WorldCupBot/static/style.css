@@ -2540,7 +2540,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* fixed left column so bars align perfectly across rows */
 .lb-row{
   display:grid;
-  grid-template-columns: var(--lb-left, 220px) 1fr; /* was: auto 1fr */
+  grid-template-columns: var(--lb-left, 170px) 1fr; /* was: auto 1fr */
   gap:10px;
   align-items:center;
   padding:8px 10px;
@@ -2561,7 +2561,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   text-overflow:ellipsis;
 }
 
-/* ensure bar area uses the whole right column */
 .lb-right{
   display:flex;
   flex-direction:column;
