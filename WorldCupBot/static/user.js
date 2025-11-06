@@ -182,12 +182,12 @@ async function fetchMyBets(uid){
     function betRowHTML(b){
       const choice = b.your_choice || (b.roles||[]).join(', ') || '—';
 
-      let label = 'Pending', cls = 'pill-wait';
+      let label = 'Pending', cls = 'pill-wait-UP';
       if (b.winner_side) {
         if (b.your_side && b.your_side === b.winner_side) {
-          label = 'Won';  cls = 'pill-win';
+          label = 'Won';  cls = 'pill-win-UP';
         } else {
-          label = 'Lost'; cls = 'pill-loss';
+          label = 'Lost'; cls = 'pill-loss-UP';
         }
       }
 
