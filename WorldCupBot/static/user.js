@@ -180,31 +180,24 @@ async function fetchMyBets(uid){
 }
 
     function betRowHTML(b){
-      const roles = (b.roles || []).join(', ');
-      let statusLabel = '';
-      let statusClass = '';
+      const choice = b.your_choice || (b.roles||[]).join(', ') || '—';
 
-      // Convert to friendly wording
-      if (!b.status || b.status === 'Open') {
-        statusLabel = 'Pending';
-        statusClass = 'pill-wait';
-      } else if (b.winner) {
-        // determine if user won or lost
-        const userWon = roles.toLowerCase().includes(b.winner.toLowerCase());
-        statusLabel = userWon ? 'Won' : 'Lost';
-        statusClass = userWon ? 'pill-win' : 'pill-loss';
-      } else {
-        statusLabel = 'Pending';
-        statusClass = 'pill-wait';
+      let label = 'Pending', cls = 'pill-wait';
+      if (b.winner_side) {
+        if (b.your_side && b.your_side === b.winner_side) {
+          label = 'Won';  cls = 'pill-win';
+        } else {
+          label = 'Lost'; cls = 'pill-loss';
+        }
       }
 
-      const statusPill = `<span class="pill ${statusClass}">${statusLabel}</span>`;
+      const statusPill = `<span class="pill ${cls}">${label}</span>`;
 
       return `
         <tr>
           <td class="col-id mono">${b.id || ''}</td>
           <td class="col-title">${b.title || ''}</td>
-          <td class="col-roles">${roles || '—'}</td>
+          <td class="col-roles">${choice}</td>
           <td class="col-status">${statusPill}</td>
         </tr>`;
     }
