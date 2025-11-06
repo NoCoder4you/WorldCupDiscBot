@@ -59,14 +59,14 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     )
 
     if winner == "option1":
-        embed.add_field(name=f"🏆 {option1}", value=f"Claimed by: {opt1_user}", inline=False)
-        embed.add_field(name=f"~~{option2}~~", value=f"Claimed by: {opt2_user}", inline=False)
+        embed.add_field(name=f"🏆 {option1}", value=f"**Claimed by:** {opt1_user}", inline=False)
+        embed.add_field(name=f"~~{option2}~~", value=f"**Claimed by:** {opt2_user}", inline=False)
     elif winner == "option2":
-        embed.add_field(name=f"~~{option1}~~", value=f"Claimed by: {opt1_user}", inline=False)
-        embed.add_field(name=f"🏆 {option2}", value=f"Claimed by: {opt2_user}", inline=False)
+        embed.add_field(name=f"~~{option1}~~", value=f"**Claimed by:** {opt1_user}", inline=False)
+        embed.add_field(name=f"🏆 {option2}", value=f"**Claimed by:** {opt2_user}", inline=False)
     else:
-        embed.add_field(name=option1, value=f"Claimed by: {opt1_user}", inline=False)
-        embed.add_field(name=option2, value=f"Claimed by: {opt2_user}", inline=False)
+        embed.add_field(name=option1, value=f"**Claimed by:** {opt1_user}", inline=False)
+        embed.add_field(name=option2, value=f"**Claimed by:** {opt2_user}", inline=False)
 
     if bot_user:
         avatar = bot_user.avatar.url if bot_user.avatar else bot_user.default_avatar.url

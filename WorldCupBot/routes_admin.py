@@ -559,7 +559,7 @@ def create_admin_routes(ctx):
 
         return jsonify({"events": norm})
 
-    # ---------- BETS: declare winner ----------
+    # ---------- BETS ----------
     def _bets_path(): return _path(ctx, "bets.json")
 
     def _enrich_bet_names(b):

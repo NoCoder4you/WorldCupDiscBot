@@ -212,7 +212,7 @@ async function renderUserBetsCard(user){
          <table class="table">
            <thead>
              <tr>
-               <th>ID</th><th>Bet</th><th>Your role</th><th>Status</th><th>When</th><th></th>
+               <th>ID</th><th>Bet</th><th>Choice</th><th>Status</th><th>When</th><th></th>
              </tr>
            </thead>
            <tbody>${rows}</tbody>
