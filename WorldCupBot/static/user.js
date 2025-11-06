@@ -275,11 +275,10 @@ async function fetchMyBets(uid){
         </div>
       `;
 
-      // Teams grid with big progress rings
+      await renderUserBetsCard(user);
+
       renderTeamsProgressMerged(owned || [], split || []);
 
-      // Your Bets card (kept separate and tidy)
-      await renderUserBetsCard(user);
     }
 
     async function refreshUser(){
