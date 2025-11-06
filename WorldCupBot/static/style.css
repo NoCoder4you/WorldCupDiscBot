@@ -2704,7 +2704,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     padding:6px 8px !important;
 }
 
-.pill {
+.pill-UP {
   display:inline-block;
   padding:4px 10px;
   border-radius:999px;
@@ -2721,3 +2721,4 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .col-id { width:80px; text-align:center; }
 .col-status { width:100px; text-align:center; }
 .col-roles { text-align:left; }
+

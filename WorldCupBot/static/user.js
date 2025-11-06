@@ -191,7 +191,7 @@ async function fetchMyBets(uid){
         }
       }
 
-      const statusPill = `<span class="pill ${cls}">${label}</span>`;
+      const statusPill = `<span class="pill-UP ${cls}">${label}</span>`;
 
       return `
         <tr>
