@@ -555,60 +555,43 @@ def create_public_routes(ctx):
             out.append(item)
         return jsonify(out)
 
-    def _str(x):  # normalize IDs
-        return str(x).strip()
-
-    def _user_in_list(lst, uid):
-        return any(_str(v) == uid for v in lst)
-
-    def _s(x):
-        return str(x or "").strip()
-
-    def _status_from_winner(winner):
-        w = _s(winner).lower()
-        return "Open" if not w else "Settled"
-
-    def _roles_for_uid(bet, uid):
-        uid = _s(uid)
-        if not uid:
-            return []
-
-        o1_id = _s(bet.get("option1_user_id"))
-        o2_id = _s(bet.get("option2_user_id"))
-        o1 = _s(bet.get("option1")) or "Option 1"
-        o2 = _s(bet.get("option2")) or "Option 2"
-
-        roles = []
-        if uid == o1_id:
-            roles.append(f"{o1}")
-        if uid == o2_id:
-            roles.append(f"{o2}")
-        return roles
-
-    def _winner_label(bet):
-        w = _s(bet.get("winner"))  # could be '', 'option1', 'option2', or the text
-        o1 = _s(bet.get("option1")) or "Option 1"
-        o2 = _s(bet.get("option2")) or "Option 2"
-        wl = w.lower()
-        if not w:
-            return ""
-        if wl in ("option1", "1", "a"):
-            return f"Option 1 ({o1})"
-        if wl in ("option2", "2", "b"):
-            return f"Option 2 ({o2})"
-        # if it's already text, return as-is
-        return w
-
-    def _title_for(bet):
-        return _s(bet.get("bet_title")) or f"Bet {_s(bet.get('bet_id'))}"
-
     @api.get("/my_bets")
     def api_my_bets():
         base = ctx.get("BASE_DIR", "")
-        uid = _s(request.args.get("uid"))
+        uid = str((request.args.get("uid") or "").strip())
+
+        def _s(x):
+            return str(x or "").strip()
+
+        def _your_side_for_uid(b, uid_):
+            if not uid_: return ""
+            if _s(b.get("option1_user_id")) == uid_: return "option1"
+            if _s(b.get("option2_user_id")) == uid_: return "option2"
+            return ""
+
+        def _winner_side(b):
+            w = _s(b.get("winner"))
+            if not w: return ""
+            o1 = _s(b.get("option1"))
+            o2 = _s(b.get("option2"))
+            wl = w.lower()
+            if wl in ("option1", "1", "a"): return "option1"
+            if wl in ("option2", "2", "b"): return "option2"
+            if wl == o1.lower(): return "option1"
+            if wl == o2.lower(): return "option2"
+            return ""
+
+        def _winner_label(b):
+            ws = _winner_side(b)
+            if not ws: return ""
+            o1 = _s(b.get("option1")) or "Option 1"
+            o2 = _s(b.get("option2")) or "Option 2"
+            return f"Option 1 ({o1})" if ws == "option1" else f"Option 2 ({o2})"
+
+        def _title_for(b):
+            return _s(b.get("bet_title")) or f"Bet {_s(b.get('bet_id'))}"
 
         if not uid:
-            # If you want, fetch session user here; otherwise return empty
             return jsonify({"ok": True, "bets": [], "uid": uid})
 
         blob = _json_load(_bets_path(base), [])
@@ -618,24 +601,20 @@ def create_public_routes(ctx):
         for b in bets:
             if not isinstance(b, dict):
                 continue
-
-            roles = _roles_for_uid(b, uid)
-            if not roles:
+            ys = _your_side_for_uid(b, uid)
+            if not ys:
                 continue
-
+            choice = _s(b.get("option1")) if ys == "option1" else _s(b.get("option2"))
+            ws = _winner_side(b)
             out.append({
                 "id": _s(b.get("bet_id")),
                 "title": _title_for(b),
-                "roles": roles,  # e.g., ["On Option 1 (Wins)"]
-                "status": _status_from_winner(b.get("winner")),  # "Open" or "Settled"
-                "winner": _winner_label(b),  # human-friendly winner text
-                "wager": _s(b.get("wager")),
-                "when": b.get("created_at") or b.get("time") or b.get("timestamp") or None,
-                "url": None  # you can build a jump URL from guild+channel+message if you store them
+                "your_side": ys,  # "option1" | "option2"
+                "your_choice": choice,  # text like "Spain Will Win"
+                "winner_side": ws,  # "" | "option1" | "option2"
+                "winner_label": _winner_label(b),
+                "status": "Open" if not ws else "Settled",
             })
-
-        # newest first if there is a time; stable otherwise
-        out.sort(key=lambda x: x.get("when") or 0, reverse=True)
 
         resp = make_response(jsonify({"ok": True, "bets": out, "uid": uid}))
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
