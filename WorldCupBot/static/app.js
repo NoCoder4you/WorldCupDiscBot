@@ -2838,11 +2838,9 @@ async function fetchJSON(url){
       const dname = user.display_name || user.username || user.id || 'Unknown';
       const wrap = document.createElement('div');
       wrap.className = 'lb-ava';
-
-      const url = user.avatar_url || discordDefaultAvatarUrl(user.id);
       const img = document.createElement('img');
       img.alt = `${dname} avatar`;
-      img.src = url;
+      img.src = user.avatar_url;
       wrap.appendChild(img);
       return wrap;
     }
@@ -2872,19 +2870,26 @@ async function fetchJSON(url){
     const vmap = {};
     (verified || []).forEach(v => {
       const id = String(v.discord_id || v.id || v.user_id || '').trim();
-      if(!id) return;
+      if (!id) return;
 
-      // avatar can be a full URL or just a hash from Discord's API
+      // Gather any avatar info we already have
       const raw = v.avatar_url || v.avatarUrl || v.avatar || v.avatar_hash || v.avatarHash || null;
 
-      // If it's a full URL, use it. If it's a hash, build the CDN URL. Else use default avatar.
+      // If it's a URL, keep it. If it's a hash, build CDN URL. Else default avatar.
       let avatar_url = null;
       if (raw && /^https?:\/\//i.test(String(raw))) {
         avatar_url = raw;
       } else if (raw && /^[aA]?_?[0-9a-f]{6,}$/.test(String(raw))) {
-        avatar_url = discordAvatarUrl(id, String(raw));
+        const ext = String(raw).startsWith('a_') ? 'gif' : 'png';
+        avatar_url = `https://cdn.discordapp.com/avatars/${id}/${raw}.${ext}?size=64`;
       } else {
-        avatar_url = discordDefaultAvatarUrl(id);
+        // default avatar (coloured Discord silhouette)
+        try {
+          const idx = Number(BigInt(String(id)) % 6n);
+          avatar_url = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+        } catch {
+          avatar_url = `https://cdn.discordapp.com/embed/avatars/0.png`;
+        }
       }
 
       vmap[id] = {
@@ -2894,6 +2899,32 @@ async function fetchJSON(url){
         avatar_url
       };
     });
+
+
+    // ---- Live enrichment: replace defaults with real Discord avatars ----
+    const missing = Object.values(vmap)
+      .filter(v => !v.avatar_url || /\/embed\/avatars\//.test(String(v.avatar_url)))
+      .map(v => v.id);
+
+    if (missing.length) {
+      const chunkSize = 50;
+      for (let i = 0; i < missing.length; i += chunkSize) {
+        const ids = missing.slice(i, i + chunkSize).join(',');
+        try {
+          const resp = await fetch(`/api/avatars?ids=${encodeURIComponent(ids)}`, {
+            headers: { 'Accept': 'application/json' }
+          });
+          if (resp.ok) {
+            const { avatars = {} } = await resp.json();
+            for (const [uid, url] of Object.entries(avatars)) {
+              if (vmap[uid]) vmap[uid].avatar_url = url;
+            }
+          }
+        } catch (err) {
+          console.warn('Avatar enrichment failed', err);
+        }
+      }
+    }
     return { rows:(ownersResp&&ownersResp.rows)||[], bets:(bets||[]), iso:(iso||{}), vmap };
     }
 

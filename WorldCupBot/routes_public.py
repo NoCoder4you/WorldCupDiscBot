@@ -164,6 +164,8 @@ def _discord_client_info(ctx):
 def _session_key():
     return "wc_user"
 
+_AVATAR_CACHE = {}  # { id: {"url": str, "ts": int} }
+
 def _discord_avatar_url(user_id: str, avatar_hash: str, size: int = 64) -> str | None:
     if not user_id or not avatar_hash:
         return None
@@ -172,7 +174,7 @@ def _discord_avatar_url(user_id: str, avatar_hash: str, size: int = 64) -> str |
 
 def _discord_default_avatar_url(user_id: str) -> str:
     try:
-        idx = int(int(user_id) % 6)  # safe for numeric ids
+        idx = int(int(user_id) % 6)
     except Exception:
         idx = 0
     return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
@@ -419,6 +421,62 @@ def create_public_routes(ctx):
                 }
                 out.append(user)
         return jsonify(out)
+
+    @api.get("/avatars")
+    def api_avatars():
+        base = ctx.get("BASE_DIR", "")
+        cfg = _load_config(base)
+        bot_token = cfg.get("DISCORD_BOT_TOKEN") or cfg.get("BOT_TOKEN") or ""
+        ids = (request.args.get("ids") or "").split(",")
+        ids = [i.strip() for i in ids if i.strip().isdigit()]
+        if not ids:
+            return jsonify({"avatars": {}})
+
+        out = {}
+        now = int(time.time())
+
+        # small in-memory cache 10 minutes
+        def cache_get(uid):
+            rec = _AVATAR_CACHE.get(uid)
+            if rec and now - rec.get("ts", 0) < 600:
+                return rec.get("url")
+            return None
+
+        def cache_put(uid, url):
+            _AVATAR_CACHE[uid] = {"url": url, "ts": now}
+
+        # without a token we can only return defaults
+        if not bot_token:
+            for uid in ids:
+                url = cache_get(uid) or _discord_default_avatar_url(uid)
+                cache_put(uid, url)
+                out[uid] = url
+            return jsonify({"avatars": out})
+
+        # fetch each user (keep it simple; Pi-friendly; Discord rate-limit is generous for small lists)
+        for uid in ids:
+            cached = cache_get(uid)
+            if cached:
+                out[uid] = cached
+                continue
+            try:
+                r = requests.get(
+                    f"https://discord.com/api/v10/users/{uid}",
+                    headers={"Authorization": f"Bot {bot_token}"},
+                    timeout=4,
+                )
+                if r.status_code == 200:
+                    info = r.json() or {}
+                    ah = info.get("avatar")
+                    url = _discord_avatar_url(uid, ah, 64) if ah else _discord_default_avatar_url(uid)
+                else:
+                    url = _discord_default_avatar_url(uid)
+            except Exception:
+                url = _discord_default_avatar_url(uid)
+            cache_put(uid, url)
+            out[uid] = url
+
+        return jsonify({"avatars": out})
 
     @api.get("/player_names")
     def api_player_names():
