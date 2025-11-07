@@ -2843,12 +2843,24 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .wc-modal-card {
   position: relative;
   width: min(520px, calc(100vw - 32px));
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  background: rgba(30, 40, 55, 0.95); /* lighter, semi-glass */
+  border: 1px solid rgba(0, 200, 150, 0.35); /* accent glow border */
+  border-radius: 16px;
+  box-shadow:
+    0 0 20px rgba(0, 200, 150, 0.15),
+    0 8px 30px rgba(0, 0, 0, 0.6); /* inner & outer shadow */
+  backdrop-filter: saturate(1.5) blur(8px); /* frosted depth */
   overflow: hidden;
+  transform: translateY(-10px);
+  animation: fzModalIn 0.25s ease forwards;
 }
+
+/* Smooth lift-in animation */
+@keyframes fzModalIn {
+  from { opacity: 0; transform: translateY(-20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .wc-modal-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 14px; border-bottom: 1px solid var(--border);
