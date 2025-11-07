@@ -630,6 +630,34 @@ def create_public_routes(ctx):
             "percent": {"option1": round(pct(o1, total), 1), "option2": round(pct(o2, total), 1)}
         }), 201
 
+    @api.post("/fan_votes/remove")
+    def fan_votes_remove():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        bet_id = str(body.get("bet_id") or "").strip()
+
+        if not bet_id:
+            return jsonify({"ok": False, "error": "missing_bet_id"}), 400
+
+        ip = (request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+              or request.headers.get("CF-Connecting-IP", "").strip()
+              or request.remote_addr
+              or "unknown")
+
+        path = _fan_votes_path(base)
+        raw = _json_load(path, [])
+        if not isinstance(raw, list):
+            raw = []
+
+        new = [v for v in raw if not (
+                str(v.get("vote_id")) == bet_id and str(v.get("ip")) == str(ip)
+        )]
+
+        if len(new) == len(raw):
+            return jsonify({"ok": False, "error": "vote_not_found"}), 404
+
+        _json_save(path, new)
+        return jsonify({"ok": True, "bet_id": bet_id})
 
     @api.get("/my_bets")
     def api_my_bets():

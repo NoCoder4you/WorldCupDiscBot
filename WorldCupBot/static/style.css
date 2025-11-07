@@ -2961,6 +2961,20 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   transform: scale(0.97);
 }
 
+#fz-dialog-remove.btn {
+  background: var(--danger);
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 800;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+#fz-dialog-remove.btn:hover { filter: brightness(1.1); }
+#fz-dialog-remove.btn:active { transform: scale(0.97); }
+
+
 /* Prevent global blur*/
 body.modal-open * {
   backdrop-filter: none !important;

@@ -2219,22 +2219,49 @@ function fanCardHTML(b){
 }
 
 // --- Fan Zone dialog helpers ---
-function fzDialogOpen(msg) {
+function fzDialogOpen(msg, betId = null) {
   const wrap = document.getElementById('fz-dialog');
-  if (!wrap) return window.alert(msg); // fallback
-
+  if (!wrap) return window.alert(msg);
   const msgEl = document.getElementById('fz-dialog-msg');
   msgEl.textContent = msg;
 
-  // show + lock page + kill any backdrop blurs
+  wrap.dataset.bet = betId || '';  // store bet_id for potential removal
   wrap.classList.remove('hidden');
   document.body.classList.add('modal-open');
   document.body.style.overflow = 'hidden';
 
   const close = () => fzDialogClose();
+
   document.getElementById('fz-dialog-ok')?.addEventListener('click', close, { once: true });
   document.getElementById('fz-dialog-close')?.addEventListener('click', close, { once: true });
   wrap.querySelector('.wc-modal-backdrop')?.addEventListener('click', close, { once: true });
+
+  // Handle Remove Vote
+  const remBtn = document.getElementById('fz-dialog-remove');
+  if (remBtn) {
+    remBtn.onclick = async () => {
+      const betId = wrap.dataset.bet;
+      if (!betId) return fzDialogClose();
+
+      try {
+        const res = await fetch('/api/fan_votes/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bet_id: betId })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const d = await res.json();
+        fzDialogClose();
+        if (typeof notify === 'function')
+          notify('Vote removed', true);
+        // Re-render Fan Zone to update bars
+        renderFanZone();
+      } catch (err) {
+        fzDialogClose();
+        notify('Failed to remove vote', false);
+      }
+    };
+  }
 
   // ESC to close
   wrap._esc = (e) => { if (e.key === 'Escape') close(); };
@@ -2244,12 +2271,13 @@ function fzDialogOpen(msg) {
 function fzDialogClose() {
   const wrap = document.getElementById('fz-dialog');
   if (!wrap) return;
-
   wrap.classList.add('hidden');
   document.body.classList.remove('modal-open');
-  document.body.style.overflow = ''; // restore scroll
-
-  if (wrap._esc) { document.removeEventListener('keydown', wrap._esc); wrap._esc = null; }
+  document.body.style.overflow = '';
+  if (wrap._esc) {
+    document.removeEventListener('keydown', wrap._esc);
+    wrap._esc = null;
+  }
 }
 
 async function renderFanZone(){
@@ -2316,7 +2344,7 @@ async function handleFanZoneClick(ev) {
 
     // Styled modal instead of browser alert
     if (typeof fzDialogOpen === 'function') {
-      fzDialogOpen(msg);
+      fzDialogOpen(msg, betId);
     } else {
       alert(msg); // fallback if dialog helper missing
     }
