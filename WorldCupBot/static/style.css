@@ -2828,3 +2828,39 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   margin-top: 8px;
 }
 
+/* ===== Fan Zone modal ===== */
+.wc-modal.hidden { display: none; }
+.wc-modal {
+  position: fixed; inset: 0; z-index: 9999;
+  display: grid; place-items: center;
+}
+.wc-modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(1px);
+}
+.wc-modal-card {
+  position: relative;
+  width: min(520px, calc(100vw - 32px));
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  overflow: hidden;
+}
+.wc-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+}
+.wc-modal-title { font-weight: 900; color: var(--accent); }
+.wc-modal-x {
+  background: transparent; border: none; font-size: 18px; line-height: 1;
+  color: var(--muted); cursor: pointer;
+}
+.wc-modal-x:hover { color: #fff; }
+.wc-modal-body { padding: 16px 14px; color: var(--text); }
+.wc-modal-foot {
+  padding: 12px 14px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+

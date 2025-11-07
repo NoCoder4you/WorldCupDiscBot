@@ -2218,6 +2218,31 @@ function fanCardHTML(b){
   `;
 }
 
+// --- Fan Zone dialog helpers ---
+function fzDialogOpen(msg) {
+  const wrap = document.getElementById('fz-dialog');
+  if (!wrap) return window.alert(msg); // hard fallback
+  const msgEl = document.getElementById('fz-dialog-msg');
+  msgEl.textContent = msg;
+
+  wrap.classList.remove('hidden');
+
+  const close = () => fzDialogClose();
+  document.getElementById('fz-dialog-ok')?.addEventListener('click', close, { once: true });
+  document.getElementById('fz-dialog-close')?.addEventListener('click', close, { once: true });
+  wrap.querySelector('.wc-modal-backdrop')?.addEventListener('click', close, { once: true });
+
+  // ESC to close
+  wrap._esc = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', wrap._esc);
+}
+function fzDialogClose() {
+  const wrap = document.getElementById('fz-dialog');
+  if (!wrap) return;
+  wrap.classList.add('hidden');
+  if (wrap._esc) { document.removeEventListener('keydown', wrap._esc); wrap._esc = null; }
+}
+
 async function renderFanZone(){
   const host = document.getElementById('fanzone-body');
   if(!host) return;
@@ -2250,30 +2275,44 @@ async function renderFanZone(){
   }
 }
 
-async function handleFanZoneClick(ev){
+async function handleFanZoneClick(ev) {
   const btn = ev.target.closest('.fz-vote');
-  if(!btn) return;
+  if (!btn) return;
   const betId = btn.dataset.bet;
   const opt = btn.dataset.opt;
 
+  // Disable the clicked button briefly to avoid spam
   btn.disabled = true;
-  try{
+
+  try {
     const d = await submitFanVote(betId, opt);
+
     const card = btn.closest('.fan-card');
-    if(card){
+    if (card) {
       const p1 = d?.percent?.option1 || 0;
       const p2 = d?.percent?.option2 || 0;
       const tz = card.querySelector(`.fz-total[data-bet="${betId}"]`);
       fanBar(card, p1, p2);
-      if(tz) tz.textContent = `Total votes: ${d?.total || 0}`;
+      if (tz) tz.textContent = `Total votes: ${d?.total || 0}`;
     }
-  }catch(e){
+
+    // optional subtle notification
+    if (typeof notify === 'function') notify('Vote recorded', true);
+
+  } catch (e) {
     // 409 → already voted, anything else → error
-    const msg = (String(e.message||'').includes('409') || String(e).includes('already_voted'))
+    const msg = (String(e.message || '').includes('409') || String(e).includes('already_voted'))
       ? 'You have already voted on this bet from this network.'
       : 'Vote failed. Please try again.';
-    alert(msg);
-  }finally{
+
+    // Styled modal instead of browser alert
+    if (typeof fzDialogOpen === 'function') {
+      fzDialogOpen(msg);
+    } else {
+      alert(msg); // fallback if dialog helper missing
+    }
+
+  } finally {
     btn.disabled = false;
   }
 }

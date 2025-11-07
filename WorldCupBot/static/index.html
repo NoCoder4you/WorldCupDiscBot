@@ -327,6 +327,21 @@
         <section id="splits" class="page-section admin-only"></section>
         <section id="bets" class="page-section"></section>
         <section id="backups" class="page-section admin-only"></section>
+
+          <!-- Fan Zone dialog -->
+        <div id="fz-dialog" class="wc-modal hidden" role="dialog" aria-modal="true" aria-labelledby="fz-dialog-title">
+          <div class="wc-modal-card" role="document">
+            <div class="wc-modal-head">
+              <div class="wc-modal-title" id="fz-dialog-title">Fan Zone</div>
+              <button class="wc-modal-x" id="fz-dialog-close" aria-label="Close">✕</button>
+            </div>
+            <div class="wc-modal-body" id="fz-dialog-msg"></div>
+            <div class="wc-modal-foot">
+              <button class="btn" id="fz-dialog-ok">OK</button>
+            </div>
+          </div>
+          <div class="wc-modal-backdrop"></div>
+        </div>
       </main>
 
       <div class="notify-bar" id="notify"></div>
