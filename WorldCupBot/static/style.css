@@ -2963,3 +2963,16 @@ body.modal-open * {
 body.modal-open {
   overflow: hidden;
 }
+
+/* Force proper stacking: backdrop behind, card on top */
+.wc-modal { isolation: isolate; }           /* new stacking context */
+.wc-modal-backdrop { z-index: 1; }          /* behind */
+.wc-modal-card { z-index: 2; }              /* above backdrop */
+
+/* Also nuke any unexpected dimming while open */
+body.modal-open header,
+body.modal-open main,
+body.modal-open footer {
+  filter: none !important;
+  opacity: 1 !important;
+}
