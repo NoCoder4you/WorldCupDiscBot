@@ -2339,7 +2339,7 @@ async function handleFanZoneClick(ev) {
   } catch (e) {
     // 409 → already voted, anything else → error
     const msg = (String(e.message || '').includes('409') || String(e).includes('already_voted'))
-      ? 'You have already voted on this bet from this network.'
+      ? 'You have already voted!'
       : 'Vote failed. Please try again.';
 
     // Styled modal instead of browser alert
