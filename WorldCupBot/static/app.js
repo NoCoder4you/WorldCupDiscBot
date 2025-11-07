@@ -2221,11 +2221,15 @@ function fanCardHTML(b){
 // --- Fan Zone dialog helpers ---
 function fzDialogOpen(msg) {
   const wrap = document.getElementById('fz-dialog');
-  if (!wrap) return window.alert(msg); // hard fallback
+  if (!wrap) return window.alert(msg); // fallback
+
   const msgEl = document.getElementById('fz-dialog-msg');
   msgEl.textContent = msg;
 
+  // show + lock page + kill any backdrop blurs
   wrap.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  document.body.style.overflow = 'hidden';
 
   const close = () => fzDialogClose();
   document.getElementById('fz-dialog-ok')?.addEventListener('click', close, { once: true });
@@ -2236,10 +2240,15 @@ function fzDialogOpen(msg) {
   wrap._esc = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', wrap._esc);
 }
+
 function fzDialogClose() {
   const wrap = document.getElementById('fz-dialog');
   if (!wrap) return;
+
   wrap.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow = ''; // restore scroll
+
   if (wrap._esc) { document.removeEventListener('keydown', wrap._esc); wrap._esc = null; }
 }
 

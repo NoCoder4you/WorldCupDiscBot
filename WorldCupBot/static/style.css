@@ -2836,8 +2836,9 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 .wc-modal-backdrop {
   position: absolute; inset: 0;
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(1px);
+  background: rgba(0,0,0,.55); /* dim only, no blur */
+  backdrop-filter: none !important;
+  filter: none !important;
 }
 .wc-modal-card {
   position: relative;
@@ -2863,4 +2864,10 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   padding: 12px 14px; border-top: 1px solid var(--border);
   display: flex; justify-content: flex-end; gap: 8px;
 }
+/* Disable any blur sitewide while a modal is open */
+body.modal-open * { backdrop-filter: none !important; }
+body.modal-open header,
+body.modal-open main,
+body.modal-open footer { filter: none !important; }
+
 
