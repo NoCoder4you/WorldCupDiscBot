@@ -2846,31 +2846,36 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   place-items: center;
 }
 
-/* Backdrop – soft dim, no blur */
+/* Backdrop */
 .wc-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.32); /* gentle dim */
-  backdrop-filter: none !important;
-  filter: none !important;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px) saturate(1.3);
+  -webkit-backdrop-filter: blur(6px) saturate(1.3);
 }
 
-/* Card – lifted dark panel with accent edge */
+
+/* Card */
 .wc-modal-card {
   position: relative;
+  z-index: 2;
   width: min(520px, calc(100vw - 32px));
-  background: #1c2433;                         /* lighter than cards */
+  background: rgba(28, 36, 51, 0.88);          /* translucent dark */
   color: var(--text);
-  border: 1px solid rgba(0, 200, 150, 0.45);   /* accent edge */
+  border: 1px solid rgba(0, 200, 150, 0.45);
   border-radius: 16px;
   box-shadow:
-    0 0 25px rgba(0, 200, 150, 0.15),          /* subtle glow */
-    0 12px 50px rgba(0, 0, 0, 0.55);           /* deep lift */
-  backdrop-filter: none !important;
+    0 0 25px rgba(0, 200, 150, 0.15),
+    0 12px 50px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
   overflow: hidden;
   transform: translateY(-8px);
-  animation: fzModalIn 0.2s ease forwards;
+  animation: fzModalIn 2s ease forwards;
 }
+
 
 @keyframes fzModalIn {
   from {
@@ -2956,13 +2961,21 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   transform: scale(0.97);
 }
 
-/* Prevent global blur when modal open */
+/* Prevent global blur*/
 body.modal-open * {
   backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.modal-open .wc-modal *,
+body.modal-open .wc-modal-backdrop,
+body.modal-open .wc-modal-card {
+  backdrop-filter: inherit !important;
+  -webkit-backdrop-filter: inherit !important;
 }
 body.modal-open {
-  overflow: hidden;
+    overflow: hidden;
 }
+
 
 /* Force proper stacking: backdrop behind, card on top */
 .wc-modal { isolation: isolate; }           /* new stacking context */
