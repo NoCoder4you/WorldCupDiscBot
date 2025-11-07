@@ -2092,6 +2092,7 @@ async function getCogStatus(name){
     switch(state.currentPage){
       case 'dashboard': await loadDash(); break;
       case 'bets': await loadAndRenderBets(); break;
+      case 'fanzone': await loadFanZone(); break;
       case 'ownership': await loadOwnershipPage(); break;
       case 'splits': if(state.admin) await loadSplits(); else setPage('dashboard'); break;
       case 'backups': if(state.admin) await loadBackups(); else setPage('dashboard'); break;
@@ -2120,6 +2121,194 @@ async function getCogStatus(name){
       startPolling();
     }
   window.addEventListener('load', init);
+
+// ===== Fan Zone utilities =====
+async function fetchJSON(url, opts){
+  const r = await fetch(url, opts);
+  if(!r.ok) throw new Error(await r.text().catch(()=>r.statusText));
+  return r.json();
+}
+
+function clamp(n){ return Math.max(0, Math.min(100, Number.isFinite(n)?n:0)); }
+
+function fanBar(el, p1, p2){
+  // animate width via requestAnimationFrame for smoothness
+  const a = el.querySelector('.fz-bar.fz-o1');
+  const b = el.querySelector('.fz-bar.fz-o2');
+  const t1 = el.querySelector('.fz-pct.fz-o1');
+  const t2 = el.querySelector('.fz-pct.fz-o2');
+  const target1 = clamp(p1), target2 = clamp(p2);
+
+  let w1 = parseFloat(a.style.width || "0") || 0;
+  let w2 = parseFloat(b.style.width || "0") || 0;
+
+  const step = () => {
+    const d1 = target1 - w1;
+    const d2 = target2 - w2;
+    if (Math.abs(d1) < 0.3 && Math.abs(d2) < 0.3){
+      w1 = target1; w2 = target2;
+    } else {
+      w1 += d1 * 0.12;
+      w2 += d2 * 0.12;
+      requestAnimationFrame(step);
+    }
+    a.style.width = w1.toFixed(1) + '%';
+    b.style.width = w2.toFixed(1) + '%';
+    t1.textContent = w1.toFixed(1) + '%';
+    t2.textContent = w2.toFixed(1) + '%';
+  };
+  requestAnimationFrame(step);
+}
+
+async function fetchFanStats(betId){
+  const d = await fetchJSON(`/api/fan_votes/${encodeURIComponent(betId)}`);
+  const p1 = d?.percent?.option1 || 0;
+  const p2 = d?.percent?.option2 || 0;
+  return { p1, p2, total: d?.total || 0 };
+}
+
+async function submitFanVote(betId, option){
+  return fetchJSON('/api/fan_votes', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ bet_id: betId, option })
+  });
+}
+
+function fanCardHTML(b){
+  const winner = (b.winner || '').toLowerCase();
+  const winPill = winner
+    ? `<span class="pill pill-winner">Winner: ${winner==='option1' ? (b.option1 || 'Option 1') : (b.option2 || 'Option 2')}</span>`
+    : `<span class="pill pill-tbd">Pending</span>`;
+
+  return `
+    <div class="fan-card" data-bet="${b.bet_id}">
+      <div class="fan-head">
+        <div class="fan-title">${b.bet_title || 'Bet ' + b.bet_id}</div>
+        <div class="fan-meta">
+          ${winPill}
+        </div>
+      </div>
+
+      <div class="fan-options">
+        <div class="fan-option">
+          <div class="fan-name">${b.option1 || 'Option 1'}</div>
+          <button class="btn fz-vote" data-bet="${b.bet_id}" data-opt="option1">Vote</button>
+        </div>
+        <div class="fan-option">
+          <div class="fan-name">${b.option2 || 'Option 2'}</div>
+          <button class="btn fz-vote" data-bet="${b.bet_id}" data-opt="option2">Vote</button>
+        </div>
+      </div>
+
+      <div class="fan-bars">
+        <div class="fz-bar-wrap">
+          <div class="fz-bar fz-o1" style="width:0%"></div>
+          <div class="fz-pct fz-o1">0.0%</div>
+        </div>
+        <div class="fz-bar-wrap">
+          <div class="fz-bar fz-o2" style="width:0%"></div>
+          <div class="fz-pct fz-o2">0.0%</div>
+        </div>
+      </div>
+      <div class="fan-foot">
+        <span class="fz-total" data-bet="${b.bet_id}">Total votes: 0</span>
+      </div>
+    </div>
+  `;
+}
+
+async function renderFanZone(){
+  const host = document.getElementById('fanzone-body');
+  if(!host) return;
+  host.innerHTML = `<p class="muted">Loading bets…</p>`;
+  let bets = [];
+  try{
+    bets = await fetchJSON('/api/bets');  // your existing enriched endpoint
+  }catch(e){
+    host.innerHTML = `<p class="muted">Failed to load bets.</p>`;
+    return;
+  }
+  const open = (bets||[]).filter(b => !b.winner); // only upcoming/open
+  if(!open.length){
+    host.innerHTML = `<p class="muted">No open bets to vote on.</p>`;
+    return;
+  }
+  host.innerHTML = open.map(fanCardHTML).join('');
+
+  // hydrate with current percentages
+  for(const b of open){
+    try{
+      const {p1,p2,total} = await fetchFanStats(b.bet_id);
+      const card = host.querySelector(`.fan-card[data-bet="${b.bet_id}"]`);
+      if(card){
+        fanBar(card, p1, p2);
+        const tz = card.querySelector(`.fz-total[data-bet="${b.bet_id}"]`);
+        if(tz) tz.textContent = `Total votes: ${total}`;
+      }
+    }catch(_){}
+  }
+}
+
+async function handleFanZoneClick(ev){
+  const btn = ev.target.closest('.fz-vote');
+  if(!btn) return;
+  const betId = btn.dataset.bet;
+  const opt = btn.dataset.opt;
+
+  btn.disabled = true;
+  try{
+    const d = await submitFanVote(betId, opt);
+    const card = btn.closest('.fan-card');
+    if(card){
+      const p1 = d?.percent?.option1 || 0;
+      const p2 = d?.percent?.option2 || 0;
+      const tz = card.querySelector(`.fz-total[data-bet="${betId}"]`);
+      fanBar(card, p1, p2);
+      if(tz) tz.textContent = `Total votes: ${d?.total || 0}`;
+    }
+  }catch(e){
+    // 409 → already voted, anything else → error
+    const msg = (String(e.message||'').includes('409') || String(e).includes('already_voted'))
+      ? 'You have already voted on this bet from this network.'
+      : 'Vote failed. Please try again.';
+    alert(msg);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function loadFanZone(){
+  renderFanZone();
+  const host = document.getElementById('fanzone-body');
+  if(host && !host._fz_wired){
+    host.addEventListener('click', handleFanZoneClick);
+    host._fz_wired = true;
+  }
+  const rf = document.getElementById('fz-refresh');
+  if(rf && !rf._fz_wired){
+    rf.addEventListener('click', ()=>renderFanZone());
+    rf._fz_wired = true;
+  }
+}
+
+// If you already have a nav router that toggles .active-section,
+// just ensure it calls loadFanZone() when fanzone is shown.
+// Minimal guard below (non-invasive):
+document.addEventListener('click', (e)=>{
+  const a = e.target.closest('a[data-page]');
+  if(!a) return;
+  const page = a.getAttribute('data-page');
+  if(page === 'fanzone'){
+    // make this page active in your existing router if needed
+    const id = 'fanzone';
+    document.querySelectorAll('section.page-section').forEach(s=>s.classList.toggle('active-section', s.id===id));
+    document.querySelectorAll('#main-menu a').forEach(x=>x.classList.toggle('active', x===a));
+    loadFanZone();
+    e.preventDefault();
+  }
+});
+
 
 // === Auto redirect new Discord-linked users to /terms ===
 async function checkUserTOS() {

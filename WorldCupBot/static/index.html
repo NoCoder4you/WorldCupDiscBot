@@ -18,7 +18,8 @@
             <li><a href="#" data-page="ownership">Ownership</a></li>
             <li><a href="#" data-page="worldmap">World Map</a></li>
             <li><a href="#" data-page="leaderboards">Leaderboards</a></li>
-            <!-- Admin-only items -->
+            <li><a href="#" data-page="fanzone">Fan Zone</a></li>
+              <!-- Admin-only items -->
             <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
             <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
             <li class="admin-only"><a href="#" data-page="log">Logs</a></li>
@@ -191,8 +192,23 @@
           </div>
         </section>
 
+        <!-- FAN ZONE -->
+        <section id="fanzone" class="page-section">
+          <div class="table-wrap">
+            <div class="table-head">
+              <div class="table-title">Fan Zone - Vote the winners</div>
+              <div class="table-actions">
+                <button id="fz-refresh" class="btn sm">Refresh</button>
+              </div>
+            </div>
+            <div class="table-scroll" id="fanzone-body" style="padding:12px">
+              <p class="muted">Loading bets…</p>
+            </div>
+          </div>
+        </section>
 
-        <!-- ===== Leaderboards (NEW) ===== -->
+
+        <!-- ===== Leaderboards ===== -->
         <section id="leaderboards" class="page-section">
           <div class="lb-grid">
             <!-- Card A -->

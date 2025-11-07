@@ -2729,3 +2729,102 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .col-status { width:115px; text-align:center; }
 .col-roles { text-align:left; }
 
+/* ===== FAN ZONE ===== */
+.fan-card{
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  margin: 12px auto;
+  max-width: 920px;
+  box-shadow: 0 6px 28px rgba(0,0,0,.12);
+}
+
+.fan-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.fan-title{
+  font-weight: 900;
+  color: var(--accent);
+  font-size: 1.05rem;
+}
+
+.fan-meta{ display: flex; gap: 8px; align-items: center; }
+
+.fan-options{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.fan-option{
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fan-name{
+  font-weight: 800;
+}
+
+.fan-bars{
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.fz-bar-wrap{
+  position: relative;
+  height: 22px;
+  background: #0e1520;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fz-bar{
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  width: 0%;
+  transition: width .25s ease;
+}
+
+.fz-bar.fz-o1{ background: var(--accent-2); }
+.fz-bar.fz-o2{ background: var(--accent); }
+
+.fz-pct{
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 900;
+  font-size: 0.9rem;
+  color: #0b1320;
+  text-shadow: 0 0 12px rgba(255,255,255,0.35);
+}
+
+.fz-total{
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.fan-foot{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+

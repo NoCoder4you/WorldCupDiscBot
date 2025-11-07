@@ -70,6 +70,9 @@ def _tos_path(base_dir):
     return os.path.join(_json_dir(base_dir), "terms_accept.json")
 def _team_stage_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage.json")
+def _fan_votes_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "fan_votes.json")
+
 
 def _json_read(path, default):
     try:
@@ -554,6 +557,79 @@ def create_public_routes(ctx):
             item["option2_display_name"] = o2
             out.append(item)
         return jsonify(out)
+
+    # ---------- Fan Zone: community voting ----------
+    @api.get("/fan_votes/<bet_id>")
+    def fan_votes_get(bet_id):
+        base = ctx.get("BASE_DIR", "")
+        path = _fan_votes_path(base)
+        raw = _json_load(path, [])
+        votes = [v for v in raw if isinstance(v, dict) and str(v.get("vote_id")) == str(bet_id)]
+        total = len(votes)
+        o1 = sum(1 for v in votes if v.get("option") == "option1")
+        o2 = sum(1 for v in votes if v.get("option") == "option2")
+        def pct(n, d): return (n * 100.0 / d) if d else 0.0
+        return jsonify({
+            "bet_id": str(bet_id),
+            "total": total,
+            "counts": {"option1": o1, "option2": o2},
+            "percent": {"option1": round(pct(o1, total), 1), "option2": round(pct(o2, total), 1)}
+        })
+
+    @api.post("/fan_votes")
+    def fan_votes_post():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        bet_id = str(body.get("bet_id") or "").strip()
+        option = (body.get("option") or "").strip().lower()
+
+        if option not in ("option1", "option2"):
+            return jsonify({"ok": False, "error": "invalid_option"}), 400
+        if not bet_id:
+            return jsonify({"ok": False, "error": "missing_bet_id"}), 400
+
+        # Derive client IP (respects proxies if you run behind one)
+        ip = (request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+              or request.headers.get("CF-Connecting-IP", "").strip()
+              or request.remote_addr
+              or "unknown")
+
+        # Validate bet exists (use your own bets source)
+        bets = _json_load(_bets_path(base), [])
+        seq = bets if isinstance(bets, list) else bets.get("bets", [])
+        exists = any(str(getattr(b, "get", lambda k: None)("bet_id") if isinstance(b, dict) else None) == bet_id
+                     for b in (seq or []))
+        if not exists:
+            return jsonify({"ok": False, "error": "bet_not_found"}), 404
+
+        path = _fan_votes_path(base)
+        raw = _json_load(path, [])
+        if not isinstance(raw, list):
+            raw = []
+
+        # one per IP per bet
+        dup = any((isinstance(v, dict) and str(v.get("vote_id")) == bet_id and str(v.get("ip")) == str(ip)) for v in raw)
+        if dup:
+            return jsonify({"ok": False, "error": "already_voted"}), 409
+
+        entry = {"vote_id": bet_id, "option": option, "ip": str(ip), "ts": int(time.time())}
+        raw.append(entry)
+        _json_save(path, raw)
+
+        # return updated tallies
+        votes = [v for v in raw if str(v.get("vote_id")) == bet_id]
+        total = len(votes)
+        o1 = sum(1 for v in votes if v.get("option") == "option1")
+        o2 = sum(1 for v in votes if v.get("option") == "option2")
+        def pct(n, d): return (n * 100.0 / d) if d else 0.0
+        return jsonify({
+            "ok": True,
+            "bet_id": bet_id,
+            "total": total,
+            "counts": {"option1": o1, "option2": o2},
+            "percent": {"option1": round(pct(o1, total), 1), "option2": round(pct(o2, total), 1)}
+        }), 201
+
 
     @api.get("/my_bets")
     def api_my_bets():
