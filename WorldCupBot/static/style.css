@@ -2830,56 +2830,78 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 /* ===== Fan Zone modal ===== */
 .wc-modal.hidden { display: none; }
-.wc-modal {
-  position: fixed; inset: 0; z-index: 9999;
-  display: grid; place-items: center;
-}
+.wc-modal { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; }
 .wc-modal-backdrop {
   position: absolute; inset: 0;
-  background: rgba(0,0,0,.55); /* dim only, no blur */
+  background: rgba(0,0,0,.65);
   backdrop-filter: none !important;
   filter: none !important;
 }
+
 .wc-modal-card {
   position: relative;
   width: min(520px, calc(100vw - 32px));
-  background: rgba(30, 40, 55, 0.95); /* lighter, semi-glass */
-  border: 1px solid rgba(0, 200, 150, 0.35); /* accent glow border */
+
+  /* LIGHT SURFACE so it stands out over dark UI */
+  background: #eaf6ff;            /* light panel */
+  color: #0b1320;                  /* dark text */
+  border: 2px solid #7bd9ff;       /* bright edge */
   border-radius: 16px;
+
+  /* strong lift */
   box-shadow:
-    0 0 20px rgba(0, 200, 150, 0.15),
-    0 8px 30px rgba(0, 0, 0, 0.6); /* inner & outer shadow */
-  backdrop-filter: saturate(1.5) blur(8px); /* frosted depth */
+    0 12px 50px rgba(0,0,0,.55),
+    0 0 0 3px rgba(0,200,150,.15);
+
+  /* no glass/blur on the card itself */
+  backdrop-filter: none !important;
+
   overflow: hidden;
   transform: translateY(-10px);
-  animation: fzModalIn 0.25s ease forwards;
+  animation: fzModalIn .22s ease forwards;
 }
 
-/* Smooth lift-in animation */
 @keyframes fzModalIn {
-  from { opacity: 0; transform: translateY(-20px) scale(0.96); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(-20px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0)      scale(1); }
 }
 
 .wc-modal-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(10,19,32,.12);
+  background: #dff1ff;            /* even lighter header band */
 }
-.wc-modal-title { font-weight: 900; color: var(--accent); }
+
+.wc-modal-title {
+  font-weight: 900;
+  color: #1076e3;                  /* punchy title */
+  text-shadow: 0 0 0 transparent;  /* crisp text */
+}
+
 .wc-modal-x {
-  background: transparent; border: none; font-size: 18px; line-height: 1;
-  color: var(--muted); cursor: pointer;
+  background: transparent; border: 1px solid rgba(16,118,227,.25);
+  color: #1076e3; width: 28px; height: 28px; border-radius: 8px;
+  font-size: 18px; line-height: 1; cursor: pointer;
 }
-.wc-modal-x:hover { color: #fff; }
-.wc-modal-body { padding: 16px 14px; color: var(--text); }
+.wc-modal-x:hover { background: rgba(16,118,227,.08); }
+
+.wc-modal-body {
+  padding: 16px; color: #0b1320; font-weight: 600; letter-spacing: .2px;
+}
+
 .wc-modal-foot {
-  padding: 12px 14px; border-top: 1px solid var(--border);
-  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid rgba(10,19,32,.12);
+  background: #e6f3ff; display: flex; justify-content: flex-end; gap: 8px;
 }
-/* Disable any blur sitewide while a modal is open */
+
+/* Button inside modal: clear contrast */
+#fz-dialog-ok.btn {
+  background: #1076e3; color: #fff; border: 0;
+  font-weight: 800; border-radius: 10px;
+}
+#fz-dialog-ok.btn:hover { filter: brightness(1.05); }
+
+/* When any modal is open: kill sitewide blurs and lock scroll */
 body.modal-open * { backdrop-filter: none !important; }
-body.modal-open header,
-body.modal-open main,
-body.modal-open footer { filter: none !important; }
-
-
+body.modal-open { overflow: hidden; }
