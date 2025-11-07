@@ -2828,80 +2828,138 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
   margin-top: 8px;
 }
 
-/* ===== Fan Zone modal ===== */
-.wc-modal.hidden { display: none; }
-.wc-modal { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; }
+/* =========================
+   FAN ZONE MODAL (FINAL)
+   ========================= */
+
+/* Hide when closed */
+.wc-modal.hidden {
+  display: none;
+}
+
+/* Base modal layout */
+.wc-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+}
+
+/* Backdrop – soft dim, no blur */
 .wc-modal-backdrop {
-  position: absolute; inset: 0;
-  background: rgba(0,0,0,.65);
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32); /* gentle dim */
   backdrop-filter: none !important;
   filter: none !important;
 }
 
+/* Card – lifted dark panel with accent edge */
 .wc-modal-card {
   position: relative;
   width: min(520px, calc(100vw - 32px));
-
-  /* LIGHT SURFACE so it stands out over dark UI */
-  background: #eaf6ff;            /* light panel */
-  color: #0b1320;                  /* dark text */
-  border: 2px solid #7bd9ff;       /* bright edge */
+  background: #1c2433;                         /* lighter than cards */
+  color: var(--text);
+  border: 1px solid rgba(0, 200, 150, 0.45);   /* accent edge */
   border-radius: 16px;
-
-  /* strong lift */
   box-shadow:
-    0 12px 50px rgba(0,0,0,.55),
-    0 0 0 3px rgba(0,200,150,.15);
-
-  /* no glass/blur on the card itself */
+    0 0 25px rgba(0, 200, 150, 0.15),          /* subtle glow */
+    0 12px 50px rgba(0, 0, 0, 0.55);           /* deep lift */
   backdrop-filter: none !important;
-
   overflow: hidden;
-  transform: translateY(-10px);
-  animation: fzModalIn .22s ease forwards;
+  transform: translateY(-8px);
+  animation: fzModalIn 0.2s ease forwards;
 }
 
 @keyframes fzModalIn {
-  from { opacity: 0; transform: translateY(-20px) scale(.97); }
-  to   { opacity: 1; transform: translateY(0)      scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
+/* Head / Title */
 .wc-modal-head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(10,19,32,.12);
-  background: #dff1ff;            /* even lighter header band */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .wc-modal-title {
   font-weight: 900;
-  color: #1076e3;                  /* punchy title */
-  text-shadow: 0 0 0 transparent;  /* crisp text */
+  color: var(--accent);
+  font-size: 1.05rem;
+  letter-spacing: 0.2px;
 }
 
 .wc-modal-x {
-  background: transparent; border: 1px solid rgba(16,118,227,.25);
-  color: #1076e3; width: 28px; height: 28px; border-radius: 8px;
-  font-size: 18px; line-height: 1; cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.wc-modal-x:hover { background: rgba(16,118,227,.08); }
 
+.wc-modal-x:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+/* Body */
 .wc-modal-body {
-  padding: 16px; color: #0b1320; font-weight: 600; letter-spacing: .2px;
+  padding: 18px 16px;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.1px;
 }
 
+/* Foot / Buttons */
 .wc-modal-foot {
-  padding: 12px 16px; border-top: 1px solid rgba(10,19,32,.12);
-  background: #e6f3ff; display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-/* Button inside modal: clear contrast */
 #fz-dialog-ok.btn {
-  background: #1076e3; color: #fff; border: 0;
-  font-weight: 800; border-radius: 10px;
+  background: var(--accent);
+  color: #08131d;
+  border: 0;
+  border-radius: 10px;
+  font-weight: 800;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
 }
-#fz-dialog-ok.btn:hover { filter: brightness(1.05); }
 
-/* When any modal is open: kill sitewide blurs and lock scroll */
-body.modal-open * { backdrop-filter: none !important; }
-body.modal-open { overflow: hidden; }
+#fz-dialog-ok.btn:hover {
+  filter: brightness(1.1);
+}
+
+#fz-dialog-ok.btn:active {
+  transform: scale(0.97);
+}
+
+/* Prevent global blur when modal open */
+body.modal-open * {
+  backdrop-filter: none !important;
+}
+body.modal-open {
+  overflow: hidden;
+}
