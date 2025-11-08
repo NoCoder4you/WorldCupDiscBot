@@ -164,6 +164,12 @@ def _discord_client_info(ctx):
         str(cfg.get("DISCORD_REDIRECT_URI") or ""),
     )
 
+def _is_admin(base_dir, uid):
+    cfg = _json_load(_load_config(base_dir), {})
+    admin_ids = cfg.get("ADMIN_IDS") or cfg.get("ADMIN_IDs") or cfg.get("admins") or []
+    admin_ids = [str(x).strip() for x in admin_ids if str(x).strip()]
+    return str(uid).strip() in admin_ids
+
 def _session_key():
     return "wc_user"
 
@@ -1134,8 +1140,31 @@ def create_public_routes(ctx):
 
     @api.get("/me")
     def me_get():
-        user = session.get(_session_key())
-        return jsonify({"ok": True, "user": user})
+        base = ctx.get("BASE_DIR", "")
+        user = {}
+        is_authed = False
+
+        try:
+            user = session.get("discord_user") or {}
+            if user:
+                is_authed = True
+        except Exception:
+            user = {}
+            is_authed = False
+
+        # Determine admin state for this user
+        uid = user.get("discord_id") or user.get("id") or ""
+        is_admin = _is_admin(base, uid)
+
+        # Include flag directly in the user dict too
+        if user:
+            user["is_admin"] = is_admin
+
+        return jsonify({
+            "ok": bool(is_authed),
+            "user": user if user else None,
+            "is_admin": is_admin
+        })
 
     # ------- T&Cs status + accept endpoints -------
     def _in_players(base, uid: str) -> bool:

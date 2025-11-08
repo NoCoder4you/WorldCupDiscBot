@@ -339,6 +339,10 @@ async function fetchMyBets(uid){
         const me = await jget('/api/me');
         if(!me?.user){ renderSignedOut(); return; }
 
+        // store admin flag from server (based on config.json ADMIN_IDS)
+        window.state = window.state || {};
+        state.admin = !!(me.is_admin || me.user?.is_admin);
+
         const [own, games] = await Promise.all([
           jget('/api/me/ownership'),
           jget('/api/me/matches')
