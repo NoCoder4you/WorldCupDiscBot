@@ -3039,4 +3039,39 @@ body.modal-open footer {
   color: #22c55e;
   font-weight: 600;
 }
+/* Users/Admin global floating switch */
+.fab-admin{
+  position: fixed !important;
+  right: 18px !important;
+  bottom: 18px !important;
+  top: auto !important;
+  left: auto !important;
+
+  z-index: 2000;
+  display: inline-flex !important;       /* never full-width */
+  align-items: center;
+  gap: 8px;
+
+  width: auto !important;                 /* override any button {width:100%} */
+  max-width: none !important;
+  white-space: nowrap;
+  box-sizing: border-box;
+
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(0,0,0,.45);
+  color: #e6e6e6;
+  font-weight: 800;
+  letter-spacing: .2px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  transition: transform .08s, background .2s, border-color .2s;
+}
+.fab-admin:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); }
+.fab-admin:active { transform: translateY(1px); }
+
+/* when Admin View is ON, tint the pill */
+.user-admin-view .fab-admin { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.45); color:#22c55e; }
 
