@@ -56,7 +56,9 @@ function applyAdminView(){
 }
 
 function ensureAdminToggleButton(){
-  if (document.getElementById('user-admin-toggle')) return; // prevents duplicates
+  document.querySelectorAll('.admin-toggle, #admin-toggle-btn').forEach(el => el.remove());
+  if (document.getElementById('user-admin-toggle')) return;
+
   const btn = document.createElement('button');
   btn.id = 'user-admin-toggle';
   btn.className = 'fab-admin';
@@ -70,6 +72,7 @@ function ensureAdminToggleButton(){
   };
   document.body.appendChild(btn);
 }
+
 
 // keep views in sync if localStorage changes (other tab / module)
 window.addEventListener('storage', (e)=>{
