@@ -120,7 +120,6 @@ function resolveStageFor(stages, name){
 
     async function jget(url){
       const r = await fetch(url, {
-        method: 'GET',
         credentials: 'include',
         cache: 'no-store',
         headers: { 'Accept': 'application/json' }

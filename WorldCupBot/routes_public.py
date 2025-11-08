@@ -1139,29 +1139,68 @@ def create_public_routes(ctx):
     # ==========================
 
     @api.get("/me")
-    def me_get():
+    def api_me():
         base = ctx.get("BASE_DIR", "")
-        user = {}
-        is_authed = False
 
-        try:
-            user = session.get("discord_user") or {}
-            if user:
-                is_authed = True
-        except Exception:
-            user = {}
-            is_authed = False
+        def _is_admin(base_dir, uid):
+            cfg = _json_load(_load_config(base_dir), {})
+            admin_ids = cfg.get("ADMIN_IDS") or []
+            admin_ids = [str(x).strip() for x in admin_ids if str(x).strip()]
+            return str(uid or "").strip() in admin_ids
 
-        # Determine admin state for this user
-        uid = user.get("discord_id") or user.get("id") or ""
+        def _first_nonempty(*vals):
+            for v in vals:
+                if v:
+                    return v
+            return None
+
+        # Try several common keys you might be using to stash the Discord user
+        user = (
+                session.get("discord_user")
+                or session.get("user")
+                or session.get("me")
+                or session.get("oauth_user")
+                or session.get("discord")  # sometimes people store the whole payload here
+                or {}
+        )
+
+        # Fallback: allow a minimal cookie with {"discord_id","username","global_name","avatar"}
+        # If you don't set this cookie anywhere, this block is harmless.
+        if not user:
+            raw = request.cookies.get("wc_user")  # optional convenience cookie
+            if raw:
+                try:
+                    user = json.loads(raw)
+                except Exception:
+                    user = {}
+
+        uid = _first_nonempty(
+            user.get("discord_id"),
+            user.get("id"),
+            user.get("user_id"),
+        )
+
+        # If your OAuth flow stores nested "user" object, flatten it:
+        if not uid and isinstance(user, dict) and isinstance(user.get("user"), dict):
+            inner = user["user"]
+            uid = _first_nonempty(
+                inner.get("discord_id"),
+                inner.get("id"),
+                inner.get("user_id"),
+            )
+            # merge a few common fields for the client
+            for k in ("username", "global_name", "avatar"):
+                if k not in user and k in inner:
+                    user[k] = inner[k]
+
         is_admin = _is_admin(base, uid)
 
-        # Include flag directly in the user dict too
         if user:
+            user["discord_id"] = uid
             user["is_admin"] = is_admin
 
         return jsonify({
-            "ok": bool(is_authed),
+            "ok": bool(user),
             "user": user if user else None,
             "is_admin": is_admin
         })
