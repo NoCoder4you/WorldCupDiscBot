@@ -3039,3 +3039,17 @@ body.modal-open footer {
 /* when Admin View is ON, tint the pill */
 .user-admin-view .fab-admin { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.45); color:#22c55e; }
 
+
+.fp-row {
+  display:grid; grid-template-columns: 1fr auto auto; gap:10px;
+  padding:10px 12px; border-bottom:1px solid var(--border);
+  align-items:center;
+}
+.fp-row .fp-title { font-weight:800; }
+.fp-row .fp-status { font-weight:800; color: var(--muted); }
+.fp-row .fp-actions .btn { margin-left:8px; }
+#fp-opts .fp-opt { display:flex; gap:8px; margin:6px 0; }
+#fp-opts .fp-opt input {
+  flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border);
+  background:#0e1520; color:var(--text);
+}

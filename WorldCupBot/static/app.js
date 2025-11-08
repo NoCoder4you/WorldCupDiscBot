@@ -2187,101 +2187,84 @@ async function fetchJSON(url, opts){
 
 function clamp(n){ return Math.max(0, Math.min(100, Number.isFinite(n)?n:0)); }
 
-function fanBar(el, p1, p2){
-  // animate width via requestAnimationFrame for smoothness
-  const a = el.querySelector('.fz-bar.fz-o1');
-  const b = el.querySelector('.fz-bar.fz-o2');
-  const t1 = el.querySelector('.fz-pct.fz-o1');
-  const t2 = el.querySelector('.fz-pct.fz-o2');
-  const target1 = clamp(p1), target2 = clamp(p2);
+function fanBarsApply(card, percents) {
+  const rows = card.querySelectorAll('.poll-bar');
+  rows.forEach(row => {
+    const oid = row.dataset.oid;
+    const target = clamp(percents[oid] || 0);
+    const bar = row.querySelector('.pb-fill');
+    const label = row.querySelector('.pb-pct');
 
-  let w1 = parseFloat(a.style.width || "0") || 0;
-  let w2 = parseFloat(b.style.width || "0") || 0;
-
-  const step = () => {
-    const d1 = target1 - w1;
-    const d2 = target2 - w2;
-    if (Math.abs(d1) < 0.3 && Math.abs(d2) < 0.3){
-      w1 = target1; w2 = target2;
-    } else {
-      w1 += d1 * 0.12;
-      w2 += d2 * 0.12;
-      requestAnimationFrame(step);
-    }
-    a.style.width = w1.toFixed(1) + '%';
-    b.style.width = w2.toFixed(1) + '%';
-    t1.textContent = w1.toFixed(1) + '%';
-    t2.textContent = w2.toFixed(1) + '%';
-  };
-  requestAnimationFrame(step);
-}
-
-async function fetchFanStats(betId){
-  const d = await fetchJSON(`/api/fan_votes/${encodeURIComponent(betId)}`);
-  const p1 = d?.percent?.option1 || 0;
-  const p2 = d?.percent?.option2 || 0;
-  return { p1, p2, total: d?.total || 0 };
-}
-
-async function submitFanVote(betId, option){
-  return fetchJSON('/api/fan_votes', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ bet_id: betId, option })
+    let w = parseFloat(bar.style.width || '0') || 0;
+    const step = () => {
+      const d = target - w;
+      if (Math.abs(d) < 0.3) {
+        w = target;
+      } else {
+        w += d * 0.12;
+        requestAnimationFrame(step);
+      }
+      bar.style.width = w.toFixed(1) + '%';
+      label.textContent = w.toFixed(1) + '%';
+    };
+    requestAnimationFrame(step);
   });
 }
 
-function fanCardHTML(b){
-  const winner = (b.winner || '').toLowerCase();
-  const winPill = winner
-    ? `<span class="pill pill-winner">Winner: ${winner==='option1' ? (b.option1 || 'Option 1') : (b.option2 || 'Option 2')}</span>`
-    : `<span class="pill pill-tbd">Pending</span>`;
+async function fetchFanStats(pollId) {
+  const d = await fetchJSON(`/api/fan_votes/${encodeURIComponent(pollId)}`);
+  return { counts: d.counts || {}, perc: d.percent || {}, total: d.total || 0 };
+}
+
+async function submitFanVote(pollId, optionId) {
+  return fetchJSON('/api/fan_votes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ poll_id: pollId, option_id: optionId })
+  });
+}
+
+function pollCardHTML(p) {
+  const opts = (p.options || []).map(o => `
+    <div class="fan-option">
+      <div class="fan-name">${o.label}</div>
+      <button class="btn fz-vote" data-poll="${p.id}" data-opt="${o.id}">Vote</button>
+    </div>
+  `).join('');
+
+  const bars = (p.options || []).map(o => `
+    <div class="poll-bar" data-oid="${o.id}">
+      <div class="pb-track"><div class="pb-fill" style="width:0%"></div></div>
+      <div class="pb-meta"><span class="pb-label">${o.label}</span><span class="pb-pct">0.0%</span></div>
+    </div>
+  `).join('');
 
   return `
-    <div class="fan-card" data-bet="${b.bet_id}">
+    <div class="fan-card" data-poll="${p.id}">
       <div class="fan-head">
-        <div class="fan-title">${b.bet_title || 'Bet ' + b.bet_id}</div>
-        <div class="fan-meta">
-          ${winPill}
-        </div>
+        <div class="fan-title">${p.title}</div>
+        <div class="fan-meta"><span class="pill ${p.status === 'open' ? 'pill-ok' : 'pill-off'}">${p.status}</span></div>
       </div>
 
-      <div class="fan-options">
-        <div class="fan-option">
-          <div class="fan-name">${b.option1 || 'Option 1'}</div>
-          <button class="btn fz-vote" data-bet="${b.bet_id}" data-opt="option1">Vote</button>
-        </div>
-        <div class="fan-option">
-          <div class="fan-name">${b.option2 || 'Option 2'}</div>
-          <button class="btn fz-vote" data-bet="${b.bet_id}" data-opt="option2">Vote</button>
-        </div>
-      </div>
+      <div class="fan-options">${opts}</div>
 
-      <div class="fan-bars">
-        <div class="fz-bar-wrap">
-          <div class="fz-bar fz-o1" style="width:0%"></div>
-          <div class="fz-pct fz-o1">0.0%</div>
-        </div>
-        <div class="fz-bar-wrap">
-          <div class="fz-bar fz-o2" style="width:0%"></div>
-          <div class="fz-pct fz-o2">0.0%</div>
-        </div>
-      </div>
+      <div class="fan-bars" style="margin-top:12px">${bars}</div>
+
       <div class="fan-foot">
-        <span class="fz-total" data-bet="${b.bet_id}">Total votes: 0</span>
+        <span class="fz-total" data-poll="${p.id}">Total votes: 0</span>
       </div>
     </div>
   `;
 }
 
 // --- Fan Zone dialog helpers ---
-function fzDialogOpen(msg, betId = null) {
+function fzDialogOpen(msg, pollId = null) {
   const wrap = document.getElementById('fz-dialog');
   if (!wrap) return window.alert(msg);
   const msgEl = document.getElementById('fz-dialog-msg');
   msgEl.textContent = msg;
 
-  wrap.dataset.bet = betId || '';  // store bet_id for potential removal
+  wrap.dataset.poll = pollId || '';
   wrap.classList.remove('hidden');
   document.body.classList.add('modal-open');
   document.body.style.overflow = 'hidden';
@@ -2292,34 +2275,29 @@ function fzDialogOpen(msg, betId = null) {
   document.getElementById('fz-dialog-close')?.addEventListener('click', close, { once: true });
   wrap.querySelector('.wc-modal-backdrop')?.addEventListener('click', close, { once: true });
 
-  // Handle Remove Vote
   const remBtn = document.getElementById('fz-dialog-remove');
   if (remBtn) {
     remBtn.onclick = async () => {
-      const betId = wrap.dataset.bet;
-      if (!betId) return fzDialogClose();
-
+      const pollId = wrap.dataset.poll;
+      if (!pollId) return fzDialogClose();
       try {
         const res = await fetch('/api/fan_votes/remove', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bet_id: betId })
+          body: JSON.stringify({ poll_id: pollId })
         });
         if (!res.ok) throw new Error(await res.text());
-        const d = await res.json();
+        await res.json();
         fzDialogClose();
-        if (typeof notify === 'function')
-          notify('Vote removed', true);
-        // Re-render Fan Zone to update bars
+        if (typeof notify === 'function') notify('Vote removed', true);
         renderFanZone();
-      } catch (err) {
+      } catch (_) {
         fzDialogClose();
-        notify('Failed to remove vote', false);
+        if (typeof notify === 'function') notify('Failed to remove vote', false);
       }
     };
   }
 
-  // ESC to close
   wrap._esc = (e) => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', wrap._esc);
 }
@@ -2336,35 +2314,38 @@ function fzDialogClose() {
   }
 }
 
-async function renderFanZone(){
+async function renderFanZone() {
   const host = document.getElementById('fanzone-body');
-  if(!host) return;
-  host.innerHTML = `<p class="muted">Loading bets…</p>`;
-  let bets = [];
-  try{
-    bets = await fetchJSON('/api/bets');  // your existing enriched endpoint
-  }catch(e){
-    host.innerHTML = `<p class="muted">Failed to load bets.</p>`;
-    return;
-  }
-  const open = (bets||[]).filter(b => !b.winner); // only upcoming/open
-  if(!open.length){
-    host.innerHTML = `<p class="muted">No open bets to vote on.</p>`;
-    return;
-  }
-  host.innerHTML = open.map(fanCardHTML).join('');
+  if (!host) return;
+  host.innerHTML = `<p class="muted">Loading polls…</p>`;
 
-  // hydrate with current percentages
-  for(const b of open){
-    try{
-      const {p1,p2,total} = await fetchFanStats(b.bet_id);
-      const card = host.querySelector(`.fan-card[data-bet="${b.bet_id}"]`);
-      if(card){
-        fanBar(card, p1, p2);
-        const tz = card.querySelector(`.fz-total[data-bet="${b.bet_id}"]`);
-        if(tz) tz.textContent = `Total votes: ${total}`;
+  let data = {};
+  try {
+    data = await fetchJSON('/api/fan_polls');
+  } catch (e) {
+    host.innerHTML = `<p class="muted">Failed to load polls.</p>`;
+    return;
+  }
+
+  const polls = (data.polls || []).filter(p => p.status === 'open');
+  if (!polls.length) {
+    host.innerHTML = `<p class="muted">No open polls right now.</p>`;
+    return;
+  }
+
+  host.innerHTML = polls.map(pollCardHTML).join('');
+
+  // Hydrate bars
+  for (const p of polls) {
+    try {
+      const d = await fetchFanStats(p.id);
+      const card = host.querySelector(`.fan-card[data-poll="${p.id}"]`);
+      if (card) {
+        fanBarsApply(card, d.perc);
+        const tz = card.querySelector(`.fz-total[data-poll="${p.id}"]`);
+        if (tz) tz.textContent = `Total votes: ${d.total}`;
       }
-    }catch(_){}
+    } catch (_) {}
   }
 }
 
@@ -2410,23 +2391,20 @@ async function handleFanZoneClick(ev) {
   }
 }
 
-function loadFanZone(){
+function loadFanZone() {
   renderFanZone();
   const host = document.getElementById('fanzone-body');
-  if(host && !host._fz_wired){
+  if (host && !host._fz_wired) {
     host.addEventListener('click', handleFanZoneClick);
     host._fz_wired = true;
   }
   const rf = document.getElementById('fz-refresh');
-  if(rf && !rf._fz_wired){
-    rf.addEventListener('click', ()=>renderFanZone());
+  if (rf && !rf._fz_wired) {
+    rf.addEventListener('click', () => renderFanZone());
     rf._fz_wired = true;
   }
 }
 
-// If you already have a nav router that toggles .active-section,
-// just ensure it calls loadFanZone() when fanzone is shown.
-// Minimal guard below (non-invasive):
 document.addEventListener('click', (e)=>{
   const a = e.target.closest('a[data-page]');
   if(!a) return;
