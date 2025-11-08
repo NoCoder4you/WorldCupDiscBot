@@ -3004,42 +3004,6 @@ body.modal-open footer {
   opacity: 1 !important;
 }
 
-.admin-toggle {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
-  padding: 10px 14px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(0,0,0,0.45);
-  color: #e6e6e6;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-  transition: background .2s, border-color .2s, transform .08s;
-}
-.admin-toggle:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.25);
-}
-.admin-toggle:active {
-  transform: translateY(1px);
-}
-.admin-view .admin-toggle {
-  background: rgba(34,197,94,0.2);
-  border-color: rgba(34,197,94,0.45);
-  color: #22c55e;
-}
-
-.admin-view .card-title::after {
-  content: " (Admin)";
-  color: #22c55e;
-  font-weight: 600;
-}
-/* Users/Admin global floating switch */
 .fab-admin{
   position: fixed !important;
   right: 18px !important;
