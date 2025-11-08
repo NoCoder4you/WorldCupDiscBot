@@ -325,8 +325,7 @@ async function fetchMyBets(uid){
     if (user?.is_admin) {
       ensureAdminToggle();
     }
-      }catch(_){}
-    }
+}
 
 
     async function refreshUser(){
