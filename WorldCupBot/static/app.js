@@ -1269,6 +1269,9 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       // fetch bets (enriched by backend if you used the latest routes_public.py)
       let bets = [];
+      const showAdmin = (typeof isAdminUI === 'function')
+      ? isAdminUI()
+      : (window.state && state.admin === true);
       try {
         const raw = await getJSON('/api/bets');
         bets = Array.isArray(raw) ? raw : (raw.bets || []);
@@ -1339,7 +1342,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         tdWin.className = 'bet-winner';
         const winner = bet.winner === 'option1' || bet.winner === 'option2' ? bet.winner : null;
 
-        if (window.state && state.admin === true) {
+          if (showAdmin) {
           // ADMIN: show Set O1 / Set O2 buttons
           const box = document.createElement('div');
           box.className = 'win-controls';
