@@ -22,6 +22,26 @@ def _base_dir(ctx):
 def _json_dir(ctx):
     return os.path.join(_base_dir(ctx), "JSON")
 
+def _fan_polls_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "fan_polls.json")
+def _fan_votes_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "fan_votes.json")
+
+
+def _json_load(path, default):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+def _json_save(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
+
 def _path(ctx, name):
     return os.path.join(_json_dir(ctx), name)
 
@@ -669,5 +689,76 @@ def create_admin_routes(ctx):
         data[team] = stage
         _write_json_atomic(path, data)
         return jsonify({"ok": True, "team": team, "stage": stage})
+
+    # -------- Fan Polls (admin) --------
+
+    @bp.get("/fan_polls")
+    def admin_fan_polls_list():
+        base = ctx.get("BASE_DIR", "")
+        polls = _json_load(_fan_polls_path(base), [])
+        return jsonify({"polls": polls})
+
+    @bp.post("/fan_polls")
+    def admin_fan_polls_create():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        title = (body.get("title") or "").strip()
+        options = body.get("options") or []
+        # normalize: options can be ["A","B","C"] or list of {label}
+        norm = []
+        for i, o in enumerate(options, 1):
+            if isinstance(o, dict):
+                label = (o.get("label") or "").strip()
+            else:
+                label = (str(o) or "").strip()
+            if label:
+                norm.append({"id": str(i), "label": label})
+        if not title or len(norm) < 2:
+            return jsonify({"ok": False, "error": "need_title_and_2plus_options"}), 400
+
+        path = _fan_polls_path(base)
+        polls = _json_load(path, [])
+        if not isinstance(polls, list): polls = []
+        # simple id
+        new_id = str(int(time.time()))
+        polls.append({
+            "id": new_id,
+            "title": title,
+            "options": norm,
+            "status": "open",
+            "created_at": int(time.time())
+        })
+        _json_save(path, polls)
+        return jsonify({"ok": True, "id": new_id})
+
+    @bp.patch("/fan_polls/<poll_id>")
+    def admin_fan_polls_update(poll_id):
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        polls = _json_load(_fan_polls_path(base), [])
+        changed = False
+        for p in polls:
+            if str(p.get("id")) == str(poll_id):
+                if "title" in body:
+                    p["title"] = (body.get("title") or "").strip()
+                    changed = True
+                if "status" in body and body.get("status") in ("open", "closed"):
+                    p["status"] = body.get("status")
+                    changed = True
+                break
+        if not changed:
+            return jsonify({"ok": False, "error": "no_change_or_not_found"}), 404
+        _json_save(_fan_polls_path(base), polls)
+        return jsonify({"ok": True})
+
+    @bp.delete("/fan_polls/<poll_id>")
+    def admin_fan_polls_delete(poll_id):
+        base = ctx.get("BASE_DIR", "")
+        polls = _json_load(_fan_polls_path(base), [])
+        new = [p for p in polls if str(p.get("id")) != str(poll_id)]
+        if len(new) == len(polls):
+            return jsonify({"ok": False, "error": "not_found"}), 404
+        _json_save(_fan_polls_path(base), new)
+        return jsonify({"ok": True})
 
     return bp
