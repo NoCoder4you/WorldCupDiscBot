@@ -265,7 +265,7 @@ async function fetchMyBets(uid){
 
 
 
-    async function renderSignedIn(user, owned, split, matches){
+    async function renderSignedIn(user, owned, split, matches, isAdmin){
       if($btnLogin) $btnLogin.style.display = 'none';
       if($btnLogout) $btnLogout.style.display = '';
 
@@ -317,7 +317,7 @@ async function fetchMyBets(uid){
       // Your Bets card
       await renderUserBetsCard(user);
 
-    if (user?.is_admin) {
+    if (isAdmin) {
       ensureAdminToggle();
     }
 }
@@ -337,7 +337,8 @@ async function fetchMyBets(uid){
           me.user,
           own.owned || [],
           own.split || [],
-          (games && games.matches) || []
+          (games && games.matches) || [],
+          !!me.is_admin
         );
       }catch(e){
         console.error('refreshUser failed:', e);
