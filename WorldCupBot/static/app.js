@@ -771,6 +771,8 @@ var playerNames = {}; // id -> username
       if (headAdmin) headAdmin.style.display = isAdminUI() ? '' : 'none';
     }
 
+}
+
 function sortMerged(by) {
   ownershipState.lastSort = by;
   var list = ownershipState.merged.slice();
@@ -2021,7 +2023,7 @@ async function loadCogs(){
         <tr>
           <th>Name</th>
           <th>Status</th>
-          <th>Actions</th>
+          <th class="admin-col" data-admin="true">Action</th>
         </tr>
       </thead>
       <tbody></tbody>`;
