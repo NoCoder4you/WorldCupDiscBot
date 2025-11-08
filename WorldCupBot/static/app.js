@@ -2353,44 +2353,30 @@ async function renderFanZone() {
 async function handleFanZoneClick(ev) {
   const btn = ev.target.closest('.fz-vote');
   if (!btn) return;
-  const betId = btn.dataset.bet;
-  const opt = btn.dataset.opt;
 
-  // Disable the clicked button briefly to avoid spam
+  const pollId = btn.dataset.poll;
+  const optId = btn.dataset.opt;
   btn.disabled = true;
 
   try {
-    const d = await submitFanVote(betId, opt);
-
+    const d = await submitFanVote(pollId, optId);
     const card = btn.closest('.fan-card');
     if (card) {
-      const p1 = d?.percent?.option1 || 0;
-      const p2 = d?.percent?.option2 || 0;
-      const tz = card.querySelector(`.fz-total[data-bet="${betId}"]`);
-      fanBar(card, p1, p2);
-      if (tz) tz.textContent = `Total votes: ${d?.total || 0}`;
+      fanBarsApply(card, d.percent || {});
+      const tz = card.querySelector(`.fz-total[data-poll="${pollId}"]`);
+      if (tz) tz.textContent = `Total votes: ${d.total || 0}`;
     }
-
-    // optional subtle notification
     if (typeof notify === 'function') notify('Vote recorded', true);
-
   } catch (e) {
-    // 409 → already voted, anything else → error
-    const msg = (String(e.message || '').includes('409') || String(e).includes('already_voted'))
-      ? 'You have already voted!'
-      : 'Vote failed. Please try again.';
-
-    // Styled modal instead of browser alert
-    if (typeof fzDialogOpen === 'function') {
-      fzDialogOpen(msg, betId);
-    } else {
-      alert(msg); // fallback if dialog helper missing
-    }
-
+    const msg = String(e).includes('already_voted') ? 'You already voted on this poll!' :
+                String(e).includes('poll_closed')   ? 'This poll is closed.' :
+                'Vote failed. Please try again.';
+    fzDialogOpen(msg, pollId);
   } finally {
     btn.disabled = false;
   }
 }
+
 
 function loadFanZone() {
   renderFanZone();
