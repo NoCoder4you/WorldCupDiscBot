@@ -164,6 +164,12 @@ def _discord_client_info(ctx):
         str(cfg.get("DISCORD_REDIRECT_URI") or ""),
     )
 
+def _is_admin(base_dir, uid):
+    cfg = _json_load(_load_config(base_dir), {})
+    admin_ids = cfg.get("ADMIN_IDS") or cfg.get("ADMIN_IDs") or cfg.get("admins") or []
+    admin_ids = [str(x).strip() for x in admin_ids if str(x).strip()]
+    return str(uid).strip() in admin_ids
+
 def _session_key():
     return "wc_user"
 
@@ -1133,9 +1139,26 @@ def create_public_routes(ctx):
     # ==========================
 
     @api.get("/me")
-    def me_get():
-        user = session.get(_session_key())
-        return jsonify({"ok": True, "user": user})
+    def api_me():
+        try:
+            cfg = current_app.config.get("WC_CFG", {})  # loaded at app startup
+            admin_ids = set(str(x) for x in cfg.get("ADMIN_IDS", []))
+
+            # session payload set during /auth/discord callback
+            sess = session.get("discord") or {}
+            user = sess.get("user")
+            if not user:
+                return jsonify({"ok": False, "user": None, "is_admin": False})
+
+            # normalize id to string and compute admin flag
+            uid = str(user.get("id") or user.get("discord_id") or "")
+            user["discord_id"] = uid  # ensure downstream code has this
+            is_admin = uid in admin_ids
+
+            return jsonify({"ok": True, "user": user, "is_admin": is_admin})
+        except Exception as e:
+            current_app.logger.exception("api_me error: %s", e)
+            return jsonify({"ok": False, "user": None, "is_admin": False}), 500
 
     @api.get("/me/is_admin")
     def api_me_is_admin():
