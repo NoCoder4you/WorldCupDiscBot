@@ -2147,6 +2147,7 @@ async function getCogStatus(name){
       case 'dashboard': await loadDash(); break;
       case 'bets': await loadAndRenderBets(); break;
       case 'fanzone': await loadFanZone(); break;
+      case 'fanpolls': if(isAdminUI()) await loadAdminPolls(); else setPage('dashboard'); break;
       case 'ownership': await loadOwnershipPage(); break;
       case 'splits': if(isAdminUI()) await loadSplits(); else setPage('dashboard'); break;
       case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
@@ -2418,6 +2419,79 @@ document.addEventListener('click', (e)=>{
     e.preventDefault();
   }
 });
+
+// ===== Admin: Fan Polls =====
+function fpOpen(){ document.getElementById('fp-modal')?.classList.remove('hidden'); document.body.classList.add('modal-open'); }
+function fpClose(){ document.getElementById('fp-modal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
+function fpAddOptRow(label=''){
+  const wrap = document.getElementById('fp-opts');
+  const div = document.createElement('div');
+  div.className = 'fp-opt';
+  div.innerHTML = `<input type="text" placeholder="Option label" value="${label.replace(/"/g,'&quot;')}"><button class="btn sm fp-del">✕</button>`;
+  wrap.appendChild(div);
+  div.querySelector('.fp-del').onclick = ()=> div.remove();
+}
+
+async function loadAdminPolls(){
+  const host = document.getElementById('fanpolls-body');
+  if(!host) return;
+  host.innerHTML = `<p class="muted">Loading polls…</p>`;
+  let data = {};
+  try{ data = await fetchJSON('/admin/fan_polls'); }catch(_){ host.innerHTML = `<p class="muted">Failed to load.</p>`; return; }
+  const rows = (data.polls||[]).reverse().map(p=>`
+    <div class="fp-row" data-id="${p.id}">
+      <div class="fp-title">${p.title}</div>
+      <div class="fp-status">${p.status}</div>
+      <div class="fp-actions">
+        <button class="btn sm fp-toggle" data-status="${p.status==='open'?'closed':'open'}">${p.status==='open'?'Close':'Open'}</button>
+        <button class="btn sm fp-delete">Delete</button>
+      </div>
+    </div>
+  `).join('');
+  host.innerHTML = rows || `<p class="muted">No polls yet.</p>`;
+
+  host.onclick = async (e)=>{
+    const row = e.target.closest('.fp-row'); if(!row) return;
+    const id = row.dataset.id;
+    if(e.target.classList.contains('fp-toggle')){
+      const ns = e.target.dataset.status;
+      try{ await fetchJSON(`/admin/fan_polls/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:ns}) }); loadAdminPolls(); notify('Poll updated', true);}catch(_){ notify('Update failed', false); }
+    }
+    if(e.target.classList.contains('fp-delete')){
+      if(!confirm('Delete this poll?')) return;
+      try{ await fetchJSON(`/admin/fan_polls/${id}`, { method:'DELETE' }); loadAdminPolls(); notify('Poll deleted', true);}catch(_){ notify('Delete failed', false); }
+    }
+  };
+
+  const btn = document.getElementById('fp-new');
+  if(btn && !btn._wired){
+    btn._wired = true;
+    btn.onclick = ()=>{
+      document.getElementById('fp-title-input').value = '';
+      document.getElementById('fp-opts').innerHTML = '';
+      fpAddOptRow(); fpAddOptRow(); // start with 2 rows
+      fpOpen();
+    };
+  }
+
+  const addBtn = document.getElementById('fp-addopt'); if(addBtn && !addBtn._wired){ addBtn._wired=true; addBtn.onclick=()=>fpAddOptRow(); }
+  const closeBtn = document.getElementById('fp-close'); if(closeBtn && !closeBtn._wired){ closeBtn._wired=true; closeBtn.onclick=fpClose; }
+  document.getElementById('fp-modal')?.querySelector('.wc-modal-backdrop')?.addEventListener('click', fpClose);
+
+  const save = document.getElementById('fp-save');
+  if(save && !save._wired){
+    save._wired = true;
+    save.onclick = async ()=>{
+      const title = document.getElementById('fp-title-input').value.trim();
+      const opts = [...document.querySelectorAll('#fp-opts input')].map(i=>i.value.trim()).filter(Boolean);
+      if(!title || opts.length<2){ notify('Title and 2+ options required', false); return; }
+      try{
+        await fetchJSON('/admin/fan_polls', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, options: opts }) });
+        fpClose(); loadAdminPolls(); notify('Poll created', true);
+      }catch(_){ notify('Create failed', false); }
+    };
+  }
+}
 
 
 // === Auto redirect new Discord-linked users to /terms ===
