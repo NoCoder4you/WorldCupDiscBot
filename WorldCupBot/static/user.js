@@ -306,17 +306,32 @@ async function fetchMyBets(uid){
 
     async function refreshUser(){
       try{
-        const me = await jget('/api/me');
+        const me = await jgetAuth('/api/me');
         if(!me?.user){ renderSignedOut(); return; }
+
         const [own, games] = await Promise.all([
-          jget('/api/me/ownership'),
-          jget('/api/me/matches')
+          jgetAuth('/api/me/ownership'),
+          jgetAuth('/api/me/matches')
         ]);
-        await renderSignedIn(me.user, own.owned||[], own.split||[], games.matches||[]);
+
+        await renderSignedIn(
+          me.user,
+          own.owned || [],
+          own.split || [],
+          (games && games.matches) || []
+        );
       }catch(e){
+        console.error('refreshUser failed:', e);
         renderSignedOut();
       }
     }
+
+    async function jgetAuth(url){
+      const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+      if(!r.ok) throw new Error(`GET ${url} ${r.status}`);
+      return r.json();
+    }
+
 
   function wire(){
     if(!$userPage) return;
