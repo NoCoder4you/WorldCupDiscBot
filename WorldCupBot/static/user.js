@@ -118,10 +118,17 @@ function resolveStageFor(stages, name){
     }
 
 
-  async function jget(url){
-    const r = await fetch(url, {credentials:'include'});
-    return r.json().catch(()=>({}));
-  }
+    async function jget(url){
+      const r = await fetch(url, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status} on ${url}`);
+      return r.json();
+    }
+
   async function jpost(url, data){
     const r = await fetch(url, {
       method:'POST',
@@ -132,15 +139,21 @@ function resolveStageFor(stages, name){
     return r.json().catch(()=>({}));
   }
 
-  function renderSignedOut(){
-    if($btnLogin) $btnLogin.style.display = '';
-    if($btnLogout) $btnLogout.style.display = 'none';
-    if($body) $body.innerHTML = `
-      <div class="card" style="height:auto">
-        <div class="card-title">Not signed in</div>
-        <p>Connect your Discord account to see your teams and upcoming matches.</p>
-      </div>`;
-  }
+    function renderSignedOut(){
+      if ($btnLogin)  $btnLogin.style.display = '';    // show Sign in
+      if ($btnLogout) $btnLogout.style.display = 'none'; // hide Sign out
+      if ($body) {
+        $body.innerHTML = `
+          <div class="card" style="height:auto">
+            <div class="card-title">Your World Cup</div>
+            <div class="card" style="height:auto; margin-top:12px">
+              <div class="card-title">Not signed in</div>
+              <p>Connect your Discord account to see your teams and upcoming matches.</p>
+            </div>
+          </div>
+        `;
+      }
+    }
 
 // === SVG progress ring ===
     function makeStageRing(stage, color) {
