@@ -55,21 +55,19 @@ function applyAdminView(){
   document.body.classList.toggle('user-admin-view', enabled);
 }
 
-// Floating button in bottom-right (only once)
 function ensureAdminToggleButton(){
-  if (document.getElementById('user-admin-toggle')) return;
+  if (document.getElementById('user-admin-toggle')) return; // prevents duplicates
   const btn = document.createElement('button');
   btn.id = 'user-admin-toggle';
   btn.className = 'fab-admin';
   btn.type = 'button';
   btn.textContent = getAdminView() ? 'Public View' : 'Admin View';
-  btn.addEventListener('click', () => {
+  btn.onclick = () => {
     const next = !getAdminView();
     setAdminView(next);
     btn.textContent = next ? 'Public View' : 'Admin View';
-    // re-route so pages re-render with correct admin/public widgets
     routePage();
-  });
+  };
   document.body.appendChild(btn);
 }
 
