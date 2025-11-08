@@ -281,7 +281,7 @@ async function fetchMyBets(uid){
         : '';
 
       // show discord_id in Admin Mode
-      const adminLine = getUserAdminView()
+      const adminLine = getAdminView()
         ? `<div class="muted mono">ID: ${user.discord_id || user.id || ''}</div>`
         : '';
 
