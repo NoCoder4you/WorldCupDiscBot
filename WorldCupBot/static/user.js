@@ -275,7 +275,7 @@ async function fetchMyBets(uid){
       if($btnLogout) $btnLogout.style.display = '';
 
       // apply stored mode class now
-      setUserAdminView(getUserAdminView());
+      setAdminView(getUserAdminView());
 
       const avatar = user.avatar
         ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
