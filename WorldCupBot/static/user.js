@@ -139,19 +139,18 @@ function resolveStageFor(stages, name){
   }
 
     function renderSignedOut(){
-      if ($btnLogin)  $btnLogin.style.display = '';    // show Sign in
-      if ($btnLogout) $btnLogout.style.display = 'none'; // hide Sign out
-      if ($body) {
-        $body.innerHTML = `
-          <div class="card" style="height:auto">
-            <div class="card-title">Your World Cup</div>
-            <div class="card" style="height:auto; margin-top:12px">
-              <div class="card-title">Not signed in</div>
-              <p>Connect your Discord account to see your teams and upcoming matches.</p>
-            </div>
-          </div>
-        `;
-      }
+      const body = document.getElementById('user-body');
+      const btnIn  = document.getElementById('btn-discord-login');
+      const btnOut = document.getElementById('btn-discord-logout');
+      if(btnIn)  btnIn.style.display = '';
+      if(btnOut) btnOut.style.display = 'none';
+
+      body.innerHTML = `
+        <div class="card" style="height:auto">
+          <div class="card-title">Your World Cup</div>
+          <div class="muted">Not signed in</div>
+          <p>Connect your Discord account to see your teams and upcoming matches.</p>
+        </div>`;
     }
 
 // === SVG progress ring ===
@@ -288,9 +287,12 @@ async function fetchMyBets(uid){
 
 
 
-    async function renderSignedIn(user, owned, split, matches){
-      if($btnLogin) $btnLogin.style.display = 'none';
-      if($btnLogout) $btnLogout.style.display = '';
+    function renderSignedIn(user){
+      const body = document.getElementById('user-body');
+      const btnIn  = document.getElementById('btn-discord-login');
+      const btnOut = document.getElementById('btn-discord-logout');
+      if(btnIn)  btnIn.style.display = 'none';
+      if(btnOut) btnOut.style.display = '';
 
       const avatar = user.avatar
         ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
@@ -348,26 +350,13 @@ async function fetchMyBets(uid){
 
     async function refreshUser(){
       try{
-        const me = await jget('/api/me');
-        if(!me?.user){ renderSignedOut(); return; }
+        const me = await getMe();
+        if(!me.ok || !me.user){ renderSignedOut(); return; }
+        renderSignedIn(me.user);
 
-        // store admin flag from server (based on config.json ADMIN_IDS)
-        window.state = window.state || {};
-        state.admin = !!(me.is_admin || me.user?.is_admin);
-
-        const [own, games] = await Promise.all([
-          jget('/api/me/ownership'),
-          jget('/api/me/matches')
-        ]);
-
-        await renderSignedIn(
-          me.user,
-          own.owned || [],
-          own.split || [],
-          (games && games.matches) || []
-        );
-      }catch(e){
-        console.error('refreshUser failed:', e);
+        await renderTeamsProgressMergedForUser(me.user);
+        await renderUserBetsCard(me.user);
+      }catch(_){
         renderSignedOut();
       }
     }
