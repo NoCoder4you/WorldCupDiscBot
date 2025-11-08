@@ -3003,3 +3003,28 @@ body.modal-open footer {
   filter: none !important;
   opacity: 1 !important;
 }
+
+.user-toggle {
+  display: inline-flex;
+  gap: 6px;
+  background: rgba(255,255,255,.06);
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+}
+
+.user-toggle .pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-weight: 800;
+  font-size: .85rem;
+  background: transparent;
+  color: var(--text, #e6e6e6);
+  border: none;
+  cursor: pointer;
+}
+
+.user-toggle .pill-active {
+  background: var(--accent, #00b8ff);
+  color: #08131d;
+}

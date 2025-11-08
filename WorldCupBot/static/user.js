@@ -5,7 +5,7 @@
   const $btnLogin = qs('#btn-discord-login');
   const $btnLogout = qs('#btn-discord-logout');
   const $body = qs('#user-body');
-const STAGE_PROGRESS = {
+  const STAGE_PROGRESS = {
   "Eliminated": 0,
   "Group Stage": 15,
   "Round of 32": 25,
@@ -15,6 +15,44 @@ const STAGE_PROGRESS = {
   "Final": 90,
   "Winner": 100
 };
+
+// === Admin/Public view toggle for Users page ===
+const USER_VIEW_KEY = 'wc:user:adminView';
+
+function getUserAdminView(){
+  return !!(+localStorage.getItem(USER_VIEW_KEY) || 0);
+}
+function setUserAdminView(on){
+  localStorage.setItem(USER_VIEW_KEY, on ? '1' : '0');
+}
+
+// Render the tiny toggle in the Profile card title area
+function renderUserViewToggle(){
+  const wrap = document.getElementById('user-view-toggle-wrap');
+  if (!wrap) return;
+  const on = getUserAdminView();
+
+  wrap.innerHTML = `
+    <div class="user-toggle">
+      <button id="user-view-public" class="pill ${on?'':'pill-active'}">Public</button>
+      <button id="user-view-admin"  class="pill ${on?'pill-active':''}">Admin</button>
+    </div>
+  `;
+
+  const btnPub = document.getElementById('user-view-public');
+  const btnAdm = document.getElementById('user-view-admin');
+  btnPub?.addEventListener('click', async () => { setUserAdminView(false); await refreshUser(); });
+  btnAdm?.addEventListener('click', async () => { setUserAdminView(true);  await refreshUser(); });
+}
+
+// Hide/show any element marked with data-admin-only
+function applyUserAdminViewVisibility(){
+  const on = getUserAdminView();
+  document.querySelectorAll('[data-admin-only]').forEach(el => {
+    el.style.display = on ? '' : 'none';
+  });
+}
+
 
 function normalizeStage(label){
   const s = String(label || '').trim();
@@ -251,7 +289,9 @@ async function fetchMyBets(uid){
           <div>
             <div style="font-weight:900;font-size:1.1rem">${user.global_name || user.username}</div>
             <div class="muted mono">${user.username}</div>
+            <div class="muted mono" data-admin-only style="margin-top:4px">Discord ID: ${user.discord_id || user.id || ''}</div>
           </div>
+          <div style="margin-left:auto" id="user-view-toggle-wrap"></div>
         </div>`;
 
       const matchRows = (matches||[]).map(m=>{
@@ -275,22 +315,43 @@ async function fetchMyBets(uid){
         </div>
       `;
 
-      await renderUserBetsCard(user);
-
+      // Teams grid with big progress rings
       renderTeamsProgressMerged(owned || [], split || []);
 
+      // Your Bets card (already modular)
+      await renderUserBetsCard(user);
+
+      // Only show the toggle for admins
+      if (window.state?.admin) {
+        renderUserViewToggle();
+      } else {
+        // force public view if not admin
+        setUserAdminView(false);
+      }
+
+      // Apply visibility rules (hide [data-admin-only] unless Admin view is ON)
+      applyUserAdminViewVisibility();
     }
+
 
     async function refreshUser(){
       try{
         const me = await jget('/api/me');
         if(!me?.user){ renderSignedOut(); return; }
+
         const [own, games] = await Promise.all([
           jget('/api/me/ownership'),
           jget('/api/me/matches')
         ]);
-        await renderSignedIn(me.user, own.owned||[], own.split||[], games.matches||[]);
+
+        await renderSignedIn(
+          me.user,
+          own.owned || [],
+          own.split || [],
+          (games && games.matches) || []
+        );
       }catch(e){
+        console.error('refreshUser failed:', e);
         renderSignedOut();
       }
     }
