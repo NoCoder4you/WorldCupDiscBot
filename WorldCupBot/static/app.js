@@ -761,10 +761,14 @@ var playerNames = {}; // id -> username
         tbody.appendChild(tr);
       });
 
-      // If not admin, hide the Action column gracefully
-      document.querySelectorAll('.admin-col').forEach(el => {
-        el.style.display = state.admin ? '' : 'none';
-      });
+    document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
+      el.style.display = isAdminUI() ? '' : 'none';
+    });
+
+    const tbl = tbody.closest('table');
+    if (tbl) {
+      const headAdmin = tbl.querySelector('thead th.admin-col, thead th[data-admin]');
+      if (headAdmin) headAdmin.style.display = isAdminUI() ? '' : 'none';
     }
 
 function sortMerged(by) {
