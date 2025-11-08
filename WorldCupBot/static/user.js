@@ -16,35 +16,34 @@ const STAGE_PROGRESS = {
   "Winner": 100
 };
 
-const USER_ADMIN_VIEW_KEY = 'wc:user:adminView';
+const ADMIN_VIEW_KEY = 'wc:adminView';
 
-function getUserAdminView(){
-  return localStorage.getItem(USER_ADMIN_VIEW_KEY) === '1';
-}
-function setUserAdminView(on){
-  localStorage.setItem(USER_ADMIN_VIEW_KEY, on ? '1' : '0');
-  document.body.classList.toggle('user-admin-view', !!on);
+function getAdminView() {
+  return localStorage.getItem(ADMIN_VIEW_KEY) === '1';
 }
 
-async function fetchIsAdmin(uid){
-  const r = await fetch(`/api/me/is_admin?uid=${encodeURIComponent(uid)}&t=${Date.now()}`, { cache:'no-store' });
-  if(!r.ok) return { ok:true, is_admin:false, uid };
-  return r.json();
+function setAdminView(on) {
+  localStorage.setItem(ADMIN_VIEW_KEY, on ? '1' : '0');
+  document.body.classList.toggle('admin-view', !!on);
 }
 
-function ensureAdminToggleButton(){
-  if (document.getElementById('user-admin-toggle')) return;
+function ensureAdminToggle() {
+  if (document.getElementById('admin-toggle-btn')) return;
+
   const btn = document.createElement('button');
-  btn.id = 'user-admin-toggle';
-  btn.className = 'fab-admin';
+  btn.id = 'admin-toggle-btn';
+  btn.className = 'admin-toggle';
   btn.type = 'button';
-  btn.textContent = 'Admin Mode';
+  btn.textContent = getAdminView() ? 'Public View' : 'Admin View';
+
   btn.addEventListener('click', () => {
-    const next = !getUserAdminView();
-    setUserAdminView(next);
-    // re-render page to reflect mode changes
+    const next = !getAdminView();
+    setAdminView(next);
+    btn.textContent = next ? 'Public View' : 'Admin View';
+    // re-render the page with new mode
     refreshUser();
   });
+
   document.body.appendChild(btn);
 }
 
@@ -323,16 +322,9 @@ async function fetchMyBets(uid){
       // Your Bets card
       await renderUserBetsCard(user);
 
-      // if user is admin per config, show the toggle button
-      try{
-        const check = await fetchIsAdmin(user.discord_id || user.id || '');
-        if (check?.is_admin) {
-          ensureAdminToggleButton();
-          document.getElementById('user-admin-toggle').style.display = '';
-        } else {
-          const btn = document.getElementById('user-admin-toggle');
-          if (btn) btn.style.display = 'none';
-        }
+    if (user?.is_admin) {
+      ensureAdminToggle();
+    }
       }catch(_){}
     }
 
