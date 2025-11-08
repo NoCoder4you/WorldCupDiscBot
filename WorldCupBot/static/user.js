@@ -269,17 +269,16 @@ async function fetchMyBets(uid){
       if($btnLogin) $btnLogin.style.display = 'none';
       if($btnLogout) $btnLogout.style.display = '';
 
-      // apply stored mode class now
-      setAdminView(getAdminView());
+      const inAdminView = (localStorage.getItem('wc:adminView') === '1');
 
       const avatar = user.avatar
         ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
         : '';
 
       // show discord_id in Admin Mode
-      const adminLine = getAdminView()
-        ? `<div class="muted mono">ID: ${user.discord_id || user.id || ''}</div>`
-        : '';
+      const adminLine = inAdminView
+       ? `<div class="muted mono">ID: ${user.discord_id || user.id || ''}</div>`
+       : '';
 
       const title = `<div style="display:flex;align-items:center;gap:10px">
           ${avatar}

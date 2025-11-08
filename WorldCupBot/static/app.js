@@ -33,37 +33,51 @@
   "Winner"
 ];
 
-const USER_ADMIN_VIEW_KEY = 'wc:user:adminView';
-
-function getUserAdminView(){
-  return localStorage.getItem(USER_ADMIN_VIEW_KEY) === '1';
-}
-function setUserAdminView(on){
-  localStorage.setItem(USER_ADMIN_VIEW_KEY, on ? '1' : '0');
-  document.body.classList.toggle('user-admin-view', !!on);
-}
-
-async function fetchIsAdmin(uid){
-  const r = await fetch(`/api/me/is_admin?uid=${encodeURIComponent(uid)}&t=${Date.now()}`, { cache:'no-store' });
-  if(!r.ok) return { ok:true, is_admin:false, uid };
-  return r.json();
+// === Global Admin View toggle (persists) ===
+const ADMIN_VIEW_KEY = 'wc:adminView';
+const getAdminView = () => localStorage.getItem(ADMIN_VIEW_KEY) === '1';
+function setAdminView(on){
+  localStorage.setItem(ADMIN_VIEW_KEY, on ? '1' : '0');
+  document.body.classList.toggle('admin-view', !!on);
+  applyAdminView();
 }
 
+// admin UI = (admin session unlocked) AND (admin view enabled)
+function isAdminUI(){ return !!(state.admin && getAdminView()); }
+
+function applyAdminView(){
+  const enabled = isAdminUI();
+  // show/hide all admin-only bits
+  document.querySelectorAll('.admin-only,[data-admin]').forEach(el=>{
+    el.style.display = enabled ? '' : 'none';
+  });
+  // keep a class for CSS if you want it
+  document.body.classList.toggle('user-admin-view', enabled);
+}
+
+// Floating button in bottom-right (only once)
 function ensureAdminToggleButton(){
   if (document.getElementById('user-admin-toggle')) return;
   const btn = document.createElement('button');
   btn.id = 'user-admin-toggle';
   btn.className = 'fab-admin';
   btn.type = 'button';
-  btn.textContent = 'Admin Mode';
+  btn.textContent = getAdminView() ? 'Public View' : 'Admin View';
   btn.addEventListener('click', () => {
-    const next = !getUserAdminView();
-    setUserAdminView(next);
-    // re-render page to reflect mode changes
-    refreshUser();
+    const next = !getAdminView();
+    setAdminView(next);
+    btn.textContent = next ? 'Public View' : 'Admin View';
+    // re-route so pages re-render with correct admin/public widgets
+    routePage();
   });
   document.body.appendChild(btn);
 }
+
+// keep views in sync if localStorage changes (other tab / module)
+window.addEventListener('storage', (e)=>{
+  if (e.key === ADMIN_VIEW_KEY) { applyAdminView(); routePage(); }
+});
+
 
 
 function normalizeStage(label){
@@ -154,7 +168,7 @@ function stagePill(stage){
       const adminPages = new Set(['splits','backups','log','cogs']);
 
       // block admin pages when not logged in
-      if (adminPages.has(page) && !state.admin) {
+      if (adminPages.has(page) && !isAdminUI()) {
         notify('That page requires admin login.', false);
         return;
       }
@@ -176,7 +190,7 @@ function stagePill(stage){
 
 function setPage(p) {
   const adminPages = new Set(['splits','backups','log','cogs']);
-  if (adminPages.has(p) && !state.admin) {
+  if (adminPages.has(p) && !isAdminUI()) {
     notify('That page requires admin login.', false);
     p = 'dashboard';
   }
@@ -213,12 +227,10 @@ function setPage(p) {
     window.adminUnlocked = false;
 
     function setAdminUI(unlocked){
-      const isAdmin = !!unlocked;
-      state.admin = isAdmin;
-      document.body.classList.toggle('admin', isAdmin);
-      document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? '' : 'none');
-      document.querySelectorAll('[data-admin]').forEach(el => el.style.display = isAdmin ? '' : 'none');
-    }
+      state.admin = !!unlocked;
+      document.body.classList.toggle('admin', state.admin);
+      applyAdminView();
+      }
 
     function setUserUI(user){
       const loggedIn = !!(user && (user.discord_id || user.id));
@@ -398,8 +410,7 @@ function setPage(p) {
       const upP = fetchJSON('/api/uptime');
       const t0 = performance.now();
       const pingP = fetchJSON('/api/ping');
-      const sysP = state.admin ? fetchJSON('/api/system') : Promise.resolve(null);
-
+      const sysP = isAdminUI() ? fetchJSON('/api/system') : Promise.resolve(null);
       const [up, ping, sys] = await Promise.all([upP, pingP, sysP]);
       const latency = Math.max(0, Math.round(performance.now() - t0));
 
@@ -409,14 +420,14 @@ function setPage(p) {
 
       renderUptime(up, running);
       renderPing(ping, latency);
-      if(state.admin && sys) renderSystem(sys); else clearSystem();
+      if(isAdminUI() && sys) renderSystem(sys); else clearSystem();
 
       // Bot Actions (admin only). Buttons are not admin-gated, so JS fully controls them
       const $actions = qs('#bot-actions');
       const $start = qs('#start-bot');
       const $stop = qs('#stop-bot');
       const $restart = qs('#restart-bot');
-      if(state.admin && $actions && $start && $stop && $restart){
+      if(isAdminUI() && $actions && $start && $stop && $restart){
         if(running){
           // online → Restart + Stop, 2 equal columns
           $start.style.display='none';
@@ -721,7 +732,7 @@ var playerNames = {}; // id -> username
         // Stage cell
         const current = (ownershipState.stages && ownershipState.stages[row.country]) || 'Group';
         let stageCell = '';
-        if (state.admin) {
+        if (isAdminUI()) {
           // editable select for admins
           const opts = STAGE_OPTIONS.map(v =>
             `<option value="${v}" ${v===current?'selected':''}>${v}</option>`
@@ -883,7 +894,7 @@ async function initOwnership() {
     let stages = {};
     try {
       // admin route returns { ok, stages: { Team: Stage } }
-      if (state.admin) {
+      if (isAdminUI()) {
         const r = await fetch('/admin/teams/stage', { credentials: 'include' });
         if (r.ok) {
           const j = await r.json();
@@ -941,7 +952,7 @@ document.addEventListener('click', async (ev) => {
 document.addEventListener('change', async (e) => {
   const sel = e.target.closest && e.target.closest('.stage-select');
   if (!sel) return;
-  if (!state.admin) return notify('Admin required', false);
+  if (!isAdminUI()) return notify('Admin required', false);
 
   const team  = sel.getAttribute('data-team') || '';
   const stage = sel.value || 'Group';
@@ -2127,10 +2138,10 @@ async function getCogStatus(name){
       case 'bets': await loadAndRenderBets(); break;
       case 'fanzone': await loadFanZone(); break;
       case 'ownership': await loadOwnershipPage(); break;
-      case 'splits': if(state.admin) await loadSplits(); else setPage('dashboard'); break;
-      case 'backups': if(state.admin) await loadBackups(); else setPage('dashboard'); break;
-      case 'log': if(state.admin) await loadLogs('bot'); else setPage('dashboard'); break;
-      case 'cogs': if(state.admin) await loadCogs(); else setPage('dashboard'); break;
+      case 'splits': if(isAdminUI()) await loadSplits(); else setPage('dashboard'); break;
+      case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
+      case 'log': if(isAdminUI()) await loadLogs('bot'); else setPage('dashboard'); break;
+      case 'cogs': if(isAdminUI()) await loadCogs(); else setPage('dashboard'); break;
     }
   }
 
@@ -2144,6 +2155,8 @@ async function getCogStatus(name){
 
     async function init(){
       await refreshAuth();
+      ensureAdminToggleButton();
+      applyAdminView();
       setTheme(state.theme);
       wireTheme();
       wireAuthButtons();
