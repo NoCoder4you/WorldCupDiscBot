@@ -3003,3 +3003,27 @@ body.modal-open footer {
   filter: none !important;
   opacity: 1 !important;
 }
+
+/* Users page - Admin Mode floating button */
+.fab-admin {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1000;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(0,0,0,.45);
+  color: #e6e6e6;
+  font-weight: 800;
+  letter-spacing: .2px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  transition: transform .08s ease, background .2s ease, border-color .2s ease;
+}
+.fab-admin:hover { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); }
+.fab-admin:active { transform: translateY(1px); }
+
+/* example: show subtle cue when admin mode is on */
+.user-admin-view .fab-admin { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.45); }

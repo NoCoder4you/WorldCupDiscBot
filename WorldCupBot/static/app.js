@@ -33,6 +33,39 @@
   "Winner"
 ];
 
+const USER_ADMIN_VIEW_KEY = 'wc:user:adminView';
+
+function getUserAdminView(){
+  return localStorage.getItem(USER_ADMIN_VIEW_KEY) === '1';
+}
+function setUserAdminView(on){
+  localStorage.setItem(USER_ADMIN_VIEW_KEY, on ? '1' : '0');
+  document.body.classList.toggle('user-admin-view', !!on);
+}
+
+async function fetchIsAdmin(uid){
+  const r = await fetch(`/api/me/is_admin?uid=${encodeURIComponent(uid)}&t=${Date.now()}`, { cache:'no-store' });
+  if(!r.ok) return { ok:true, is_admin:false, uid };
+  return r.json();
+}
+
+function ensureAdminToggleButton(){
+  if (document.getElementById('user-admin-toggle')) return;
+  const btn = document.createElement('button');
+  btn.id = 'user-admin-toggle';
+  btn.className = 'fab-admin';
+  btn.type = 'button';
+  btn.textContent = 'Admin Mode';
+  btn.addEventListener('click', () => {
+    const next = !getUserAdminView();
+    setUserAdminView(next);
+    // re-render page to reflect mode changes
+    refreshUser();
+  });
+  document.body.appendChild(btn);
+}
+
+
 function normalizeStage(label){
   const s = String(label || '').trim();
   const map = {

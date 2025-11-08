@@ -242,8 +242,16 @@ async function fetchMyBets(uid){
       if($btnLogin) $btnLogin.style.display = 'none';
       if($btnLogout) $btnLogout.style.display = '';
 
+      // apply stored mode class now
+      setUserAdminView(getUserAdminView());
+
       const avatar = user.avatar
         ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
+        : '';
+
+      // show discord_id in Admin Mode
+      const adminLine = getUserAdminView()
+        ? `<div class="muted mono">ID: ${user.discord_id || user.id || ''}</div>`
         : '';
 
       const title = `<div style="display:flex;align-items:center;gap:10px">
@@ -251,6 +259,7 @@ async function fetchMyBets(uid){
           <div>
             <div style="font-weight:900;font-size:1.1rem">${user.global_name || user.username}</div>
             <div class="muted mono">${user.username}</div>
+            ${adminLine}
           </div>
         </div>`;
 
@@ -275,11 +284,25 @@ async function fetchMyBets(uid){
         </div>
       `;
 
-      await renderUserBetsCard(user);
-
+      // Teams grid with big progress rings
       renderTeamsProgressMerged(owned || [], split || []);
 
+      // Your Bets card
+      await renderUserBetsCard(user);
+
+      // if user is admin per config, show the toggle button
+      try{
+        const check = await fetchIsAdmin(user.discord_id || user.id || '');
+        if (check?.is_admin) {
+          ensureAdminToggleButton();
+          document.getElementById('user-admin-toggle').style.display = '';
+        } else {
+          const btn = document.getElementById('user-admin-toggle');
+          if (btn) btn.style.display = 'none';
+        }
+      }catch(_){}
     }
+
 
     async function refreshUser(){
       try{

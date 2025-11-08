@@ -1137,6 +1137,26 @@ def create_public_routes(ctx):
         user = session.get(_session_key())
         return jsonify({"ok": True, "user": user})
 
+    @api.get("/me/is_admin")
+    def api_me_is_admin():
+        base = ctx.get("BASE_DIR", "")
+        cfg = _json_load(_load_config(base), {})
+        admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
+
+        uid = (request.args.get("uid") or "").strip()
+        # if uid not provided, try to infer from your existing /api/me
+        if not uid:
+            # optional: try a lightweight session/user store if you have it
+            uid = ""
+
+        is_admin = uid in admin_ids if uid else False
+
+        resp = make_response(jsonify({"ok": True, "uid": uid, "is_admin": is_admin}))
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+
     # ------- T&Cs status + accept endpoints -------
     def _in_players(base, uid: str) -> bool:
         players = _json_load(_players_path(base), {})
