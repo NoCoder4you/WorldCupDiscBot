@@ -40,7 +40,6 @@ function ensureAdminToggle() {
     const next = !getAdminView();
     setAdminView(next);
     btn.textContent = next ? 'Public View' : 'Admin View';
-    // re-render the page with new mode
     refreshUser();
   });
 
@@ -275,7 +274,7 @@ async function fetchMyBets(uid){
       if($btnLogout) $btnLogout.style.display = '';
 
       // apply stored mode class now
-      setAdminView(getUserAdminView());
+      setAdminView(getAdminView());
 
       const avatar = user.avatar
         ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
