@@ -1139,30 +1139,18 @@ def create_public_routes(ctx):
     # ==========================
 
     @api.get("/me")
-    def api_me():
-        try:
-            base = ctx.get("BASE_DIR", "")
-            cfg = _load_config(base)
-            admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
+    def me_get():
+        # Single source of truth for front-end: session user + admin flag
+        base = ctx.get("BASE_DIR", "")
+        cfg = _load_config(base)
+        admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
 
-            # READ THE RIGHT SESSION KEY (wc_user), fall back to legacy "discord" if present
-            sess = session.get(_session_key()) or session.get("discord") or {}
-            if not sess:
-                return jsonify({"ok": False, "user": None, "is_admin": False})
+        user = session.get(_session_key())  # session key = "wc_user"
+        if not user:
+            return jsonify({"ok": True, "user": None, "is_admin": False})
 
-            # Normalize a compact user object for the frontend
-            uid = str(sess.get("discord_id") or sess.get("id") or "")
-            user = {
-                "discord_id": uid,
-                "username": sess.get("username") or "",
-                "global_name": sess.get("global_name") or sess.get("username") or "",
-                "avatar": sess.get("avatar") or None,
-            }
-
-            return jsonify({"ok": True, "user": user, "is_admin": uid in admin_ids})
-        except Exception as e:
-            current_app.logger.exception("api_me error: %s", e)
-            return jsonify({"ok": False, "user": None, "is_admin": False}), 500
+        uid = str(user.get("discord_id") or user.get("id") or "")
+        return jsonify({"ok": True, "user": user, "is_admin": uid in admin_ids})
 
     @api.get("/me/is_admin")
     def api_me_is_admin():
