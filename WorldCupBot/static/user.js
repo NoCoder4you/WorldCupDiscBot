@@ -18,33 +18,29 @@ const STAGE_PROGRESS = {
 
 const ADMIN_VIEW_KEY = 'wc:adminView';
 
-function getAdminView() {
+function getAdminView(){
   return localStorage.getItem(ADMIN_VIEW_KEY) === '1';
 }
-
-function setAdminView(on) {
+function setAdminView(on){
   localStorage.setItem(ADMIN_VIEW_KEY, on ? '1' : '0');
   document.body.classList.toggle('admin-view', !!on);
 }
-
-function ensureAdminToggle() {
+function ensureAdminToggle(){
   if (document.getElementById('admin-toggle-btn')) return;
-
   const btn = document.createElement('button');
   btn.id = 'admin-toggle-btn';
   btn.className = 'admin-toggle';
   btn.type = 'button';
   btn.textContent = getAdminView() ? 'Public View' : 'Admin View';
-
   btn.addEventListener('click', () => {
     const next = !getAdminView();
     setAdminView(next);
     btn.textContent = next ? 'Public View' : 'Admin View';
     refreshUser();
   });
-
   document.body.appendChild(btn);
 }
+
 
 
 function normalizeStage(label){
