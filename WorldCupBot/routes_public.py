@@ -1141,21 +1141,25 @@ def create_public_routes(ctx):
     @api.get("/me")
     def api_me():
         try:
-            cfg = current_app.config.get("WC_CFG", {})  # loaded at app startup
-            admin_ids = set(str(x) for x in cfg.get("ADMIN_IDS", []))
+            base = ctx.get("BASE_DIR", "")
+            cfg = _load_config(base)
+            admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
 
-            # session payload set during /auth/discord callback
-            sess = session.get("discord") or {}
-            user = sess.get("user")
-            if not user:
+            # READ THE RIGHT SESSION KEY (wc_user), fall back to legacy "discord" if present
+            sess = session.get(_session_key()) or session.get("discord") or {}
+            if not sess:
                 return jsonify({"ok": False, "user": None, "is_admin": False})
 
-            # normalize id to string and compute admin flag
-            uid = str(user.get("id") or user.get("discord_id") or "")
-            user["discord_id"] = uid  # ensure downstream code has this
-            is_admin = uid in admin_ids
+            # Normalize a compact user object for the frontend
+            uid = str(sess.get("discord_id") or sess.get("id") or "")
+            user = {
+                "discord_id": uid,
+                "username": sess.get("username") or "",
+                "global_name": sess.get("global_name") or sess.get("username") or "",
+                "avatar": sess.get("avatar") or None,
+            }
 
-            return jsonify({"ok": True, "user": user, "is_admin": is_admin})
+            return jsonify({"ok": True, "user": user, "is_admin": uid in admin_ids})
         except Exception as e:
             current_app.logger.exception("api_me error: %s", e)
             return jsonify({"ok": False, "user": None, "is_admin": False}), 500
@@ -1167,9 +1171,7 @@ def create_public_routes(ctx):
         admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
 
         uid = (request.args.get("uid") or "").strip()
-        # if uid not provided, try to infer from your existing /api/me
         if not uid:
-            # optional: try a lightweight session/user store if you have it
             uid = ""
 
         is_admin = uid in admin_ids if uid else False
