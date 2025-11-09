@@ -2311,17 +2311,25 @@ async function renderFanZone() {
   host.innerHTML = `<p class="muted">Loading polls…</p>`;
 
   let data = {};
-  try { data = await fetchJSON('/api/fan_polls'); }
-  catch { host.innerHTML = `<p class="muted">Failed to load polls.</p>`; return; }
+  try {
+    data = await fetchJSON('/api/fan_polls');
+  } catch {
+    host.innerHTML = `<p class="muted">Failed to load polls.</p>`;
+    return;
+  }
 
   const polls = (data.polls || []).filter(p => p.status === 'open');
-  if (!polls.length) { host.innerHTML = `<p class="muted">No open polls right now.</p>`; return; }
+  if (!polls.length) {
+    host.innerHTML = `<p class="muted">No open polls right now.</p>`;
+    return;
+  }
 
   host.innerHTML = polls.map(pollCardHTML).join('');
 
+  // hydrate bars
   for (const p of polls) {
     try {
-      const d = await fetchFanStats(p.id);
+      const d = await fetchFanStats(p.id); // uses /api/fan_votes/:poll_id
       const card = host.querySelector(`.fan-card[data-poll="${p.id}"]`);
       if (card) {
         fanBarsApply(card, d.perc);
@@ -2341,7 +2349,7 @@ async function handleFanZoneClick(ev) {
   btn.disabled = true;
 
   try {
-    const d = await submitFanVote(pollId, optId);
+    const d = await submitFanVote(pollId, optId); // POST /api/fan_votes
     const card = btn.closest('.fan-card');
     if (card) {
       fanBarsApply(card, d.percent || {});
@@ -2353,7 +2361,7 @@ async function handleFanZoneClick(ev) {
     const msg = String(e).includes('already_voted') ? 'You already voted on this poll!' :
                 String(e).includes('poll_closed')   ? 'This poll is closed.' :
                 'Vote failed. Please try again.';
-    fzDialogOpen(msg, pollId);
+    fzDialogOpen(msg, pollId); // enables Remove Vote
   } finally {
     btn.disabled = false;
   }

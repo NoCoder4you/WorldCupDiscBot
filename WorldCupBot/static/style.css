@@ -3053,3 +3053,7 @@ body.modal-open footer {
   flex:1; padding:8px 10px; border-radius:10px; border:1px solid var(--border);
   background:#0e1520; color:var(--text);
 }
+.poll-bar { margin: 6px 0 10px; }
+.pb-track { position: relative; height: 18px; background:#0e1520; border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+.pb-fill { position:absolute; inset:0 auto 0 0; width:0%; background:var(--accent); }
+.pb-meta { display:flex; justify-content:space-between; font-weight:800; color:var(--muted); margin-top:4px; }
