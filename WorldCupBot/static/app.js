@@ -2179,33 +2179,72 @@ async function getCogStatus(name){
     }
   window.addEventListener('load', init);
 
-// ===== Fan Zone utilities =====
+/* =========================
+   FAN ZONE (PUBLIC POLLS) + ADMIN POLLS
+   ========================= */
+
+/* If you already have fetchJSON, keep yours and remove this. */
 async function fetchJSON(url, opts){
   const r = await fetch(url, opts);
   if(!r.ok) throw new Error(await r.text().catch(()=>r.statusText));
   return r.json();
 }
 
-function clamp(n){ return Math.max(0, Math.min(100, Number.isFinite(n)?n:0)); }
+/* ---------- Modal: OK + Remove Vote ---------- */
+function fzDialogOpen(msg, pollId = null) {
+  const wrap = document.getElementById('fz-dialog');
+  if (!wrap) return window.alert(msg);
+  const msgEl = document.getElementById('fz-dialog-msg');
+  msgEl.textContent = msg;
 
-function fanBarsApply(card, percents) {
-  const rows = card.querySelectorAll('.poll-bar');
-  rows.forEach(row => {
-    const oid = row.dataset.oid;
-    const target = Math.max(0, Math.min(100, +((percents||{})[oid] || 0)));
-    const bar = row.querySelector('.pb-fill');
-    const label = row.querySelector('.pb-pct');
-    let w = parseFloat(bar.style.width || '0') || 0;
-    const step = () => {
-      const d = target - w;
-      if (Math.abs(d) < 0.3) { w = target; }
-      else { w += d * 0.12; requestAnimationFrame(step); }
-      bar.style.width = w.toFixed(1) + '%';
-      label.textContent = w.toFixed(1) + '%';
+  wrap.dataset.poll = pollId || '';
+  wrap.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  document.body.style.overflow = 'hidden';
+
+  const close = () => fzDialogClose();
+
+  document.getElementById('fz-dialog-ok')?.addEventListener('click', close, { once: true });
+  document.getElementById('fz-dialog-close')?.addEventListener('click', close, { once: true });
+  wrap.querySelector('.wc-modal-backdrop')?.addEventListener('click', close, { once: true });
+
+  const remBtn = document.getElementById('fz-dialog-remove');
+  if (remBtn) {
+    remBtn.onclick = async () => {
+      const pollId = wrap.dataset.poll;
+      if (!pollId) return fzDialogClose();
+      try {
+        const res = await fetch('/api/fan_votes/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ poll_id: pollId })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        await res.json();
+        fzDialogClose();
+        typeof notify === 'function' && notify('Vote removed', true);
+        renderFanZone(); // refresh bars
+      } catch {
+        fzDialogClose();
+        typeof notify === 'function' && notify('Failed to remove vote', false);
+      }
     };
-    requestAnimationFrame(step);
-  });
+  }
+
+  wrap._esc = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', wrap._esc);
 }
+function fzDialogClose() {
+  const wrap = document.getElementById('fz-dialog');
+  if (!wrap) return;
+  wrap.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow = '';
+  if (wrap._esc) { document.removeEventListener('keydown', wrap._esc); wrap._esc = null; }
+}
+
+/* ---------- Public: Polls ---------- */
+function clamp(n){ return Math.max(0, Math.min(100, Number.isFinite(n)?n:0)); }
 
 async function fetchFanStats(pollId) {
   const d = await fetchJSON(`/api/fan_votes/${encodeURIComponent(pollId)}`);
@@ -2248,61 +2287,23 @@ function pollCardHTML(p) {
   `;
 }
 
-// --- Fan Zone dialog helpers ---
-function fzDialogOpen(msg, pollId = null) {
-  const wrap = document.getElementById('fz-dialog');
-  if (!wrap) return window.alert(msg);
-  const msgEl = document.getElementById('fz-dialog-msg');
-  msgEl.textContent = msg;
-
-  wrap.dataset.poll = pollId || '';
-  wrap.classList.remove('hidden');
-  document.body.classList.add('modal-open');
-  document.body.style.overflow = 'hidden';
-
-  const close = () => fzDialogClose();
-
-  document.getElementById('fz-dialog-ok')?.addEventListener('click', close, { once: true });
-  document.getElementById('fz-dialog-close')?.addEventListener('click', close, { once: true });
-  wrap.querySelector('.wc-modal-backdrop')?.addEventListener('click', close, { once: true });
-
-  const remBtn = document.getElementById('fz-dialog-remove');
-  if (remBtn) {
-    remBtn.onclick = async () => {
-      const pollId = wrap.dataset.poll;
-      if (!pollId) return fzDialogClose();
-      try {
-        const res = await fetch('/api/fan_votes/remove', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ poll_id: pollId })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        await res.json();
-        fzDialogClose();
-        if (typeof notify === 'function') notify('Vote removed', true);
-        renderFanZone();
-      } catch (_) {
-        fzDialogClose();
-        if (typeof notify === 'function') notify('Failed to remove vote', false);
-      }
+function fanBarsApply(card, percents) {
+  const rows = card.querySelectorAll('.poll-bar');
+  rows.forEach(row => {
+    const oid = row.dataset.oid;
+    const target = clamp((percents||{})[oid] || 0);
+    const bar = row.querySelector('.pb-fill');
+    const label = row.querySelector('.pb-pct');
+    let w = parseFloat(bar.style.width || '0') || 0;
+    const step = () => {
+      const d = target - w;
+      if (Math.abs(d) < 0.3) { w = target; }
+      else { w += d * 0.12; requestAnimationFrame(step); }
+      bar.style.width = w.toFixed(1) + '%';
+      label.textContent = w.toFixed(1) + '%';
     };
-  }
-
-  wrap._esc = (e) => { if (e.key === 'Escape') close(); };
-  document.addEventListener('keydown', wrap._esc);
-}
-
-function fzDialogClose() {
-  const wrap = document.getElementById('fz-dialog');
-  if (!wrap) return;
-  wrap.classList.add('hidden');
-  document.body.classList.remove('modal-open');
-  document.body.style.overflow = '';
-  if (wrap._esc) {
-    document.removeEventListener('keydown', wrap._esc);
-    wrap._esc = null;
-  }
+    requestAnimationFrame(step);
+  });
 }
 
 async function renderFanZone() {
@@ -2311,45 +2312,35 @@ async function renderFanZone() {
   host.innerHTML = `<p class="muted">Loading polls…</p>`;
 
   let data = {};
-  try {
-    data = await fetchJSON('/api/fan_polls');
-  } catch {
-    host.innerHTML = `<p class="muted">Failed to load polls.</p>`;
-    return;
-  }
+  try { data = await fetchJSON('/api/fan_polls'); }
+  catch { host.innerHTML = `<p class="muted">Failed to load polls.</p>`; return; }
 
   const polls = (data.polls || []).filter(p => p.status === 'open');
-  if (!polls.length) {
-    host.innerHTML = `<p class="muted">No open polls right now.</p>`;
-    return;
-  }
+  if (!polls.length) { host.innerHTML = `<p class="muted">No open polls right now.</p>`; return; }
 
   host.innerHTML = polls.map(pollCardHTML).join('');
 
-  // hydrate bars
   for (const p of polls) {
     try {
-      const d = await fetchFanStats(p.id); // uses /api/fan_votes/:poll_id
+      const d = await fetchFanStats(p.id);
       const card = host.querySelector(`.fan-card[data-poll="${p.id}"]`);
       if (card) {
         fanBarsApply(card, d.perc);
         const tz = card.querySelector(`.fz-total[data-poll="${p.id}"]`);
         if (tz) tz.textContent = `Total votes: ${d.total}`;
       }
-    } catch {}
+    } catch {/* ignore per-poll issues */}
   }
 }
 
 async function handleFanZoneClick(ev) {
   const btn = ev.target.closest('.fz-vote');
   if (!btn) return;
-
   const pollId = btn.dataset.poll;
   const optId  = btn.dataset.opt;
   btn.disabled = true;
-
   try {
-    const d = await submitFanVote(pollId, optId); // POST /api/fan_votes
+    const d = await submitFanVote(pollId, optId);
     const card = btn.closest('.fan-card');
     if (card) {
       fanBarsApply(card, d.percent || {});
@@ -2361,12 +2352,11 @@ async function handleFanZoneClick(ev) {
     const msg = String(e).includes('already_voted') ? 'You already voted on this poll!' :
                 String(e).includes('poll_closed')   ? 'This poll is closed.' :
                 'Vote failed. Please try again.';
-    fzDialogOpen(msg, pollId); // enables Remove Vote
+    fzDialogOpen(msg, pollId);
   } finally {
     btn.disabled = false;
   }
 }
-
 
 function loadFanZone() {
   renderFanZone();
@@ -2382,28 +2372,14 @@ function loadFanZone() {
   }
 }
 
-document.addEventListener('click', (e)=>{
-  const a = e.target.closest('a[data-page]');
-  if(!a) return;
-  const page = a.getAttribute('data-page');
-  if(page === 'fanzone'){
-    // make this page active in your existing router if needed
-    const id = 'fanzone';
-    document.querySelectorAll('section.page-section').forEach(s=>s.classList.toggle('active-section', s.id===id));
-    document.querySelectorAll('#main-menu a').forEach(x=>x.classList.toggle('active', x===a));
-    loadFanZone();
-    e.preventDefault();
-  }
-});
-
-// ===== Admin: Fan Polls =====
+/* ---------- Admin: Fan Polls (CRUD) ---------- */
 function fpOpen(){ document.getElementById('fp-modal')?.classList.remove('hidden'); document.body.classList.add('modal-open'); }
 function fpClose(){ document.getElementById('fp-modal')?.classList.add('hidden'); document.body.classList.remove('modal-open'); }
 function fpAddOptRow(label=''){
   const wrap = document.getElementById('fp-opts');
   const div = document.createElement('div');
   div.className = 'fp-opt';
-  div.innerHTML = `<input type="text" placeholder="Option label" value="${label.replace(/"/g,'&quot;')}"><button class="btn sm fp-del">✕</button>`;
+  div.innerHTML = `<input type="text" placeholder="Option label" value="${(label||'').replace(/"/g,'&quot;')}"><button class="btn sm fp-del">✕</button>`;
   wrap.appendChild(div);
   div.querySelector('.fp-del').onclick = ()=> div.remove();
 }
@@ -2413,8 +2389,13 @@ async function loadAdminPolls(){
   if(!host) return;
   host.innerHTML = `<p class="muted">Loading polls…</p>`;
   let data = {};
-  try{ data = await fetchJSON('/admin/fan_polls'); }catch(_){ host.innerHTML = `<p class="muted">Failed to load.</p>`; return; }
-  const rows = (data.polls||[]).reverse().map(p=>`
+  try{
+    data = await fetchJSON('/admin/fan_polls', { credentials:'include' });
+  }catch{
+    host.innerHTML = `<p class="muted">Failed to load.</p>`;
+    return;
+  }
+  const rows = (data.polls||[]).slice().reverse().map(p=>`
     <div class="fp-row" data-id="${p.id}">
       <div class="fp-title">${p.title}</div>
       <div class="fp-status">${p.status}</div>
@@ -2431,26 +2412,42 @@ async function loadAdminPolls(){
     const id = row.dataset.id;
     if(e.target.classList.contains('fp-toggle')){
       const ns = e.target.dataset.status;
-      try{ await fetchJSON(`/admin/fan_polls/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:ns}) }); loadAdminPolls(); notify('Poll updated', true);}catch(_){ notify('Update failed', false); }
+      try{
+        await fetchJSON(`/admin/fan_polls/${id}`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          credentials:'include',
+          body: JSON.stringify({status:ns})
+        });
+        loadAdminPolls();
+        typeof notify==='function' && notify('Poll updated', true);
+      }catch{ typeof notify==='function' && notify('Update failed', false); }
     }
     if(e.target.classList.contains('fp-delete')){
       if(!confirm('Delete this poll?')) return;
-      try{ await fetchJSON(`/admin/fan_polls/${id}`, { method:'DELETE' }); loadAdminPolls(); notify('Poll deleted', true);}catch(_){ notify('Delete failed', false); }
+      try{
+        await fetchJSON(`/admin/fan_polls/${id}`, {
+          method:'DELETE',
+          credentials:'include'
+        });
+        loadAdminPolls();
+        typeof notify==='function' && notify('Poll deleted', true);
+      }catch{ typeof notify==='function' && notify('Delete failed', false); }
     }
   };
 
+  // New poll modal wiring
   const btn = document.getElementById('fp-new');
   if(btn && !btn._wired){
     btn._wired = true;
     btn.onclick = ()=>{
       document.getElementById('fp-title-input').value = '';
       document.getElementById('fp-opts').innerHTML = '';
-      fpAddOptRow(); fpAddOptRow(); // start with 2 rows
+      fpAddOptRow(); fpAddOptRow(); // start with 2 inputs
       fpOpen();
     };
   }
-
-  const addBtn = document.getElementById('fp-addopt'); if(addBtn && !addBtn._wired){ addBtn._wired=true; addBtn.onclick=()=>fpAddOptRow(); }
+  const addOpt = document.getElementById('fp-addopt'); if(addOpt && !addOpt._wired){ addOpt._wired=true; addOpt.onclick=()=>fpAddOptRow(); }
   const closeBtn = document.getElementById('fp-close'); if(closeBtn && !closeBtn._wired){ closeBtn._wired=true; closeBtn.onclick=fpClose; }
   document.getElementById('fp-modal')?.querySelector('.wc-modal-backdrop')?.addEventListener('click', fpClose);
 
@@ -2460,11 +2457,18 @@ async function loadAdminPolls(){
     save.onclick = async ()=>{
       const title = document.getElementById('fp-title-input').value.trim();
       const opts = [...document.querySelectorAll('#fp-opts input')].map(i=>i.value.trim()).filter(Boolean);
-      if(!title || opts.length<2){ notify('Title and 2+ options required', false); return; }
+      if(!title || opts.length<2){ typeof notify==='function' && notify('Title and 2+ options required', false); return; }
       try{
-        await fetchJSON('/admin/fan_polls', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ title, options: opts }) });
-        fpClose(); loadAdminPolls(); notify('Poll created', true);
-      }catch(_){ notify('Create failed', false); }
+        await fetchJSON('/admin/fan_polls', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          credentials:'include',
+          body: JSON.stringify({ title, options: opts })
+        });
+        fpClose();
+        loadAdminPolls();
+        typeof notify==='function' && notify('Poll created', true);
+      }catch{ typeof notify==='function' && notify('Create failed', false); }
     };
   }
 }
