@@ -3356,58 +3356,117 @@ async function fetchGoalsData(){
     return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0)).toFixed(0);
   }
 
-  function cardHTML(f, stats) {
-    const hp = pct(stats?.home_pct || 0);
-    const ap = pct(stats?.away_pct || 0);
-    const total = stats?.total || 0;
-    const last = stats?.last_choice;
+    function cardHTML(f, stats) {
+      const hp = pct(stats?.home_pct || 0);
+      const ap = pct(stats?.away_pct || 0);
+      const total = stats?.total || 0;
+      const last = stats?.last_choice;
 
-    const votedHome = last === 'home';
-    const votedAway = last === 'away';
+      const votedHome = last === 'home';
+      const votedAway = last === 'away';
+      const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
 
-    return `
-      <div class="fan-card" data-fid="${f.id}">
-        <div class="fan-head">
-          <div class="fan-team">
-            ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
-          </div>
-          <div class="fan-vs">vs</div>
-          <div class="fan-team">
-            ${flagImg(f.away_iso)} <span class="fan-team-name">${f.away}</span>
-          </div>
-        </div>
-
-        <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
-
-        <div class="fan-bars">
-          <div class="fan-bar-row">
-            <div class="fan-bar fan-bar-home" style="width:${hp}%">
-              <span>${hp}%</span>
+      return `
+        <div class="fan-card ${votedClass}" data-fid="${f.id}">
+          <div class="fan-head">
+            <div class="fan-team">
+              ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
+            </div>
+            <div class="fan-vs">vs</div>
+            <div class="fan-team">
+              ${flagImg(f.away_iso)} <span class="fan-team-name">${f.away}</span>
             </div>
           </div>
-          <div class="fan-bar-row">
-            <div class="fan-bar fan-bar-away" style="width:${ap}%">
-              <span>${ap}%</span>
+
+          <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
+
+          <div class="fan-bars">
+            <div class="fan-bar-row">
+              <div class="fan-bar fan-bar-home" style="width:${hp}%">
+                <span>${hp}%</span>
+              </div>
+            </div>
+            <div class="fan-bar-row">
+              <div class="fan-bar fan-bar-away" style="width:${ap}%">
+                <span>${ap}%</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="fan-actions">
-          <button class="btn fan-vote" data-choice="home" ${votedHome || votedAway ? 'disabled' : ''}>
-            Vote ${f.home}
-          </button>
-          <button class="btn fan-vote" data-choice="away" ${votedHome || votedAway ? 'disabled' : ''}>
-            Vote ${f.away}
-          </button>
-        </div>
+          <div class="fan-actions">
+            <button class="btn fan-vote home ${votedHome ? 'active' : ''}" data-choice="home" ${last ? 'disabled' : ''}>
+              Vote ${f.home}
+            </button>
+            <button class="btn fan-vote away ${votedAway ? 'active' : ''}" data-choice="away" ${last ? 'disabled' : ''}>
+              Vote ${f.away}
+            </button>
+          </div>
 
-        <div class="fan-foot">
-          <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
-          ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+          <div class="fan-foot">
+            <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
+            ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+          </div>
         </div>
-      </div>
-    `;
-  }
+      `;
+    }
+
+    function applyStatsToCard(card, stats) {
+      if (!card || !stats) return;
+      const homeBar = card.querySelector('.fan-bar-home');
+      const awayBar = card.querySelector('.fan-bar-away');
+      const totalEl = card.querySelector('.fan-total');
+
+      const hp = pct(stats.home_pct || 0);
+      const ap = pct(stats.away_pct || 0);
+
+      // smooth width changes without rebuilding DOM
+      requestAnimationFrame(() => {
+        if (homeBar) {
+          homeBar.style.width = hp + '%';
+          const s = homeBar.querySelector('span'); if (s) s.textContent = hp + '%';
+        }
+        if (awayBar) {
+          awayBar.style.width = ap + '%';
+          const s = awayBar.querySelector('span'); if (s) s.textContent = ap + '%';
+        }
+      });
+
+      if (totalEl) totalEl.textContent = String(stats.total || 0);
+
+      // voted highlight classes
+      card.classList.toggle('voted-home', stats.last_choice === 'home');
+      card.classList.toggle('voted-away', stats.last_choice === 'away');
+
+      // button states
+      const btnHome = card.querySelector('.btn.fan-vote.home');
+      const btnAway = card.querySelector('.btn.fan-vote.away');
+      const voted = stats.last_choice;
+      if (btnHome && btnAway) {
+        btnHome.disabled = !!voted;
+        btnAway.disabled = !!voted;
+        btnHome.classList.toggle('active', voted === 'home');
+        btnAway.classList.toggle('active', voted === 'away');
+      }
+
+      // pill text
+      const pill = card.querySelector('.pill.pill-ok');
+      if (pill) pill.textContent = voted ? `You voted: ${voted}` : '';
+    }
+
+    async function refreshVisibleCards() {
+      const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
+      if (!cards.length) return;
+
+      // fetch stats for each without replacing the whole card
+      for (const card of cards) {
+        const fid = card.dataset.fid;
+        try {
+          const stats = await getStats(fid);
+          if (stats?.ok) applyStatsToCard(card, stats);
+        } catch { /* ignore */ }
+      }
+    }
+
 
   async function renderFanZone() {
     const host = $('#fanzone-list');
@@ -3438,7 +3497,9 @@ async function fetchGoalsData(){
     for (const f of fixtures) {
       const stats = await getStats(f.id).catch(() => null);
       const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(f.id)}"]`);
-      if (card) card.outerHTML = cardHTML(f, stats);
+        if (card) {
+          card.outerHTML = cardHTML(f, stats);
+        }
     }
 
     // Wire vote buttons
@@ -3457,16 +3518,11 @@ async function fetchGoalsData(){
         const res = await sendVote(fid, choice);
         if (!(res && res.ok)) throw new Error('vote_failed');
       } catch {
-        // allow re-press if it failed (but keep disabled on duplicate)
         await sleep(400);
-      } finally {
-        // refresh this card only
-        const stats = await getStats(fid).catch(() => null);
-        const f = (await getFixtures()).find(x => x.id === fid);
-        if (f && stats) {
-          card.outerHTML = cardHTML(f, stats);
+        } finally {
+          const stats = await getStats(fid).catch(() => null);
+          if (stats?.ok) applyStatsToCard(card, stats);
         }
-      }
     }, { once: false });
   }
 
@@ -3481,9 +3537,9 @@ async function fetchGoalsData(){
     clearInterval(fanTimer);
     fanTimer = setInterval(async () => {
       const sec = document.querySelector('#fanzone.page-section.active-section');
-      if (!sec) return; // only refresh when visible
-      await renderFanZone();
-    }, 5000);
+      if (!sec) return;
+      await refreshVisibleCards();
+    }, 20000);
   }
 
   // Hook your existing nav toggle: when Fan Zone is selected, load + start refresher

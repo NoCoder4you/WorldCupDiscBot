@@ -65,7 +65,7 @@ def _teams_path(base_dir):
 def _team_iso_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_iso.json")
 def _matches_path(base_dir):
-    return os.path.join(_json_dir(base_dir), "matches.json")  # optional
+    return os.path.join(_json_dir(base_dir), "matches.json")
 def _tos_path(base_dir):
     return os.path.join(_json_dir(base_dir), "terms_accept.json")
 def _team_stage_path(base_dir):
