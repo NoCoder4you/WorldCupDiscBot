@@ -2180,29 +2180,11 @@ async function getCogStatus(name){
   window.addEventListener('load', init);
 
 // ===== Fan Zone utilities =====
-const data = await fetchJSON('/admin/fan_polls', { credentials: 'include' });
-
-// Toggle open/closed
-await fetchJSON(`/admin/fan_polls/${id}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  credentials: 'include',
-  body: JSON.stringify({ status: ns })
-});
-
-// Delete
-await fetchJSON(`/admin/fan_polls/${id}`, {
-  method: 'DELETE',
-  credentials: 'include'
-});
-
-// Create
-await fetchJSON('/admin/fan_polls', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  credentials: 'include',
-  body: JSON.stringify({ title, options: opts })
-});
+async function fetchJSON(url, opts){
+  const r = await fetch(url, opts);
+  if(!r.ok) throw new Error(await r.text().catch(()=>r.statusText));
+  return r.json();
+}
 
 function clamp(n){ return Math.max(0, Math.min(100, Number.isFinite(n)?n:0)); }
 
