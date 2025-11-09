@@ -694,29 +694,32 @@ def create_admin_routes(ctx):
 
     @bp.get("/fan_polls")
     def admin_fan_polls_list():
-        base = ctx.get("BASE_DIR", "")
+        base = ctx.get("BASE_DIR", "") if "ctx" in globals() else ""
         polls = _json_load(_fan_polls_path(base), [])
+        if not isinstance(polls, list): polls = []
         return jsonify({"polls": polls})
 
     @bp.post("/fan_polls")
     def admin_fan_polls_create():
-        base = ctx.get("BASE_DIR", "")
+        base = ctx.get("BASE_DIR", "") if "ctx" in globals() else ""
         body = request.get_json(silent=True) or {}
         title = (body.get("title") or "").strip()
         options = body.get("options") or []
+
         norm = []
         for i, o in enumerate(options, 1):
             label = (o.get("label") if isinstance(o, dict) else o) or ""
             label = str(label).strip()
             if label:
                 norm.append({"id": str(i), "label": label})
+
         if not title or len(norm) < 2:
             return jsonify({"ok": False, "error": "need_title_and_2plus_options"}), 400
 
         path = _fan_polls_path(base)
         polls = _json_load(path, [])
-        if not isinstance(polls, list):
-            polls = []
+        if not isinstance(polls, list): polls = []
+
         new_id = str(int(time.time()))
         polls.append({
             "id": new_id,
@@ -730,9 +733,11 @@ def create_admin_routes(ctx):
 
     @bp.patch("/fan_polls/<poll_id>")
     def admin_fan_polls_update(poll_id):
-        base = ctx.get("BASE_DIR", "")
+        base = ctx.get("BASE_DIR", "") if "ctx" in globals() else ""
         body = request.get_json(silent=True) or {}
         polls = _json_load(_fan_polls_path(base), [])
+        if not isinstance(polls, list): polls = []
+
         changed = False
         for p in polls:
             if str(p.get("id")) == str(poll_id):
@@ -743,18 +748,23 @@ def create_admin_routes(ctx):
                     p["status"] = body.get("status")
                     changed = True
                 break
+
         if not changed:
             return jsonify({"ok": False, "error": "no_change_or_not_found"}), 404
+
         _json_save(_fan_polls_path(base), polls)
         return jsonify({"ok": True})
 
     @bp.delete("/fan_polls/<poll_id>")
     def admin_fan_polls_delete(poll_id):
-        base = ctx.get("BASE_DIR", "")
+        base = ctx.get("BASE_DIR", "") if "ctx" in globals() else ""
         polls = _json_load(_fan_polls_path(base), [])
+        if not isinstance(polls, list): polls = []
+
         new = [p for p in polls if str(p.get("id")) != str(poll_id)]
         if len(new) == len(polls):
             return jsonify({"ok": False, "error": "not_found"}), 404
+
         _json_save(_fan_polls_path(base), new)
         return jsonify({"ok": True})
 

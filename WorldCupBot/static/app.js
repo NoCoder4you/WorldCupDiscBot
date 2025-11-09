@@ -2183,7 +2183,6 @@ async function getCogStatus(name){
    FAN ZONE (PUBLIC POLLS) + ADMIN POLLS
    ========================= */
 
-/* If you already have fetchJSON, keep yours and remove this. */
 async function fetchJSON(url, opts){
   const r = await fetch(url, opts);
   if(!r.ok) throw new Error(await r.text().catch(()=>r.statusText));
