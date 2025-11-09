@@ -18,7 +18,8 @@
             <li><a href="#" data-page="ownership">Ownership</a></li>
             <li><a href="#" data-page="worldmap">World Map</a></li>
             <li><a href="#" data-page="leaderboards">Leaderboards</a></li>
-            <li class="admin-only"><a href="#" data-page="fanpolls">Fan Polls</a></li>
+            <li><a href="#" data-page="fanzone">Fan Zone</a></li>
+
 
               <!-- Admin-only items -->
             <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
@@ -197,13 +198,13 @@
         <section id="fanzone" class="page-section">
           <div class="table-wrap">
             <div class="table-head">
-              <div class="table-title">Fan Zone - Vote the winners</div>
+              <div class="table-title">Fan Zone</div>
               <div class="table-actions">
-                <button id="fz-refresh" class="btn sm">Refresh</button>
+                <button id="fanzone-refresh" class="btn sm">Refresh</button>
               </div>
             </div>
-            <div class="table-scroll" id="fanzone-body" style="padding:12px">
-              <p class="muted">Loading bets…</p>
+            <div class="table-scroll">
+              <div id="fanzone-list" class="fan-list"></div>
             </div>
           </div>
         </section>
@@ -284,42 +285,6 @@
             <div class="table-scroll" id="user-body" style="padding:12px"></div>
           </div>
         </section>
-
-        <section id="fanpolls" class="page-section admin-only">
-          <div class="table-wrap">
-            <div class="table-head">
-              <div class="table-title">Fan Polls</div>
-              <div class="table-actions">
-                <button id="fp-new" class="btn sm">New Poll</button>
-              </div>
-            </div>
-            <div class="table-scroll" id="fanpolls-body">
-              <p class="muted">Loading polls…</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- New Poll modal -->
-        <div id="fp-modal" class="wc-modal hidden" role="dialog" aria-modal="true" aria-labelledby="fp-title">
-          <div class="wc-modal-card" role="document">
-            <div class="wc-modal-head">
-              <div class="wc-modal-title" id="fp-title">Create Fan Poll</div>
-              <button class="wc-modal-x" id="fp-close" aria-label="Close">✕</button>
-            </div>
-            <div class="wc-modal-body">
-              <label>Title</label>
-              <input id="fp-title-input" type="text" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0e1520;color:var(--text)">
-              <label style="margin-top:10px;display:block">Options</label>
-              <div id="fp-opts"></div>
-              <button id="fp-addopt" class="btn sm" style="margin-top:8px">Add option</button>
-            </div>
-            <div class="wc-modal-foot">
-              <button id="fp-save" class="btn">Save</button>
-            </div>
-          </div>
-          <div class="wc-modal-backdrop"></div>
-        </div>
-
 
             <!-- ===== Reassign Modal ===== -->
             <div id="reassign-backdrop" style="display: none;">

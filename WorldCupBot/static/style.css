@@ -3038,3 +3038,59 @@ body.modal-open footer {
 
 /* when Admin View is ON, tint the pill */
 .user-admin-view .fab-admin { background: rgba(34,197,94,.2); border-color: rgba(34,197,94,.45); color:#22c55e; }
+
+/* ===== FAN ZONE ===== */
+.fan-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 12px;
+}
+@media (max-width: 900px) {
+  .fan-list { grid-template-columns: 1fr; }
+}
+
+.fan-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 28px rgba(0,0,0,.12);
+}
+
+.fan-head {
+  display: grid;
+  grid-template-columns: 1fr 60px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.fan-team { display: flex; align-items: center; gap: 8px; }
+.fan-team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fan-vs { text-align: center; color: var(--muted); font-weight: 900; }
+
+.fan-flag { width: 24px; height: 18px; border-radius: 2px; image-rendering: crisp-edges; }
+
+.fan-time { color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+
+.fan-bars { display: grid; gap: 6px; margin-bottom: 10px; }
+.fan-bar-row { background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.fan-bar {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  font-weight: 800;
+  transition: width .45s ease;
+}
+.fan-bar-home { background: linear-gradient(90deg, var(--accent), #03d49b); color: #06121a; }
+.fan-bar-away { background: linear-gradient(90deg, var(--accent-2), #77c3ff); color: #06121a; }
+
+.fan-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.fan-actions .btn { width: 100%; }
+
+.fan-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+.pill { min-width: 84px; } /* reuse your pill look */

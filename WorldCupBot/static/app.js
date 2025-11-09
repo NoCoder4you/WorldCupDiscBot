@@ -3316,3 +3316,195 @@ async function fetchGoalsData(){
     }
     document.addEventListener('DOMContentLoaded', hookNav);
 })();
+
+// ---------------- Fan Zone (fixtures + voting) ----------------
+(() => {
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  const fetchJSON = window.fetchJSON || (async (url, opts) => {
+    const r = await fetch(url, { cache: 'no-store', ...opts });
+    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    return r.json();
+  });
+
+  async function getFixtures() {
+    const d = await fetchJSON('/api/fixtures');
+    return (d && d.fixtures) || [];
+  }
+
+  async function getStats(fid) {
+    const d = await fetchJSON(`/api/fanzone/${encodeURIComponent(fid)}`);
+    return d || { ok: false };
+  }
+
+  async function sendVote(fid, choice) {
+    return fetchJSON('/api/fanzone/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fixture_id: fid, choice })
+    });
+  }
+
+  function flagImg(iso) {
+    if (!iso) return '';
+    return `<img class="fan-flag" alt="${iso}" src="https://flagcdn.com/w40/${iso}.png" loading="lazy">`;
+  }
+
+  function pct(n) {
+    return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0)).toFixed(0);
+  }
+
+  function cardHTML(f, stats) {
+    const hp = pct(stats?.home_pct || 0);
+    const ap = pct(stats?.away_pct || 0);
+    const total = stats?.total || 0;
+    const last = stats?.last_choice;
+
+    const votedHome = last === 'home';
+    const votedAway = last === 'away';
+
+    return `
+      <div class="fan-card" data-fid="${f.id}">
+        <div class="fan-head">
+          <div class="fan-team">
+            ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
+          </div>
+          <div class="fan-vs">vs</div>
+          <div class="fan-team">
+            ${flagImg(f.away_iso)} <span class="fan-team-name">${f.away}</span>
+          </div>
+        </div>
+
+        <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
+
+        <div class="fan-bars">
+          <div class="fan-bar-row">
+            <div class="fan-bar fan-bar-home" style="width:${hp}%">
+              <span>${hp}%</span>
+            </div>
+          </div>
+          <div class="fan-bar-row">
+            <div class="fan-bar fan-bar-away" style="width:${ap}%">
+              <span>${ap}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fan-actions">
+          <button class="btn fan-vote" data-choice="home" ${votedHome || votedAway ? 'disabled' : ''}>
+            Vote ${f.home}
+          </button>
+          <button class="btn fan-vote" data-choice="away" ${votedHome || votedAway ? 'disabled' : ''}>
+            Vote ${f.away}
+          </button>
+        </div>
+
+        <div class="fan-foot">
+          <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
+          ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  async function renderFanZone() {
+    const host = $('#fanzone-list');
+    if (!host) return;
+    host.innerHTML = `<div class="muted" style="padding:12px">Loading fixtures…</div>`;
+
+    let fixtures = [];
+    try {
+      fixtures = await getFixtures();
+    } catch {
+      host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      return;
+    }
+
+    if (!fixtures.length) {
+      host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      return;
+    }
+
+    // Render skeletons first for nice animation
+    host.innerHTML = fixtures.map(f => `
+      <div class="fan-card" data-fid="${f.id}">
+        <div class="muted" style="padding:12px">Loading…</div>
+      </div>
+    `).join('');
+
+    // Fill each with live stats
+    for (const f of fixtures) {
+      const stats = await getStats(f.id).catch(() => null);
+      const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(f.id)}"]`);
+      if (card) card.outerHTML = cardHTML(f, stats);
+    }
+
+    // Wire vote buttons
+    host.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('.fan-vote');
+      if (!btn) return;
+      const card = btn.closest('.fan-card');
+      const fid = card?.dataset?.fid;
+      const choice = btn?.dataset?.choice;
+      if (!fid || !choice) return;
+
+      // disable both while posting
+      card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
+
+      try {
+        const res = await sendVote(fid, choice);
+        if (!(res && res.ok)) throw new Error('vote_failed');
+      } catch {
+        // allow re-press if it failed (but keep disabled on duplicate)
+        await sleep(400);
+      } finally {
+        // refresh this card only
+        const stats = await getStats(fid).catch(() => null);
+        const f = (await getFixtures()).find(x => x.id === fid);
+        if (f && stats) {
+          card.outerHTML = cardHTML(f, stats);
+        }
+      }
+    }, { once: false });
+  }
+
+  // Public loader (call when entering the page)
+  window.loadFanZone = async function loadFanZone() {
+    await renderFanZone();
+  };
+
+  // Auto-refresh while the Fan Zone section is visible
+  let fanTimer = null;
+  function ensureFanRefresh() {
+    clearInterval(fanTimer);
+    fanTimer = setInterval(async () => {
+      const sec = document.querySelector('#fanzone.page-section.active-section');
+      if (!sec) return; // only refresh when visible
+      await renderFanZone();
+    }, 5000);
+  }
+
+  // Hook your existing nav toggle: when Fan Zone is selected, load + start refresher
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-page="fanzone"]');
+    if (!a) return;
+    // small delay lets your page switcher add .active-section
+    setTimeout(() => { window.loadFanZone(); ensureFanRefresh(); }, 50);
+  });
+
+  // Manual refresh button
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'fanzone-refresh') {
+      window.loadFanZone();
+    }
+  });
+
+  // If landing directly on Fan Zone
+  window.addEventListener('DOMContentLoaded', () => {
+    if (document.querySelector('#fanzone.page-section.active-section')) {
+      window.loadFanZone(); ensureFanRefresh();
+    }
+  });
+})();

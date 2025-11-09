@@ -1221,5 +1221,99 @@ def create_public_routes(ctx):
         out.sort(key=lambda x: x.get("utc") or x.get("time") or "")
         return jsonify({"ok": True, "matches": out})
 
+    def _ensure_fz_sid():
+        # anonymous session tracker for Fan Zone
+        if "fz_sid" not in session:
+            session["fz_sid"] = secrets.token_urlsafe(12)
+        return session["fz_sid"]
+
+    @api.get("/fixtures")
+    def api_fixtures():
+        base = ctx.get("BASE_DIR", "")
+        matches = _json_load(_matches_path(base), [])
+        team_iso = _json_load(_team_iso_path(base), {})
+        out = []
+
+        for m in matches if isinstance(matches, list) else []:
+            home = (m.get("home") or "").strip()
+            away = (m.get("away") or "").strip()
+            when = (m.get("utc") or m.get("time") or "").strip()
+            if not (home and away and when):
+                continue
+            try:
+                dt = datetime.datetime.fromisoformat(when.replace("Z", "+00:00"))
+                ts = int(dt.timestamp())
+            except Exception:
+                ts = None
+            fid = f"{home}-{away}-{when}"
+            out.append({
+                "id": fid,
+                "home": home,
+                "away": away,
+                "utc": when,
+                "ts": ts,
+                "home_iso": (team_iso.get(home) or "").lower(),
+                "away_iso": (team_iso.get(away) or "").lower(),
+            })
+
+        out.sort(key=lambda x: (x["ts"] is None, x["ts"]))
+        return jsonify({"ok": True, "fixtures": out})
+
+    @api.get("/fanzone/<fixture_id>")
+    def api_fanzone_stats(fixture_id):
+        base = ctx.get("BASE_DIR", "")
+        data = _json_load(_fanzone_votes_path(base), {})
+        f = data.get(fixture_id) or {}
+        home = int((f.get("counts") or {}).get("home", 0))
+        away = int((f.get("counts") or {}).get("away", 0))
+        total = home + away
+        hp = (home * 100.0 / total) if total else 0.0
+        ap = (away * 100.0 / total) if total else 0.0
+
+        # surface what this session last chose (if any)
+        sid = _ensure_fz_sid()
+        last_choice = (f.get("by_session") or {}).get(sid)
+
+        return jsonify({
+            "ok": True,
+            "fixture_id": fixture_id,
+            "total": total,
+            "home": home,
+            "away": away,
+            "home_pct": round(hp, 2),
+            "away_pct": round(ap, 2),
+            "last_choice": last_choice
+        })
+
+    @api.post("/fanzone/vote")
+    def api_fanzone_vote():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        fixture_id = (body.get("fixture_id") or "").strip()
+        choice = (body.get("choice") or "").strip().lower()
+        if not fixture_id or choice not in ("home", "away"):
+            return jsonify({"ok": False, "error": "invalid_payload"}), 400
+
+        ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip()
+        sid = _ensure_fz_sid()
+
+        data = _json_load(_fanzone_votes_path(base), {})
+
+        slot = data.setdefault(fixture_id, {
+            "counts": {"home": 0, "away": 0},
+            "by_ip": {},
+            "by_session": {}
+        })
+
+        # dedupe by IP or session
+        if ip in slot["by_ip"] or sid in slot["by_session"]:
+            return jsonify({"ok": False, "error": "duplicate_vote"}), 409
+
+        slot["by_ip"][ip] = choice
+        slot["by_session"][sid] = choice
+        slot["counts"][choice] = int(slot["counts"].get(choice, 0)) + 1
+
+        _json_save(_fanzone_votes_path(base), data)
+        return jsonify({"ok": True, "fixture_id": fixture_id, "choice": choice})
 
     return root, api, auth
