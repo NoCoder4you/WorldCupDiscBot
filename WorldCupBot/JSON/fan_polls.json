@@ -4,23 +4,9 @@
     "title": "Who will win the FIFA World Cup 2026?",
     "options": [
       { "id": "1", "label": "Brazil" },
-      { "id": "2", "label": "Argentina" },
-      { "id": "3", "label": "France" },
-      { "id": "4", "label": "England" }
+      { "id": "2", "label": "Argentina" }
     ],
     "status": "open",
     "created_at": 1731189311
-  },
-  {
-    "id": "1731189365",
-    "title": "Which team will surprise the most this tournament?",
-    "options": [
-      { "id": "1", "label": "Morocco" },
-      { "id": "2", "label": "Japan" },
-      { "id": "3", "label": "USA" },
-      { "id": "4", "label": "Senegal" }
-    ],
-    "status": "open",
-    "created_at": 1731189365
   }
 ]

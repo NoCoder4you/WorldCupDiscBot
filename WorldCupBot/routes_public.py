@@ -572,7 +572,6 @@ def create_public_routes(ctx):
     def fan_polls_list():
         base = ctx.get("BASE_DIR", "")
         polls = _json_load(_fan_polls_path(base), [])
-        # only open polls for public list
         open_polls = [p for p in polls if isinstance(p, dict) and p.get("status", "open") == "open"]
         return jsonify({"polls": open_polls})
 
