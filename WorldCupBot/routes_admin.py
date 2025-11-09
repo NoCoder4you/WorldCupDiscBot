@@ -1,5 +1,5 @@
 import os, json, time, glob, sys
-from flask import Blueprint, jsonify, request, session, send_file
+from flask import Blueprint, jsonify, request, session, send_file, current_app
 
 # Public OAuth flow (in routes_public.py) stores the logged-in user bundle here
 USER_SESSION_KEY = "wc_user"   # e.g. {"discord_id": "...", "username": "...", ...}
@@ -19,27 +19,31 @@ STAGE_ALLOWED = {
 def _base_dir(ctx):
     return ctx.get("BASE_DIR", os.getcwd())
 
-def _json_dir(ctx):
-    return os.path.join(_base_dir(ctx), "JSON")
-
 def _fan_polls_path(base_dir):
     return os.path.join(_json_dir(base_dir), "fan_polls.json")
 def _fan_votes_path(base_dir):
     return os.path.join(_json_dir(base_dir), "fan_votes.json")
+
+def _json_dir():
+    base = current_app.config.get("BASE_DIR") or os.getcwd()
+    d = os.path.join(base, "JSON")
+    os.makedirs(d, exist_ok=True)
+    return d
 
 
 def _json_load(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
+    except FileNotFoundError:
+        return default
     except Exception:
         return default
 
-def _json_save(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+def _json_save(path, obj):
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        json.dump(obj, f, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
 
 def _path(ctx, name):
