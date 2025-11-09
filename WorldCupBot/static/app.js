@@ -2389,7 +2389,7 @@ async function loadAdminPolls(){
   host.innerHTML = `<p class="muted">Loading polls…</p>`;
   let data = {};
   try{
-    data = await fetchJSON('/admin/fan_polls', { credentials:'include' });
+    data = await fetchJSON('/admin/fan_polls', { credentials: 'include' });
   }catch{
     host.innerHTML = `<p class="muted">Failed to load.</p>`;
     return;
