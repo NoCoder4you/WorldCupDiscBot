@@ -70,10 +70,9 @@ def _tos_path(base_dir):
     return os.path.join(_json_dir(base_dir), "terms_accept.json")
 def _team_stage_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage.json")
-def _fan_polls_path(base_dir):
-    return os.path.join(_json_dir(base_dir), "fan_polls.json")
-def _fan_votes_path(base_dir):
-    return os.path.join(_json_dir(base_dir), "fan_votes.json")
+def _fanzone_votes_path(base):
+    return os.path.join(_json_dir(base), "fan_votes.json")
+
 
 
 def _json_read(path, default):

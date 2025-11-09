@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ARG-BRA-2026-06-12T18:00:00Z",
+    "home": "Argentina",
+    "away": "Brazil",
+    "utc": "2026-06-12T18:00:00Z",
+    "stadium": "MetLife Stadium, New Jersey",
+    "group": "A"
+  },
+  {
+    "id": "ENG-FRA-2026-06-13T19:00:00Z",
+    "home": "England",
+    "away": "France",
+    "utc": "2026-06-13T19:00:00Z",
+    "stadium": "SoFi Stadium, Los Angeles",
+    "group": "B"
+  },
+  {
+    "id": "USA-MEX-2026-06-14T20:00:00Z",
+    "home": "United States",
+    "away": "Mexico",
+    "utc": "2026-06-14T20:00:00Z",
+    "stadium": "AT&T Stadium, Dallas",
+    "group": "C"
+  },
+  {
+    "id": "GER-SPA-2026-06-15T18:00:00Z",
+    "home": "Germany",
+    "away": "Spain",
+    "utc": "2026-06-15T18:00:00Z",
+    "stadium": "Hard Rock Stadium, Miami",
+    "group": "D"
+  },
+  {
+    "id": "NED-POR-2026-06-16T17:00:00Z",
+    "home": "Netherlands",
+    "away": "Portugal",
+    "utc": "2026-06-16T17:00:00Z",
+    "stadium": "Levi's Stadium, San Francisco",
+    "group": "E"
+  }
+]
