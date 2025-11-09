@@ -2192,19 +2192,14 @@ function fanBarsApply(card, percents) {
   const rows = card.querySelectorAll('.poll-bar');
   rows.forEach(row => {
     const oid = row.dataset.oid;
-    const target = clamp(percents[oid] || 0);
+    const target = Math.max(0, Math.min(100, +((percents||{})[oid] || 0)));
     const bar = row.querySelector('.pb-fill');
     const label = row.querySelector('.pb-pct');
-
     let w = parseFloat(bar.style.width || '0') || 0;
     const step = () => {
       const d = target - w;
-      if (Math.abs(d) < 0.3) {
-        w = target;
-      } else {
-        w += d * 0.12;
-        requestAnimationFrame(step);
-      }
+      if (Math.abs(d) < 0.3) { w = target; }
+      else { w += d * 0.12; requestAnimationFrame(step); }
       bar.style.width = w.toFixed(1) + '%';
       label.textContent = w.toFixed(1) + '%';
     };
@@ -2246,14 +2241,9 @@ function pollCardHTML(p) {
         <div class="fan-title">${p.title}</div>
         <div class="fan-meta"><span class="pill ${p.status === 'open' ? 'pill-ok' : 'pill-off'}">${p.status}</span></div>
       </div>
-
       <div class="fan-options">${opts}</div>
-
       <div class="fan-bars" style="margin-top:12px">${bars}</div>
-
-      <div class="fan-foot">
-        <span class="fz-total" data-poll="${p.id}">Total votes: 0</span>
-      </div>
+      <div class="fan-foot"><span class="fz-total" data-poll="${p.id}">Total votes: 0</span></div>
     </div>
   `;
 }
@@ -2321,22 +2311,14 @@ async function renderFanZone() {
   host.innerHTML = `<p class="muted">Loading polls…</p>`;
 
   let data = {};
-  try {
-    data = await fetchJSON('/api/fan_polls');
-  } catch (e) {
-    host.innerHTML = `<p class="muted">Failed to load polls.</p>`;
-    return;
-  }
+  try { data = await fetchJSON('/api/fan_polls'); }
+  catch { host.innerHTML = `<p class="muted">Failed to load polls.</p>`; return; }
 
   const polls = (data.polls || []).filter(p => p.status === 'open');
-  if (!polls.length) {
-    host.innerHTML = `<p class="muted">No open polls right now.</p>`;
-    return;
-  }
+  if (!polls.length) { host.innerHTML = `<p class="muted">No open polls right now.</p>`; return; }
 
   host.innerHTML = polls.map(pollCardHTML).join('');
 
-  // Hydrate bars
   for (const p of polls) {
     try {
       const d = await fetchFanStats(p.id);
@@ -2346,7 +2328,7 @@ async function renderFanZone() {
         const tz = card.querySelector(`.fz-total[data-poll="${p.id}"]`);
         if (tz) tz.textContent = `Total votes: ${d.total}`;
       }
-    } catch (_) {}
+    } catch {}
   }
 }
 
@@ -2355,7 +2337,7 @@ async function handleFanZoneClick(ev) {
   if (!btn) return;
 
   const pollId = btn.dataset.poll;
-  const optId = btn.dataset.opt;
+  const optId  = btn.dataset.opt;
   btn.disabled = true;
 
   try {
@@ -2366,7 +2348,7 @@ async function handleFanZoneClick(ev) {
       const tz = card.querySelector(`.fz-total[data-poll="${pollId}"]`);
       if (tz) tz.textContent = `Total votes: ${d.total || 0}`;
     }
-    if (typeof notify === 'function') notify('Vote recorded', true);
+    typeof notify === 'function' && notify('Vote recorded', true);
   } catch (e) {
     const msg = String(e).includes('already_voted') ? 'You already voted on this poll!' :
                 String(e).includes('poll_closed')   ? 'This poll is closed.' :
