@@ -704,13 +704,10 @@ def create_admin_routes(ctx):
         body = request.get_json(silent=True) or {}
         title = (body.get("title") or "").strip()
         options = body.get("options") or []
-        # normalize: options can be ["A","B","C"] or list of {label}
         norm = []
         for i, o in enumerate(options, 1):
-            if isinstance(o, dict):
-                label = (o.get("label") or "").strip()
-            else:
-                label = (str(o) or "").strip()
+            label = (o.get("label") if isinstance(o, dict) else o) or ""
+            label = str(label).strip()
             if label:
                 norm.append({"id": str(i), "label": label})
         if not title or len(norm) < 2:
@@ -718,8 +715,8 @@ def create_admin_routes(ctx):
 
         path = _fan_polls_path(base)
         polls = _json_load(path, [])
-        if not isinstance(polls, list): polls = []
-        # simple id
+        if not isinstance(polls, list):
+            polls = []
         new_id = str(int(time.time()))
         polls.append({
             "id": new_id,
