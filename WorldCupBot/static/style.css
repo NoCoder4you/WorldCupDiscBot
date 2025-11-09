@@ -3094,3 +3094,20 @@ body.modal-open footer {
 .fan-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
 .pill { min-width: 84px; } /* reuse your pill look */
+
+.fan-card.voted-home .fan-bar-home,
+.fan-actions .btn.home.active {
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.15) inset;
+}
+
+.fan-card.voted-away .fan-bar-away,
+.fan-actions .btn.away.active {
+  outline: 2px solid var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.15) inset;
+}
+
+.fan-actions .btn.active {
+  filter: saturate(1.1);
+  font-weight: 800;
+}
