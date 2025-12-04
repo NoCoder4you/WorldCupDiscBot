@@ -56,7 +56,22 @@ function applyAdminView(){
 }
 
 function ensureAdminToggleButton(){
-  if (document.getElementById('user-admin-toggle')) return; // prevents duplicates
+  const existing = document.getElementById('user-admin-toggle');
+  const shouldShow = !!state.admin; // only show when admin session is unlocked
+
+  // If admin is not unlocked, remove the button if it exists
+  if (!shouldShow) {
+    if (existing) existing.remove();
+    return;
+  }
+
+  // If it already exists, just sync the label and exit
+  if (existing) {
+    existing.textContent = getAdminView() ? 'Public View' : 'Admin View';
+    return;
+  }
+
+  // Otherwise create it
   const btn = document.createElement('button');
   btn.id = 'user-admin-toggle';
   btn.className = 'fab-admin';
@@ -70,6 +85,7 @@ function ensureAdminToggleButton(){
   };
   document.body.appendChild(btn);
 }
+
 
 
 // keep views in sync if localStorage changes (other tab / module)
@@ -229,7 +245,8 @@ function setPage(p) {
       state.admin = !!unlocked;
       document.body.classList.toggle('admin', state.admin);
       applyAdminView();
-      }
+      ensureAdminToggleButton(); // create/remove FAB based on admin state
+    }
 
     function setUserUI(user){
       const loggedIn = !!(user && (user.discord_id || user.id));
