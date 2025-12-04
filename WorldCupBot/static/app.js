@@ -8,7 +8,6 @@
 
   const state = {
     admin:false,
-    theme: localStorage.getItem('wc:theme') || 'dark',
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
     pollingId: null,
     logsKind: 'bot',
@@ -20,8 +19,6 @@
   const $backdrop = qs('#auth-backdrop');
   const $btnCancel = qs('#auth-cancel');
   const $btnSubmit = qs('#auth-submit');
-  const $themeToggle = qs('#theme-toggle');
-  const $themeIcon = qs('#theme-icon');
   const STAGE_OPTIONS = [
   "Eliminated",
   "Group Stage",
@@ -166,16 +163,6 @@ function stagePill(stage){
       if (!res.ok) throw new Error(`${url} ${res.status}`);
       return res.json().catch(() => ({}));
     }
-
-
-  function setTheme(t){
-    state.theme = t;
-    document.body.classList.toggle('light', t==='light');
-    localStorage.setItem('wc:theme', t);
-    $themeIcon.textContent = t==='light' ? '🌞' : '🌙';
-  }
-  function wireTheme(){ $themeToggle.addEventListener('click', ()=>setTheme(state.theme==='light'?'dark':'light'));
-  }
 
   // === PAGE SWITCHER ===
     function showPage(page) {
@@ -2181,8 +2168,6 @@ async function getCogStatus(name){
       await refreshAuth();
       ensureAdminToggleButton();
       applyAdminView();
-      setTheme(state.theme);
-      wireTheme();
       wireAuthButtons();
       wireNav();
       wireBotButtons();
@@ -3054,9 +3039,6 @@ async function fetchJSON(url){
     return list;
     }
 
-// Tries a few paths so you don't need backend changes if you already have one.
-// Expected payload shape (any of these is fine):
-//   [{ id, goals, name? }] OR { rows:[{ id, goals, name? }]} OR { players:[...] }
 async function fetchGoalsData(){
   const tryPaths = ['/api/goals', '/api/stats/goals', '/api/leaderboards/scorers'];
   for(const path of tryPaths){

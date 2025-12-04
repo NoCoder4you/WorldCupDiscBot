@@ -25,19 +25,6 @@
     --disk-c: #00C832;
 }
 
-body.light {
-    --bg: #f7fafc;
-    --card: #fff;
-    --text: #1c2634;
-    --muted: #5a6a82;
-    --accent: #00b386;
-    --accent-2: #1f7ed6;
-    --danger: #e6505c;
-    --border: #dbe6f3;
-    --btn: #e8f2fa;
-    --btn-hover: #d6e7f7;
-}
-
 /* ===== BASE ===== */
 * {
     box-sizing: border-box

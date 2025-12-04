@@ -1,9 +1,8 @@
 import os, json, time, glob, sys
 from flask import Blueprint, jsonify, request, session, send_file
 
-# Public OAuth flow (in routes_public.py) stores the logged-in user bundle here
-USER_SESSION_KEY = "wc_user"   # e.g. {"discord_id": "...", "username": "...", ...}
-ADMIN_IDS_KEY    = "ADMIN_IDS" # list of Discord IDs allowed as admins
+USER_SESSION_KEY = "wc_user"
+ADMIN_IDS_KEY    = "ADMIN_IDS"
 STAGE_ALLOWED = {
     "Eliminated",
     "Group Stage",
