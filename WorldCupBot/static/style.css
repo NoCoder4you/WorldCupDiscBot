@@ -3074,11 +3074,12 @@ body.modal-open footer {
   position: relative;
   display: inline-block;
   min-width: 150px;
+  z-index: 10; /* anchor + stacking context */
 }
 
 /* Closed button */
 .stage-select-display {
-  background: #0d141d;          /* dark */
+  background: #0d141d;
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 8px;
@@ -3092,15 +3093,22 @@ body.modal-open footer {
   background: #111b28;
 }
 
-/* Open list */
+/* Dropdown list */
 .stage-select-list {
+  position: absolute;        /* ⭐ anchor to wrapper */
+  top: 100%;
+  left: 0;
+  right: 0;
+
   background: #0f1823;
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 4px 0;
   max-height: 240px;
   overflow-y: auto;
-  transform: translateY(4px);
+
+  transform-origin: top;
+  transform: scaleY(0.92);
   opacity: 0;
   pointer-events: none;
   transition: opacity .12s ease, transform .12s ease;
@@ -3109,7 +3117,7 @@ body.modal-open footer {
 .stage-select-list.open {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: scaleY(1);
   z-index: 9999;
 }
 
@@ -3117,19 +3125,16 @@ body.modal-open footer {
 .stage-select-option {
   padding: 8px 12px;
   color: var(--text);
-  background: transparent;
-  transition: background .12s ease;
   cursor: pointer;
+  transition: background .12s ease;
 }
 
-/* Hover */
 .stage-select-option:hover {
-  background: rgba(0, 255, 200, 0.10);   /* slight accent tint */
+  background: rgba(0, 255, 200, 0.10);
 }
 
-/* Selected item */
 .stage-select-option.selected {
-  background: rgba(0, 255, 200, 0.18);   /* slightly stronger */
+  background: rgba(0, 255, 200, 0.18);
   font-weight: 600;
 }
 
