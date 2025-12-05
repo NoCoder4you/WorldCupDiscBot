@@ -3071,7 +3071,6 @@ body.modal-open footer {
   position: relative;
   display: inline-block;
   min-width: 150px;
-  z-index: 10; /* anchor + stacking context */
 }
 
 /* Closed button */
