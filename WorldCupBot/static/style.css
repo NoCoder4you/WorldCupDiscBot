@@ -1110,7 +1110,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Card breathing room and soft edges */
 .ownership-card {
     border-radius: 14px;
-    overflow: hidden;
     position: relative;
     z-index: 1;
 }
@@ -1263,7 +1262,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #ownership .ownership-table th,
 #ownership .ownership-table td {
     white-space: nowrap;
-    overflow: hidden;
     text-overflow: ellipsis;
     padding: 10px 12px;
 }
@@ -1352,7 +1350,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     width: 100%;
     max-width: 1320px;
     margin: 24px auto;
-    overflow: hidden;
 }
 
 #ownership .ownership-table-scroll {
@@ -1372,7 +1369,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #ownership .ownership-table td {
     padding: 10px 12px;
     white-space: nowrap;
-    overflow: hidden;
     text-overflow: ellipsis;
     border-bottom: 1px solid var(--border);
 }
@@ -1423,7 +1419,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .table.ownership th {
   white-space: nowrap;
   text-overflow: ellipsis;
-  overflow: hidden;
   vertical-align: middle;
 }
 
