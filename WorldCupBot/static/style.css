@@ -3055,100 +3055,85 @@ body.modal-open footer {
   font-weight: 800;
 }
 
-/* --- Ownership page: custom stage dropdown --- */
-/* --- WRAPPER --- */
+/* Wrap */
 .stage-select-wrap {
   position: relative;
   display: inline-block;
   width: 160px;
-  z-index: 20; /* keep above table rows */
+  z-index: 50; /* just enough – not too high */
 }
 
-/* --- CLOSED BUTTON --- */
+/* Display button */
 .stage-select-display {
   width: 100%;
-  background: #0d141d;
+  padding: 6px 10px;
+  font-size: 14px;
   color: var(--text);
+  background: #0d141d;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  padding: 8px 12px;
-  text-align: left;
   cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: border-color 0.15s ease;
+  text-align: left;
+  transition: 0.15s ease;
 }
 
 .stage-select-display:hover {
-  border-color: #17e0c2;
+  background: #0f1a25;
 }
 
-/* add ▼ */
-.stage-select-display::after {
-  content: "▾";
-  margin-left: 6px;
-  opacity: 0.6;
-}
-
-/* OPEN STATE HIGHLIGHT */
 .stage-select-display.open {
   border-color: var(--accent);
-  box-shadow: 0 0 8px rgba(0,255,210,0.3);
+  box-shadow: 0 0 0 2px rgba(0,255,200,0.25);
 }
 
-/* --- DROPDOWN PANEL --- */
+/* Dropdown list */
 .stage-select-list {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   width: 100%;
-  background: #0f1a24;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #0d141d;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  padding: 6px 0;
-  list-style: none;
-  margin: 0;
-
   opacity: 0;
   pointer-events: none;
   transform: translateY(-4px);
-  transition: opacity .12s ease, transform .12s ease;
-
-  z-index: 9999; /* dropdown above everything */
-  max-height: 260px;
-  overflow-y: auto;
+  transition: opacity .15s ease, transform .15s ease;
 }
 
-/* OPEN STATE */
+/* When open */
 .stage-select-list.open {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+  z-index: 9999; /* clean, no overlap issues */
 }
 
-/* --- OPTIONS --- */
+/* Options */
 .stage-select-option {
   padding: 8px 12px;
-  cursor: pointer;
-  color: var(--text);
   font-size: 14px;
-  white-space: nowrap;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  transition: background .12s ease, padding .12s ease;
 }
 
+/* Hover */
 .stage-select-option:hover {
-  background: rgba(23,224,194,0.18);
+  background: rgba(0,255,200,0.15);
+  padding-left: 16px;
 }
 
+/* Selected option */
 .stage-select-option.selected {
-  background: rgba(23,224,194,0.32);
-  color: var(--accent);
+  background: rgba(0,255,200,0.25);
   font-weight: 600;
 }
 
-/* Hide original <select> */
-.stage-select {
-  display: none;
+/* Hide the original <select> */
+select.stage-select {
+  display: none !important;
 }
-
