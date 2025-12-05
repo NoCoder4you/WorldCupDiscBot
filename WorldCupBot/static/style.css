@@ -3055,85 +3055,89 @@ body.modal-open footer {
   font-weight: 800;
 }
 
-/* Wrap */
+/* --- Ownership page: custom stage dropdown --- */
+
+/* hide the native select but keep it usable for JS */
+#ownership select.stage-select {
+    position: absolute !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
 .stage-select-wrap {
   position: relative;
   display: inline-block;
-  width: 160px;
-  z-index: 50; /* just enough – not too high */
+  min-width: 150px;
 }
 
-/* Display button */
+/* visible button */
 .stage-select-display {
   width: 100%;
-  padding: 6px 10px;
-  font-size: 14px;
-  color: var(--text);
-  background: #0d141d;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  cursor: pointer;
   text-align: left;
-  transition: 0.15s ease;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e6e6e6;
+  border-radius: 8px;
+  padding: 6px 30px 6px 10px;
+  font: inherit;
+  line-height: 1.3;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg fill='%23e6e6e6' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.25 7L10 12.5 14.75 7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 .stage-select-display:hover {
-  background: #0f1a25;
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .stage-select-display.open {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0,255,200,0.25);
+  box-shadow: 0 0 0 2px rgba(0, 200, 150, 0.35);
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Dropdown list */
+/* dropdown list */
 .stage-select-list {
   position: absolute;
-  top: calc(100% + 4px);
   left: 0;
-  width: 100%;
-  max-height: 240px;
-  overflow-y: auto;
+  right: 0;
+  margin-top: 6px;
   background: #0d141d;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-4px);
-  transition: opacity .15s ease, transform .15s ease;
+  border: 1px solid #1b2838;
+  border-radius: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px 0;
+  list-style: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  display: none;
 }
 
-/* When open */
 .stage-select-list.open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-  z-index: 9999; /* clean, no overlap issues */
+  display: block;
 }
 
-/* Options */
+/* list items */
 .stage-select-option {
   padding: 8px 12px;
-  font-size: 14px;
-  color: var(--text);
-  background: transparent;
+  color: #dce6f0;
   cursor: pointer;
-  transition: background .12s ease, padding .12s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Hover */
-.stage-select-option:hover {
-  background: rgba(0,255,200,0.15);
-  padding-left: 16px;
-}
-
-/* Selected option */
+.stage-select-option:hover,
 .stage-select-option.selected {
-  background: rgba(0,255,200,0.25);
-  font-weight: 600;
+  background: #1c2431;
+  color: #ffffff;
 }
 
-/* Hide the original <select> */
-select.stage-select {
-  display: none !important;
-}
