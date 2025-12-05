@@ -3126,14 +3126,6 @@ body.modal-open footer {
 
 .stage-select-list.open {
   display: block;
-   position: absolute !important;
-   opacity: 0 !important;
-   pointer-events: none !important;
-   width: 0 !important;
-   height: 0 !important;
-   margin: 0 !important;
-   padding: 0 !important;
-   border: 0 !important;
 }
 
 /* list items */
@@ -3142,7 +3134,6 @@ body.modal-open footer {
   color: #dce6f0;
   cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
 
