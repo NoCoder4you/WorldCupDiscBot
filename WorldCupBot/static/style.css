@@ -3060,7 +3060,7 @@ body.modal-open footer {
 
 /* --- Ownership page: custom stage dropdown --- */
 
-#ownership .stage-select-wrap > select.stage-select {
+.stage-select-wrap > select.stage-select {
     position: absolute !important;
     opacity: 0 !important;
     pointer-events: none !important;
@@ -3070,6 +3070,7 @@ body.modal-open footer {
     padding: 0 !important;
     border: 0 !important;
 }
+
 
 .stage-select-wrap {
   position: relative;
