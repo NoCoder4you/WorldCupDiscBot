@@ -733,12 +733,12 @@ var playerNames = {}; // id -> username
           : '—';
 
         // Stage cell
-        const current = (ownershipState.stages && ownershipState.stages[row.country]) || 'Group';
+        const current = (ownershipState.stages && ownershipState.stages[row.country]) || 'Group Stage';
         let stageCell = '';
         if (isAdminUI()) {
-          // editable select for admins
+          // editable select for admins (this is what gets enhanced into the custom dropdown)
           const opts = STAGE_OPTIONS.map(v =>
-            `<option value="${v}" ${v===current?'selected':''}>${v}</option>`
+            `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`
           ).join('');
           stageCell = `
             <select class="stage-select" data-team="${row.country}">
@@ -763,17 +763,22 @@ var playerNames = {}; // id -> username
         tbody.appendChild(tr);
       });
 
-    document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
-      el.style.display = isAdminUI() ? '' : 'none';
-    });
+      // After all rows are in the DOM, enhance the selects into custom dropdowns
+      if (isAdminUI()) {
+        enhanceStageSelects();
+      }
 
-    const tbl = tbody.closest('table');
-    if (tbl) {
-      const headAdmin = tbl.querySelector('thead th.admin-col, thead th[data-admin]');
-      if (headAdmin) headAdmin.style.display = isAdminUI() ? '' : 'none';
+      // Show/hide admin-only column based on admin view
+      document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
+        el.style.display = isAdminUI() ? '' : 'none';
+      });
+
+      const tbl = tbody.closest('table');
+      if (tbl) {
+        const headAdmin = tbl.querySelector('thead th.admin-col, thead th[data-admin]');
+        if (headAdmin) headAdmin.style.display = isAdminUI() ? '' : 'none';
+      }
     }
-
-}
 
 function sortMerged(by) {
   ownershipState.lastSort = by;
@@ -788,6 +793,94 @@ function sortMerged(by) {
     list.sort(function (a, b) { return name(a).localeCompare(name(b)); });
   }
   renderOwnershipTable(list);
+}
+
+function enhanceStageSelects() {
+  const selects = document.querySelectorAll('#ownership select.stage-select');
+
+  // clean up any old wrappers so re-rendering is safe
+  selects.forEach(sel => {
+    const wrap = sel.closest('.stage-select-wrap');
+    if (wrap) {
+      wrap.parentNode.insertBefore(sel, wrap);
+      wrap.remove();
+    }
+  });
+
+  const closeAll = () => {
+    document.querySelectorAll('.stage-select-display.open')
+      .forEach(btn => btn.classList.remove('open'));
+    document.querySelectorAll('.stage-select-list.open')
+      .forEach(list => list.classList.remove('open'));
+  };
+
+  selects.forEach(sel => {
+    const wrap = document.createElement('div');
+    wrap.className = 'stage-select-wrap';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'stage-select-display';
+    btn.textContent = sel.options[sel.selectedIndex]?.text || 'Stage';
+
+    const list = document.createElement('ul');
+    list.className = 'stage-select-list';
+
+    Array.from(sel.options).forEach(opt => {
+      const li = document.createElement('li');
+      li.className = 'stage-select-option';
+      li.dataset.value = opt.value;
+      li.textContent = opt.textContent;
+      if (opt.selected) li.classList.add('selected');
+
+      li.addEventListener('click', () => {
+        // update select
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // update button text
+        btn.textContent = opt.textContent;
+
+        // update selected state
+        list.querySelectorAll('.stage-select-option.selected')
+            .forEach(x => x.classList.remove('selected'));
+        li.classList.add('selected');
+
+        closeAll();
+      });
+
+      list.appendChild(li);
+    });
+
+    // insert wrapper before select
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(btn);
+    wrap.appendChild(list);
+    wrap.appendChild(sel);
+  });
+
+  // global click handler to toggle / close
+  document.addEventListener('click', (evt) => {
+    const wrap = evt.target.closest('.stage-select-wrap');
+
+    // click outside → close everything
+    if (!wrap) {
+      closeAll();
+      return;
+    }
+
+    // click on the button → toggle that one
+    const btn = evt.target.closest('.stage-select-display');
+    if (btn) {
+      const list = wrap.querySelector('.stage-select-list');
+      const isOpen = btn.classList.contains('open');
+      closeAll();
+      if (!isOpen) {
+        btn.classList.add('open');
+        list.classList.add('open');
+      }
+    }
+  });
 }
 
 function fetchOwnershipRows() {
