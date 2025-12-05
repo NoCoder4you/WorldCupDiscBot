@@ -1190,11 +1190,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     border: 1px solid var(--border);
 }
 
-/* Scroll area – subtle edges */
-.ownership-table-scroll {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
 /* Narrow screens: keep header readable */
 @media (max-width: 720px) {
     .ownership-table th,
@@ -1208,9 +1203,10 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 /* === Ownership layout fix (aligned headings) === */
 #ownership .ownership-card {
-    width: 100%;
-    max-width: 1320px;
-    margin: 24px auto;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 110px);
+    overflow: hidden;
 }
 
 #ownership .ownership-table-scroll {
