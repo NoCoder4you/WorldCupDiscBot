@@ -3104,11 +3104,14 @@ body.modal-open footer {
 
 /* keep native select for JS, but hide it visually */
 select.stage-select {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
+    position: absolute !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
 }
 
 /* wrapper that sits where the select used to be */
