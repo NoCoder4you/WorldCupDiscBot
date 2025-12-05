@@ -1213,30 +1213,15 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     margin: 24px auto;
 }
 
-/* Remove inner scroll wrapper – let the table scroll itself */
 #ownership .ownership-table-scroll {
-    overflow: visible;
-    /* no scroll container here */
+    max-height: 85vh;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-/* Make the table control layout and scroll */
 #ownership .ownership-table {
     width: 100%;
     border-collapse: collapse;
-    border-spacing: 0;
-    table-layout: fixed;
-    /* ensures all columns sync */
-    display: block;
-    /* allows table itself to scroll */
-    overflow-x: auto;
-}
-
-/* Match widths across head/body */
-#ownership .ownership-table thead,
-#ownership .ownership-table tbody,
-#ownership .ownership-table tr {
-    display: table;
-    width: 100%;
     table-layout: fixed;
 }
 
@@ -3083,6 +3068,7 @@ body.modal-open footer {
   font-size: 14px;
   cursor: pointer;
   transition: background .15s ease, border-color .15s ease;
+  min-width: 75%;
 }
 
 .stage-select-display:hover {
