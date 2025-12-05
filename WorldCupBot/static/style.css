@@ -1336,7 +1336,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* keep last column tidy and right-anchored */
 #ownership .ownership-table td:nth-child(4),
 #ownership .ownership-table th:nth-child(4) {
-    text-align: left;
     padding-right: 16px;
 }
 
@@ -1374,7 +1373,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 #ownership .ownership-table th {
-    text-align: left;
     font-weight: 900;
     color: var(--muted);
     background: rgba(8, 14, 22, 0.96);
@@ -1391,7 +1389,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 #ownership .ownership-table td:nth-child(4),
 #ownership .ownership-table th:nth-child(4) {
-    text-align: left;
     padding-right: 16px;
 }
 
