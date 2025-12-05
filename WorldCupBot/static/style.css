@@ -3100,9 +3100,10 @@ body.modal-open footer {
   font-weight: 800;
 }
 
-/* Stage dropdown - dark box with green accent, OS handles menu */
 select.stage-select {
     appearance: none;
+    -moz-appearance: none;
+    -webkit-appearance: none;
     background: #0d141d;
     color: var(--text);
     border: 1px solid var(--accent);
@@ -3110,9 +3111,17 @@ select.stage-select {
     border-radius: 8px;
     font-size: 14px;
     cursor: pointer;
+    color-scheme: dark;
 }
 
 select.stage-select option {
-    background-color: var(--bg);
+    background-color: #0d141d;
     color: var(--text);
+}
+
+select.stage-select option:hover,
+select.stage-select option:checked,
+select.stage-select:focus option:checked {
+    background-color: var(--accent);
+    color: #07111c;
 }
