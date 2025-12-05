@@ -1443,6 +1443,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .table.ownership .col-stage {
   width: 20%;
   text-align: left;
+  overflow: visible !important;
 }
 
 /* Owner cell layout: name + button + warning icon all visible */
@@ -3077,6 +3078,7 @@ body.modal-open footer {
   position: relative;
   display: inline-block;
   min-width: 150px;
+  z-index: 10;
 }
 
 .stage-select-display {
@@ -3120,7 +3122,7 @@ body.modal-open footer {
   overflow-y: auto;
   padding: 4px 0;
   list-style: none;
-  z-index: 2000;
+  z-index: 9999;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
   display: none;
 }
