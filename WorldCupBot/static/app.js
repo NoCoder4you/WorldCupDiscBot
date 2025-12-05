@@ -3564,147 +3564,118 @@ async function fetchGoalsData(){
   });
 })();
 
-// ==== Ownership stage dropdown (custom UI over native select) ====
-(function () {
-  'use strict';
+function enhanceStageSelects() {
+  const selects = document.querySelectorAll(
+    '#ownership select.stage-select:not([data-stage-enhanced="1"])'
+  );
 
-  function buildStageDropdown(select) {
-    if (!select || select.dataset.stageEnhanced === '1') return;
-    select.dataset.stageEnhanced = '1';
+  if (!selects.length) return;
 
+  // Helper to close all open dropdowns
+  const closeAllStageDropdowns = (exceptWrap = null) => {
+    document
+      .querySelectorAll('#ownership .stage-select-wrap.open')
+      .forEach(wrap => {
+        if (wrap === exceptWrap) return;
+        wrap.classList.remove('open');
+        const btn = wrap.querySelector('.stage-select-display');
+        const list = wrap.querySelector('.stage-select-list');
+        if (btn) btn.classList.remove('open');
+        if (list) list.classList.remove('open');
+      });
+  };
+
+  selects.forEach(sel => {
+    // mark so we don't re-enhance on re-render
+    sel.dataset.stageEnhanced = '1';
+
+    const currentText =
+      sel.options[sel.selectedIndex]?.textContent || 'Select stage';
+
+    // wrapper
     const wrap = document.createElement('div');
     wrap.className = 'stage-select-wrap';
 
+    // visible “button”
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'stage-select-display';
+    btn.textContent = currentText;
 
+    // dropdown list
     const list = document.createElement('ul');
     list.className = 'stage-select-list';
 
-    const opts = Array.from(select.options);
-    let current = select.value || opts[0]?.value || "";
-
-    function setLabel(v) {
-      const match = opts.find(o => o.value === v);
-      btn.textContent = match ? match.textContent : "Select";
-    }
-    setLabel(current);
-
-    // Build dropdown list
-    opts.forEach(opt => {
+    // build options
+    Array.from(sel.options).forEach(opt => {
       const li = document.createElement('li');
       li.className = 'stage-select-option';
-      li.textContent = opt.textContent;
       li.dataset.value = opt.value;
-      if (opt.value === current) li.classList.add('selected');
+      li.textContent = opt.textContent;
 
-      li.addEventListener('click', (e) => {
+      if (opt.selected) {
+        li.classList.add('selected');
+      }
+
+      li.addEventListener('click', e => {
         e.stopPropagation();
-        const newVal = li.dataset.value;
 
-        if (newVal !== select.value) {
-          select.value = newVal;
+        // update native select
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
 
-          list.querySelectorAll('.stage-select-option.selected')
-            .forEach(x => x.classList.remove('selected'));
-          li.classList.add('selected');
+        // update visible text
+        btn.textContent = opt.textContent;
 
-          setLabel(newVal);
+        // update selected styling
+        list.querySelectorAll('.stage-select-option').forEach(item => {
+          item.classList.toggle('selected', item === li);
+        });
 
-          // Fire change event so backend logic still works
-          select.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-
-        closeList();
+        // close dropdown
+        wrap.classList.remove('open');
+        btn.classList.remove('open');
+        list.classList.remove('open');
       });
 
       list.appendChild(li);
     });
 
+    // insert wrapper around existing <select>
+    const parent = sel.parentNode;
+    parent.insertBefore(wrap, sel);
+    wrap.appendChild(btn);
+    wrap.appendChild(list);
+    wrap.appendChild(sel); // keep native select inside
 
-    // === OPEN / CLOSE LOGIC ===
-    function openList() {
-      btn.classList.add("open");
-      list.classList.add("open");
-
-      // Lift row above other rows
-      const row = select.closest("tr");
-      if (row) {
-        // close others
-        document.querySelectorAll("tr.stage-open").forEach(r => {
-          if (r !== row) r.classList.remove("stage-open");
-        });
-
-        row.classList.add("stage-open");
-      }
-    }
-
-    function closeList() {
-      btn.classList.remove("open");
-      list.classList.remove("open");
-
-      const row = select.closest("tr");
-      if (row) row.classList.remove("stage-open");
-    }
-
-    btn.addEventListener('click', (e) => {
+    // toggle open/close
+    btn.addEventListener('click', e => {
       e.stopPropagation();
+      const isOpen = wrap.classList.contains('open');
 
-      const isOpening = !list.classList.contains("open");
+      // always close others first
+      closeAllStageDropdowns(wrap);
 
-      // Close other open dropdowns
-      document.querySelectorAll('.stage-select-list.open').forEach(other => {
-        if (other !== list) other.classList.remove('open');
-      });
-      document.querySelectorAll('.stage-select-display.open').forEach(other => {
-        if (other !== btn) other.classList.remove('open');
-      });
-      document.querySelectorAll("tr.stage-open").forEach(r => r.classList.remove("stage-open"));
-
-      if (isOpening) openList();
-      else closeList();
+      if (!isOpen) {
+        wrap.classList.add('open');
+        btn.classList.add('open');
+        list.classList.add('open');
+      } else {
+        wrap.classList.remove('open');
+        btn.classList.remove('open');
+        list.classList.remove('open');
+      }
     });
+  });
 
-    document.addEventListener('click', () => {
-      closeList();
-    });
-
-    // Insert wrapper before select
-    const parent = select.parentNode;
-    if (parent) {
-      parent.insertBefore(wrap, select);
-      wrap.appendChild(btn);
-      wrap.appendChild(list);
-      wrap.appendChild(select);
-    }
-  }
-
-  function initStageDropdowns() {
-    document.querySelectorAll("select.stage-select").forEach(buildStageDropdown);
-
-    // Catch dynamically added rows
-    const obs = new MutationObserver((muts) => {
-      muts.forEach(m => {
-        m.addedNodes.forEach(node => {
-          if (node.nodeType !== 1) return;
-
-          if (node.matches?.("select.stage-select")) {
-            buildStageDropdown(node);
-          }
-
-          node.querySelectorAll?.("select.stage-select").forEach(buildStageDropdown);
-        });
-      });
-    });
-
-    obs.observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initStageDropdowns);
-  } else {
-    initStageDropdowns();
-  }
-
-})();
+  // one global click handler to close when clicking outside
+  document.addEventListener(
+    'click',
+    e => {
+      if (!e.target.closest('#ownership .stage-select-wrap')) {
+        closeAllStageDropdowns();
+      }
+    },
+    { capture: true }
+  );
+}
