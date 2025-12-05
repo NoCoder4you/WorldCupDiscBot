@@ -3109,14 +3109,6 @@ select.stage-select {
     border-radius: 8px;
     font-size: 14px;
     cursor: pointer;
-
-    /* simple custom arrow */
-    background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%),
-                      linear-gradient(135deg, var(--accent) 50%, transparent 50%);
-    background-position: calc(100% - 15px) calc(50% - 4px),
-                         calc(100% - 10px) calc(50% - 4px);
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
 }
 
 /* Neutralize any leftover option styling */
