@@ -1111,6 +1111,8 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .ownership-card {
     border-radius: 14px;
     overflow: hidden;
+    position: relative;
+    z-index: 1;
 }
 
 /* Sticky header with slight backdrop */
@@ -3126,6 +3128,7 @@ body.modal-open footer {
 
 .stage-select-list.open {
   display: block;
+  z-index: 99999 !important;
 }
 
 /* list items */
@@ -3141,4 +3144,9 @@ body.modal-open footer {
 .stage-select-option.selected {
   background: #1c2431;
   color: #ffffff;
+}
+
+#ownership .stage-select-wrap {
+    position: relative;
+    z-index: 5000;
 }
