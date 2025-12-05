@@ -3564,6 +3564,7 @@ async function fetchGoalsData(){
   });
 })();
 
+// ==== Ownership stage dropdown (custom UI over native select) ====
 (function () {
   'use strict';
 
@@ -3571,30 +3572,26 @@ async function fetchGoalsData(){
     if (!select || select.dataset.stageEnhanced === '1') return;
     select.dataset.stageEnhanced = '1';
 
-    // wrapper
     const wrap = document.createElement('div');
     wrap.className = 'stage-select-wrap';
 
-    // visible button
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'stage-select-display';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'stage-select-display';
 
-    // list
     const list = document.createElement('ul');
     list.className = 'stage-select-list';
 
-    const opts = Array.from(select.options || []);
-    let current = select.value || (opts[0] && opts[0].value) || '';
+    const opts = Array.from(select.options);
+    let current = select.value || opts[0]?.value || "";
 
-    function setButtonLabel(value) {
-      const opt = opts.find(o => o.value === value) || opts[0];
-      button.textContent = opt ? opt.textContent : 'Select';
+    function setLabel(v) {
+      const match = opts.find(o => o.value === v);
+      btn.textContent = match ? match.textContent : "Select";
     }
+    setLabel(current);
 
-    setButtonLabel(current);
-
-    // build list items
+    // Build dropdown list
     opts.forEach(opt => {
       const li = document.createElement('li');
       li.className = 'stage-select-option';
@@ -3602,23 +3599,21 @@ async function fetchGoalsData(){
       li.dataset.value = opt.value;
       if (opt.value === current) li.classList.add('selected');
 
-      li.addEventListener('click', e => {
+      li.addEventListener('click', (e) => {
         e.stopPropagation();
         const newVal = li.dataset.value;
 
-        if (select.value !== newVal) {
+        if (newVal !== select.value) {
           select.value = newVal;
 
-          // update selected styling
           list.querySelectorAll('.stage-select-option.selected')
-            .forEach(el => el.classList.remove('selected'));
+            .forEach(x => x.classList.remove('selected'));
           li.classList.add('selected');
 
-          setButtonLabel(newVal);
+          setLabel(newVal);
 
-          // fire change event so existing logic still works
-          const ev = new Event('change', { bubbles: true });
-          select.dispatchEvent(ev);
+          // Fire change event so backend logic still works
+          select.dispatchEvent(new Event("change", { bubbles: true }));
         }
 
         closeList();
@@ -3627,72 +3622,89 @@ async function fetchGoalsData(){
       list.appendChild(li);
     });
 
+
+    // === OPEN / CLOSE LOGIC ===
     function openList() {
-      button.classList.add('open');
-      list.classList.add('open');
+      btn.classList.add("open");
+      list.classList.add("open");
+
+      // Lift row above other rows
+      const row = select.closest("tr");
+      if (row) {
+        // close others
+        document.querySelectorAll("tr.stage-open").forEach(r => {
+          if (r !== row) r.classList.remove("stage-open");
+        });
+
+        row.classList.add("stage-open");
+      }
     }
 
     function closeList() {
-      button.classList.remove('open');
-      list.classList.remove('open');
+      btn.classList.remove("open");
+      list.classList.remove("open");
+
+      const row = select.closest("tr");
+      if (row) row.classList.remove("stage-open");
     }
 
-    button.addEventListener('click', e => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
 
-      // close any other open stage dropdowns
+      const isOpening = !list.classList.contains("open");
+
+      // Close other open dropdowns
       document.querySelectorAll('.stage-select-list.open').forEach(other => {
         if (other !== list) other.classList.remove('open');
       });
       document.querySelectorAll('.stage-select-display.open').forEach(other => {
-        if (other !== button) other.classList.remove('open');
+        if (other !== btn) other.classList.remove('open');
       });
+      document.querySelectorAll("tr.stage-open").forEach(r => r.classList.remove("stage-open"));
 
-      if (list.classList.contains('open')) {
-        closeList();
-      } else {
-        openList();
-      }
+      if (isOpening) openList();
+      else closeList();
     });
 
-    // close when clicking outside
     document.addEventListener('click', () => {
       closeList();
     });
 
-    // insert wrapper before select, then move select inside
+    // Insert wrapper before select
     const parent = select.parentNode;
     if (parent) {
       parent.insertBefore(wrap, select);
-      wrap.appendChild(button);
+      wrap.appendChild(btn);
       wrap.appendChild(list);
       wrap.appendChild(select);
     }
   }
 
   function initStageDropdowns() {
-    document.querySelectorAll('select.stage-select').forEach(buildStageDropdown);
+    document.querySelectorAll("select.stage-select").forEach(buildStageDropdown);
 
-    // watch for dynamically-added stage selects (e.g. when ownership table re-renders)
-    const observer = new MutationObserver(muts => {
+    // Catch dynamically added rows
+    const obs = new MutationObserver((muts) => {
       muts.forEach(m => {
         m.addedNodes.forEach(node => {
           if (node.nodeType !== 1) return;
-          if (node.matches && node.matches('select.stage-select')) {
+
+          if (node.matches?.("select.stage-select")) {
             buildStageDropdown(node);
-          } else if (node.querySelectorAll) {
-            node.querySelectorAll('select.stage-select').forEach(buildStageDropdown);
           }
+
+          node.querySelectorAll?.("select.stage-select").forEach(buildStageDropdown);
         });
       });
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    obs.observe(document.body, { childList: true, subtree: true });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initStageDropdowns);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initStageDropdowns);
   } else {
     initStageDropdowns();
   }
+
 })();

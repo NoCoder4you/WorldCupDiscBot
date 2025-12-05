@@ -3146,3 +3146,16 @@ body.modal-open footer {
     position: relative;
     z-index: 5000;
 }
+
+tr.stage-open {
+  position: relative;
+  z-index: 40;
+}
+
+.stage-select-wrap {
+  position: relative;
+}
+
+.stage-select-list {
+  z-index: 50;
+}
