@@ -3069,6 +3069,7 @@ body.modal-open footer {
     border: 0 !important;
 }
 
+/* wrapper that anchors the fake control */
 .stage-select-wrap {
   position: relative;
   display: inline-block;
@@ -3117,6 +3118,7 @@ body.modal-open footer {
   overflow-y: auto;
   padding: 4px 0;
   list-style: none;
+  z-index: 5000;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
   display: none;
 }
