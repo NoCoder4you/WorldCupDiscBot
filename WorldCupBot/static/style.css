@@ -1217,12 +1217,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     max-height: 85vh;
     overflow-y: auto;
     overflow-x: hidden;
-}
-
-#ownership .ownership-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* Column widths */
@@ -1336,11 +1331,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     margin: 24px auto;
 }
 
-#ownership .ownership-table-scroll {
-    width: 100%;
-    overflow-x: auto;
-    /* scroll wrapper handles overflow again */
-}
 
 #ownership .ownership-table {
     width: 100%;
