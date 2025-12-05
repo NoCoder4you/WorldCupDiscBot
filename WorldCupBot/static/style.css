@@ -3055,6 +3055,27 @@ body.modal-open footer {
   font-weight: 800;
 }
 
+/* --- Ownership page: custom stage dropdown --- */
+
+/* hide the native select but keep it usable for JS */
+#ownership select.stage-select {
+    position: absolute !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+}
+
+/* wrapper that anchors the fake control */
+.stage-select-wrap {
+  position: relative;
+  display: inline-block;
+  min-width: 150px;
+}
+
 /* Closed button */
 .stage-select-display {
   background: #0d141d;          /* dark */
