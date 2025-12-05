@@ -1280,7 +1280,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     top: 0;
     background: rgba(8, 14, 22, 0.92);
     backdrop-filter: saturate(1.2) blur(4px);
-    z-index: 5;
 }
 
 /* Buttons */
