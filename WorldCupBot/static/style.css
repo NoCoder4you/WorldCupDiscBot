@@ -3060,8 +3060,7 @@ body.modal-open footer {
 
 /* --- Ownership page: custom stage dropdown --- */
 
-/* keep native select for JS, but hide it visually */
-select.stage-select {
+#ownership select.stage-select {
     position: absolute !important;
     opacity: 0 !important;
     pointer-events: none !important;
@@ -3072,7 +3071,6 @@ select.stage-select {
     border: 0 !important;
 }
 
-/* wrapper that sits where the select used to be */
 .stage-select-wrap {
   position: relative;
   display: inline-block;
