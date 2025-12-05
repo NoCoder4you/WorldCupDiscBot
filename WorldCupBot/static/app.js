@@ -3563,3 +3563,136 @@ async function fetchGoalsData(){
     }
   });
 })();
+
+(function () {
+  'use strict';
+
+  function buildStageDropdown(select) {
+    if (!select || select.dataset.stageEnhanced === '1') return;
+    select.dataset.stageEnhanced = '1';
+
+    // wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'stage-select-wrap';
+
+    // visible button
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'stage-select-display';
+
+    // list
+    const list = document.createElement('ul');
+    list.className = 'stage-select-list';
+
+    const opts = Array.from(select.options || []);
+    let current = select.value || (opts[0] && opts[0].value) || '';
+
+    function setButtonLabel(value) {
+      const opt = opts.find(o => o.value === value) || opts[0];
+      button.textContent = opt ? opt.textContent : 'Select';
+    }
+
+    setButtonLabel(current);
+
+    // build list items
+    opts.forEach(opt => {
+      const li = document.createElement('li');
+      li.className = 'stage-select-option';
+      li.textContent = opt.textContent;
+      li.dataset.value = opt.value;
+      if (opt.value === current) li.classList.add('selected');
+
+      li.addEventListener('click', e => {
+        e.stopPropagation();
+        const newVal = li.dataset.value;
+
+        if (select.value !== newVal) {
+          select.value = newVal;
+
+          // update selected styling
+          list.querySelectorAll('.stage-select-option.selected')
+            .forEach(el => el.classList.remove('selected'));
+          li.classList.add('selected');
+
+          setButtonLabel(newVal);
+
+          // fire change event so existing logic still works
+          const ev = new Event('change', { bubbles: true });
+          select.dispatchEvent(ev);
+        }
+
+        closeList();
+      });
+
+      list.appendChild(li);
+    });
+
+    function openList() {
+      button.classList.add('open');
+      list.classList.add('open');
+    }
+
+    function closeList() {
+      button.classList.remove('open');
+      list.classList.remove('open');
+    }
+
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+
+      // close any other open stage dropdowns
+      document.querySelectorAll('.stage-select-list.open').forEach(other => {
+        if (other !== list) other.classList.remove('open');
+      });
+      document.querySelectorAll('.stage-select-display.open').forEach(other => {
+        if (other !== button) other.classList.remove('open');
+      });
+
+      if (list.classList.contains('open')) {
+        closeList();
+      } else {
+        openList();
+      }
+    });
+
+    // close when clicking outside
+    document.addEventListener('click', () => {
+      closeList();
+    });
+
+    // insert wrapper before select, then move select inside
+    const parent = select.parentNode;
+    if (parent) {
+      parent.insertBefore(wrap, select);
+      wrap.appendChild(button);
+      wrap.appendChild(list);
+      wrap.appendChild(select);
+    }
+  }
+
+  function initStageDropdowns() {
+    document.querySelectorAll('select.stage-select').forEach(buildStageDropdown);
+
+    // watch for dynamically-added stage selects (e.g. when ownership table re-renders)
+    const observer = new MutationObserver(muts => {
+      muts.forEach(m => {
+        m.addedNodes.forEach(node => {
+          if (node.nodeType !== 1) return;
+          if (node.matches && node.matches('select.stage-select')) {
+            buildStageDropdown(node);
+          } else if (node.querySelectorAll) {
+            node.querySelectorAll('select.stage-select').forEach(buildStageDropdown);
+          }
+        });
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStageDropdowns);
+  } else {
+    initStageDropdowns();
+  }
+})();
