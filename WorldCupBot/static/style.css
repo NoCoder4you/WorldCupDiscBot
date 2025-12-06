@@ -1308,22 +1308,19 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 
 /* === Ownership layout fix (final header alignment) === */
 #ownership .ownership-card {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 110px);
-    overflow: hidden;
-}
-
-#ownership .ownership-card {
     width: 100%;
     max-width: 1320px;
     margin: 24px auto;
-    height: calc(100vh - 120px);
-    display: flex;
-    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;      /* keep header + table crisp */
+    display: block;        /* no flex - height follows content */
+    height: auto;          /* no viewport locking */
 }
+
 #ownership .ownership-table-scroll {
-    flex: 1;
+    max-height: 70vh;      /* scroll inside card when long */
     overflow-y: auto;
     overflow-x: hidden;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
