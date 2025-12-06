@@ -2592,91 +2592,140 @@ async function fetchJSON(url){
       return svg;
     }
 
+    function normalizeTeamName(name){
+      return (name || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')   // strip accents
+        .replace(/['’]/g, '')              // strip apostrophes
+        .replace(/\s+/g, ' ')              // collapse spaces
+        .trim()
+        .toLowerCase();
+    }
+
     function classifyCountries(svg, teamIso, merged, teamMeta){
       const rows = (merged && merged.rows) || [];
 
-      // 1) team -> ownership state
+      // 1) team -> ownership state (store both raw and normalized keys)
       const teamState = {};
       for (const row of rows) {
         const team = row.country;
+        if (!team) continue;
         const ownersCount = row.owners_count || 0;
         const splits = row.split_with || [];
         let status = 'free';
         if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
         if (splits && splits.length > 0) status = 'split';
-        teamState[team] = { status, main: row.main_owner, splits };
+
+        const payload = { status, main: row.main_owner, splits };
+        const norm = normalizeTeamName(team);
+        teamState[team] = payload;
+        teamState[norm] = payload;
       }
 
-      // 2) meta lookups (group, qualified)
+      // 2) meta lookups (group, qualified) with normalized keys
       const teamGroup = {};
       const teamQual  = {};
+
       if (teamMeta) {
         if (teamMeta.groups) {
           // grouped style: { groups:{A:[...]}, not_qualified:[...] }
           Object.entries(teamMeta.groups).forEach(([g, list])=>{
-            (list || []).forEach(t => { teamGroup[t] = g; teamQual[t] = true; });
+            (list || []).forEach(t => {
+              if (!t) return;
+              const norm = normalizeTeamName(t);
+              teamGroup[t] = g;
+              teamGroup[norm] = g;
+              teamQual[t] = true;
+              teamQual[norm] = true;
+            });
           });
-          (teamMeta.not_qualified || []).forEach(t => { teamQual[t] = false; });
+          (teamMeta.not_qualified || []).forEach(t => {
+            if (!t) return;
+            const norm = normalizeTeamName(t);
+            teamQual[t] = false;
+            teamQual[norm] = false;
+          });
         } else {
-          // per-team style: { "England": {group:"C", qualified:true}, ... }
+          // per team style: { "England": {group:"C", qualified:true}, ... }
           Object.entries(teamMeta).forEach(([team, m])=>{
-            teamGroup[team] = m.group || null;
-            teamQual[team]  = (m.qualified === true); // only true counts as qualified
+            if (!team || !m) return;
+            const norm = normalizeTeamName(team);
+            const grp = m.group || null;
+            const q = (m.qualified === true);
+            teamGroup[team] = grp;
+            teamGroup[norm] = grp;
+            teamQual[team] = q;
+            teamQual[norm] = q;
           });
         }
       }
 
       // 3) iso -> team map from /api/team_iso
       const isoToTeam = {};
+      const isoToNormTeam = {};
       Object.keys(teamIso || {}).forEach(team=>{
         const iso = (teamIso[team] || '').toLowerCase();
-        if (iso) isoToTeam[iso] = team;
+        if (!iso) return;
+        isoToTeam[iso] = team;
+        isoToNormTeam[iso] = normalizeTeamName(team);
       });
 
       // 4) paint countries, store datasets, wire tooltips
       svg.querySelectorAll('.country').forEach(el=>{
         const iso = (el.getAttribute('data-iso') || '').toLowerCase();
+        if (!iso) return;
+
         const isoUp = iso.toUpperCase();
         const team = isoToTeam[iso];
+        const normTeam = isoToNormTeam[iso];
         const teamLabel = team || isoUp;
 
         // default: Not Qualified (anything not specified in meta is NQ)
         let status = 'nq';
 
-        // compute qualification only if we have a team name
-        if (team) {
-          // when teamMeta exists, only explicit true is qualified; if no meta, treat as qualified
-          const qualified = teamMeta ? (teamQual[team] === true) : true;
-
-          if (qualified) {
-            status = 'free';
-            if (teamState[team]) status = teamState[team].status;
-          } else {
-            status = 'nq';
-          }
+        // compute qualification
+        let qualified = true;
+        if (teamMeta) {
+          qualified = (teamQual[team] === true || teamQual[normTeam] === true);
         }
 
-        // owners list for tooltip/panel
+        // lookup ownership from either raw or normalized name
+        let ownership = null;
+        if (team || normTeam) {
+          ownership = teamState[team] || teamState[normTeam] || null;
+        }
+
+        if (qualified) {
+          status = 'free';
+          if (ownership) status = ownership.status;
+        } else if (!teamMeta) {
+          // if no meta at all, treat as normal ownership based
+          status = ownership ? ownership.status : 'free';
+        }
+
+        // owners list for tooltip
         const ownerNames = [];
-        if (team && teamState[team]) {
-          const main = teamState[team].main;
-          const splits = teamState[team].splits || [];
+        if (ownership) {
+          const main = ownership.main;
+          const splits = ownership.splits || [];
           if (main && main.username) ownerNames.push(main.username);
           if (splits && splits.length) {
-            ownerNames.push(...splits.map(s => s.username).filter(Boolean));
+            ownerNames.push(...splits.map(s => s && s.username).filter(Boolean));
           }
         }
         const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+
+        const flagEmoji = isoToFlag(isoUp);
+        const group = (teamGroup[team] || teamGroup[normTeam] || '') || '';
 
         // apply classes
         el.classList.remove('owned','split','free','nq','dim');
         el.classList.add(status);
 
         // datasets for click panel and filtering
-        const flagEmoji = isoToFlag(isoUp);
         el.dataset.owners = ownersText;
         el.dataset.team   = teamLabel;
-        el.dataset.group  = team ? (teamGroup[team] || '') : '';
+        el.dataset.group  = group;
         el.dataset.iso    = isoUp;
         el.dataset.flag   = flagEmoji;
 
