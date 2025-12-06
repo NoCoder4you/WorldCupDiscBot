@@ -2604,6 +2604,30 @@ async function fetchJSON(url){
 
     function classifyCountries(svg, teamIso, merged, teamMeta){
       const rows = (merged && merged.rows) || [];
+      const teamIsoMap = teamIso || {};
+
+      // map normalized name -> iso from /api/team_iso
+      const nameToIso = {};
+      Object.entries(teamIsoMap).forEach(([name, iso]) => {
+        const norm = normalizeTeamName(name);
+        const lowIso = String(iso || '').toLowerCase();
+        if (!lowIso || !norm) return;
+        nameToIso[norm] = lowIso;
+      });
+
+      // extra overrides for tricky names
+      const ISO_OVERRIDES = {
+        'cote divoire': 'ci',
+        'cote d ivoire': 'ci',
+        "cote d'ivoire": 'ci',
+        'curaçao': 'cw',
+        'curacao': 'cw'
+      };
+
+      function inferIsoFromName(name){
+        const norm = normalizeTeamName(name);
+        return nameToIso[norm] || ISO_OVERRIDES[norm] || '';
+      }
 
       // 1) team -> ownership state (store both raw and normalized keys)
       const teamState = {};
@@ -2622,9 +2646,13 @@ async function fetchJSON(url){
         teamState[norm] = payload;
       }
 
-      // 2) meta lookups (group, qualified) with normalized keys
+      // 2) meta lookups (group, qualified) with normalized keys + ISO
       const teamGroup = {};
       const teamQual  = {};
+      const isoGroup  = {};
+      const isoQual   = {};
+
+      const allMetaTeams = [];
 
       if (teamMeta) {
         if (teamMeta.groups) {
@@ -2632,30 +2660,50 @@ async function fetchJSON(url){
           Object.entries(teamMeta.groups).forEach(([g, list])=>{
             (list || []).forEach(t => {
               if (!t) return;
+              allMetaTeams.push(t);
               const norm = normalizeTeamName(t);
-              teamGroup[t] = g;
-              teamGroup[norm] = g;
+              const grp = g;
+              const iso = inferIsoFromName(t);
+
+              teamGroup[t] = grp;
+              teamGroup[norm] = grp;
               teamQual[t] = true;
               teamQual[norm] = true;
+
+              if (iso) {
+                isoGroup[iso] = grp;
+                isoQual[iso] = true;
+              }
             });
           });
           (teamMeta.not_qualified || []).forEach(t => {
             if (!t) return;
+            allMetaTeams.push(t);
             const norm = normalizeTeamName(t);
+            const iso = inferIsoFromName(t);
             teamQual[t] = false;
             teamQual[norm] = false;
+            if (iso) isoQual[iso] = false;
           });
         } else {
           // per team style: { "England": {group:"C", qualified:true}, ... }
           Object.entries(teamMeta).forEach(([team, m])=>{
             if (!team || !m) return;
+            allMetaTeams.push(team);
             const norm = normalizeTeamName(team);
             const grp = m.group || null;
             const q = (m.qualified === true);
+            const iso = inferIsoFromName(team);
+
             teamGroup[team] = grp;
             teamGroup[norm] = grp;
             teamQual[team] = q;
             teamQual[norm] = q;
+
+            if (iso) {
+              isoGroup[iso] = grp;
+              isoQual[iso] = q;
+            }
           });
         }
       }
@@ -2663,11 +2711,20 @@ async function fetchJSON(url){
       // 3) iso -> team map from /api/team_iso
       const isoToTeam = {};
       const isoToNormTeam = {};
-      Object.keys(teamIso || {}).forEach(team=>{
-        const iso = (teamIso[team] || '').toLowerCase();
-        if (!iso) return;
-        isoToTeam[iso] = team;
-        isoToNormTeam[iso] = normalizeTeamName(team);
+      Object.entries(teamIsoMap).forEach(([team, iso])=>{
+        const lowIso = String(iso || '').toLowerCase();
+        if (!lowIso) return;
+        const norm = normalizeTeamName(team);
+        isoToTeam[lowIso] = team;
+        isoToNormTeam[lowIso] = norm;
+      });
+
+      // fill any missing ISO entries using meta + overrides
+      Object.keys(isoGroup).forEach(iso => {
+        if (isoToTeam[iso]) return;
+        const label = allMetaTeams.find(name => inferIsoFromName(name) === iso) || iso.toUpperCase();
+        isoToTeam[iso] = label;
+        isoToNormTeam[iso] = normalizeTeamName(label);
       });
 
       // 4) paint countries, store datasets, wire tooltips
@@ -2683,10 +2740,14 @@ async function fetchJSON(url){
         // default: Not Qualified (anything not specified in meta is NQ)
         let status = 'nq';
 
-        // compute qualification
+        // compute qualification (by name OR by ISO)
         let qualified = true;
         if (teamMeta) {
-          qualified = (teamQual[team] === true || teamQual[normTeam] === true);
+          qualified = (
+            teamQual[team] === true ||
+            teamQual[normTeam] === true ||
+            isoQual[iso] === true
+          );
         }
 
         // lookup ownership from either raw or normalized name
@@ -2716,7 +2777,7 @@ async function fetchJSON(url){
         const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
 
         const flagEmoji = isoToFlag(isoUp);
-        const group = (teamGroup[team] || teamGroup[normTeam] || '') || '';
+        const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
         // apply classes
         el.classList.remove('owned','split','free','nq','dim');
