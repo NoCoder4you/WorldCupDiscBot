@@ -910,29 +910,45 @@ function initStageDropdowns() {
         return;
       }
 
-      // temporarily open to measure height
+      // open so we can measure natural height
       list.classList.add('open');
+
+      const btnRect = btn.getBoundingClientRect();
       const listRect = list.getBoundingClientRect();
-      const btnRect  = btn.getBoundingClientRect();
-      const vh       = window.innerHeight || document.documentElement.clientHeight;
 
-      const spaceBelow = vh - btnRect.bottom;
-      const spaceAbove = btnRect.top;
-      const needed     = Math.min(listRect.height, 240) + 8; // list + small margin
+      // measure inside the scroll container, not the whole viewport
+      const scrollBox =
+        wrap.closest('.ownership-table-scroll') ||
+        wrap.closest('.table-scroll') ||
+        document.documentElement;
 
-      // decide direction
-      if (spaceBelow < needed && spaceAbove > spaceBelow) {
-        wrap.classList.add('drop-up');   // open above
+      const boxRect    = scrollBox.getBoundingClientRect();
+      const spaceBelow = boxRect.bottom - btnRect.bottom;
+      const spaceAbove = btnRect.top - boxRect.top;
+
+      const naturalHeight = listRect.height || 240;
+      const margin        = 8;
+      const maxListHeight = 240;
+
+      // decide direction based on space inside the card
+      if (spaceBelow < naturalHeight + margin && spaceAbove > spaceBelow) {
+        // open upwards
+        wrap.classList.add('drop-up');
+        const maxUp = Math.max(80, spaceAbove - margin);
+        list.style.maxHeight = Math.min(maxListHeight, maxUp) + 'px';
       } else {
-        wrap.classList.remove('drop-up'); // open below
+        // open downwards
+        wrap.classList.remove('drop-up');
+        const maxDown = Math.max(80, spaceBelow - margin);
+        list.style.maxHeight = Math.min(maxListHeight, maxDown) + 'px';
       }
     });
 
-    // keep clicks inside from bubbling/closing
+    // keep clicks inside the list from bubbling up and closing everything
     list.addEventListener('click', ev => ev.stopPropagation());
   });
 
-  // click anywhere else closes everything
+  // click anywhere else closes all stage dropdowns
   document.addEventListener('click', () => {
     document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
       ul.classList.remove('open');
@@ -940,6 +956,7 @@ function initStageDropdowns() {
     });
   });
 }
+
 
 
 function fetchOwnershipRows() {
