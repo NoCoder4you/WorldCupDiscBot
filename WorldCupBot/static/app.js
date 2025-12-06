@@ -2392,14 +2392,17 @@ async function fetchJSON(url){
 }
 
     function isoToFlag(iso){
-      if(!iso) return '';
-      iso = iso.toUpperCase();
-      // UK isn't a valid ISO-3166-1 alpha-2 flag, use GB
-      if (iso === 'UK') iso = 'GB';
-      // Must be A-Z chars
-      if (!/^[A-Z]{2}$/.test(iso)) return '';
-      return String.fromCodePoint(127397 + iso.charCodeAt(0))
-           + String.fromCodePoint(127397 + iso.charCodeAt(1));
+      if (!iso) return '';
+      iso = String(iso).toUpperCase();
+
+      // strip suffixes like GB-ENG, GB-SCT, GB-WLS
+      const base = iso.split('-')[0];
+      let flagIso = base;
+      if (flagIso === 'UK') flagIso = 'GB';
+
+      if (!/^[A-Z]{2}$/.test(flagIso)) return '';
+      return String.fromCodePoint(127397 + flagIso.charCodeAt(0))
+           + String.fromCodePoint(127397 + flagIso.charCodeAt(1));
     }
 
     // 24h meta cache
@@ -2570,12 +2573,16 @@ async function fetchJSON(url){
       let tagged = 0;
       nodes.forEach(el=>{
         const raw = (el.getAttribute('data-iso') || el.id || '').trim();
-        if(!raw) return;
+        if (!raw || el.hasAttribute('data-skip')) return;
+
         let iso = '';
-        const m1 = raw.match(/^[A-Za-z]{2}$/);            // GB
-        const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/); // iso-GB
-        if(m1) iso = m1[0].toLowerCase();
-        else if(m2) iso = m2[1].toLowerCase();
+        const m1 = raw.match(/^[A-Za-z]{2}$/);                 // GB
+        const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/);      // iso-GB
+        const m3 = raw.match(/^([A-Za-z]{2}-[A-Za-z0-9]{2,4})$/); // gb-wls, gb-sct, gb-eng
+
+        if (m1) iso = m1[0].toLowerCase();
+        else if (m2) iso = m2[1].toLowerCase();
+        else if (m3) iso = m3[1].toLowerCase();
         else return;
 
         el.classList.add('country','free');
