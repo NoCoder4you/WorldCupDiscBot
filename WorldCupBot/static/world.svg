@@ -342,7 +342,7 @@
      href="#GB"
      clip-path="url(#clip-gb-scotland)"
      class="country"
-     data-iso="SCO" />
+     data-iso="gb-sct" />
 
 <use id="Wales"
      href="#GB"
