@@ -793,6 +793,7 @@ function sortMerged(by) {
     list.sort(function (a, b) { return name(a).localeCompare(name(b)); });
   }
   renderOwnershipTable(list);
+  initStageDropdowns();
 }
 
 function enhanceStageSelects() {
@@ -882,6 +883,64 @@ function enhanceStageSelects() {
     }
   });
 }
+
+function initStageDropdowns() {
+  const wraps = document.querySelectorAll('#ownership .stage-select-wrap');
+
+  wraps.forEach(wrap => {
+    const btn  = wrap.querySelector('.stage-select-display');
+    const list = wrap.querySelector('.stage-select-list');
+    if (!btn || !list) return;
+
+    btn.addEventListener('click', ev => {
+      ev.stopPropagation();
+
+      // close any other open dropdowns
+      document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
+        if (ul !== list) {
+          ul.classList.remove('open');
+          ul.closest('.stage-select-wrap')?.classList.remove('drop-up');
+        }
+      });
+
+      // toggle off if already open
+      if (list.classList.contains('open')) {
+        list.classList.remove('open');
+        wrap.classList.remove('drop-up');
+        return;
+      }
+
+      // temporarily open to measure height
+      list.classList.add('open');
+      const listRect = list.getBoundingClientRect();
+      const btnRect  = btn.getBoundingClientRect();
+      const vh       = window.innerHeight || document.documentElement.clientHeight;
+
+      const spaceBelow = vh - btnRect.bottom;
+      const spaceAbove = btnRect.top;
+      const needed     = Math.min(listRect.height, 240) + 8; // list + small margin
+
+      // decide direction
+      if (spaceBelow < needed && spaceAbove > spaceBelow) {
+        wrap.classList.add('drop-up');   // open above
+      } else {
+        wrap.classList.remove('drop-up'); // open below
+      }
+    });
+
+    // keep clicks inside from bubbling/closing
+    list.addEventListener('click', ev => ev.stopPropagation());
+  });
+
+  // click anywhere else closes everything
+  document.addEventListener('click', () => {
+    document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
+      ul.classList.remove('open');
+      ul.closest('.stage-select-wrap')?.classList.remove('drop-up');
+    });
+  });
+}
+
 
 function fetchOwnershipRows() {
   return fetch('/api/ownership_from_players').then(function (r) {
