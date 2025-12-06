@@ -312,23 +312,25 @@
   title="United Kingdom"
   id="GB" />
 
+<!-- Split UK into Scotland / Wales / England using clips -->
 <defs>
-  <!-- Scotland -->
+  <!-- Scotland: top region -->
   <clipPath id="clip-gb-scotland">
-    <rect x="451.8" y="247.0" width="27.9" height="23.5" />
+    <rect x="452.034" y="247.367" width="27.765" height="25.20" />
   </clipPath>
 
-  <!-- Wales -->
+  <!-- Wales: bottom-left -->
   <clipPath id="clip-gb-wales">
-    <rect x="451.5" y="270.5" width="10.5" height="31.0" />
+    <rect x="452.034" y="270.064" width="11.106" height="31.07" />
   </clipPath>
 
-  <!-- England -->
+  <!-- England: bottom-right -->
   <clipPath id="clip-gb-england">
-    <rect x="457.0" y="270.5" width="21.8" height="31.0" />
+    <rect x="458.975" y="270.064" width="20.824" height="31.07" />
   </clipPath>
 </defs>
 
+<!-- Individual clickable overlays -->
 <use id="England"
      href="#GB"
      clip-path="url(#clip-gb-england)"
