@@ -2568,31 +2568,40 @@ async function fetchJSON(url){
       host.innerHTML = txt;
       const svg = host.querySelector('svg');
 
-      // Tag only real country shapes whose id is ISO-2 or "iso-xx"
-      const nodes = svg.querySelectorAll('path[id], polygon[id], rect[id], g[id], [data-iso]');
-      let tagged = 0;
-      nodes.forEach(el=>{
-        const raw = (el.getAttribute('data-iso') || el.id || '').trim();
-        if (!raw || el.hasAttribute('data-skip')) return;
+    // Tag country shapes whose id/data-iso is ISO-2 or UK home-nation codes
+    const nodes = svg.querySelectorAll(
+      'path[id], polygon[id], rect[id], g[id], use[id], [data-iso]'
+    );
 
-        let iso = '';
-        const m1 = raw.match(/^[A-Za-z]{2}$/);                 // GB
-        const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/);      // iso-GB
-        const m3 = raw.match(/^([A-Za-z]{2}-[A-Za-z0-9]{2,4})$/); // gb-wls, gb-sct, gb-eng
+    let tagged = 0;
 
-        if (m1) iso = m1[0].toLowerCase();
-        else if (m2) iso = m2[1].toLowerCase();
-        else if (m3) iso = m3[1].toLowerCase();
-        else return;
+    nodes.forEach(el=>{
+      const raw = (el.getAttribute('data-iso') || el.id || '').trim();
+      if(!raw) return;
 
-        el.classList.add('country','free');
-        el.setAttribute('data-iso', iso);
-        el.setAttribute('tabindex','0');
-        el.setAttribute('role','button');
-        el.setAttribute('aria-label', iso.toUpperCase());
-        tagged++;
-      });
-      console.debug('world.svg tagged countries:', tagged);
+      let iso = '';
+
+      // Standard ISO-2
+      const m1 = raw.match(/^[A-Za-z]{2}$/);                 // GB
+      const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/);      // iso-GB
+
+      // UK home nations (your panel format)
+      const m3 = raw.match(/^gb-(sct|wls|nir)$/i);           // gb-sct, gb-wls, gb-nir
+
+      if (m1) iso = m1[0].toLowerCase();
+      else if (m2) iso = m2[1].toLowerCase();
+      else if (m3) iso = `gb-${m3[1].toLowerCase()}`;
+      else return;
+
+      el.classList.add('country','free');
+      el.setAttribute('data-iso', iso);
+      el.setAttribute('tabindex','0');
+      el.setAttribute('role','button');
+      el.setAttribute('aria-label', iso.toUpperCase());
+      tagged++;
+    });
+
+    console.debug('world.svg tagged countries:', tagged);
 
       // Ensure a dedicated pan root that won't clobber existing transforms
       ensurePanRoot(svg);
