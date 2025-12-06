@@ -1307,6 +1307,15 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 /* === Ownership layout fix (final header alignment) === */
+body.user-admin-view #ownership .ownership-card {
+  height: auto !important;
+}
+
+body.user-admin-view #ownership .ownership-table-scroll {
+  height: auto !important;
+  max-height: none !important;
+}
+
 #ownership .ownership-card {
     width: 100%;
     max-width: 1320px;
