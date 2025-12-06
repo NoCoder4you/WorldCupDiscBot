@@ -3069,29 +3069,33 @@ body.modal-open footer {
   background: #111b28;
 }
 
+/* Dropdown list */
 .stage-select-list {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
   right: 0;
+  margin-bottom: 6px;
+
   background: #0f1823;
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 4px 0;
   max-height: 240px;
   overflow-y: auto;
-  transform-origin: top;
+
+  transform-origin: bottom;
   transform: scaleY(0.92);
   opacity: 0;
   pointer-events: none;
   transition: opacity .12s ease, transform .12s ease;
-  z-index: 9999;
 }
 
 .stage-select-list.open {
   opacity: 1;
   pointer-events: auto;
   transform: scaleY(1);
+  z-index: 9999;
 }
 
 /* Options */
