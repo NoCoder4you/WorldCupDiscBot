@@ -3094,14 +3094,6 @@ body.modal-open footer {
   transform: scaleY(1);
 }
 
-/* When JS decides to open UP instead */
-.stage-select-wrap.drop-up .stage-select-list {
-  top: auto;
-  bottom: 100%;
-  transform-origin: bottom;
-}
-
-
 /* Options */
 .stage-select-option {
   padding: 8px 12px;
@@ -3124,4 +3116,16 @@ select.stage-select {
   display: none !important;
 }
 
+/* default: open BELOW the button */
+.stage-select-wrap .stage-select-list {
+  top: calc(100% + 4px);
+  bottom: auto;
+  transform-origin: top;
+}
 
+/* when JS adds .drop-up, open ABOVE the button */
+.stage-select-wrap.drop-up .stage-select-list {
+  top: auto;
+  bottom: calc(100% + 4px);
+  transform-origin: bottom;
+}
