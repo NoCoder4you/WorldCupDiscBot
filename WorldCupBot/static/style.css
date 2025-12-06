@@ -3028,16 +3028,16 @@ body.modal-open footer {
 
 /* --- Ownership page: custom stage dropdown --- */
 
-/* hide the native select but keep it usable for JS */
+/* hide the native select but keep it for JS/value */
 #ownership select.stage-select {
-    position: absolute !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 /* wrapper that anchors the fake control */
@@ -3064,33 +3064,34 @@ body.modal-open footer {
   background: #111b28;
 }
 
-/* Dropdown list */
+/* Dropdown list – completely out of flow by default */
 .stage-select-list {
   position: absolute;
-  bottom: 100%;
   left: 0;
   right: 0;
-  margin-bottom: 6px;
+  max-height: 240px;
+  overflow-y: auto;
 
   background: #0f1823;
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 4px 0;
-  max-height: 240px;
-  overflow-y: auto;
 
-  transform-origin: bottom;
-  transform: scaleY(0.92);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .12s ease, transform .12s ease;
+  display: none;          /* 🔑 no layout impact when closed */
+  z-index: 9999;
 }
 
-.stage-select-list.open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: scaleY(1);
-  z-index: 9999;
+/* Open BELOW by default */
+.stage-select-wrap .stage-select-list.open {
+  display: block;
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+
+/* Open ABOVE when JS adds .drop-up */
+.stage-select-wrap.drop-up .stage-select-list.open {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 /* Options */
@@ -3108,23 +3109,4 @@ body.modal-open footer {
 .stage-select-option.selected {
   background: rgba(0, 255, 200, 0.18);
   font-weight: 600;
-}
-
-/* Hide real select */
-select.stage-select {
-  display: none !important;
-}
-
-/* default: open BELOW the button */
-.stage-select-wrap .stage-select-list {
-  top: calc(100% + 4px);
-  bottom: auto;
-  transform-origin: top;
-}
-
-/* when JS adds .drop-up, open ABOVE the button */
-.stage-select-wrap.drop-up .stage-select-list {
-  top: auto;
-  bottom: calc(100% + 4px);
-  transform-origin: bottom;
 }
