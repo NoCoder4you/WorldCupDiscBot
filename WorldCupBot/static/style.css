@@ -1323,9 +1323,9 @@ body.user-admin-view #ownership .ownership-table-scroll {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    overflow: hidden;      /* keep header + table crisp */
-    display: block;        /* no flex - height follows content */
-    height: auto;          /* no viewport locking */
+    overflow: hidden;
+    display: block;
+    height: auto;
 }
 
 #ownership .ownership-table-scroll {
@@ -3071,10 +3071,11 @@ body.modal-open footer {
 
 /* Dropdown list */
 .stage-select-list {
-  position: absolute;        /* ⭐ anchor to wrapper */
-  top: 100%;
+  position: absolute;
+  bottom: 100%;
   left: 0;
   right: 0;
+  margin-bottom: 6px;
 
   background: #0f1823;
   border: 1px solid var(--accent);
@@ -3083,7 +3084,7 @@ body.modal-open footer {
   max-height: 240px;
   overflow-y: auto;
 
-  transform-origin: top;
+  transform-origin: bottom;
   transform: scaleY(0.92);
   opacity: 0;
   pointer-events: none;
