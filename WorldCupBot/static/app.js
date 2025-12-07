@@ -2848,6 +2848,9 @@ async function fetchJSON(url){
         // derive iso from data if unknown
         const inferIso = inferIsoFromName(team) || iso;
 
+        // label used in tooltip + side card
+        const teamLabel = team;
+
         // default: assume qualified, free
         // (NQ only if explicitly in meta with qualified=false, or if meta exists and team not specified in meta is NQ)
         let status = 'nq';
@@ -3157,12 +3160,6 @@ async function fetchJSON(url){
             });
         });
     }
-
-/* =========================
-   WORLD MAP - interactive SVG
-   ========================= */
-(function(){
-  const host = document.getElementById('map-svg-host');
 
     // Load which countries the current logged-in user owns (main owner only)
     async function loadSelfOwnership(){
