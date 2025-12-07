@@ -1927,21 +1927,6 @@ body.user-admin-view #ownership .ownership-card {
   fill: #ffcc00 !important;
 }
 
-.map-legend {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    background: rgba(8, 14, 22, 0.92);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 10px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    font-weight: 700;
-    color: var(--text);
-}
-
 .map-legend .key.box {
     display: inline-block;
     width: 14px;
@@ -1949,6 +1934,10 @@ body.user-admin-view #ownership .ownership-card {
     border-radius: 3px;
     margin-right: 6px;
     vertical-align: -2px;
+}
+
+.map-legend .key.box.self {
+    background: var(--warn);
 }
 
 .map-legend .key.box.owned {
