@@ -2849,73 +2849,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return panRoot;
   }
 
-  function enablePanZoom(svg){
-    const panRoot       = ensurePanRoot(svg);
-    const baseTransform = panRoot.getAttribute('transform') || '';
-
-    let scale   = 1;
-    const min   = 0.7;
-    const max   = 5;
-    let originX = 0;
-    let originY = 0;
-    let startX  = 0;
-    let startY  = 0;
-    let panning = false;
-
-    function apply(){
-      panRoot.setAttribute(
-        'transform',
-        `${baseTransform} translate(${originX},${originY}) scale(${scale})`.trim()
-      );
-    }
-
-    svg.classList.add('map-pannable');
-
-    svg.addEventListener('wheel', (e)=>{
-      e.preventDefault();
-      const delta  = Math.sign(e.deltaY);
-      const factor = 1 - (delta * 0.08);
-      const newScale = Math.min(max, Math.max(min, scale * factor));
-      if (newScale === scale) return;
-
-      const pt = svg.createSVGPoint();
-      pt.x = e.offsetX;
-      pt.y = e.offsetY;
-      try {
-        const ctm    = svg.getScreenCTM().inverse();
-        const cursor = pt.matrixTransform(ctm);
-        originX = cursor.x - (cursor.x - originX) * (newScale / scale);
-        originY = cursor.y - (cursor.y - originY) * (newScale / scale);
-      } catch(_){}
-
-      scale = newScale;
-      apply();
-    }, { passive:false });
-
-    svg.addEventListener('mousedown', (e)=>{
-      panning = true;
-      startX  = e.clientX;
-      startY  = e.clientY;
-      svg.classList.add('grabbing');
-    });
-
-    window.addEventListener('mousemove', (e)=>{
-      if (!panning) return;
-      originX += (e.clientX - startX) / scale;
-      originY += (e.clientY - startY) / scale;
-      startX   = e.clientX;
-      startY   = e.clientY;
-      apply();
-    });
-
-    window.addEventListener('mouseup', ()=>{
-      panning = false;
-      svg.classList.remove('grabbing');
-    });
-
-    apply();
-  }
-
   function enableClickZoom(svg){
     const infoBox = document.getElementById('map-country-info');
 
@@ -3098,7 +3031,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       enableClickZoom(svg);
-      enablePanZoom(svg);
 
     } catch (e) {
       console.error('Map render error:', e);
