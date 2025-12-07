@@ -2609,23 +2609,30 @@ async function fetchJSON(url){
       return svg;
     }
 
-    function applySelfOwnershipColors(svg, merged, currentUserId) {
+    function applySelfOwnershipColors(svg, merged) {
       if (!svg || !merged || !merged.rows) return;
 
-      // Map: iso -> array of owner IDs
+      // Try to detect current user details from globals
+      const u =
+        (window.state && window.state.user) ||
+        window.wcUser ||
+        {};
+
+      const currentUserId = u.discord_id || u.id || null;
+      const currentUserName = (u.username || u.global_name || u.display_name || '').toLowerCase();
+
+      // Map: iso -> array of owner objects
       const isoOwners = {};
       merged.rows.forEach(row => {
-        const team = row.country;
-        if (!team) return;
+        const iso = (row.iso || row.country_iso || row.team_iso || '').toLowerCase();
+        if (!iso) return;
 
         const owners = [];
-        if (row.main_owner?.id) owners.push(String(row.main_owner.id));
-        if (Array.isArray(row.split_with)) {
-          row.split_with.forEach(s => owners.push(String(s.id)));
-        }
 
-        const iso = (row.iso || row.country_iso || '').toLowerCase();
-        if (!iso) return;
+        if (row.main_owner) owners.push(row.main_owner);
+        if (Array.isArray(row.split_with)) {
+          row.split_with.forEach(s => owners.push(s));
+        }
 
         isoOwners[iso] = owners;
       });
@@ -2636,15 +2643,25 @@ async function fetchJSON(url){
 
         const owners = isoOwners[iso] || [];
 
-        // Always clear previous state
+        // Clear previous state
         el.classList.remove('country-owned-self', 'country-owned-other');
 
-        if (owners.length === 0) return;
+        if (!owners.length) return;
 
-        if (owners.includes(String(currentUserId))) {
-          el.classList.add('country-owned-self');       // YOU own it
+        const isSelf = owners.some(o => {
+          const oid = String(o.discord_id || o.id || o.user_id || '');
+          const oname = String(o.name || o.username || o.display_name || '').toLowerCase();
+
+          const idMatch = currentUserId && oid && String(currentUserId) === oid;
+          const nameMatch = currentUserName && oname && currentUserName === oname;
+
+          return idMatch || nameMatch;
+        });
+
+        if (isSelf) {
+          el.classList.add('country-owned-self');
         } else {
-          el.classList.add('country-owned-other');      // Someone else owns it
+          el.classList.add('country-owned-other');
         }
       });
     }
@@ -3133,7 +3150,7 @@ async function fetchJSON(url){
 
         // Color, store data attributes, and init groups
         classifyCountries(svg, iso, merged, meta);
-        applySelfOwnershipColors(svg, merged, window?.state?.user?.discord_id);
+        applySelfOwnershipColors(svg, merged);
         populateGroupSelector(meta);
         applyGroupFilter(svg);
 
