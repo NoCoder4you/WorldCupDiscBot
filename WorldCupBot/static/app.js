@@ -2354,29 +2354,36 @@ document.addEventListener('DOMContentLoaded', () => {
    WORLD MAP - interactive SVG
    ========================= */
 (function(){
-  const host = document.getElementById('map-svg-host');
-  const tip  = document.getElementById('map-tip');
+  const host       = document.getElementById('map-svg-host');
+  const tip        = document.getElementById('map-tip');
   const btnRefresh = document.getElementById('worldmap-refresh');
 
-  const CACHE_TTL_MS = 60*1000; // 60s cache
+  if (!host || !tip) return;
+
+  const CACHE_TTL_MS = 60 * 1000; // 60s cache
 
   function now(){ return Date.now(); }
+
   function getCache(key){
     try{
       const blob = JSON.parse(localStorage.getItem(key) || 'null');
-      if(!blob) return null;
-      if((now() - (blob.ts||0)) > CACHE_TTL_MS) return null;
+      if (!blob) return null;
+      if ((now() - (blob.ts || 0)) > CACHE_TTL_MS) return null;
       return blob.data;
-    }catch(e){ return null; }
-  }
-  function setCache(key, data){
-    try{ localStorage.setItem(key, JSON.stringify({ts: now(), data})); }catch(e){}
+    }catch(e){
+      return null;
+    }
   }
 
-async function fetchJSON(url){
-  try{
-    const r = await fetch(url, {cache:'no-store'});
-    if(!r.ok){
+  function setCache(key, data){
+    try{
+      localStorage.setItem(key, JSON.stringify({ ts: now(), data }));
+    }catch(e){}
+  }
+
+  const fetchJSON = window.fetchJSON || (async function(url){
+    const r = await fetch(url, { cache:'no-store' });
+    if (!r.ok){
       let body = '';
       try { body = await r.text(); } catch(_){}
       const err = new Error(`HTTP ${r.status} @ ${url}${body ? ` — ${body.slice(0,200)}` : ''}`);
@@ -2385,90 +2392,7 @@ async function fetchJSON(url){
       throw err;
     }
     return await r.json();
-  }catch(e){
-    console.error('fetchJSON failed:', e);
-    throw e;
-  }
-}
-
-    function isoToFlag(iso) {
-      if (!iso) return '';
-      const code = String(iso).trim().toLowerCase();
-      if (!code) return '';
-
-      const safe = code.replace(/[^a-z0-9-]/g, '');
-      const url  = `https://flagcdn.com/48x36/${safe}.png`;
-
-      return `<img class="flag-img" src="${url}" alt="${safe} flag" loading="lazy"
-              onerror="this.style.display='none';">`;
-    }
-
-    // 24h meta cache
-    async function loadTeamMeta(){
-      const CK = 'wc:team_meta';
-      const TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-      // read cache
-      try{
-        const blob = JSON.parse(localStorage.getItem(CK) || 'null');
-        if (blob && (Date.now() - (blob.ts || 0)) < TTL) {
-          return blob.data;
-        }
-      }catch{}
-
-      // fetch fresh
-      try{
-        const r = await fetch('/api/team_meta', {cache:'no-store'});
-        if(!r.ok) throw new Error('meta missing');
-        const data = await r.json();
-        localStorage.setItem(CK, JSON.stringify({ ts: Date.now(), data }));
-        return data;
-      }catch(_){
-        // gracefully run without meta
-        return null;
-      }
-    }
-
-/* =========================
-   WORLD MAP - interactive SVG
-   ========================= */
-(function(){
-  const host = document.getElementById('map-svg-host');
-  const tip  = document.getElementById('map-tip');
-  const btnRefresh = document.getElementById('worldmap-refresh');
-
-  const CACHE_TTL_MS = 60*1000; // 60s cache
-
-  function now(){ return Date.now(); }
-  function getCache(key){
-    try{
-      const blob = JSON.parse(localStorage.getItem(key) || 'null');
-      if(!blob) return null;
-      if((now() - (blob.ts||0)) > CACHE_TTL_MS) return null;
-      return blob.data;
-    }catch(e){ return null; }
-  }
-  function setCache(key, data){
-    try{ localStorage.setItem(key, JSON.stringify({ts: now(), data})); }catch(e){}
-  }
-
-  async function fetchJSON(url){
-    try{
-      const r = await fetch(url, {cache:'no-store'});
-      if(!r.ok){
-        let body = '';
-        try { body = await r.text(); } catch(_){}
-        const err = new Error(`HTTP ${r.status} @ ${url}${body ? ` — ${body.slice(0,200)}` : ''}`);
-        err.status = r.status;
-        err.url = url;
-        throw err;
-      }
-      return await r.json();
-    }catch(e){
-      console.error('fetchJSON failed:', e);
-      throw e;
-    }
-  }
+  });
 
   function escapeHtml(str){
     return String(str || '')
@@ -2493,7 +2417,7 @@ async function fetchJSON(url){
 
   // 24h meta cache
   async function loadTeamMeta(){
-    const CK = 'wc:team_meta';
+    const CK  = 'wc:team_meta';
     const TTL = 24 * 60 * 60 * 1000; // 24 hours
 
     try{
@@ -2519,27 +2443,29 @@ async function fetchJSON(url){
   async function loadTeamIso(){
     const CK = 'wc:team_iso';
     const cached = getCache(CK);
-    if(cached) return cached;
+    if (cached) return cached;
     const data = await fetchJSON('/api/team_iso');
     setCache(CK, data);
     return data;
   }
+
   async function loadOwnership(){
     const CK = 'wc:ownership_merged';
     const cached = getCache(CK);
-    if(cached) return cached;
+    if (cached) return cached;
     const data = await fetchJSON('/api/ownership_merged');
     setCache(CK, data);
     return data;
   }
 
   async function inlineSVG(path){
-    const txt = await fetch(path, {cache:'no-store'}).then(r=>{
+    const txt = await fetch(path, { cache:'no-store' }).then(r=>{
       if(!r.ok) throw new Error('map svg not found');
       return r.text();
     });
     host.innerHTML = txt;
     const svg = host.querySelector('svg');
+    if (!svg) throw new Error('SVG root missing');
 
     const nodes = svg.querySelectorAll('path[id], polygon[id], rect[id], g[id], [data-iso]');
     let tagged = 0;
@@ -2579,66 +2505,8 @@ async function fetchJSON(url){
 
     console.debug('world.svg tagged countries:', tagged);
 
-    // Ensure a dedicated pan root that won't clobber existing transforms
     ensurePanRoot(svg);
     return svg;
-  }
-
-  function applySelfOwnershipColors(svg, merged) {
-    if (!svg || !merged || !merged.rows) return;
-
-    // Try to detect current user details from globals
-    const u =
-      (window.state && window.state.user) ||
-      window.wcUser ||
-      {};
-
-    const currentUserId = u.discord_id || u.id || null;
-    const currentUserName = (u.username || u.global_name || u.display_name || '').toLowerCase();
-
-    // Map: iso -> array of owner objects
-    const isoOwners = {};
-    merged.rows.forEach(row => {
-      const iso = (row.iso || row.country_iso || row.team_iso || '').toLowerCase();
-      if (!iso) return;
-
-      const owners = [];
-
-      if (row.main_owner) owners.push(row.main_owner);
-      if (Array.isArray(row.split_with)) {
-        row.split_with.forEach(s => owners.push(s));
-      }
-
-      isoOwners[iso] = owners;
-    });
-
-    svg.querySelectorAll('.country').forEach(el => {
-      const iso = (el.dataset.iso || '').toLowerCase();
-      if (!iso) return;
-
-      const owners = isoOwners[iso] || [];
-
-      // Clear previous state
-      el.classList.remove('country-owned-self', 'country-owned-other');
-
-      if (!owners.length) return;
-
-      const isSelf = owners.some(o => {
-        const oid = String(o.discord_id || o.id || o.user_id || '');
-        const oname = String(o.name || o.username || o.display_name || '').toLowerCase();
-
-        const idMatch = currentUserId && oid && String(currentUserId) === oid;
-        const nameMatch = currentUserName && oname && currentUserName === oname;
-
-        return idMatch || nameMatch;
-      });
-
-      if (isSelf) {
-        el.classList.add('country-owned-self');
-      } else {
-        el.classList.add('country-owned-other');
-      }
-    });
   }
 
   function normalizeTeamName(name){
@@ -2651,6 +2519,11 @@ async function fetchJSON(url){
       .toLowerCase();
   }
 
+  function isoToNormTeam(isoToTeam, iso, fallbackTeam){
+    const fromIso = isoToTeam[iso] || fallbackTeam || '';
+    return normalizeTeamName(fromIso);
+  }
+
   function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams){
     const rows = (merged && merged.rows) || [];
     const teamIsoMap = teamIso || {};
@@ -2661,25 +2534,22 @@ async function fetchJSON(url){
     // map normalized team name -> iso from /api/team_iso
     const nameToIso = {};
     Object.entries(teamIsoMap).forEach(([name, iso]) => {
-      const norm = normalizeTeamName(name);
+      const norm   = normalizeTeamName(name);
       const lowIso = String(iso || '').toLowerCase();
       if (!norm || !lowIso) return;
       nameToIso[norm] = lowIso;
     });
 
     const ISO_OVERRIDES = {
-      'cote divoire': 'ci',
-      'cote d ivoire': 'ci',
-      "cote d'ivoire": 'ci',
-
-      // Curaçao
-      'curacao': 'cw',
-      'curaçao': 'cw',
-
-      'england': 'gb-eng',
-      'scotland': 'gb-sct',
-      'wales': 'gb-wls',
-      'northern ireland': 'gb-nir'
+      'cote divoire'       : 'ci',
+      'cote d ivoire'      : 'ci',
+      "cote d'ivoire"      : 'ci',
+      'curacao'            : 'cw',
+      'curaçao'            : 'cw',
+      'england'            : 'gb-eng',
+      'scotland'           : 'gb-sct',
+      'wales'              : 'gb-wls',
+      'northern ireland'   : 'gb-nir'
     };
 
     function inferIsoFromName(name){
@@ -2687,28 +2557,26 @@ async function fetchJSON(url){
       return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
     }
 
-    // 1) team -> ownership state (store both raw and normalized keys)
+    // 1) team -> ownership state
     const teamState = {};
     for (const row of rows) {
-      const team = row.country;
+      const team   = row.country;
       if (!team) continue;
-      const ownersCount = row.owners_count || 0;
+      const owners = row.owners_count || 0;
       const splits = row.split_with || [];
 
-      const norm = normalizeTeamName(team);
+      const norm   = normalizeTeamName(team);
       const isSelf = selfSet.has(norm);
 
       let status = 'free';
-      if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
+      if (owners > 0 && (!splits || splits.length === 0)) status = 'owned';
       if (splits && splits.length > 0) status = 'split';
+      if (isSelf && status === 'owned') status = 'self';
 
-      // if you are the main owner of this team, mark as self
-      if (isSelf && status === 'owned') {
-        status = 'self';
-      }
+      const stateObj = { status, main: row.main_owner, splits: row.split_with };
 
-      if (!teamState[team]) teamState[team] = { status, main: row.main_owner, splits: row.split_with };
-      if (!teamState[norm]) teamState[norm] = teamState[team];
+      if (!teamState[team])  teamState[team]  = stateObj;
+      if (!teamState[norm])  teamState[norm]  = stateObj;
     }
 
     // 2) build meta lookups (qualified, group) keyed by team name or iso
@@ -2723,21 +2591,21 @@ async function fetchJSON(url){
         Object.entries(teamMeta.groups).forEach(([g, arr]) => {
           arr.forEach(item => {
             const tName = item.team || item.name || '';
-            const iso = (item.iso || '').toLowerCase();
-            const q = item.qualified !== false; // default true
+            const iso   = (item.iso || '').toLowerCase();
+            const q     = item.qualified !== false; // default true
 
             const norm = normalizeTeamName(tName);
 
             if (tName) {
-              teamQual[tName] = q;
-              teamGroup[tName] = g;
+              teamQual[tName]   = q;
+              teamGroup[tName]  = g;
             }
             if (norm) {
-              teamQual[norm] = q;
-              teamGroup[norm] = g;
+              teamQual[norm]   = q;
+              teamGroup[norm]  = g;
             }
             if (iso) {
-              isoQual[iso] = q;
+              isoQual[iso]  = q;
               isoGroup[iso] = g;
             }
           });
@@ -2747,22 +2615,22 @@ async function fetchJSON(url){
         Object.values(teamMeta).forEach(item => {
           if (!item) return;
           const tName = item.team || item.name || '';
-          const iso = (item.iso || '').toLowerCase();
-          const q = item.qualified !== false;
-          const g = item.group || '';
+          const iso   = (item.iso || '').toLowerCase();
+          const q     = item.qualified !== false;
+          const g     = item.group || '';
 
           const norm = normalizeTeamName(tName);
 
           if (tName) {
-            teamQual[tName] = q;
+            teamQual[tName]  = q;
             teamGroup[tName] = g;
           }
           if (norm) {
-            teamQual[norm] = q;
+            teamQual[norm]  = q;
             teamGroup[norm] = g;
           }
           if (iso) {
-            isoQual[iso] = q;
+            isoQual[iso]  = q;
             isoGroup[iso] = g;
           }
         });
@@ -2771,7 +2639,7 @@ async function fetchJSON(url){
 
     const isoToTeam = {};
     Object.entries(teamIsoMap).forEach(([name, iso]) => {
-      const norm = normalizeTeamName(name);
+      const norm   = normalizeTeamName(name);
       const lowIso = String(iso || '').toLowerCase();
       if (!norm || !lowIso) return;
       isoToTeam[lowIso] = name;
@@ -2781,34 +2649,30 @@ async function fetchJSON(url){
       const isoRaw = (el.getAttribute('data-iso') || '').toLowerCase();
       if (!isoRaw) return;
 
-      const iso = isoRaw;
+      const iso   = isoRaw;
       const isoUp = iso.toUpperCase();
 
       // from ISO to team name
-      const team = isoToTeam[iso] || isoUp;
+      const team     = isoToTeam[iso] || isoUp;
       const normTeam = isoToNormTeam(isoToTeam, iso, team);
 
-      // derive iso from data if unknown
+      // derive iso from name if needed
       const inferIso = inferIsoFromName(team) || iso;
 
-      // label used in tooltip + side card
       const teamLabel = team;
 
-      // default: assume qualified, free
-      // (NQ only if explicitly in meta with qualified=false, or if meta exists and team not specified in meta is NQ)
+      // default: not qualified unless meta says otherwise
       let status = 'nq';
 
-      // compute qualification (by name OR by ISO)
       let qualified = true;
       if (teamMeta) {
         qualified = (
-          teamQual[team] === true ||
-          teamQual[normTeam] === true ||
-          isoQual[iso] === true
+          teamQual[team]      === true ||
+          teamQual[normTeam]  === true ||
+          isoQual[iso]        === true
         );
       }
 
-      // lookup ownership from either raw or normalized name
       let ownership = null;
       if (team || normTeam) {
         ownership = teamState[team] || teamState[normTeam] || null;
@@ -2818,14 +2682,14 @@ async function fetchJSON(url){
         status = 'free';
         if (ownership) status = ownership.status;
       } else if (!teamMeta) {
-        // if no meta at all, treat as normal ownership based
+        // if no meta at all, fallback to ownership only
         status = ownership ? ownership.status : 'free';
       }
 
       // owners list for tooltip
       const ownerNames = [];
       if (ownership) {
-        const main = ownership.main;
+        const main   = ownership.main;
         const splits = ownership.splits || [];
         if (main && main.username) ownerNames.push(main.username);
         if (splits && splits.length) {
@@ -2834,7 +2698,7 @@ async function fetchJSON(url){
       }
       const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
 
-      const flagHtml = isoToFlag(iso);
+      const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
       // apply classes
@@ -2846,14 +2710,13 @@ async function fetchJSON(url){
       el.dataset.team   = teamLabel;
       el.dataset.group  = group;
       el.dataset.iso    = isoUp;
-      el.dataset.flag   = flagHtml;
+      el.dataset.flag   = flag;
 
-      // tooltip
+      // tooltip handlers
       el.onmouseenter = ev=>{
-        const flagPrefix = flagHtml ? flagHtml + ' ' : '';
-        const teamLine = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
-        const ownerLine = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
-        const statusLine = qualified ? 'Status: Owned' : 'Status: Not qualified';
+        const flagPrefix = flag ? flag + ' ' : '';
+        const teamLine   = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
+        const ownerLine  = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
 
         tip.innerHTML = `
           <div class="map-info">
@@ -2864,46 +2727,40 @@ async function fetchJSON(url){
         tip.style.opacity = '1';
         positionTip(ev);
       };
-      el.onmousemove = ev=>positionTip(ev);
-      el.onmouseleave = ()=>{
+      el.onmousemove = ev => positionTip(ev);
+      el.onmouseleave = () => {
         tip.style.opacity = '0';
       };
     });
-  }
-
-  function isoToNormTeam(isoToTeam, iso, fallbackTeam){
-    const fromIso = isoToTeam[iso] || fallbackTeam || '';
-    return normalizeTeamName(fromIso);
   }
 
   let currentGroup = 'ALL';
 
   function populateGroupSelector(teamMeta){
     const sel = document.getElementById('map-group');
-    if(!sel) return;
-    // If no meta, keep only "All"
-    if(!teamMeta) {
+    if (!sel) return;
+
+    if (!teamMeta) {
       sel.innerHTML = '<option value="ALL" selected>All</option>';
       return;
     }
 
-    // Build group set
     const groups = new Set();
     if (teamMeta.groups){
       Object.keys(teamMeta.groups).forEach(g => groups.add(g));
     } else {
-      Object.values(teamMeta).forEach(m => { if(m.group) groups.add(m.group); });
+      Object.values(teamMeta).forEach(m => { if (m.group) groups.add(m.group); });
     }
 
     const sorted = [...groups].sort();
-    sel.innerHTML = '<option value="ALL" selected>All</option>'
-      + sorted.map(g => `<option value="${g}">Group ${g}</option>`).join('');
+    sel.innerHTML = '<option value="ALL" selected>All</option>' +
+      sorted.map(g => `<option value="${g}">Group ${g}</option>`).join('');
   }
 
   function applyGroupFilter(svg){
     svg.querySelectorAll('.country').forEach(el=>{
       const g = (el.dataset.group || '').toUpperCase();
-      if (currentGroup === 'ALL' || (g && g.toUpperCase() === currentGroup.toUpperCase())){
+      if (currentGroup === 'ALL' || (g && g === currentGroup.toUpperCase())){
         el.classList.remove('dim');
       } else {
         el.classList.add('dim');
@@ -2911,114 +2768,117 @@ async function fetchJSON(url){
     });
   }
 
-  // Helper to color both group and its shapes
-  function setStatus(el, status) {
-    el.classList.remove('owned', 'split', 'free');
-    el.classList.add(status);
-    el.querySelectorAll('path,polygon,rect,circle').forEach(sh => {
-      sh.classList.remove('owned', 'split', 'free');
-      sh.classList.add(status);
-    });
-  }
-
   // Tooltip positioning - relative to #map-wrap
   const wrap = document.getElementById('map-wrap');
+
   function positionTip(ev) {
     if (!wrap || !tip) return;
 
-    const r = wrap.getBoundingClientRect();
+    const r       = wrap.getBoundingClientRect();
     const tipRect = tip.getBoundingClientRect();
 
-    // tight offset near cursor
     let x = ev.clientX - r.left + 6;
-    let y = ev.clientY - r.top - tipRect.height - 2;
+    let y = ev.clientY - r.top  - tipRect.height - 2;
 
-    // if not enough room above, show below
     if (y < 2) y = ev.clientY - r.top + 10;
 
-    // clamp horizontally inside map
     if (x + tipRect.width > r.width - 4) {
       x = r.width - tipRect.width - 4;
     }
     if (x < 4) x = 4;
 
     tip.style.left = `${x}px`;
-    tip.style.top = `${y}px`;
+    tip.style.top  = `${y}px`;
   }
 
   function ensurePanRoot(svg){
-    if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
+    const existing = svg.querySelector('#wc-panroot');
+    if (existing) return existing;
+
     const panRoot = document.createElementNS('http://www.w3.org/2000/svg','g');
     panRoot.setAttribute('id','wc-panroot');
 
-    // move all visible graphics into panRoot, keep <defs> and <title>/<desc> at top
-    const keep = new Set(['defs','title','desc','metadata']);
+    const keep   = new Set(['defs','title','desc','metadata']);
     const toMove = [];
     [...svg.childNodes].forEach(n=>{
-      if(n.nodeType === 1 && keep.has(n.nodeName.toLowerCase())) return;
+      if (n.nodeType === 1 && keep.has(n.nodeName.toLowerCase())) return;
       toMove.push(n);
     });
-    toMove.forEach(n=>panRoot.appendChild(n));
+    toMove.forEach(n => panRoot.appendChild(n));
     svg.appendChild(panRoot);
     return panRoot;
   }
 
   function enablePanZoom(svg){
-    const panRoot = ensurePanRoot(svg);
-    const baseTransform = panRoot.getAttribute('transform') || ''; // preserve original
-    let scale = 1, min=0.7, max=5;
-    let originX=0, originY=0, startX=0, startY=0, panning=false;
+    const panRoot       = ensurePanRoot(svg);
+    const baseTransform = panRoot.getAttribute('transform') || '';
+
+    let scale   = 1;
+    const min   = 0.7;
+    const max   = 5;
+    let originX = 0;
+    let originY = 0;
+    let startX  = 0;
+    let startY  = 0;
+    let panning = false;
 
     function apply(){
-      // keep original transform, add our translate/scale afterwards
-      panRoot.setAttribute('transform', `${baseTransform} translate(${originX},${originY}) scale(${scale})`.trim());
+      panRoot.setAttribute(
+        'transform',
+        `${baseTransform} translate(${originX},${originY}) scale(${scale})`.trim()
+      );
     }
 
     svg.classList.add('map-pannable');
 
     svg.addEventListener('wheel', (e)=>{
       e.preventDefault();
-      const delta = Math.sign(e.deltaY);
+      const delta  = Math.sign(e.deltaY);
       const factor = 1 - (delta * 0.08);
       const newScale = Math.min(max, Math.max(min, scale * factor));
-      if(newScale === scale) return;
+      if (newScale === scale) return;
 
-      // zoom towards cursor
       const pt = svg.createSVGPoint();
-      pt.x = e.offsetX; pt.y = e.offsetY;
+      pt.x = e.offsetX;
+      pt.y = e.offsetY;
       try {
-        const ctm = svg.getScreenCTM().inverse();
+        const ctm    = svg.getScreenCTM().inverse();
         const cursor = pt.matrixTransform(ctm);
-        originX = cursor.x - (cursor.x - originX) * (newScale/scale);
-        originY = cursor.y - (cursor.y - originY) * (newScale/scale);
+        originX = cursor.x - (cursor.x - originX) * (newScale / scale);
+        originY = cursor.y - (cursor.y - originY) * (newScale / scale);
       } catch(_){}
 
       scale = newScale;
       apply();
-    }, {passive:false});
+    }, { passive:false });
 
     svg.addEventListener('mousedown', (e)=>{
-      panning = true; startX = e.clientX; startY = e.clientY; svg.classList.add('grabbing');
+      panning = true;
+      startX  = e.clientX;
+      startY  = e.clientY;
+      svg.classList.add('grabbing');
     });
+
     window.addEventListener('mousemove', (e)=>{
-      if(!panning) return;
-      originX += (e.clientX - startX)/scale;
-      originY += (e.clientY - startY)/scale;
-      startX = e.clientX; startY = e.clientY;
+      if (!panning) return;
+      originX += (e.clientX - startX) / scale;
+      originY += (e.clientY - startY) / scale;
+      startX   = e.clientX;
+      startY   = e.clientY;
       apply();
     });
-    window.addEventListener('mouseup', ()=>{ panning=false; svg.classList.remove('grabbing'); });
+
+    window.addEventListener('mouseup', ()=>{
+      panning = false;
+      svg.classList.remove('grabbing');
+    });
 
     apply();
   }
 
   function enableClickZoom(svg){
     const infoBox = document.getElementById('map-country-info');
-    const titleEl = document.getElementById('map-info-title');
-    const ownersEl = document.getElementById('map-info-owners');
-    const statusEl = document.getElementById('map-info-status');
 
-    // initial viewBox
     let origViewBox = svg.getAttribute('viewBox');
     if (!origViewBox) {
       const r = svg.getBBox();
@@ -3027,41 +2887,28 @@ async function fetchJSON(url){
     }
 
     let currentCountry = null;
-    let animating = false;
+    let animating      = false;
 
-    function lerp(a, b, t) { return a + (b - a) * t; }
+    function lerp(a, b, t){ return a + (b - a) * t; }
 
-    function parseViewBox(vb) {
+    function parseViewBox(vb){
       const [x, y, w, h] = vb.split(/\s+/).map(Number);
       return { x, y, w, h };
     }
 
-    function viewBoxToString({x, y, w, h}) {
+    function viewBoxToString({x, y, w, h}){
       return `${x} ${y} ${w} ${h}`;
     }
 
-    function zoomToElement(el, zoomFactor = 2) {
+    function animateViewBox(start, end, duration){
       if (animating) return;
-      const bbox = el.getBBox();
-      if (!bbox || !isFinite(bbox.x)) return;
-
-      const targetW = bbox.width * zoomFactor;
-      const targetH = bbox.height * zoomFactor;
-      const targetX = bbox.x + bbox.width / 2 - targetW / 2;
-      const targetY = bbox.y + bbox.height / 2 - targetH / 2;
-
-      const start = parseViewBox(svg.getAttribute('viewBox'));
-      const end = { x: targetX, y: targetY, w: targetW, h: targetH };
-
       let startTime = null;
-      const duration = 400;
-
       animating = true;
       svg.classList.add('zooming');
 
-      function step(ts) {
+      function step(ts){
         if (!startTime) startTime = ts;
-        const t = Math.min(1, (ts - startTime) / duration);
+        const t    = Math.min(1, (ts - startTime) / duration);
         const ease = t < 0.5
           ? 4 * t * t * t
           : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -3081,43 +2928,29 @@ async function fetchJSON(url){
           svg.classList.remove('zooming');
         }
       }
+
       requestAnimationFrame(step);
     }
 
-    function resetZoom() {
-      if (animating) return;
+    function zoomToElement(el, zoomFactor = 1.75){
+      const bbox = el.getBBox();
+      if (!bbox || !isFinite(bbox.x)) return;
+
+      const targetW = bbox.width  * zoomFactor;
+      const targetH = bbox.height * zoomFactor;
+      const targetX = bbox.x + bbox.width  / 2 - targetW / 2;
+      const targetY = bbox.y + bbox.height / 2 - targetH / 2;
+
       const start = parseViewBox(svg.getAttribute('viewBox'));
-      const end = parseViewBox(origViewBox);
+      const end   = { x: targetX, y: targetY, w: targetW, h: targetH };
 
-      let startTime = null;
-      const duration = 350;
+      animateViewBox(start, end, 400);
+    }
 
-      animating = true;
-      svg.classList.add('zooming');
-
-      function step(ts) {
-        if (!startTime) startTime = ts;
-        const t = Math.min(1, (ts - startTime) / duration);
-        const ease = t < 0.5
-          ? 4 * t * t * t
-          : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-        const cur = {
-          x: lerp(start.x, end.x, ease),
-          y: lerp(start.y, end.y, ease),
-          w: lerp(start.w, end.w, ease),
-          h: lerp(start.h, end.h, ease)
-        };
-        svg.setAttribute('viewBox', viewBoxToString(cur));
-
-        if (t < 1) {
-          requestAnimationFrame(step);
-        } else {
-          animating = false;
-          svg.classList.remove('zooming');
-        }
-      }
-      requestAnimationFrame(step);
+    function resetZoom(){
+      const start = parseViewBox(svg.getAttribute('viewBox'));
+      const end   = parseViewBox(origViewBox);
+      animateViewBox(start, end, 350);
     }
 
     svg.addEventListener('click', (ev)=>{
@@ -3126,7 +2959,7 @@ async function fetchJSON(url){
         if (currentCountry) {
           currentCountry.classList.remove('active');
           currentCountry = null;
-          infoBox.classList.add('hidden');
+          infoBox && infoBox.classList.add('hidden');
         }
         resetZoom();
         return;
@@ -3135,7 +2968,7 @@ async function fetchJSON(url){
       if (currentCountry === el) {
         currentCountry.classList.remove('active');
         currentCountry = null;
-        infoBox.classList.add('hidden');
+        infoBox && infoBox.classList.add('hidden');
         resetZoom();
         return;
       }
@@ -3146,23 +2979,31 @@ async function fetchJSON(url){
       el.classList.add('active');
       currentCountry = el;
 
-      const name   = el.dataset.team || el.dataset.iso || 'Unknown';
-      const flag   = el.dataset.flag || '';
-      const group  = el.dataset.group || '—';
+      const name   = el.dataset.team   || el.dataset.iso || 'Unknown';
+      const flag   = el.dataset.flag   || '';
+      const group  = el.dataset.group  || '—';
       const owners = el.dataset.owners || 'Unassigned';
-      const status = el.classList.contains('self')  ? 'Owned (Self)'
-                   : el.classList.contains('owned') ? 'Owned (Other)'
-                   : el.classList.contains('split') ? 'Split'
-                   : el.classList.contains('nq')    ? 'Not Qualified'
-                   : 'Unassigned';
 
-      document.getElementById('map-info-name').textContent = name;
-      document.getElementById('map-info-flag').innerHTML = flag;
-      document.getElementById('map-info-group').textContent = 'Group: ' + group;
-      document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
-      document.getElementById('map-info-status').textContent = 'Status: ' + status;
+      const status =
+        el.classList.contains('self')  ? 'Owned (Self)'   :
+        el.classList.contains('owned') ? 'Owned (Other)'  :
+        el.classList.contains('split') ? 'Split'          :
+        el.classList.contains('nq')    ? 'Not Qualified'  :
+                                         'Unassigned';
 
-      infoBox.classList.remove('hidden');
+      const nameEl   = document.getElementById('map-info-name');
+      const flagEl   = document.getElementById('map-info-flag');
+      const groupEl  = document.getElementById('map-info-group');
+      const ownersEl = document.getElementById('map-info-owners');
+      const statusEl = document.getElementById('map-info-status');
+
+      if (nameEl)   nameEl.textContent          = name;
+      if (flagEl)   flagEl.innerHTML            = flag;
+      if (groupEl)  groupEl.textContent         = 'Group: ' + group;
+      if (ownersEl) ownersEl.textContent        = 'Owners: ' + owners;
+      if (statusEl) statusEl.textContent        = 'Status: ' + status;
+
+      if (infoBox) infoBox.classList.remove('hidden');
 
       zoomToElement(el, 1.75);
     });
@@ -3170,7 +3011,7 @@ async function fetchJSON(url){
 
   async function loadSelfOwnership(){
     try {
-      const data = await fetchJSON('/api/me/ownership');
+      const data   = await fetchJSON('/api/me/ownership');
       const selfSet = new Set();
 
       if (data && Array.isArray(data.owned)) {
@@ -3196,7 +3037,7 @@ async function fetchJSON(url){
         loadTeamMeta(),
         loadSelfOwnership()
       ]);
-      console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
+      console.debug('team_iso ok:', Object.keys(iso || {}).length, 'entries');
       console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
       console.debug('team_meta:', meta ? 'loaded' : 'absent');
       console.debug('self ownership:', selfTeams ? selfTeams.size : 0, 'teams');
@@ -3238,16 +3079,17 @@ async function fetchJSON(url){
   }
 
   const menu = document.getElementById('main-menu');
-  if(menu){
+  if (menu){
     menu.addEventListener('click', (e)=>{
       const a = e.target.closest('a[data-page]');
-      if(!a) return;
-      if(a.getAttribute('data-page') === 'worldmap'){
+      if (!a) return;
+      if (a.getAttribute('data-page') === 'worldmap'){
         setTimeout(render, 10);
       }
     });
   }
-  if(document.querySelector('#worldmap.active-section')){
+
+  if (document.querySelector('#worldmap.active-section')){
     render();
   }
 
