@@ -2022,6 +2022,20 @@ body.user-admin-view #ownership .ownership-card {
     transform-origin: center center;
 }
 
+.map-tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    z-index: 9999;
+    display: none;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
 .map-info {
     position: absolute;
     top: 12px;

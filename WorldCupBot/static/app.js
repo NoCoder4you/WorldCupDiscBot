@@ -2429,116 +2429,92 @@ async function fetchJSON(url){
       }
     }
 
-    // -------------------------------
-    // User Page
-    // -------------------------------
-    async function loadUser() {
-      try {
-        const section = ensureSectionCard('user', 'User', [
-          ['Refresh', { id: 'user-refresh' }]
-        ]);
-        const scroller = section.querySelector('.table-scroll');
-        scroller.innerHTML = '<div class="loading">Loading user data...</div>';
+/* =========================
+   WORLD MAP - interactive SVG
+   ========================= */
+(function(){
+  const host = document.getElementById('map-svg-host');
+  const tip  = document.getElementById('map-tip');
+  const btnRefresh = document.getElementById('worldmap-refresh');
 
-        // 1. Check if user has accepted T&Cs
-        const tos = await fetchJSON('/api/me/tos');
-        if (tos.connected && (!tos.accepted || !tos.in_players)) {
-          console.log('[WorldCupBot] redirecting to /terms');
-          window.location.href = tos.url || '/terms';
-          return;
-        }
+  const CACHE_TTL_MS = 60*1000; // 60s cache
 
-        // 2. Get user info
-        const { user } = await fetchJSON('/api/me');
-        if (!user) {
-          scroller.innerHTML = `
-            <div class="user-guest">
-              <p>You are not connected with Discord.</p>
-              <button id="btn-discord-login" class="btn">Connect Discord</button>
-            </div>`;
-          const btn = document.getElementById('btn-discord-login');
-          btn && (btn.onclick = () => (window.location.href = '/auth/discord/login'));
-          return;
-        }
+  function now(){ return Date.now(); }
+  function getCache(key){
+    try{
+      const blob = JSON.parse(localStorage.getItem(key) || 'null');
+      if(!blob) return null;
+      if((now() - (blob.ts||0)) > CACHE_TTL_MS) return null;
+      return blob.data;
+    }catch(e){ return null; }
+  }
+  function setCache(key, data){
+    try{ localStorage.setItem(key, JSON.stringify({ts: now(), data})); }catch(e){}
+  }
 
-        // 3. Render base profile layout
-        scroller.innerHTML = `
-          <div class="user-card">
-            <div class="user-head">
-              <img class="user-ava" src="${user.avatar || '/static/img/avatar.png'}" alt="">
-              <div class="user-meta">
-                <div class="user-name">${escapeHtml(user.global_name || user.username)}</div>
-                <div class="user-id">${user.discord_id}</div>
-              </div>
-              <button id="btn-discord-logout" class="btn subtle">Sign out</button>
-            </div>
-            <div class="user-grids">
-              <div class="user-col">
-                <h3>Owned Teams</h3>
-                <div id="owned" class="flag-grid"></div>
-                <h3>Split Teams</h3>
-                <div id="split" class="flag-grid"></div>
-              </div>
-              <div class="user-col">
-                <h3>Upcoming Matches</h3>
-                <div id="matches" class="match-list"></div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        // 4. Logout button
-        const out = document.getElementById('btn-discord-logout');
-        out && (out.onclick = async () => { await postJSON('/auth/discord/logout', {}); location.reload(); });
-
-        // 5. Load owned teams & matches
-        const [own, matches] = await Promise.all([
-          fetchJSON('/api/me/ownership'),
-          fetchJSON('/api/me/matches')
-        ]);
-
-        // Render owned/split teams
-        function renderFlags(wrapId, items) {
-          const wrap = document.getElementById(wrapId);
-          if (!wrap) return;
-          if (!items || !items.length) { wrap.innerHTML = `<div class="muted">None</div>`; return; }
-          wrap.innerHTML = items.map(x => `
-            <div class="flag-card" title="${escapeHtml(x.team)}">
-              ${x.flag ? `<img src="${x.flag}" alt="">` : ''}
-              <span>${escapeHtml(x.team)}</span>
-            </div>`).join('');
-        }
-        renderFlags('owned', own?.owned || []);
-        renderFlags('split', own?.split || []);
-
-        // Render matches
-        const mEl = document.getElementById('matches');
-        if (mEl) {
-          const list = (matches?.matches || []);
-          if (!list.length) {
-            mEl.innerHTML = `<div class="muted">No upcoming matches</div>`;
-          } else {
-            mEl.innerHTML = list.map(m => {
-              const when = m.utc || m.time || '';
-              const dt = when ? new Date(when).toLocaleString() : '';
-              return `
-                <div class="match-row">
-                  <div class="match-when">${dt}</div>
-                  <div class="match-vs"><strong>${escapeHtml(m.home)}</strong> vs <strong>${escapeHtml(m.away)}</strong></div>
-                  ${m.group ? `<div class="match-group">${escapeHtml(m.group)}</div>` : ``}
-                </div>`;
-            }).join('');
-          }
-        }
-
-      } catch (err) {
-        console.error('loadUser error:', err);
-        const section = ensureSectionCard('user', 'User');
-        const scroller = section.querySelector('.table-scroll');
-        scroller.innerHTML = `<div class="error">Failed to load user data.</div>`;
+  async function fetchJSON(url){
+    try{
+      const r = await fetch(url, {cache:'no-store'});
+      if(!r.ok){
+        let body = '';
+        try { body = await r.text(); } catch(_){}
+        const err = new Error(`HTTP ${r.status} @ ${url}${body ? ` — ${body.slice(0,200)}` : ''}`);
+        err.status = r.status;
+        err.url = url;
+        throw err;
       }
+      return await r.json();
+    }catch(e){
+      console.error('fetchJSON failed:', e);
+      throw e;
+    }
+  }
+
+  function escapeHtml(str){
+    return String(str || '')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  function isoToFlag(iso) {
+    if (!iso) return '';
+    const code = String(iso).trim().toLowerCase();
+    if (!code) return '';
+
+    const safe = code.replace(/[^a-z0-9-]/g, '');
+    const url  = `https://flagcdn.com/48x36/${safe}.png`;
+
+    return `<img class="flag-img" src="${url}" alt="${safe} flag" loading="lazy"
+            onerror="this.style.display='none';">`;
+  }
+
+  // 24h meta cache
+  async function loadTeamMeta(){
+    const CK = 'wc:team_meta';
+    const TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+    try{
+      const blob = JSON.parse(localStorage.getItem(CK) || 'null');
+      if (blob && blob.ts && (Date.now() - blob.ts) < TTL && blob.data) {
+        return blob.data;
+      }
+    }catch(e){
+      console.warn('team_meta cache parse failed, resetting:', e);
+      localStorage.removeItem(CK);
     }
 
+    try{
+      const data = await fetchJSON('/api/team_meta');
+      localStorage.setItem(CK, JSON.stringify({ ts: Date.now(), data }));
+      return data;
+    }catch(e){
+      console.warn('loadTeamMeta failed:', e);
+      return null;
+    }
+  }
 
   async function loadTeamIso(){
     const CK = 'wc:team_iso';
@@ -2557,14 +2533,13 @@ async function fetchJSON(url){
     return data;
   }
 
-
-    async function inlineSVG(path){
-      const txt = await fetch(path, {cache:'no-store'}).then(r=>{
-        if(!r.ok) throw new Error('map svg not found');
-        return r.text();
-      });
-      host.innerHTML = txt;
-      const svg = host.querySelector('svg');
+  async function inlineSVG(path){
+    const txt = await fetch(path, {cache:'no-store'}).then(r=>{
+      if(!r.ok) throw new Error('map svg not found');
+      return r.text();
+    });
+    host.innerHTML = txt;
+    const svg = host.querySelector('svg');
 
     const nodes = svg.querySelectorAll('path[id], polygon[id], rect[id], g[id], [data-iso]');
     let tagged = 0;
@@ -2604,638 +2579,664 @@ async function fetchJSON(url){
 
     console.debug('world.svg tagged countries:', tagged);
 
-      // Ensure a dedicated pan root that won't clobber existing transforms
-      ensurePanRoot(svg);
-      return svg;
-    }
+    // Ensure a dedicated pan root that won't clobber existing transforms
+    ensurePanRoot(svg);
+    return svg;
+  }
 
-    function applySelfOwnershipColors(svg, merged) {
-      if (!svg || !merged || !merged.rows) return;
+  function applySelfOwnershipColors(svg, merged) {
+    if (!svg || !merged || !merged.rows) return;
 
-      // Try to detect current user details from globals
-      const u =
-        (window.state && window.state.user) ||
-        window.wcUser ||
-        {};
+    // Try to detect current user details from globals
+    const u =
+      (window.state && window.state.user) ||
+      window.wcUser ||
+      {};
 
-      const currentUserId = u.discord_id || u.id || null;
-      const currentUserName = (u.username || u.global_name || u.display_name || '').toLowerCase();
+    const currentUserId = u.discord_id || u.id || null;
+    const currentUserName = (u.username || u.global_name || u.display_name || '').toLowerCase();
 
-      // Map: iso -> array of owner objects
-      const isoOwners = {};
-      merged.rows.forEach(row => {
-        const iso = (row.iso || row.country_iso || row.team_iso || '').toLowerCase();
-        if (!iso) return;
+    // Map: iso -> array of owner objects
+    const isoOwners = {};
+    merged.rows.forEach(row => {
+      const iso = (row.iso || row.country_iso || row.team_iso || '').toLowerCase();
+      if (!iso) return;
 
-        const owners = [];
+      const owners = [];
 
-        if (row.main_owner) owners.push(row.main_owner);
-        if (Array.isArray(row.split_with)) {
-          row.split_with.forEach(s => owners.push(s));
-        }
-
-        isoOwners[iso] = owners;
-      });
-
-      svg.querySelectorAll('.country').forEach(el => {
-        const iso = (el.dataset.iso || '').toLowerCase();
-        if (!iso) return;
-
-        const owners = isoOwners[iso] || [];
-
-        // Clear previous state
-        el.classList.remove('country-owned-self', 'country-owned-other');
-
-        if (!owners.length) return;
-
-        const isSelf = owners.some(o => {
-          const oid = String(o.discord_id || o.id || o.user_id || '');
-          const oname = String(o.name || o.username || o.display_name || '').toLowerCase();
-
-          const idMatch = currentUserId && oid && String(currentUserId) === oid;
-          const nameMatch = currentUserName && oname && currentUserName === oname;
-
-          return idMatch || nameMatch;
-        });
-
-        if (isSelf) {
-          el.classList.add('country-owned-self');
-        } else {
-          el.classList.add('country-owned-other');
-        }
-      });
-    }
-
-    function normalizeTeamName(name){
-      return (name || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')   // strip accents
-        .replace(/['’]/g, '')              // strip apostrophes
-        .replace(/\s+/g, ' ')              // collapse spaces
-        .trim()
-        .toLowerCase();
-    }
-
-    function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams){
-      const rows = (merged && merged.rows) || [];
-      const teamIsoMap = teamIso || {};
-      const selfSet = (selfTeams && typeof selfTeams.has === 'function')
-        ? selfTeams
-        : new Set();
-
-      // map normalized team name -> iso from /api/team_iso
-      const nameToIso = {};
-      Object.entries(teamIsoMap).forEach(([name, iso]) => {
-        const norm = normalizeTeamName(name);
-        const lowIso = String(iso || '').toLowerCase();
-        if (!norm || !lowIso) return;
-        nameToIso[norm] = lowIso;
-      });
-
-      const ISO_OVERRIDES = {
-          'cote divoire': 'ci',
-          'cote d ivoire': 'ci',
-          "cote d'ivoire": 'ci',
-
-          // Curaçao
-          'curacao': 'cw',
-          'curaçao': 'cw',
-
-          'england': 'gb-eng',
-          'scotland': 'gb-sct',
-          'wales': 'gb-wls',
-          'northern ireland': 'gb-nir'
-        };
-
-      function inferIsoFromName(name){
-        const norm = normalizeTeamName(name);
-        return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
+      if (row.main_owner) owners.push(row.main_owner);
+      if (Array.isArray(row.split_with)) {
+        row.split_with.forEach(s => owners.push(s));
       }
 
-      // 1) team -> ownership state (store both raw and normalized keys)
-      const teamState = {};
-      for (const row of rows) {
-        const team = row.country;
-        if (!team) continue;
-        const ownersCount = row.owners_count || 0;
-        const splits = row.split_with || [];
+      isoOwners[iso] = owners;
+    });
 
-        const norm = normalizeTeamName(team);
-        const isSelf = selfSet.has(norm);
+    svg.querySelectorAll('.country').forEach(el => {
+      const iso = (el.dataset.iso || '').toLowerCase();
+      if (!iso) return;
 
-        let status = 'free';
-        if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
-        if (splits && splits.length > 0) status = 'split';
+      const owners = isoOwners[iso] || [];
 
-        // if you are the main owner of this team, mark as self
-        if (isSelf && status === 'owned') {
-          status = 'self';
-        }
+      // Clear previous state
+      el.classList.remove('country-owned-self', 'country-owned-other');
 
-        const payload = { status, main: row.main_owner, splits };
-        teamState[team] = payload;
-        teamState[norm] = payload;
+      if (!owners.length) return;
+
+      const isSelf = owners.some(o => {
+        const oid = String(o.discord_id || o.id || o.user_id || '');
+        const oname = String(o.name || o.username || o.display_name || '').toLowerCase();
+
+        const idMatch = currentUserId && oid && String(currentUserId) === oid;
+        const nameMatch = currentUserName && oname && currentUserName === oname;
+
+        return idMatch || nameMatch;
+      });
+
+      if (isSelf) {
+        el.classList.add('country-owned-self');
+      } else {
+        el.classList.add('country-owned-other');
+      }
+    });
+  }
+
+  function normalizeTeamName(name){
+    return (name || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')   // strip accents
+      .replace(/['’]/g, '')              // strip apostrophes
+      .replace(/\s+/g, ' ')              // collapse spaces
+      .trim()
+      .toLowerCase();
+  }
+
+  function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams){
+    const rows = (merged && merged.rows) || [];
+    const teamIsoMap = teamIso || {};
+    const selfSet = (selfTeams && typeof selfTeams.has === 'function')
+      ? selfTeams
+      : new Set();
+
+    // map normalized team name -> iso from /api/team_iso
+    const nameToIso = {};
+    Object.entries(teamIsoMap).forEach(([name, iso]) => {
+      const norm = normalizeTeamName(name);
+      const lowIso = String(iso || '').toLowerCase();
+      if (!norm || !lowIso) return;
+      nameToIso[norm] = lowIso;
+    });
+
+    const ISO_OVERRIDES = {
+      'cote divoire': 'ci',
+      'cote d ivoire': 'ci',
+      "cote d'ivoire": 'ci',
+
+      // Curaçao
+      'curacao': 'cw',
+      'curaçao': 'cw',
+
+      'england': 'gb-eng',
+      'scotland': 'gb-sct',
+      'wales': 'gb-wls',
+      'northern ireland': 'gb-nir'
+    };
+
+    function inferIsoFromName(name){
+      const norm = normalizeTeamName(name);
+      return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
+    }
+
+    // 1) team -> ownership state (store both raw and normalized keys)
+    const teamState = {};
+    for (const row of rows) {
+      const team = row.country;
+      if (!team) continue;
+      const ownersCount = row.owners_count || 0;
+      const splits = row.split_with || [];
+
+      const norm = normalizeTeamName(team);
+      const isSelf = selfSet.has(norm);
+
+      let status = 'free';
+      if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
+      if (splits && splits.length > 0) status = 'split';
+
+      // if you are the main owner of this team, mark as self
+      if (isSelf && status === 'owned') {
+        status = 'self';
       }
 
-      // 2) meta lookups (group, qualified) with normalized keys + ISO
-      const teamGroup = {};
-      const teamQual  = {};
-      const isoGroup  = {};
-      const isoQual   = {};
+      if (!teamState[team]) teamState[team] = { status, main: row.main_owner, splits: row.split_with };
+      if (!teamState[norm]) teamState[norm] = teamState[team];
+    }
 
-      const allMetaTeams = [];
+    // 2) build meta lookups (qualified, group) keyed by team name or iso
+    const teamQual = {};
+    const teamGroup = {};
+    const isoQual = {};
+    const isoGroup = {};
 
-      if (teamMeta) {
-        if (teamMeta.groups) {
-          // grouped style: { groups:{A:[...]}, not_qualified:[...] }
-          Object.entries(teamMeta.groups).forEach(([g, list])=>{
-            (list || []).forEach(t => {
-              if (!t) return;
-              allMetaTeams.push(t);
-              const norm = normalizeTeamName(t);
-              const grp = g;
-              const iso = inferIsoFromName(t);
+    if (teamMeta) {
+      if (teamMeta.groups) {
+        // grouped by A,B,C...
+        Object.entries(teamMeta.groups).forEach(([g, arr]) => {
+          arr.forEach(item => {
+            const tName = item.team || item.name || '';
+            const iso = (item.iso || '').toLowerCase();
+            const q = item.qualified !== false; // default true
 
-              teamGroup[t] = grp;
-              teamGroup[norm] = grp;
-              teamQual[t] = true;
-              teamQual[norm] = true;
+            const norm = normalizeTeamName(tName);
 
-              if (iso) {
-                isoGroup[iso] = grp;
-                isoQual[iso] = true;
-              }
-            });
-          });
-          (teamMeta.not_qualified || []).forEach(t => {
-            if (!t) return;
-            allMetaTeams.push(t);
-            const norm = normalizeTeamName(t);
-            const iso = inferIsoFromName(t);
-            teamQual[t] = false;
-            teamQual[norm] = false;
-            if (iso) isoQual[iso] = false;
-          });
-        } else {
-          Object.entries(teamMeta).forEach(([team, m])=>{
-            if (!team || !m) return;
-            allMetaTeams.push(team);
-            const norm = normalizeTeamName(team);
-            const grp = m.group || null;
-            const q = (m.qualified === true);
-            const iso = inferIsoFromName(team);
-
-            teamGroup[team] = grp;
-            teamGroup[norm] = grp;
-            teamQual[team] = q;
-            teamQual[norm] = q;
-
+            if (tName) {
+              teamQual[tName] = q;
+              teamGroup[tName] = g;
+            }
+            if (norm) {
+              teamQual[norm] = q;
+              teamGroup[norm] = g;
+            }
             if (iso) {
-              isoGroup[iso] = grp;
               isoQual[iso] = q;
+              isoGroup[iso] = g;
             }
           });
-        }
-      }
+        });
+      } else {
+        // flat object keyed by team name / iso
+        Object.values(teamMeta).forEach(item => {
+          if (!item) return;
+          const tName = item.team || item.name || '';
+          const iso = (item.iso || '').toLowerCase();
+          const q = item.qualified !== false;
+          const g = item.group || '';
 
-      // 3) iso -> team reverse map
-      const isoToTeam = {};
-      const isoToNormTeam = {};
+          const norm = normalizeTeamName(tName);
 
-      Object.entries(teamIsoMap).forEach(([name, iso])=>{
-        const norm = normalizeTeamName(name);
-        const lowIso = String(iso || '').toLowerCase();
-        if (!norm || !lowIso) return;
-        if (!isoToTeam[lowIso]) {
-          isoToTeam[lowIso] = name;
-          isoToNormTeam[lowIso] = norm;
-        }
-      });
-
-      // 3b) ensure split UK nations exist even if team_iso is missing entries
-      const UK_SPLIT = {
-          'gb-eng': 'England',
-          'gb-sct': 'Scotland',
-          'gb-wls': 'Wales',
-          'gb-nir': 'Northern Ireland'
-      };
-      Object.entries(UK_SPLIT).forEach(([iso, name]) => {
-        const lowIso = iso.toLowerCase();
-        if (!isoToTeam[lowIso]) {
-          const norm = normalizeTeamName(name);
-          isoToTeam[lowIso] = name;
-          isoToNormTeam[lowIso] = norm;
-        }
-      });
-
-      // 3c) fill any missing ISO entries using meta + overrides
-      Object.keys(isoGroup).forEach(iso => {
-        if (isoToTeam[iso]) return;
-        const label = allMetaTeams.find(name => inferIsoFromName(name) === iso) || iso.toUpperCase();
-        isoToTeam[iso] = label;
-        isoToNormTeam[iso] = normalizeTeamName(label);
-      });
-
-      // 4) paint countries, store datasets, wire tooltips
-      svg.querySelectorAll('.country').forEach(el=>{
-        const iso = (el.getAttribute('data-iso') || '').toLowerCase();
-        const isoUp = iso.toUpperCase();
-
-        // from ISO to team name
-        const team = isoToTeam[iso] || isoUp;
-        const normTeam = isoToNormTeam[iso] || normalizeTeamName(team);
-
-        // derive iso from data if unknown
-        const inferIso = inferIsoFromName(team) || iso;
-
-        // label used in tooltip + side card
-        const teamLabel = team;
-
-        // default: assume qualified, free
-        // (NQ only if explicitly in meta with qualified=false, or if meta exists and team not specified in meta is NQ)
-        let status = 'nq';
-
-        // compute qualification (by name OR by ISO)
-        let qualified = true;
-        if (teamMeta) {
-          qualified = (
-            teamQual[team] === true ||
-            teamQual[normTeam] === true ||
-            isoQual[iso] === true
-          );
-        }
-
-        // lookup ownership from either raw or normalized name
-        let ownership = null;
-        if (team || normTeam) {
-          ownership = teamState[team] || teamState[normTeam] || null;
-        }
-
-        if (qualified) {
-          status = 'free';
-          if (ownership) status = ownership.status;
-        } else if (!teamMeta) {
-          // if no meta at all, treat as normal ownership based
-          status = ownership ? ownership.status : 'free';
-        }
-
-        // owners list for tooltip
-        const ownerNames = [];
-        if (ownership) {
-          const main = ownership.main;
-          const splits = ownership.splits || [];
-          if (main && main.username) ownerNames.push(main.username);
-          if (splits && splits.length) {
-            ownerNames.push(...splits.map(s => s && s.username).filter(Boolean));
+          if (tName) {
+            teamQual[tName] = q;
+            teamGroup[tName] = g;
           }
-        }
-        const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
-
-        const flagHtml = isoToFlag(iso);
-        const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
-
-        // apply classes
-        el.classList.remove('owned','split','free','nq','dim','self');
-        el.classList.add(status);
-
-        // datasets for click panel and filtering
-        el.dataset.owners = ownersText;
-        el.dataset.team   = teamLabel;
-        el.dataset.group  = group;
-        el.dataset.iso    = isoUp;
-        el.dataset.flag   = flagHtml;
-
-        // tooltip
-        el.onmouseenter = ev=>{
-          const flagPrefix = flagHtml ? flagHtml + ' ' : '';
-          const teamLine = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
-          const ownerLine = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
-          const statusLine = qualified ? 'Status: Owned' : 'Status: Not qualified';
-
-          tip.innerHTML = `
-            <div class="map-info">
-              <h3>${teamLine}</h3>
-              <p>${ownerLine}</p>
-              ${group ? `<p>Group: ${escapeHtml(group)}</p>` : ''}
-            </div>`;
-          tip.style.opacity = '1';
-          positionTip(ev);
-        };
-        el.onmousemove = ev=>positionTip(ev);
-        el.onmouseleave = ()=>{
-          tip.style.opacity = '0';
-        };
-      });
+          if (norm) {
+            teamQual[norm] = q;
+            teamGroup[norm] = g;
+          }
+          if (iso) {
+            isoQual[iso] = q;
+            isoGroup[iso] = g;
+          }
+        });
+      }
     }
 
-    let currentGroup = 'ALL';
+    const isoToTeam = {};
+    Object.entries(teamIsoMap).forEach(([name, iso]) => {
+      const norm = normalizeTeamName(name);
+      const lowIso = String(iso || '').toLowerCase();
+      if (!norm || !lowIso) return;
+      isoToTeam[lowIso] = name;
+    });
 
-    function populateGroupSelector(teamMeta){
-      const sel = document.getElementById('map-group');
-      if(!sel) return;
-      // If no meta, keep only "All"
-      if(!teamMeta) {
-        sel.innerHTML = '<option value="ALL" selected>All</option>';
+    svg.querySelectorAll('.country').forEach(el=>{
+      const isoRaw = (el.getAttribute('data-iso') || '').toLowerCase();
+      if (!isoRaw) return;
+
+      const iso = isoRaw;
+      const isoUp = iso.toUpperCase();
+
+      // from ISO to team name
+      const team = isoToTeam[iso] || isoUp;
+      const normTeam = isoToNormTeam(isoToTeam, iso, team);
+
+      // derive iso from data if unknown
+      const inferIso = inferIsoFromName(team) || iso;
+
+      // label used in tooltip + side card
+      const teamLabel = team;
+
+      // default: assume qualified, free
+      // (NQ only if explicitly in meta with qualified=false, or if meta exists and team not specified in meta is NQ)
+      let status = 'nq';
+
+      // compute qualification (by name OR by ISO)
+      let qualified = true;
+      if (teamMeta) {
+        qualified = (
+          teamQual[team] === true ||
+          teamQual[normTeam] === true ||
+          isoQual[iso] === true
+        );
+      }
+
+      // lookup ownership from either raw or normalized name
+      let ownership = null;
+      if (team || normTeam) {
+        ownership = teamState[team] || teamState[normTeam] || null;
+      }
+
+      if (qualified) {
+        status = 'free';
+        if (ownership) status = ownership.status;
+      } else if (!teamMeta) {
+        // if no meta at all, treat as normal ownership based
+        status = ownership ? ownership.status : 'free';
+      }
+
+      // owners list for tooltip
+      const ownerNames = [];
+      if (ownership) {
+        const main = ownership.main;
+        const splits = ownership.splits || [];
+        if (main && main.username) ownerNames.push(main.username);
+        if (splits && splits.length) {
+          ownerNames.push(...splits.map(s => s && s.username).filter(Boolean));
+        }
+      }
+      const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+
+      const flagHtml = isoToFlag(iso);
+      const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
+
+      // apply classes
+      el.classList.remove('owned','split','free','nq','dim','self');
+      el.classList.add(status);
+
+      // datasets for click panel and filtering
+      el.dataset.owners = ownersText;
+      el.dataset.team   = teamLabel;
+      el.dataset.group  = group;
+      el.dataset.iso    = isoUp;
+      el.dataset.flag   = flagHtml;
+
+      // tooltip
+      el.onmouseenter = ev=>{
+        const flagPrefix = flagHtml ? flagHtml + ' ' : '';
+        const teamLine = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
+        const ownerLine = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
+        const statusLine = qualified ? 'Status: Owned' : 'Status: Not qualified';
+
+        tip.innerHTML = `
+          <div class="map-info">
+            <h3>${teamLine}</h3>
+            <p>${ownerLine}</p>
+            ${group ? `<p>Group: ${escapeHtml(group)}</p>` : ''}
+          </div>`;
+        tip.style.opacity = '1';
+        positionTip(ev);
+      };
+      el.onmousemove = ev=>positionTip(ev);
+      el.onmouseleave = ()=>{
+        tip.style.opacity = '0';
+      };
+    });
+  }
+
+  function isoToNormTeam(isoToTeam, iso, fallbackTeam){
+    const fromIso = isoToTeam[iso] || fallbackTeam || '';
+    return normalizeTeamName(fromIso);
+  }
+
+  let currentGroup = 'ALL';
+
+  function populateGroupSelector(teamMeta){
+    const sel = document.getElementById('map-group');
+    if(!sel) return;
+    // If no meta, keep only "All"
+    if(!teamMeta) {
+      sel.innerHTML = '<option value="ALL" selected>All</option>';
+      return;
+    }
+
+    // Build group set
+    const groups = new Set();
+    if (teamMeta.groups){
+      Object.keys(teamMeta.groups).forEach(g => groups.add(g));
+    } else {
+      Object.values(teamMeta).forEach(m => { if(m.group) groups.add(m.group); });
+    }
+
+    const sorted = [...groups].sort();
+    sel.innerHTML = '<option value="ALL" selected>All</option>'
+      + sorted.map(g => `<option value="${g}">Group ${g}</option>`).join('');
+  }
+
+  function applyGroupFilter(svg){
+    svg.querySelectorAll('.country').forEach(el=>{
+      const g = (el.dataset.group || '').toUpperCase();
+      if (currentGroup === 'ALL' || (g && g.toUpperCase() === currentGroup.toUpperCase())){
+        el.classList.remove('dim');
+      } else {
+        el.classList.add('dim');
+      }
+    });
+  }
+
+  // Helper to color both group and its shapes
+  function setStatus(el, status) {
+    el.classList.remove('owned', 'split', 'free');
+    el.classList.add(status);
+    el.querySelectorAll('path,polygon,rect,circle').forEach(sh => {
+      sh.classList.remove('owned', 'split', 'free');
+      sh.classList.add(status);
+    });
+  }
+
+  // Tooltip positioning - relative to #map-wrap
+  const wrap = document.getElementById('map-wrap');
+  function positionTip(ev) {
+    if (!wrap || !tip) return;
+
+    const r = wrap.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+
+    // tight offset near cursor
+    let x = ev.clientX - r.left + 6;
+    let y = ev.clientY - r.top - tipRect.height - 2;
+
+    // if not enough room above, show below
+    if (y < 2) y = ev.clientY - r.top + 10;
+
+    // clamp horizontally inside map
+    if (x + tipRect.width > r.width - 4) {
+      x = r.width - tipRect.width - 4;
+    }
+    if (x < 4) x = 4;
+
+    tip.style.left = `${x}px`;
+    tip.style.top = `${y}px`;
+  }
+
+  function ensurePanRoot(svg){
+    if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
+    const panRoot = document.createElementNS('http://www.w3.org/2000/svg','g');
+    panRoot.setAttribute('id','wc-panroot');
+
+    // move all visible graphics into panRoot, keep <defs> and <title>/<desc> at top
+    const keep = new Set(['defs','title','desc','metadata']);
+    const toMove = [];
+    [...svg.childNodes].forEach(n=>{
+      if(n.nodeType === 1 && keep.has(n.nodeName.toLowerCase())) return;
+      toMove.push(n);
+    });
+    toMove.forEach(n=>panRoot.appendChild(n));
+    svg.appendChild(panRoot);
+    return panRoot;
+  }
+
+  function enablePanZoom(svg){
+    const panRoot = ensurePanRoot(svg);
+    const baseTransform = panRoot.getAttribute('transform') || ''; // preserve original
+    let scale = 1, min=0.7, max=5;
+    let originX=0, originY=0, startX=0, startY=0, panning=false;
+
+    function apply(){
+      // keep original transform, add our translate/scale afterwards
+      panRoot.setAttribute('transform', `${baseTransform} translate(${originX},${originY}) scale(${scale})`.trim());
+    }
+
+    svg.classList.add('map-pannable');
+
+    svg.addEventListener('wheel', (e)=>{
+      e.preventDefault();
+      const delta = Math.sign(e.deltaY);
+      const factor = 1 - (delta * 0.08);
+      const newScale = Math.min(max, Math.max(min, scale * factor));
+      if(newScale === scale) return;
+
+      // zoom towards cursor
+      const pt = svg.createSVGPoint();
+      pt.x = e.offsetX; pt.y = e.offsetY;
+      try {
+        const ctm = svg.getScreenCTM().inverse();
+        const cursor = pt.matrixTransform(ctm);
+        originX = cursor.x - (cursor.x - originX) * (newScale/scale);
+        originY = cursor.y - (cursor.y - originY) * (newScale/scale);
+      } catch(_){}
+
+      scale = newScale;
+      apply();
+    }, {passive:false});
+
+    svg.addEventListener('mousedown', (e)=>{
+      panning = true; startX = e.clientX; startY = e.clientY; svg.classList.add('grabbing');
+    });
+    window.addEventListener('mousemove', (e)=>{
+      if(!panning) return;
+      originX += (e.clientX - startX)/scale;
+      originY += (e.clientY - startY)/scale;
+      startX = e.clientX; startY = e.clientY;
+      apply();
+    });
+    window.addEventListener('mouseup', ()=>{ panning=false; svg.classList.remove('grabbing'); });
+
+    apply();
+  }
+
+  function enableClickZoom(svg){
+    const infoBox = document.getElementById('map-country-info');
+    const titleEl = document.getElementById('map-info-title');
+    const ownersEl = document.getElementById('map-info-owners');
+    const statusEl = document.getElementById('map-info-status');
+
+    // initial viewBox
+    let origViewBox = svg.getAttribute('viewBox');
+    if (!origViewBox) {
+      const r = svg.getBBox();
+      origViewBox = `${r.x} ${r.y} ${r.width} ${r.height}`;
+      svg.setAttribute('viewBox', origViewBox);
+    }
+
+    let currentCountry = null;
+    let animating = false;
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function parseViewBox(vb) {
+      const [x, y, w, h] = vb.split(/\s+/).map(Number);
+      return { x, y, w, h };
+    }
+
+    function viewBoxToString({x, y, w, h}) {
+      return `${x} ${y} ${w} ${h}`;
+    }
+
+    function zoomToElement(el, zoomFactor = 2) {
+      if (animating) return;
+      const bbox = el.getBBox();
+      if (!bbox || !isFinite(bbox.x)) return;
+
+      const targetW = bbox.width * zoomFactor;
+      const targetH = bbox.height * zoomFactor;
+      const targetX = bbox.x + bbox.width / 2 - targetW / 2;
+      const targetY = bbox.y + bbox.height / 2 - targetH / 2;
+
+      const start = parseViewBox(svg.getAttribute('viewBox'));
+      const end = { x: targetX, y: targetY, w: targetW, h: targetH };
+
+      let startTime = null;
+      const duration = 400;
+
+      animating = true;
+      svg.classList.add('zooming');
+
+      function step(ts) {
+        if (!startTime) startTime = ts;
+        const t = Math.min(1, (ts - startTime) / duration);
+        const ease = t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        const cur = {
+          x: lerp(start.x, end.x, ease),
+          y: lerp(start.y, end.y, ease),
+          w: lerp(start.w, end.w, ease),
+          h: lerp(start.h, end.h, ease)
+        };
+        svg.setAttribute('viewBox', viewBoxToString(cur));
+
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          animating = false;
+          svg.classList.remove('zooming');
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    function resetZoom() {
+      if (animating) return;
+      const start = parseViewBox(svg.getAttribute('viewBox'));
+      const end = parseViewBox(origViewBox);
+
+      let startTime = null;
+      const duration = 350;
+
+      animating = true;
+      svg.classList.add('zooming');
+
+      function step(ts) {
+        if (!startTime) startTime = ts;
+        const t = Math.min(1, (ts - startTime) / duration);
+        const ease = t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        const cur = {
+          x: lerp(start.x, end.x, ease),
+          y: lerp(start.y, end.y, ease),
+          w: lerp(start.w, end.w, ease),
+          h: lerp(start.h, end.h, ease)
+        };
+        svg.setAttribute('viewBox', viewBoxToString(cur));
+
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          animating = false;
+          svg.classList.remove('zooming');
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    svg.addEventListener('click', (ev)=>{
+      const el = ev.target.closest('.country');
+      if (!el) {
+        if (currentCountry) {
+          currentCountry.classList.remove('active');
+          currentCountry = null;
+          infoBox.classList.add('hidden');
+        }
+        resetZoom();
         return;
       }
 
-      // Build group set
-      const groups = new Set();
-      if (teamMeta.groups){
-        Object.keys(teamMeta.groups).forEach(g => groups.add(g));
-      } else {
-        Object.values(teamMeta).forEach(m => { if(m.group) groups.add(m.group); });
-      }
-
-      const sorted = [...groups].sort();
-      sel.innerHTML = '<option value="ALL" selected>All</option>'
-        + sorted.map(g => `<option value="${g}">Group ${g}</option>`).join('');
-    }
-
-    function applyGroupFilter(svg){
-      svg.querySelectorAll('.country').forEach(el=>{
-        const g = (el.dataset.group || '').toUpperCase();
-        if (currentGroup === 'ALL' || (g && g.toUpperCase() === currentGroup.toUpperCase())){
-          el.classList.remove('dim');
-        } else {
-          el.classList.add('dim');
-        }
-      });
-    }
-
-
-      // Helper to color both group and its shapes
-      function setStatus(el, status) {
-        el.classList.remove('owned', 'split', 'free');
-        el.classList.add(status);
-        el.querySelectorAll('path,polygon,rect,circle').forEach(sh => {
-          sh.classList.remove('owned', 'split', 'free');
-          sh.classList.add(status);
-        });
-      }
-
-      // Tooltip positioning - relative to #map-wrap
-      const wrap = document.getElementById('map-wrap');
-      function positionTip(ev) {
-        const r = wrap.getBoundingClientRect();
-        const tipRect = tip.getBoundingClientRect();
-
-        // tight offset near cursor
-        let x = ev.clientX - r.left + 6;
-        let y = ev.clientY - r.top - tipRect.height - 2;
-
-        // if not enough room above, show below
-        if (y < 2) y = ev.clientY - r.top + 10;
-
-        // clamp inside map area
-        const maxX = r.width - tipRect.width - 2;
-        const maxY = r.height - tipRect.height - 2;
-        if (x < 2) x = 2;
-        if (y < 2) y = 2;
-        if (x > maxX) x = maxX;
-        if (y > maxY) y = maxY;
-
-        tip.style.left = `${x}px`;
-        tip.style.top = `${y}px`;
-      }
-
-
-    function ensurePanRoot(svg){
-      if(svg.querySelector('#wc-panroot')) return svg.querySelector('#wc-panroot');
-      const panRoot = document.createElementNS('http://www.w3.org/2000/svg','g');
-      panRoot.setAttribute('id','wc-panroot');
-
-      // move all visible graphics into panRoot, keep <defs> and <title>/<desc> at top
-      const keep = new Set(['defs','title','desc','metadata']);
-      const toMove = [];
-      [...svg.childNodes].forEach(n=>{
-        if(n.nodeType === 1 && keep.has(n.nodeName.toLowerCase())) return;
-        toMove.push(n);
-      });
-      toMove.forEach(n=>panRoot.appendChild(n));
-      svg.appendChild(panRoot);
-      return panRoot;
-    }
-
-
-    function enablePanZoom(svg){
-      const panRoot = ensurePanRoot(svg);
-      const baseTransform = panRoot.getAttribute('transform') || ''; // preserve original
-      let scale = 1, min=0.7, max=5;
-      let originX=0, originY=0, startX=0, startY=0, panning=false;
-
-      function apply(){
-        // keep original transform, add our translate/scale afterwards
-        panRoot.setAttribute('transform', `${baseTransform} translate(${originX},${originY}) scale(${scale})`.trim());
-      }
-
-      svg.classList.add('map-pannable');
-
-      svg.addEventListener('wheel', (e)=>{
-        e.preventDefault();
-        const delta = Math.sign(e.deltaY);
-        const factor = 1 - (delta * 0.08);
-        const newScale = Math.min(max, Math.max(min, scale * factor));
-        if(newScale === scale) return;
-
-        // zoom towards cursor
-        const pt = svg.createSVGPoint();
-        pt.x = e.offsetX; pt.y = e.offsetY;
-        try {
-          const ctm = svg.getScreenCTM().inverse();
-          const cursor = pt.matrixTransform(ctm);
-          originX = cursor.x - (cursor.x - originX) * (newScale/scale);
-          originY = cursor.y - (cursor.y - originY) * (newScale/scale);
-        } catch(_){}
-
-        scale = newScale;
-        apply();
-      }, {passive:false});
-
-      svg.addEventListener('mousedown', (e)=>{
-        panning = true; startX = e.clientX; startY = e.clientY; svg.classList.add('grabbing');
-      });
-      window.addEventListener('mousemove', (e)=>{
-        if(!panning) return;
-        originX += (e.clientX - startX)/scale;
-        originY += (e.clientY - startY)/scale;
-        startX = e.clientX; startY = e.clientY;
-        apply();
-      });
-      window.addEventListener('mouseup', ()=>{ panning=false; svg.classList.remove('grabbing'); });
-
-      apply();
-    }
-
-    function enableClickZoom(svg){
-      const infoBox = document.getElementById('map-country-info');
-      const titleEl = document.getElementById('map-info-title');
-      const ownersEl = document.getElementById('map-info-owners');
-      const statusEl = document.getElementById('map-info-status');
-
-      // initial viewBox
-      let origViewBox = svg.getAttribute('viewBox');
-      if (!origViewBox) {
-        const r = svg.getBBox();
-        origViewBox = `${r.x} ${r.y} ${r.width} ${r.height}`;
-        svg.setAttribute('viewBox', origViewBox);
-      }
-
-      let currentCountry = null;
-      let animating = false;
-
-      function lerp(a, b, t) { return a + (b - a) * t; }
-
-      // Animate from current viewBox to target viewBox
-      function animateViewBox(from, to, duration = 600){
-        if (animating) return;
-        animating = true;
-
-        const start = performance.now();
-
-        function step(now){
-          const t = Math.min((now - start) / duration, 1);
-          const x = lerp(from.x, to.x, t);
-          const y = lerp(from.y, to.y, t);
-          const w = lerp(from.w, to.w, t);
-          const h = lerp(from.h, to.h, t);
-          svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
-          if (t < 1) requestAnimationFrame(step);
-          else animating = false;
-        }
-        requestAnimationFrame(step);
-      }
-
-      // Read current viewBox as numbers
-      function parseViewBox(vb){
-        const [x, y, w, h] = vb.split(/\s+/).map(Number);
-        return {x, y, w, h};
-      }
-
-      function zoomToElement(el, pad = 1.25){
-        const b = el.getBBox();
-        const w = b.width * pad;
-        const h = b.height * pad;
-        const x = b.x - (w - b.width)/2;
-        const y = b.y - (h - b.height)/2;
-        const from = parseViewBox(svg.getAttribute('viewBox'));
-        const to = {x, y, w, h};
-        animateViewBox(from, to);
-      }
-
-      function resetZoom(){
-        const from = parseViewBox(svg.getAttribute('viewBox'));
-        const to = parseViewBox(origViewBox);
-        animateViewBox(from, to);
-        infoBox.classList.add('hidden');
+      if (currentCountry === el) {
+        currentCountry.classList.remove('active');
         currentCountry = null;
+        infoBox.classList.add('hidden');
+        resetZoom();
+        return;
       }
 
-        svg.querySelectorAll('.country').forEach(el=>{
-            el.addEventListener('click', ()=>{
-              if (currentCountry === el) { resetZoom(); return; }
+      if (currentCountry) {
+        currentCountry.classList.remove('active');
+      }
+      el.classList.add('active');
+      currentCountry = el;
 
-              currentCountry = el;
+      const name   = el.dataset.team || el.dataset.iso || 'Unknown';
+      const flag   = el.dataset.flag || '';
+      const group  = el.dataset.group || '—';
+      const owners = el.dataset.owners || 'Unassigned';
+      const status = el.classList.contains('self')  ? 'Owned (Self)'
+                   : el.classList.contains('owned') ? 'Owned (Other)'
+                   : el.classList.contains('split') ? 'Split'
+                   : el.classList.contains('nq')    ? 'Not Qualified'
+                   : 'Unassigned';
 
-              const name   = el.dataset.team || el.dataset.iso || 'Unknown';
-              const flag   = el.dataset.flag || '';
-              const group  = el.dataset.group || '—';
-              const owners = el.dataset.owners || 'Unassigned';
-              const status = el.classList.contains('self')  ? 'Owned (Self)'
-                           : el.classList.contains('owned') ? 'Owned (Other)'
-                           : el.classList.contains('split') ? 'Split'
-                           : el.classList.contains('nq')    ? 'Not Qualified'
-                           : 'Unassigned';
+      document.getElementById('map-info-name').textContent = name;
+      document.getElementById('map-info-flag').innerHTML = flag;
+      document.getElementById('map-info-group').textContent = 'Group: ' + group;
+      document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
+      document.getElementById('map-info-status').textContent = 'Status: ' + status;
 
-              // Fill the info panel
-              document.getElementById('map-info-name').textContent = name;
-              document.getElementById('map-info-flag').innerHTML = flag;
-              document.getElementById('map-info-group').textContent = 'Group: ' + group;
-              document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
-              document.getElementById('map-info-status').textContent = 'Status: ' + status;
+      infoBox.classList.remove('hidden');
 
-              infoBox.classList.remove('hidden');
+      zoomToElement(el, 1.75);
+    });
+  }
 
-              // Zoom to the clicked country (uses your viewBox animation)
-              zoomToElement(el, 1.75);
-            });
-        });
-    }
+  async function loadSelfOwnership(){
+    try {
+      const data = await fetchJSON('/api/me/ownership');
+      const selfSet = new Set();
 
-    // Load which countries the current logged-in user owns (main owner only)
-    async function loadSelfOwnership(){
-      try {
-        const data = await fetchJSON('/api/me/ownership');
-        const selfSet = new Set();
-
-        if (data && Array.isArray(data.owned)) {
-          for (const row of data.owned) {
-            if (row && row.team) {
-              selfSet.add(normalizeTeamName(row.team));
-            }
+      if (data && Array.isArray(data.owned)) {
+        for (const row of data.owned) {
+          if (row && row.team) {
+            selfSet.add(normalizeTeamName(row.team));
           }
         }
-        return selfSet;
-      } catch (e) {
-        console.warn('loadSelfOwnership failed:', e);
-        return new Set();
       }
+      return selfSet;
+    } catch (e) {
+      console.warn('loadSelfOwnership failed:', e);
+      return new Set();
     }
+  }
 
-    async function render(){
-      try {
-        console.time('worldmap:fetch');
-        const [iso, merged, meta, selfTeams] = await Promise.all([
-          loadTeamIso(),
-          loadOwnership(),
-          loadTeamMeta(),
-          loadSelfOwnership()
-        ]);
-        console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
-        console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
-        console.debug('team_meta:', meta ? 'loaded' : 'absent');
-        console.debug('self ownership:', selfTeams ? selfTeams.size : 0, 'teams');
-        console.timeEnd('worldmap:fetch');
+  async function render(){
+    try {
+      console.time('worldmap:fetch');
+      const [iso, merged, meta, selfTeams] = await Promise.all([
+        loadTeamIso(),
+        loadOwnership(),
+        loadTeamMeta(),
+        loadSelfOwnership()
+      ]);
+      console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
+      console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
+      console.debug('team_meta:', meta ? 'loaded' : 'absent');
+      console.debug('self ownership:', selfTeams ? selfTeams.size : 0, 'teams');
+      console.timeEnd('worldmap:fetch');
 
-        const svg = await inlineSVG('world.svg');
+      const svg = await inlineSVG('world.svg');
 
-        // Color, store data attributes, and init groups
-        classifyCountries(svg, iso, merged, meta, selfTeams);
-        populateGroupSelector(meta);
-        applyGroupFilter(svg);
+      classifyCountries(svg, iso, merged, meta, selfTeams);
+      populateGroupSelector(meta);
+      applyGroupFilter(svg);
 
-        // Hook group selector
-        const sel = document.getElementById('map-group');
-        if (sel){
-          sel.onchange = ()=>{
-            currentGroup = sel.value || 'ALL';
-            applyGroupFilter(svg);
-          };
-        }
-
-        // Keep your existing click-to-zoom
-        enableClickZoom(svg);
-
-      } catch (e) {
-        console.error('Map render error:', e);
-        host.innerHTML = `
-          <div class="muted" style="padding:10px;">
-            Failed to load map. Ensure world.svg and API endpoints exist.
-          </div>`;
+      const sel = document.getElementById('map-group');
+      if (sel){
+        sel.onchange = ()=>{
+          currentGroup = sel.value || 'ALL';
+          applyGroupFilter(svg);
+        };
       }
+
+      enableClickZoom(svg);
+      enablePanZoom(svg);
+
+    } catch (e) {
+      console.error('Map render error:', e);
+      host.innerHTML = `
+        <div class="muted" style="padding:10px;">
+          Failed to load map. Ensure world.svg and API endpoints exist.
+        </div>`;
     }
+  }
 
+  if (btnRefresh){
+    btnRefresh.addEventListener('click', ()=>{
+      localStorage.removeItem('wc:ownership_merged');
+      localStorage.removeItem('wc:team_iso');
+      localStorage.removeItem('wc:team_meta');
+      render();
+    });
+  }
 
-    if (btnRefresh){
-      btnRefresh.addEventListener('click', ()=>{
-        localStorage.removeItem('wc:ownership_merged');
-        localStorage.removeItem('wc:team_iso');
-        localStorage.removeItem('wc:team_meta');   // NEW: clear meta cache
-        render();
-      });
-    }
-
-  // Render when navigating to the World Map tab
   const menu = document.getElementById('main-menu');
   if(menu){
     menu.addEventListener('click', (e)=>{
@@ -3246,11 +3247,28 @@ async function fetchJSON(url){
       }
     });
   }
-  // Or render immediately if the section is already visible on load
   if(document.querySelector('#worldmap.active-section')){
     render();
   }
+
+  // Daily silent refresh of team_meta (and re-render if on World Map)
+  (function setupDailyMetaRefresh(){
+    const DAY = 24 * 60 * 60 * 1000;
+    setInterval(async ()=>{
+      try{
+        const blob = JSON.parse(localStorage.getItem('wc:team_meta') || 'null');
+        if (!blob || (Date.now() - (blob.ts || 0)) >= DAY) {
+          localStorage.removeItem('wc:team_meta');
+          const isActive = document.querySelector('#worldmap.active-section');
+          if (isActive) render();
+        }
+      }catch{
+        localStorage.removeItem('wc:team_meta');
+      }
+    }, DAY);
+  })();
 })();
+
 // Daily silent refresh of team_meta (and re-render if on World Map)
 (function setupDailyMetaRefresh(){
   const DAY = 24 * 60 * 60 * 1000;
