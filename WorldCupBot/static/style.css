@@ -1911,9 +1911,13 @@ body.user-admin-view #ownership .ownership-card {
     opacity: 1;
 }
 
-/* Self owned (you) */
 .country.self {
-    fill: var(--warn);
+    fill: #52e3c2;
+    opacity: 1;
+}
+
+.country.nq {
+    fill: #3f4754;
     opacity: 1;
 }
 
@@ -1967,9 +1971,12 @@ body.user-admin-view #ownership .ownership-card {
     vertical-align: -2px;
 }
 
-/* You own it (main owner) */
 .map-legend .key.box.self {
-    background: var(--warn);
+    background: #52e3c2;
+}
+
+.map-legend .key.box.nq {
+    background: #3f4754;
 }
 
 /* Owned by others */
@@ -2077,11 +2084,6 @@ body.user-admin-view #ownership .ownership-card {
 .country.nq,
 .country.nq * {
     fill: #84606e;
-}
-/* muted wine */
-
-.map-legend .key.box.nq {
-    background: #84606e;
 }
 
 /* Dimming when a group is selected */
