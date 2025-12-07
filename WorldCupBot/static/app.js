@@ -2391,18 +2391,36 @@ async function fetchJSON(url){
   }
 }
 
-    function isoToFlag(iso){
+    function isoToFlag(iso) {
       if (!iso) return '';
-      iso = String(iso).toUpperCase();
+      const up = String(iso).toUpperCase();
 
-      // strip suffixes like GB-ENG, GB-SCT, GB-WLS
-      const base = iso.split('-')[0];
-      let flagIso = base;
-      if (flagIso === 'UK') flagIso = 'GB';
+      // Special handling for UK home nations using your gb-xxx codes
+      const SPECIAL = {
+        'GB-ENG': '🏴', // England
+        'GB-SCT': '🏴', // Scotland
+        'GB-WLS': '🏴', // Wales
+        // There is no separate NI flag emoji - keep Union Jack for NIR
+        'GB-NIR': '🇬🇧'
+      };
 
-      if (!/^[A-Z]{2}$/.test(flagIso)) return '';
-      return String.fromCodePoint(127397 + flagIso.charCodeAt(0))
-           + String.fromCodePoint(127397 + flagIso.charCodeAt(1));
+      if (SPECIAL[up]) {
+        return SPECIAL[up];
+      }
+
+      // Standard 2-letter country flags (e.g. US, FR, BR)
+      if (up.length === 2 &&
+          up[0] >= 'A' && up[0] <= 'Z' &&
+          up[1] >= 'A' && up[1] <= 'Z') {
+
+        const A = 'A'.codePointAt(0);
+        const code1 = 0x1F1E6 + (up.codePointAt(0) - A);
+        const code2 = 0x1F1E6 + (up.codePointAt(1) - A);
+        return String.fromCodePoint(code1, code2);
+      }
+
+      // Fallback - nothing better to show
+      return '';
     }
 
     // 24h meta cache
