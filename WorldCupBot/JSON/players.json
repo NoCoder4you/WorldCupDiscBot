@@ -3,7 +3,7 @@
         "display_name": "Siren",
         "teams": [
             {
-                "team": "Italy",
+                "team": "Scotland",
                 "ownership": {
                     "main_owner": 298121351871594497,
                     "split_with": []
@@ -19,12 +19,14 @@
                 "public_message_id": 1402411189559885836
             },
             {
-                "team": "Spain",
+                "team": "Russia",
                 "ownership": {
                     "main_owner": 1202812518398169111,
-                    "split_with": []
+                    "split_with": [
+                        298121351871594497
+                    ]
                 },
-                "public_message_id": 1402410745307598898
+                "public_message_id": 1402411201610121419
             }
         ]
     },
@@ -56,16 +58,6 @@
     "1202812518398169111": {
         "username": "noah7479",
         "teams": [
-            {
-                "team": "Spain",
-                "ownership": {
-                    "main_owner": 1202812518398169111,
-                    "split_with": [
-                        298121351871594497
-                    ]
-                },
-                "public_message_id": 1402411201610121419
-            },
             {
                 "team": "Chile",
                 "ownership": {
