@@ -2068,6 +2068,11 @@ body.user-admin-view #ownership .ownership-card {
     filter: drop-shadow(0 0 6px rgba(0, 200, 150, 0.3));
 }
 
+/* default fill ONLY for countries with no class at all */
+#map-svg-host .country:not(.self):not(.owned):not(.split):not(.free):not(.nq) {
+    fill: #3a495f;
+}
+
 /* Not Qualified + group filter */
 .country.nq,
 .country.nq * {
