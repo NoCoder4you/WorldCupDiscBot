@@ -1949,9 +1949,6 @@ body.user-admin-view #ownership .ownership-card {
     position: absolute;
     bottom: 12px;
     left: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 12px;
 
     padding: 8px 10px;
     border-radius: 10px;
@@ -2009,19 +2006,6 @@ body.user-admin-view #ownership .ownership-card {
     cursor: grabbing;
 }
 
-/* Owned by others */
-.country.owned,
-.country.owned * {
-    fill: var(--accent);
-    opacity: 1;
-}
-
-/* Self owned - you as main owner */
-.country.self,
-.country.self * {
-    fill: var(--warn);
-    opacity: 1;
-}
 
 #map-svg-host .country.split,
 #map-svg-host .country.split * {
