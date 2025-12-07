@@ -2069,8 +2069,9 @@ body.user-admin-view #ownership .ownership-card {
 #map-svg-host svg {
     transition: filter 0.4s ease;
 }
+
 #map-svg-host svg.zooming {
-    filter: drop-shadow(0 0 6px rgba(0, 200, 150, 0.3));
+    filter: none;
 }
 
 /* default fill ONLY for countries with no class at all */
@@ -2134,22 +2135,24 @@ body.user-admin-view #ownership .ownership-card {
     fill: #5c6677;
     opacity: 0.85;
 }
-/* Self Owned - override with theme warn yellow */
+
 .country-owned-self,
 .country-owned-self * {
-    fill: var(--warn);
+    fill: #00f6d2;
     opacity: 1;
 }
 
-/* Owned by others - keep existing green, explicit override */
+.country-owned-self.active,
+.country-owned-self.active * {
+    filter: drop-shadow(0 0 6px rgba(0, 246, 210, 0.7));
+}
+
 .country-owned-other,
 .country-owned-other * {
     fill: #18c28a;
     opacity: 1;
 }
 
-
-/* Dimmed (from group filter) — overrides above when filtering */
 .country.dim,
 .country.dim * {
     opacity: 0.15;
