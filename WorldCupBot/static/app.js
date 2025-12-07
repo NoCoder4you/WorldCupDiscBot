@@ -3157,7 +3157,7 @@ async function fetchJSON(url){
               infoBox.classList.remove('hidden');
 
               // Zoom to the clicked country (uses your viewBox animation)
-              zoomToElement(el, 1.3);
+              zoomToElement(el, 1.75);
             });
         });
     }
