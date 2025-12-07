@@ -2525,9 +2525,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams){
-    const rows = (merged && merged.rows) || [];
+    const rows       = (merged && merged.rows) || [];
     const teamIsoMap = teamIso || {};
-    const selfSet = (selfTeams && typeof selfTeams.has === 'function')
+    const selfSet    = (selfTeams && typeof selfTeams.has === 'function')
       ? selfTeams
       : new Set();
 
@@ -2541,15 +2541,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const ISO_OVERRIDES = {
-      'cote divoire'       : 'ci',
-      'cote d ivoire'      : 'ci',
-      "cote d'ivoire"      : 'ci',
-      'curacao'            : 'cw',
-      'curaçao'            : 'cw',
-      'england'            : 'gb-eng',
-      'scotland'           : 'gb-sct',
-      'wales'              : 'gb-wls',
-      'northern ireland'   : 'gb-nir'
+      'cote divoire'     : 'ci',
+      'cote d ivoire'    : 'ci',
+      "cote d'ivoire"    : 'ci',
+      'curacao'          : 'cw',
+      'curaçao'          : 'cw',
+      'england'          : 'gb-eng',
+      'scotland'         : 'gb-sct',
+      'wales'            : 'gb-wls',
+      'northern ireland' : 'gb-nir'
     };
 
     function inferIsoFromName(name){
@@ -2557,52 +2557,66 @@ document.addEventListener('DOMContentLoaded', () => {
       return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
     }
 
-    // 1) team -> ownership state
+    // 1) team -> ownership state (store both raw and normalized keys)
     const teamState = {};
     for (const row of rows) {
-      const team   = row.country;
+      const team = row.country;
       if (!team) continue;
-      const owners = row.owners_count || 0;
-      const splits = row.split_with || [];
+
+      const ownersCount = row.owners_count || 0;
+      const splits      = row.split_with || [];
 
       const norm   = normalizeTeamName(team);
       const isSelf = selfSet.has(norm);
 
       let status = 'free';
-      if (owners > 0 && (!splits || splits.length === 0)) status = 'owned';
+      if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
       if (splits && splits.length > 0) status = 'split';
+
+      // if you are the main owner of this team, mark as self
       if (isSelf && status === 'owned') status = 'self';
 
       const stateObj = { status, main: row.main_owner, splits: row.split_with };
 
-      if (!teamState[team])  teamState[team]  = stateObj;
-      if (!teamState[norm])  teamState[norm]  = stateObj;
+      if (!teamState[team]) teamState[team] = stateObj;
+      if (!teamState[norm]) teamState[norm] = stateObj;
     }
 
     // 2) build meta lookups (qualified, group) keyed by team name or iso
-    const teamQual = {};
+    const teamQual  = {};
     const teamGroup = {};
-    const isoQual = {};
-    const isoGroup = {};
+    const isoQual   = {};
+    const isoGroup  = {};
 
     if (teamMeta) {
+      // grouped style: { groups:{A:[...strings or objects...]}, not_qualified:[...optional...] }
       if (teamMeta.groups) {
-        // grouped by A,B,C...
         Object.entries(teamMeta.groups).forEach(([g, arr]) => {
-          arr.forEach(item => {
-            const tName = item.team || item.name || '';
-            const iso   = (item.iso || '').toLowerCase();
-            const q     = item.qualified !== false; // default true
+          (arr || []).forEach(entry => {
+            let tName = '';
+            let iso   = '';
+            let q     = true; // everything listed in groups is qualified
+
+            if (typeof entry === 'string') {
+              tName = entry;
+              iso   = inferIsoFromName(tName);
+            } else if (entry && typeof entry === 'object') {
+              tName = entry.team || entry.name || '';
+              iso   = String(entry.iso || '').toLowerCase();
+              if (entry.hasOwnProperty('qualified')) {
+                q = entry.qualified === true;
+              }
+            }
 
             const norm = normalizeTeamName(tName);
 
             if (tName) {
-              teamQual[tName]   = q;
-              teamGroup[tName]  = g;
+              teamQual[tName]  = q;
+              teamGroup[tName] = g;
             }
             if (norm) {
-              teamQual[norm]   = q;
-              teamGroup[norm]  = g;
+              teamQual[norm]  = q;
+              teamGroup[norm] = g;
             }
             if (iso) {
               isoQual[iso]  = q;
@@ -2610,13 +2624,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
         });
+
+        // optional explicit not_qualified list (strings or objects)
+        (teamMeta.not_qualified || []).forEach(entry => {
+          let tName = '';
+          let iso   = '';
+
+          if (typeof entry === 'string') {
+            tName = entry;
+            iso   = inferIsoFromName(tName);
+          } else if (entry && typeof entry === 'object') {
+            tName = entry.team || entry.name || '';
+            iso   = String(entry.iso || '').toLowerCase();
+          }
+
+          const norm = normalizeTeamName(tName);
+
+          if (tName) {
+            teamQual[tName]  = false;
+          }
+          if (norm) {
+            teamQual[norm]   = false;
+          }
+          if (iso) {
+            isoQual[iso]     = false;
+          }
+        });
       } else {
-        // flat object keyed by team name / iso
+        // flat object keyed by team / iso, entries can be {team, iso, group, qualified}
         Object.values(teamMeta).forEach(item => {
           if (!item) return;
           const tName = item.team || item.name || '';
-          const iso   = (item.iso || '').toLowerCase();
-          const q     = item.qualified !== false;
+          const iso   = String(item.iso || '').toLowerCase();
+          const q     = item.qualified !== false; // default true
           const g     = item.group || '';
 
           const norm = normalizeTeamName(tName);
@@ -2626,17 +2666,18 @@ document.addEventListener('DOMContentLoaded', () => {
             teamGroup[tName] = g;
           }
           if (norm) {
-            teamQual[norm]  = q;
-            teamGroup[norm] = g;
+            teamQual[norm]   = q;
+            teamGroup[norm]  = g;
           }
           if (iso) {
-            isoQual[iso]  = q;
-            isoGroup[iso] = g;
+            isoQual[iso]     = q;
+            isoGroup[iso]    = g;
           }
         });
       }
     }
 
+    // iso -> team label from /api/team_iso
     const isoToTeam = {};
     Object.entries(teamIsoMap).forEach(([name, iso]) => {
       const norm   = normalizeTeamName(name);
@@ -2645,7 +2686,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isoToTeam[lowIso] = name;
     });
 
-    svg.querySelectorAll('.country').forEach(el=>{
+    svg.querySelectorAll('.country').forEach(el => {
       const isoRaw = (el.getAttribute('data-iso') || '').toLowerCase();
       if (!isoRaw) return;
 
@@ -2654,25 +2695,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // from ISO to team name
       const team     = isoToTeam[iso] || isoUp;
-      const normTeam = isoToNormTeam(isoToTeam, iso, team);
+      const normTeam = normalizeTeamName(team);
 
-      // derive iso from name if needed
+      // derive iso from name when needed
       const inferIso = inferIsoFromName(team) || iso;
 
       const teamLabel = team;
 
-      // default: not qualified unless meta says otherwise
+      // default: mark as not qualified when meta exists and does not say otherwise
       let status = 'nq';
 
       let qualified = true;
       if (teamMeta) {
         qualified = (
-          teamQual[team]      === true ||
-          teamQual[normTeam]  === true ||
-          isoQual[iso]        === true
+          teamQual[team]     === true ||
+          teamQual[normTeam] === true ||
+          isoQual[iso]       === true
         );
       }
 
+      // ownership by name
       let ownership = null;
       if (team || normTeam) {
         ownership = teamState[team] || teamState[normTeam] || null;
@@ -2682,7 +2724,7 @@ document.addEventListener('DOMContentLoaded', () => {
         status = 'free';
         if (ownership) status = ownership.status;
       } else if (!teamMeta) {
-        // if no meta at all, fallback to ownership only
+        // if no meta at all, fall back to ownership only
         status = ownership ? ownership.status : 'free';
       }
 
@@ -2701,11 +2743,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
-      // apply classes
+      // apply base status classes (self/owned/split/free/nq)
       el.classList.remove('owned','split','free','nq','dim','self');
       el.classList.add(status);
 
-      // datasets for click panel and filtering
+      // datasets for tooltip + group filter + self-owner overlay
       el.dataset.owners = ownersText;
       el.dataset.team   = teamLabel;
       el.dataset.group  = group;
@@ -2713,7 +2755,7 @@ document.addEventListener('DOMContentLoaded', () => {
       el.dataset.flag   = flag;
 
       // tooltip handlers
-      el.onmouseenter = ev=>{
+      el.onmouseenter = ev => {
         const flagPrefix = flag ? flag + ' ' : '';
         const teamLine   = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
         const ownerLine  = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
@@ -2727,10 +2769,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tip.style.opacity = '1';
         positionTip(ev);
       };
-      el.onmousemove = ev => positionTip(ev);
-      el.onmouseleave = () => {
-        tip.style.opacity = '0';
-      };
+      el.onmousemove  = ev => positionTip(ev);
+      el.onmouseleave = () => { tip.style.opacity = '0'; };
     });
   }
 
