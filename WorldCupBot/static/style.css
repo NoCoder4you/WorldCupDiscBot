@@ -1927,6 +1927,23 @@ body.user-admin-view #ownership .ownership-card {
   fill: #ffcc00 !important;
 }
 
+.map-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(10, 16, 24, 0.95);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+    z-index: 25;
+}
+
 .map-legend .key.box {
     display: inline-block;
     width: 14px;
