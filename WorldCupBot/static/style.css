@@ -2098,6 +2098,20 @@ body.user-admin-view #ownership .ownership-card {
     fill: #5c6677;
     opacity: 0.85;
 }
+/* Self Owned - override with theme warn yellow */
+.country-owned-self,
+.country-owned-self * {
+    fill: var(--warn);
+    opacity: 1;
+}
+
+/* Owned by others - keep existing green, explicit override */
+.country-owned-other,
+.country-owned-other * {
+    fill: #18c28a;
+    opacity: 1;
+}
+
 
 /* Not Qualified — dimmer and less saturated */
 .country.nq,
