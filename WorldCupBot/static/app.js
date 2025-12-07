@@ -2393,34 +2393,14 @@ async function fetchJSON(url){
 
     function isoToFlag(iso) {
       if (!iso) return '';
-      const up = String(iso).toUpperCase();
+      const code = String(iso).trim().toLowerCase();
+      if (!code) return '';
 
-      // Special handling for UK home nations using your gb-xxx codes
-      const SPECIAL = {
-        'GB-ENG': '🏴', // England
-        'GB-SCT': '🏴', // Scotland
-        'GB-WLS': '🏴', // Wales
-        // There is no separate NI flag emoji - keep Union Jack for NIR
-        'GB-NIR': '🇬🇧'
-      };
+      const safe = code.replace(/[^a-z0-9-]/g, '');
+      const url  = `https://flagcdn.com/24x18/${safe}.png`;
 
-      if (SPECIAL[up]) {
-        return SPECIAL[up];
-      }
-
-      // Standard 2-letter country flags (e.g. US, FR, BR)
-      if (up.length === 2 &&
-          up[0] >= 'A' && up[0] <= 'Z' &&
-          up[1] >= 'A' && up[1] <= 'Z') {
-
-        const A = 'A'.codePointAt(0);
-        const code1 = 0x1F1E6 + (up.codePointAt(0) - A);
-        const code2 = 0x1F1E6 + (up.codePointAt(1) - A);
-        return String.fromCodePoint(code1, code2);
-      }
-
-      // Fallback - nothing better to show
-      return '';
+      return `<img class="flag-img" src="${url}" alt="${safe} flag" loading="lazy"
+              onerror="this.style.display='none';">`;
     }
 
     // 24h meta cache
@@ -2833,7 +2813,7 @@ async function fetchJSON(url){
         }
         const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
 
-        const flagEmoji = isoToFlag(isoUp);
+        const flagHtml = isoToFlag(iso);
         const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
         // apply classes
@@ -2845,12 +2825,13 @@ async function fetchJSON(url){
         el.dataset.team   = teamLabel;
         el.dataset.group  = group;
         el.dataset.iso    = isoUp;
-        el.dataset.flag   = flagEmoji;
+        el.dataset.flag   = flagHtml;
 
         // tooltip
         el.onmouseenter = ev=>{
+          const flagPrefix = flagHtml ? flagHtml + ' ' : '';
           tip.innerHTML =
-            `<strong>${flagEmoji ? flagEmoji + ' ' : ''}${teamLabel}</strong>` +
+            `<strong>${flagPrefix}${teamLabel}</strong>` +
             `<br><em>${isoUp}</em><br>${ownersText}`;
           tip.style.opacity = '1';
           positionTip(ev);
@@ -3082,7 +3063,7 @@ async function fetchJSON(url){
 
               // Fill the info panel
               document.getElementById('map-info-name').textContent = name;
-              document.getElementById('map-info-flag').textContent = flag;
+              document.getElementById('map-info-flag').innerHTML = flag;
               document.getElementById('map-info-group').textContent = 'Group: ' + group;
               document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
               document.getElementById('map-info-status').textContent = 'Status: ' + status;
