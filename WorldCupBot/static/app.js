@@ -2634,23 +2634,20 @@ async function fetchJSON(url){
         nameToIso[norm] = lowIso;
       });
 
-      // manual overrides for awkward names / codes
       const ISO_OVERRIDES = {
-        // Cote d'Ivoire variants
-        'cote divoire': 'ci',
-        'cote d ivoire': 'ci',
-        "cote d'ivoire": 'ci',
+          'cote divoire': 'ci',
+          'cote d ivoire': 'ci',
+          "cote d'ivoire": 'ci',
 
-        // Curacao variants
-        'curacao': 'cw',
-        'curaçao': 'cw',
+          // Curaçao
+          'curacao': 'cw',
+          'curaçao': 'cw',
 
-        // Home nations (in case /api/team_iso uses different wording)
-        'england': 'eng',
-        'scotland': 'sco',
-        'wales': 'wal',
-        'northern ireland': 'nir'
-      };
+          'england': 'gb-eng',
+          'scotland': 'gb-sct',
+          'wales': 'gb-wls',
+          'northern ireland': 'gb-nir'
+        };
 
       function inferIsoFromName(name){
         const norm = normalizeTeamName(name);
@@ -2748,10 +2745,10 @@ async function fetchJSON(url){
 
       // 3b) ensure split UK nations exist even if team_iso is missing entries
       const UK_SPLIT = {
-        eng: 'England',
-        sco: 'Scotland',
-        wal: 'Wales',
-        nir: 'Northern Ireland'
+          'gb-eng': 'England',
+          'gb-sct': 'Scotland',
+          'gb-wls': 'Wales',
+          'gb-nir': 'Northern Ireland'
       };
       Object.entries(UK_SPLIT).forEach(([iso, name]) => {
         const lowIso = iso.toLowerCase();
