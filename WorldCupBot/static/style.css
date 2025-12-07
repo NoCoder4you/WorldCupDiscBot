@@ -1905,10 +1905,25 @@ body.user-admin-view #ownership .ownership-card {
     transition: fill 0.15s ease, transform 0.05s ease;
 }
 
-.country.split {
-    fill: var(--accent-2);
+/* Owned by others */
+.country.owned {
+    fill: var(--accent);
+    opacity: 1;
 }
 
+/* Self owned (you) */
+.country.self {
+    fill: var(--warn);
+    opacity: 1;
+}
+
+/* Split */
+.country.split {
+    fill: var(--accent-2);
+    opacity: 1;
+}
+
+/* Free but qualified */
 .country.free {
     fill: #5c6677;
     opacity: 0.85;

@@ -3141,7 +3141,8 @@ async function fetchJSON(url){
               const flag   = el.dataset.flag || '';
               const group  = el.dataset.group || '—';
               const owners = el.dataset.owners || 'Unassigned';
-              const status = el.classList.contains('owned') ? 'Owned'
+              const status = el.classList.contains('self')  ? 'Self Owned'
+                           : el.classList.contains('owned') ? 'Owned by Others'
                            : el.classList.contains('split') ? 'Split'
                            : el.classList.contains('nq')    ? 'Not Qualified'
                            : 'Unassigned';
