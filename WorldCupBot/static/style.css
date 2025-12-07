@@ -1750,7 +1750,6 @@ body.user-admin-view #ownership .ownership-card {
     margin-right: 8px;
     border-radius: 2px;
     vertical-align: -2px;
-    image-rendering: crisp-edges;
 }
 .flag-emoji {
     display: inline-block;
@@ -3000,7 +2999,7 @@ body.modal-open footer {
 .fan-team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fan-vs { text-align: center; color: var(--muted); font-weight: 900; }
 
-.fan-flag { width: 24px; height: 18px; border-radius: 2px; image-rendering: crisp-edges; }
+.fan-flag { width: 24px; height: 18px; border-radius: 2px; }
 
 .fan-time { color: var(--muted); font-weight: 700; margin-bottom: 8px; }
 
