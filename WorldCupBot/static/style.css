@@ -1912,7 +1912,7 @@ body.user-admin-view #ownership .ownership-card {
 }
 
 .country.self {
-    fill: #52e3c2;
+    fill: #00F8FF;
     opacity: 1;
 }
 
@@ -1969,7 +1969,7 @@ body.user-admin-view #ownership .ownership-card {
 }
 
 .map-legend .key.box.self {
-    background: #52e3c2;
+    background: #00F8FF;
 }
 
 .map-legend .key.box.nq {
@@ -2118,7 +2118,7 @@ body.user-admin-view #ownership .ownership-card {
 /* Owned */
 .country.owned,
 .country.owned * {
-    fill: #18c28a;
+    fill: #00FF9D;
     opacity: 1;
 }
 
