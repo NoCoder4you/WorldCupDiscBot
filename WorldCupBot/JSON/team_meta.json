@@ -1,7 +1,7 @@
 {
   "groups": {
     "A": ["Mexico", "South Africa", "Korea Republic"],
-    "B": ["Canada", "Qatar", "Switzerland"],
+    "B": ["Canada", "Qatar", "Switzerland", "China"],
     "C": ["Brazil", "Morocco", "Haiti", "Scotland"],
     "D": ["USA", "Paraguay", "Australia", "Russia"],
     "E": ["Germany", "Curaçao", "Côte d'Ivoire", "Ecuador"],
