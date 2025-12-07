@@ -10,7 +10,7 @@
     --card: #182231;
     --text: #eaf1ff;
     --muted: #93a4bd;
-    --accent: #00c896;
+    --accent: #00ffd5;
     --accent-2: #2aa8ff;
     --danger: #e6505c;
     --border: #273247;
@@ -2138,7 +2138,7 @@ body.user-admin-view #ownership .ownership-card {
 
 .country-owned-self,
 .country-owned-self * {
-    fill: #00f6d2;
+    fill: ##00F8FF;
     opacity: 1;
 }
 
