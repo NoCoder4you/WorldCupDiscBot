@@ -1918,7 +1918,7 @@ body.user-admin-view #ownership .ownership-card {
 
 .country.nq {
     fill: #3f4754;
-    opacity: 1;
+    opacity: 0.20;
 }
 
 /* Split */
@@ -2080,12 +2080,6 @@ body.user-admin-view #ownership .ownership-card {
     fill: #3a495f;
 }
 
-/* Not Qualified + group filter */
-.country.nq,
-.country.nq * {
-    fill: #84606e;
-}
-
 /* Dimming when a group is selected */
 .country.dim,
 .country.dim * {
@@ -2156,15 +2150,6 @@ body.user-admin-view #ownership .ownership-card {
     opacity: 1;
 }
 
-
-/* Not Qualified — dimmer and less saturated */
-.country.nq,
-.country.nq * {
-    fill: #3d2d36;
-    /* darker muted plum tone */
-    opacity: 0.35;
-    /* 👈 transparency makes them subtle */
-}
 
 /* Dimmed (from group filter) — overrides above when filtering */
 .country.dim,
