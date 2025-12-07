@@ -2813,7 +2813,7 @@ async function fetchJSON(url){
         }
         const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
 
-        const flagHtml = isoToFlag(iso);
+        const flagEmoji = isoToFlag(isoUp);
         const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
         // apply classes
@@ -2825,13 +2825,12 @@ async function fetchJSON(url){
         el.dataset.team   = teamLabel;
         el.dataset.group  = group;
         el.dataset.iso    = isoUp;
-        el.dataset.flag   = flagHtml;
+        el.dataset.flag   = flagEmoji;
 
         // tooltip
         el.onmouseenter = ev=>{
-          const flagPrefix = flagHtml ? flagHtml + ' ' : '';
           tip.innerHTML =
-            `<strong>${flagPrefix}${teamLabel}</strong>` +
+            `<strong>${flagEmoji ? flagEmoji + ' ' : ''}${teamLabel}</strong>` +
             `<br><em>${isoUp}</em><br>${ownersText}`;
           tip.style.opacity = '1';
           positionTip(ev);
