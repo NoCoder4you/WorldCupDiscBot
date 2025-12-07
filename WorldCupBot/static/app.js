@@ -3269,25 +3269,6 @@ async function fetchJSON(url){
   })();
 })();
 
-// Daily silent refresh of team_meta (and re-render if on World Map)
-(function setupDailyMetaRefresh(){
-  const DAY = 24 * 60 * 60 * 1000;
-  setInterval(async ()=>{
-    // If meta is stale, clear it so next render fetches fresh
-    try{
-      const blob = JSON.parse(localStorage.getItem('wc:team_meta') || 'null');
-      if (!blob || (Date.now() - (blob.ts || 0)) >= DAY) {
-        localStorage.removeItem('wc:team_meta');
-        // Only re-render if user is actually on the World Map section
-        const isActive = document.querySelector('#worldmap.active-section');
-        if (isActive) render();
-      }
-    }catch{
-      localStorage.removeItem('wc:team_meta');
-    }
-  }, DAY);
-})();
-
 // --- Leaderboards add-on START (append-only) ---
 (() => {
   'use strict';
