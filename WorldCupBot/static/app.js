@@ -2397,7 +2397,7 @@ async function fetchJSON(url){
       if (!code) return '';
 
       const safe = code.replace(/[^a-z0-9-]/g, '');
-      const url  = `https://flagcdn.com/24x18/${safe}.png`;
+      const url  = `https://flagcdn.com/48x36/${safe}.png`;
 
       return `<img class="flag-img" src="${url}" alt="${safe} flag" loading="lazy"
               onerror="this.style.display='none';">`;
@@ -2813,7 +2813,7 @@ async function fetchJSON(url){
         }
         const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
 
-        const flagEmoji = isoToFlag(isoUp);
+        const flagHtml = isoToFlag(iso);
         const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
         // apply classes
@@ -2825,12 +2825,13 @@ async function fetchJSON(url){
         el.dataset.team   = teamLabel;
         el.dataset.group  = group;
         el.dataset.iso    = isoUp;
-        el.dataset.flag   = flagEmoji;
+        el.dataset.flag   = flagHtml;
 
         // tooltip
         el.onmouseenter = ev=>{
+          const flagPrefix = flagHtml ? flagHtml + ' ' : '';
           tip.innerHTML =
-            `<strong>${flagEmoji ? flagEmoji + ' ' : ''}${teamLabel}</strong>` +
+            `<strong>${flagPrefix}${teamLabel}</strong>` +
             `<br><em>${isoUp}</em><br>${ownersText}`;
           tip.style.opacity = '1';
           positionTip(ev);
@@ -3062,7 +3063,7 @@ async function fetchJSON(url){
 
               // Fill the info panel
               document.getElementById('map-info-name').textContent = name;
-              document.getElementById('map-info-flag').textContent = flag;
+              document.getElementById('map-info-flag').innerHTML = flag;
               document.getElementById('map-info-group').textContent = 'Group: ' + group;
               document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
               document.getElementById('map-info-status').textContent = 'Status: ' + status;

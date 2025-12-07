@@ -1744,8 +1744,8 @@ body.user-admin-view #ownership .ownership-card {
 
 /* Flags inline with country */
 .flag-img {
-    width: 18px;
-    height: 13.5px;
+    width: 32px;
+    height: 24px;
     /* matches 24x18 assets */
     margin-right: 8px;
     border-radius: 2px;
