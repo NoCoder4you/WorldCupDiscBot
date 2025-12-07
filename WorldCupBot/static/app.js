@@ -3063,7 +3063,7 @@ async function fetchJSON(url){
 
               // Fill the info panel
               document.getElementById('map-info-name').textContent = name;
-              document.getElementById('map-info-flag').innerHTML = flag;
+              document.getElementById('map-info-flag').textContent = flag;
               document.getElementById('map-info-group').textContent = 'Group: ' + group;
               document.getElementById('map-info-owners').textContent = 'Owners: ' + owners;
               document.getElementById('map-info-status').textContent = 'Status: ' + status;
