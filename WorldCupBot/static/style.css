@@ -1952,12 +1952,14 @@ body.user-admin-view #ownership .ownership-card {
     vertical-align: -2px;
 }
 
+/* You own it (main owner) */
 .map-legend .key.box.self {
     background: var(--warn);
 }
 
+/* Owned by others */
 .map-legend .key.box.owned {
-    background: #18c28a;
+    background: var(--accent);
 }
 
 .map-legend .key.box.split {
@@ -1990,9 +1992,18 @@ body.user-admin-view #ownership .ownership-card {
     fill: #3a495f;
 }
 
-#map-svg-host .country.owned,
-#map-svg-host .country.owned * {
-    fill: #18c28a;
+/* Owned by others */
+.country.owned,
+.country.owned * {
+    fill: var(--accent);
+    opacity: 1;
+}
+
+/* Self owned - you as main owner */
+.country.self,
+.country.self * {
+    fill: var(--warn);
+    opacity: 1;
 }
 
 #map-svg-host .country.split,

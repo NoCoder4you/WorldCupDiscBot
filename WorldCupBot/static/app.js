@@ -2676,9 +2676,12 @@ async function fetchJSON(url){
         .toLowerCase();
     }
 
-    function classifyCountries(svg, teamIso, merged, teamMeta){
+    function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams){
       const rows = (merged && merged.rows) || [];
       const teamIsoMap = teamIso || {};
+      const selfSet = (selfTeams && typeof selfTeams.has === 'function')
+        ? selfTeams
+        : new Set();
 
       // map normalized team name -> iso from /api/team_iso
       const nameToIso = {};
@@ -2716,12 +2719,20 @@ async function fetchJSON(url){
         if (!team) continue;
         const ownersCount = row.owners_count || 0;
         const splits = row.split_with || [];
+
+        const norm = normalizeTeamName(team);
+        const isSelf = selfSet.has(norm);
+
         let status = 'free';
         if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
         if (splits && splits.length > 0) status = 'split';
 
+        // if you are the main owner of this team, mark as self
+        if (isSelf && status === 'owned') {
+          status = 'self';
+        }
+
         const payload = { status, main: row.main_owner, splits };
-        const norm = normalizeTeamName(team);
         teamState[team] = payload;
         teamState[norm] = payload;
       }
@@ -2787,15 +2798,18 @@ async function fetchJSON(url){
         }
       }
 
-      // 3) iso -> team map from /api/team_iso
+      // 3) iso -> team reverse map
       const isoToTeam = {};
       const isoToNormTeam = {};
-      Object.entries(teamIsoMap).forEach(([team, iso])=>{
+
+      Object.entries(teamIsoMap).forEach(([name, iso])=>{
+        const norm = normalizeTeamName(name);
         const lowIso = String(iso || '').toLowerCase();
-        if (!lowIso) return;
-        const norm = normalizeTeamName(team);
-        isoToTeam[lowIso] = team;
-        isoToNormTeam[lowIso] = norm;
+        if (!norm || !lowIso) return;
+        if (!isoToTeam[lowIso]) {
+          isoToTeam[lowIso] = name;
+          isoToNormTeam[lowIso] = norm;
+        }
       });
 
       // 3b) ensure split UK nations exist even if team_iso is missing entries
@@ -2808,8 +2822,9 @@ async function fetchJSON(url){
       Object.entries(UK_SPLIT).forEach(([iso, name]) => {
         const lowIso = iso.toLowerCase();
         if (!isoToTeam[lowIso]) {
+          const norm = normalizeTeamName(name);
           isoToTeam[lowIso] = name;
-          isoToNormTeam[lowIso] = normalizeTeamName(name);
+          isoToNormTeam[lowIso] = norm;
         }
       });
 
@@ -2824,14 +2839,17 @@ async function fetchJSON(url){
       // 4) paint countries, store datasets, wire tooltips
       svg.querySelectorAll('.country').forEach(el=>{
         const iso = (el.getAttribute('data-iso') || '').toLowerCase();
-        if (!iso) return;
-
         const isoUp = iso.toUpperCase();
-        const team = isoToTeam[iso];
-        const normTeam = isoToNormTeam[iso];
-        const teamLabel = team || isoUp;
 
-        // default: Not Qualified (anything not specified in meta is NQ)
+        // from ISO to team name
+        const team = isoToTeam[iso] || isoUp;
+        const normTeam = isoToNormTeam[iso] || normalizeTeamName(team);
+
+        // derive iso from data if unknown
+        const inferIso = inferIsoFromName(team) || iso;
+
+        // default: assume qualified, free
+        // (NQ only if explicitly in meta with qualified=false, or if meta exists and team not specified in meta is NQ)
         let status = 'nq';
 
         // compute qualification (by name OR by ISO)
@@ -2874,7 +2892,7 @@ async function fetchJSON(url){
         const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
         // apply classes
-        el.classList.remove('owned','split','free','nq','dim');
+        el.classList.remove('owned','split','free','nq','dim','self');
         el.classList.add(status);
 
         // datasets for click panel and filtering
@@ -2887,16 +2905,23 @@ async function fetchJSON(url){
         // tooltip
         el.onmouseenter = ev=>{
           const flagPrefix = flagHtml ? flagHtml + ' ' : '';
-          tip.innerHTML =
-            `<strong>${flagPrefix}${teamLabel}</strong>` +
-            `<br><em>${isoUp}</em><br>${ownersText}`;
+          const teamLine = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
+          const ownerLine = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
+          const statusLine = qualified ? 'Status: Owned' : 'Status: Not qualified';
+
+          tip.innerHTML = `
+            <div class="map-info">
+              <h3>${teamLine}</h3>
+              <p>${ownerLine}</p>
+              ${group ? `<p>Group: ${escapeHtml(group)}</p>` : ''}
+            </div>`;
           tip.style.opacity = '1';
           positionTip(ev);
         };
-        el.onmousemove = ev=> positionTip(ev);
-        el.onmouseleave = ()=>{ tip.style.opacity = '0'; };
-        el.onfocus = el.onmouseenter;
-        el.onblur  = el.onmouseleave;
+        el.onmousemove = ev=>positionTip(ev);
+        el.onmouseleave = ()=>{
+          tip.style.opacity = '0';
+        };
       });
     }
 
@@ -3133,24 +3158,51 @@ async function fetchJSON(url){
         });
     }
 
+/* =========================
+   WORLD MAP - interactive SVG
+   ========================= */
+(function(){
+  const host = document.getElementById('map-svg-host');
+
+    // Load which countries the current logged-in user owns (main owner only)
+    async function loadSelfOwnership(){
+      try {
+        const data = await fetchJSON('/api/me/ownership');
+        const selfSet = new Set();
+
+        if (data && Array.isArray(data.owned)) {
+          for (const row of data.owned) {
+            if (row && row.team) {
+              selfSet.add(normalizeTeamName(row.team));
+            }
+          }
+        }
+        return selfSet;
+      } catch (e) {
+        console.warn('loadSelfOwnership failed:', e);
+        return new Set();
+      }
+    }
+
     async function render(){
       try {
         console.time('worldmap:fetch');
-        const [iso, merged, meta] = await Promise.all([
+        const [iso, merged, meta, selfTeams] = await Promise.all([
           loadTeamIso(),
           loadOwnership(),
-          loadTeamMeta()
+          loadTeamMeta(),
+          loadSelfOwnership()
         ]);
         console.debug('team_iso ok:', Object.keys(iso).length, 'entries');
         console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
         console.debug('team_meta:', meta ? 'loaded' : 'absent');
+        console.debug('self ownership:', selfTeams ? selfTeams.size : 0, 'teams');
         console.timeEnd('worldmap:fetch');
 
         const svg = await inlineSVG('world.svg');
 
         // Color, store data attributes, and init groups
-        classifyCountries(svg, iso, merged, meta);
-        applySelfOwnershipColors(svg, merged);
+        classifyCountries(svg, iso, merged, meta, selfTeams);
         populateGroupSelector(meta);
         applyGroupFilter(svg);
 
@@ -3170,8 +3222,7 @@ async function fetchJSON(url){
         console.error('Map render error:', e);
         host.innerHTML = `
           <div class="muted" style="padding:10px;">
-            Failed to load map. Ensure world.svg exists and /api endpoints return valid JSON.<br>
-            <small>${(e && e.message) ? e.message : e}</small>
+            Failed to load map. Ensure world.svg and API endpoints exist.
           </div>`;
       }
     }
