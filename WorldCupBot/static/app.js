@@ -2609,6 +2609,46 @@ async function fetchJSON(url){
       return svg;
     }
 
+    function applySelfOwnershipColors(svg, merged, currentUserId) {
+      if (!svg || !merged || !merged.rows) return;
+
+      // Map: iso -> array of owner IDs
+      const isoOwners = {};
+      merged.rows.forEach(row => {
+        const team = row.country;
+        if (!team) return;
+
+        const owners = [];
+        if (row.main_owner?.id) owners.push(String(row.main_owner.id));
+        if (Array.isArray(row.split_with)) {
+          row.split_with.forEach(s => owners.push(String(s.id)));
+        }
+
+        const iso = (row.iso || row.country_iso || '').toLowerCase();
+        if (!iso) return;
+
+        isoOwners[iso] = owners;
+      });
+
+      svg.querySelectorAll('.country').forEach(el => {
+        const iso = (el.dataset.iso || '').toLowerCase();
+        if (!iso) return;
+
+        const owners = isoOwners[iso] || [];
+
+        // Always clear previous state
+        el.classList.remove('country-owned-self', 'country-owned-other');
+
+        if (owners.length === 0) return;
+
+        if (owners.includes(String(currentUserId))) {
+          el.classList.add('country-owned-self');       // YOU own it
+        } else {
+          el.classList.add('country-owned-other');      // Someone else owns it
+        }
+      });
+    }
+
     function normalizeTeamName(name){
       return (name || '')
         .normalize('NFD')
@@ -3093,6 +3133,7 @@ async function fetchJSON(url){
 
         // Color, store data attributes, and init groups
         classifyCountries(svg, iso, merged, meta);
+        applySelfOwnershipColors(svg, merged, window?.state?.user?.discord_id);
         populateGroupSelector(meta);
         applyGroupFilter(svg);
 

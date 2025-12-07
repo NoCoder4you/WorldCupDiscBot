@@ -1906,10 +1906,6 @@ body.user-admin-view #ownership .ownership-card {
     transition: fill 0.15s ease, transform 0.05s ease;
 }
 
-.country.owned {
-    fill: var();
-}
-
 .country.split {
     fill: var(--accent-2);
 }
@@ -1921,6 +1917,14 @@ body.user-admin-view #ownership .ownership-card {
 
 .country:hover {
     filter: brightness(1.15);
+}
+
+.country-owned-other {
+  fill: #00c896 !important;
+}
+
+.country-owned-self {
+  fill: #ffcc00 !important;
 }
 
 .map-legend {
@@ -2195,14 +2199,6 @@ body.user-admin-view #ownership .ownership-card {
 }
 .owner-pill--main  { color: #22c55e; border-color: rgba(34,197,94,.45); }
 .owner-pill--split { color: #00b8ff; border-color: rgba(0,184,255,.45); font-size: 10px;}
-
-.flag-img {
-  width: 18px;
-  height: 12px;
-  object-fit: cover;
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 2px;
-}
 
 /* =======================
    Backups page - visual polish
