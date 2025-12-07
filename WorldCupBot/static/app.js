@@ -2568,35 +2568,38 @@ async function fetchJSON(url){
       host.innerHTML = txt;
       const svg = host.querySelector('svg');
 
-    // Tag country shapes whose id/data-iso is ISO-2 or UK home-nation codes
-    const nodes = svg.querySelectorAll(
-      'path[id], polygon[id], rect[id], g[id], use[id], [data-iso]'
-    );
-
+    const nodes = svg.querySelectorAll('path[id], polygon[id], rect[id], g[id], [data-iso]');
     let tagged = 0;
 
-    nodes.forEach(el=>{
+    nodes.forEach(el => {
       const raw = (el.getAttribute('data-iso') || el.id || '').trim();
-      if(!raw) return;
+      if (!raw) return;
 
       let iso = '';
 
-      // Standard ISO-2
-      const m1 = raw.match(/^[A-Za-z]{2}$/);                 // GB
-      const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/);      // iso-GB
+      // GB, FR, etc.
+      const m1 = raw.match(/^[A-Za-z]{2}$/);
 
-      // UK home nations (your panel format)
-      const m3 = raw.match(/^gb-(sct|wls|nir)$/i);           // gb-sct, gb-wls, gb-nir
+      // iso-GB, iso_fr, etc.
+      const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/);
 
-      if (m1) iso = m1[0].toLowerCase();
-      else if (m2) iso = m2[1].toLowerCase();
-      else if (m3) iso = `gb-${m3[1].toLowerCase()}`;
-      else return;
+      // Subdivisions like gb-eng, gb-sct, gb-wls, gb-nir
+      const m3 = raw.match(/^([A-Za-z]{2}[-_][A-Za-z]{2,3})$/);
 
-      el.classList.add('country','free');
+      if (m1) {
+        iso = m1[0].toLowerCase();
+      } else if (m2) {
+        iso = m2[1].toLowerCase();
+      } else if (m3) {
+        iso = m3[1].toLowerCase();
+      } else {
+        return; // ignore non-country shapes
+      }
+
+      el.classList.add('country', 'free');
       el.setAttribute('data-iso', iso);
-      el.setAttribute('tabindex','0');
-      el.setAttribute('role','button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('role', 'button');
       el.setAttribute('aria-label', iso.toUpperCase());
       tagged++;
     });
@@ -2622,27 +2625,36 @@ async function fetchJSON(url){
       const rows = (merged && merged.rows) || [];
       const teamIsoMap = teamIso || {};
 
-      // map normalized name -> iso from /api/team_iso
+      // map normalized team name -> iso from /api/team_iso
       const nameToIso = {};
       Object.entries(teamIsoMap).forEach(([name, iso]) => {
         const norm = normalizeTeamName(name);
         const lowIso = String(iso || '').toLowerCase();
-        if (!lowIso || !norm) return;
+        if (!norm || !lowIso) return;
         nameToIso[norm] = lowIso;
       });
 
-      // extra overrides for tricky names
+      // manual overrides for awkward names / codes
       const ISO_OVERRIDES = {
+        // Cote d'Ivoire variants
         'cote divoire': 'ci',
         'cote d ivoire': 'ci',
         "cote d'ivoire": 'ci',
+
+        // Curacao variants
+        'curacao': 'cw',
         'curaçao': 'cw',
-        'curacao': 'cw'
+
+        // Home nations (in case /api/team_iso uses different wording)
+        'england': 'eng',
+        'scotland': 'sco',
+        'wales': 'wal',
+        'northern ireland': 'nir'
       };
 
       function inferIsoFromName(name){
         const norm = normalizeTeamName(name);
-        return nameToIso[norm] || ISO_OVERRIDES[norm] || '';
+        return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
       }
 
       // 1) team -> ownership state (store both raw and normalized keys)
@@ -2702,7 +2714,6 @@ async function fetchJSON(url){
             if (iso) isoQual[iso] = false;
           });
         } else {
-          // per team style: { "England": {group:"C", qualified:true}, ... }
           Object.entries(teamMeta).forEach(([team, m])=>{
             if (!team || !m) return;
             allMetaTeams.push(team);
@@ -2735,7 +2746,22 @@ async function fetchJSON(url){
         isoToNormTeam[lowIso] = norm;
       });
 
-      // fill any missing ISO entries using meta + overrides
+      // 3b) ensure split UK nations exist even if team_iso is missing entries
+      const UK_SPLIT = {
+        eng: 'England',
+        sco: 'Scotland',
+        wal: 'Wales',
+        nir: 'Northern Ireland'
+      };
+      Object.entries(UK_SPLIT).forEach(([iso, name]) => {
+        const lowIso = iso.toLowerCase();
+        if (!isoToTeam[lowIso]) {
+          isoToTeam[lowIso] = name;
+          isoToNormTeam[lowIso] = normalizeTeamName(name);
+        }
+      });
+
+      // 3c) fill any missing ISO entries using meta + overrides
       Object.keys(isoGroup).forEach(iso => {
         if (isoToTeam[iso]) return;
         const label = allMetaTeams.find(name => inferIsoFromName(name) === iso) || iso.toUpperCase();
