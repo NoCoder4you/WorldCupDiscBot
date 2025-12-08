@@ -239,9 +239,9 @@ async function renderSignedIn(user, owned, split, matches, isAdmin, masquerading
 
   const inAdminView = localStorage.getItem('wc:adminView') === '1';
 
-  const avatar = user.avatar
-    ? `<img src="${user.avatar}" style="width:56px;height:56...px;border-radius:12px;vertical-align:middle;margin-right:10px">`
-    : '';
+    const avatar = user.avatar
+      ? `<img src="${user.avatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
+      : '';
 
   const adminLine = inAdminView
     ? `<div class="muted mono">ID: ${user.discord_id || user.id || ''}</div>`
