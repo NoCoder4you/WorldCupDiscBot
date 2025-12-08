@@ -733,7 +733,7 @@ var playerNames = {}; // id -> username
           : '—';
 
         // Stage cell
-        const current = (ownershipState.stages && ownershipState.stages[row.country]) || 'Group Stage';
+        const current = (ownershipState.stages && ownershipState.stages[row.country]) || '';
         let stageCell = '';
         if (isAdminUI()) {
           // editable select for admins (this is what gets enhanced into the custom dropdown)
