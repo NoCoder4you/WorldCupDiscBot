@@ -2850,7 +2850,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
       // tournament stage
-      let stage = (stageMap[team] || stageMap[normTeam]) || 'Group Stage';
+      let stage = (stageMap[team] || stageMap[normTeam]) || '—';
 
       // map fixtures to this ISO
       const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
