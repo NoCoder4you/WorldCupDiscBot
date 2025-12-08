@@ -246,166 +246,182 @@
   }
 
     async function renderSignedIn(user, owned, split, matches, isAdmin, masqueradingAs, verified){
-      if($btnLogin) $btnLogin.style.display = 'none';
-      if($btnLogout) $btnLogout.style.display = '';
+        if($btnLogin) $btnLogin.style.display = 'none';
+        if($btnLogout) $btnLogout.style.display = '';
 
-      const inAdminView = localStorage.getItem('wc:adminView') === '1';
+        const inAdminView = localStorage.getItem('wc:adminView') === '1';
 
-      // Decide whose profile to SHOW (admin vs masquerade target)
-      let viewName   = user.global_name || user.username;
-      let viewTag    = user.username;
-      let viewId     = user.discord_id || user.id || '';
-      let viewAvatar = user.avatar;
+        // --- base identity - real logged-in user ---
+        const baseUserName =
+          user.username || user.tag || user.name || '';
 
-      let masqDisplay = '';
+        let viewName   = user.global_name || user.display_name || cleanTag(baseUserName);
+        let viewTag    = cleanTag(baseUserName);
+        let viewId     = user.discord_id || user.id || '';
+        let viewAvatar = user.discord_avatar || user.avatar_url || user.avatar || '';
 
-      if (masqueradingAs) {
-        const list   = Array.isArray(verified) ? verified : [];
-        const target = list.find(v => String(v.discord_id || v.id || '') === String(masqueradingAs));
-        if (target) {
-          masqDisplay = target.display_name || target.username || String(masqueradingAs);
+        let masqDisplay = '';
 
-          // Use the masqueraded user's details for everything shown
-          viewName   = target.display_name || target.username || viewName;
-          viewTag    = target.display_name || target.username || viewTag;
-          viewId     = target.discord_id || target.id || viewId;
-          viewAvatar = target.avatar_url || target.avatar || viewAvatar;
-        } else {
-          masqDisplay = String(masqueradingAs);
+        // --- override with masqueraded target, if any ---
+        if (masqueradingAs) {
+          const list   = Array.isArray(verified) ? verified : [];
+          const target = list.find(v => String(v.discord_id || v.id || '') === String(masqueradingAs));
+
+          if (target) {
+            // values saved by WCVerify.py
+            const tId        = String(target.discord_id || target.id || '');
+            const tUserName  = target.discord_username || target.username || target.name || '';
+            const tGlobal    = target.discord_global_name || target.global_name || '';
+            const tDisplay   = target.discord_display_name || target.display_name || tGlobal || tUserName;
+            const tAvatar    = target.discord_avatar || target.avatar_url || target.avatar || '';
+
+            masqDisplay = tDisplay || cleanTag(tUserName) || tId;
+
+            viewName   = tDisplay || viewName;
+            viewTag    = cleanTag(tUserName) || viewTag;
+            viewId     = tId || viewId;
+            viewAvatar = tAvatar || viewAvatar;
+          } else {
+            // fallback if we somehow do not find the entry
+            masqDisplay = String(masqueradingAs);
+          }
         }
-      }
 
-      // Always render an <img> with a stable id so we can upgrade the avatar later
-      const avatar = `<img id="user-avatar" src="${viewAvatar || ''}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`;
+        // Always render an <img> with a stable id so it can be upgraded if needed
+        const avatarHtml = `<img id="user-avatar" src="${viewAvatar || ''}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`;
 
-      const adminLine = inAdminView
-        ? `<div class="muted mono">ID: ${viewId}</div>`
-        : '';
+        const adminLine = inAdminView
+          ? `<div class="muted mono">ID: ${viewId}</div>`
+          : '';
 
-      const title = `<div style="display:flex;align-items:center;gap:10px">
-          ${avatar}
-          <div>
-            <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
-            <div class="muted mono">${viewTag}</div>
-            ${adminLine}
-          </div>
-        </div>`;
+        const title = `<div style="display:flex;align-items:center;gap:10px">
+            ${avatarHtml}
+            <div>
+              <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
+              <div class="muted mono">${viewTag}</div>
+              ${adminLine}
+            </div>
+          </div>`;
 
-      // Admin-only masquerade controls
-      let masqControls = '';
-      if (isAdmin && inAdminView) {
-        const list = Array.isArray(verified) ? verified : [];
-        const options = list.map(v => {
-          const id = String(v.discord_id || v.id || '');
-          if (!id) return '';
-          const label = v.display_name || v.username || id;
-          const selected = masqueradingAs && String(masqueradingAs) === id ? ' selected' : '';
-          return `<option value="${id}"${selected}>${label}</option>`;
+        // --- admin-only masquerade controls ---
+        let masqControls = '';
+        if (isAdmin && inAdminView) {
+          const list = Array.isArray(verified) ? verified : [];
+          const options = list.map(v => {
+            const id = String(v.discord_id || v.id || '');
+            if (!id) return '';
+            const label =
+              v.discord_display_name ||
+              v.discord_global_name ||
+              v.display_name ||
+              v.discord_username ||
+              v.username ||
+              id;
+            const selected = masqueradingAs && String(masqueradingAs) === id ? ' selected' : '';
+            return `<option value="${id}"${selected}>${label}</option>`;
+          }).join('');
+
+          const bannerText = masqDisplay
+            ? `Now Showing as: ${masqDisplay}`
+            : 'Viewing as yourself';
+
+          masqControls = `
+            <div class="muted" id="masq-banner" style="margin-top:8px;font-size:12px">${bannerText}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;align-items:center">
+              <label for="masq-select" class="muted" style="font-size:12px">View as</label>
+              <select id="masq-select" class="select"
+                      style="min-width:220px;padding:6px 12px;border-radius:999px;">
+                <option value="">-- Choose user --</option>
+                ${options}
+              </select>
+              <button id="masq-apply" class="btn small">Apply</button>
+              <button id="masq-clear" class="btn small secondary">Back to self</button>
+            </div>
+          `;
+        }
+
+        const matchRows = (matches||[]).map(m=>{
+          const when = (m.utc||'').replace('T',' ').replace('Z',' UTC');
+          return `<tr><td>${when}</td><td>${m.home||''}</td><td>${m.away||''}</td><td>${m.stadium||''}</td></tr>`;
         }).join('');
 
-        const bannerText = masqDisplay
-          ? `Now Showing as: ${masqDisplay}`
-          : 'Viewing as yourself';
+        if($body) {
+          $body.innerHTML = `
+            <div class="card" style="height:auto">
+              <div class="card-title">Profile</div>
+              ${title}
+              ${masqControls}
+            </div>
 
-        masqControls = `
-          <div class="muted" id="masq-banner" style="margin-top:8px;font-size:12px">${bannerText}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;align-items:center">
-            <label for="masq-select" class="muted" style="font-size:12px">View as</label>
-            <select id="masq-select" class="select"
-                    style="min-width:220px;padding:6px 12px;border-radius:999px;">
-              <option value="">-- Choose user --</option>
-              ${options}
-            </select>
-            <button id="masq-apply" class="btn small">Apply</button>
-            <button id="masq-clear" class="btn small secondary">Back to self</button>
-          </div>
-        `;
-      }
+            <div class="card" style="height:auto; margin-top:12px">
+              <div class="card-title">Upcoming Matches</div>
+              ${
+                matchRows
+                  ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
+                  : `<p class="muted">No upcoming matches found for your teams.</p>`
+              }
+            </div>
+          `;
 
-      const matchRows = (matches||[]).map(m=>{
-        const when = (m.utc||'').replace('T',' ').replace('Z',' UTC');
-        return `<tr><td>${when}</td><td>${m.home||''}</td><td>${m.away||''}</td><td>${m.stadium||''}</td></tr>`;
-      }).join('');
+          // Optional: still call upgradeAvatar as a fallback if the URL is missing
+          upgradeAvatar(viewId);
+        }
 
-      if($body) {
-        $body.innerHTML = `
-          <div class="card" style="height:auto">
-            <div class="card-title">Profile</div>
-            ${title}
-            ${masqControls}
-          </div>
+        // --- wire masquerade controls + notify popup ---
+        if (isAdmin && inAdminView) {
+          const banner   = document.getElementById('masq-banner');
+          const sel      = document.getElementById('masq-select');
+          const btnApply = document.getElementById('masq-apply');
+          const btnClear = document.getElementById('masq-clear');
 
-          <div class="card" style="height:auto; margin-top:12px">
-            <div class="card-title">Upcoming Matches</div>
-            ${
-              matchRows
-                ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
-                : `<p class="muted">No upcoming matches found for your teams.</p>`
+          const updateBanner = (name, selfLabel) => {
+            if (banner) {
+              banner.textContent = name ? `Now Showing as: ${name}` : (selfLabel || 'Viewing as yourself');
             }
-          </div>
-        `;
-
-        // Upgrade the avatar to the real Discord profile picture (self or masquerade)
-        upgradeAvatar(viewId);
-      }
-
-      // Wire up masquerade controls + notify popup
-      if (isAdmin && inAdminView) {
-        const banner   = document.getElementById('masq-banner');
-        const sel      = document.getElementById('masq-select');
-        const btnApply = document.getElementById('masq-apply');
-        const btnClear = document.getElementById('masq-clear');
-
-        const updateBanner = (name, selfLabel) => {
-          if (banner) {
-            banner.textContent = name ? `Now Showing as: ${name}` : (selfLabel || 'Viewing as yourself');
-          }
-          if (typeof notify === 'function' && name) {
-            notify(`Now Showing as: ${name}`, true);
-          }
-        };
-
-        if (btnApply && sel) {
-          btnApply.onclick = async () => {
-            const id = sel.value.trim();
-            if (!id) return;
-            try{
-              await jpost('/admin/masquerade/start', { discord_id: id });
-            }catch(e){
-              console.error('masquerade start failed', e);
+            if (typeof notify === 'function' && name) {
+              notify(`Now Showing as: ${name}`, true);
             }
-            const label = sel.options[sel.selectedIndex]?.text || id;
-            updateBanner(label);
-            refreshUser();
           };
+
+          if (btnApply && sel) {
+            btnApply.onclick = async () => {
+              const id = sel.value.trim();
+              if (!id) return;
+              try{
+                await jpost('/admin/masquerade/start', { discord_id: id });
+              }catch(e){
+                console.error('masquerade start failed', e);
+              }
+              const label = sel.options[sel.selectedIndex]?.text || id;
+              updateBanner(label);
+              refreshUser();
+            };
+          }
+
+          if (btnClear) {
+            btnClear.onclick = async () => {
+              try{
+                await jpost('/admin/masquerade/stop', {});
+              }catch(e){
+                console.error('masquerade stop failed', e);
+              }
+              if (banner) banner.textContent = 'Viewing as yourself';
+              refreshUser();
+            };
+          }
+
+          if (masqDisplay) {
+            updateBanner(masqDisplay);
+          } else if (banner) {
+            banner.textContent = 'Viewing as yourself';
+          }
         }
 
-        if (btnClear) {
-          btnClear.onclick = async () => {
-            try{
-              await jpost('/admin/masquerade/stop', {});
-            }catch(e){
-              console.error('masquerade stop failed', e);
-            }
-            if (banner) banner.textContent = 'Viewing as yourself';
-            refreshUser();
-          };
-        }
-
-        if (masqDisplay) {
-          updateBanner(masqDisplay);
-        } else if (banner) {
-          banner.textContent = 'Viewing as yourself';
-        }
+        // Teams grid and Bets card (unchanged)
+        renderTeamsProgressMerged(owned || [], split || []);
+        const betsUser = { discord_id: masqueradingAs || user.discord_id || user.id };
+        await renderUserBetsCard(betsUser);
       }
-
-      // Teams grid with progress rings
-      renderTeamsProgressMerged(owned || [], split || []);
-
-      // Your Bets card - use masquerade target if present
-      const betsUser = { discord_id: masqueradingAs || user.discord_id || user.id };
-      await renderUserBetsCard(betsUser);
-    }
 
     async function jgetAuth(url){
         const r = await fetch(url, { credentials: 'include', cache: 'no-store' });

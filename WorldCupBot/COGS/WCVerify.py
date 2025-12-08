@@ -108,10 +108,23 @@ class SpectatorVerify(commands.Cog):
                                     await member.edit(nick=habbo_name)
                                 except Exception:
                                     pass
-                            # Add user to verified.json
+                            # Build Discord avatar URL
+                            avatar_hash = interaction.user.avatar.key if interaction.user.avatar else None
+                            if avatar_hash:
+                                avatar_url = f"https://cdn.discordapp.com/avatars/{interaction.user.id}/{avatar_hash}.png?size=256"
+                            else:
+                                avatar_url = f"https://cdn.discordapp.com/embed/avatars/{interaction.user.id % 5}.png"
+
+                            # Save full Discord identifiers
                             self.verified_data.setdefault("verified_users", []).append({
                                 "discord_id": user_id,
-                                "habbo_name": habbo_name
+                                "habbo_name": habbo_name,
+
+                                # New fields:
+                                "discord_username": interaction.user.name,  # e.g. itsnoahh1
+                                "discord_global_name": interaction.user.global_name,
+                                "discord_display_name": member.display_name,
+                                "discord_avatar": avatar_url
                             })
                             if user_id in self.verification_data["verification_data"]:
                                 del self.verification_data["verification_data"][user_id]
@@ -204,10 +217,24 @@ class SpectatorVerify(commands.Cog):
         updated = False
         for entry in data.get("verified_users", []):
             if entry.get("discord_id") == user_id:
-                entry["display_name"] = after.display_name
+
+                # Update display name (nickname)
+                entry["discord_display_name"] = after.display_name
+
+                # Update username/global name in case the user changes it
+                entry["discord_username"] = after.name
+                entry["discord_global_name"] = after.global_name
+
+                # Update avatar
+                avatar_hash = after.avatar.key if after.avatar else None
+                if avatar_hash:
+                    entry[
+                        "discord_avatar"] = f"https://cdn.discordapp.com/avatars/{after.id}/{avatar_hash}.png?size=256"
+                else:
+                    entry["discord_avatar"] = f"https://cdn.discordapp.com/embed/avatars/{after.id % 5}.png"
+
                 updated = True
                 break
-
         if updated:
             save_json_file(VERIFIED_PATH, data)
 
