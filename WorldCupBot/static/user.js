@@ -132,8 +132,8 @@ function resolveStageFor(stages, name){
       if(!body) return;
 
       const stages = await fetchTeamStagesFresh();
-      const MAIN_COLOR  = '#22c55e';
-      const SPLIT_COLOR = '#00b8ff';
+      const MAIN_COLOR  = '#00F8FF';
+      const SPLIT_COLOR = '#2aa8ff';
 
       const makeTile = (t, isMain) => {
         const name = t.team || t.name || String(t);
