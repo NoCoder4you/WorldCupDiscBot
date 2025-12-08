@@ -158,7 +158,8 @@ body:not(.admin) li.admin-only {
 /* ===== MAIN & PAGE VISIBILITY ===== */
 main {
     flex: 1;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 12px
 }
 
@@ -3159,4 +3160,22 @@ body.modal-open footer {
     background-color: #0d141d;
     color: #dce6f0;
     padding: 8px 10px;
+}
+
+
+#user .card,
+#user .card *,
+#user .user-card,
+#user .user-card * {
+    overflow: visible !important;
+}
+
+#user .table-scroll,
+#user .user-table-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+#user.page-section {
+    height: auto;
 }
