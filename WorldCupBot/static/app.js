@@ -3099,23 +3099,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const stageEl  = document.getElementById('map-info-stage');
       const mainEl   = document.getElementById('map-info-main');
       const coEl     = document.getElementById('map-info-coowners');
-      const totalEl  = document.getElementById('map-info-total');
       const nextEl   = document.getElementById('map-info-next');
       const shareEl  = document.getElementById('map-info-share');
       const statusEl = document.getElementById('map-info-status');
-
-      const ownersNum = ownersCount ? parseInt(ownersCount, 10) || 0 : 0;
 
       if (nameEl)   nameEl.textContent   = name;
       if (flagEl)   flagEl.innerHTML     = flag;
       if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
       if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
       if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
-      if (totalEl)  totalEl.textContent  = 'Owners Total: ' + ownersNum;
       if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
       if (statusEl) statusEl.textContent = 'Status: ' + status;
 
-      // Co-Owners - only visible for split teams
       if (coEl) {
         if (isSplit) {
           coEl.style.display = '';
@@ -3125,7 +3120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Prize Share - only visible for split teams
+      // Prize Share — only visible for split teams
       if (shareEl) {
         if (isSplit && prizeShare) {
           shareEl.style.display = '';
