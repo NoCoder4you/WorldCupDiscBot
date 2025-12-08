@@ -13,10 +13,9 @@
             {
                 "team": "USA",
                 "ownership": {
-                    "main_owner": 570704277840855050,
+                    "main_owner": 298121351871594497,
                     "split_with": []
-                },
-                "public_message_id": 1402411193041424445
+                }
             }
         ]
     },
@@ -51,7 +50,7 @@
             {
                 "team": "Mexico",
                 "ownership": {
-                    "main_owner": 570704277840855050,
+                    "main_owner": 1202812518398169111,
                     "split_with": []
                 }
             }
