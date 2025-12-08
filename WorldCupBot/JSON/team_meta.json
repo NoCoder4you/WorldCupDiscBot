@@ -1,9 +1,9 @@
 {
   "groups": {
     "A": ["Mexico", "South Africa", "Korea Republic"],
-    "B": ["Canada", "Qatar", "Switzerland", "China"],
+    "B": ["Canada", "Qatar", "Switzerland"],
     "C": ["Brazil", "Morocco", "Haiti", "Scotland"],
-    "D": ["USA", "Paraguay", "Australia", "Russia"],
+    "D": ["USA", "Paraguay", "Australia"],
     "E": ["Germany", "Curaçao", "Côte d'Ivoire", "Ecuador"],
     "F": ["Netherlands", "Japan", "Tunisia"],
     "G": ["Belgium", "Egypt", "Iran", "New Zealand"],
