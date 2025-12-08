@@ -11,22 +11,12 @@
                 "public_message_id": 1402411186049515613
             },
             {
-                "team": "Japan",
+                "team": "USA",
                 "ownership": {
-                    "main_owner": 298121351871594497,
+                    "main_owner": 570704277840855050,
                     "split_with": []
                 },
-                "public_message_id": 1402411189559885836
-            },
-            {
-                "team": "Russia",
-                "ownership": {
-                    "main_owner": 1202812518398169111,
-                    "split_with": [
-                        298121351871594497
-                    ]
-                },
-                "public_message_id": 1402411201610121419
+                "public_message_id": 1402411193041424445
             }
         ]
     },
@@ -59,20 +49,12 @@
         "username": "noah7479",
         "teams": [
             {
-                "team": "Chile",
+                "team": "Mexico",
                 "ownership": {
-                    "main_owner": 1202812518398169111,
+                    "main_owner": 570704277840855050,
                     "split_with": []
                 },
-                "public_message_id": 1402411171323314248
-            },
-            {
-                "team": "Denmark",
-                "ownership": {
-                    "main_owner": 1202812518398169111,
-                    "split_with": []
-                },
-                "public_message_id": 1402411181989433414
+                "public_message_id": 1402411193041424445
             }
         ]
     }
