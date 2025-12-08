@@ -10,7 +10,7 @@
   {
     "id": "2026-06-11-A-KOR-QUAL1",
     "home": "Korea Republic",
-    "away": "Czechia/Denmark/North Macedonia/Republic of Ireland",
+    "away": "TBA",
     "utc": "2026-06-11T00:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "A"
@@ -19,7 +19,7 @@
   {
     "id": "2026-06-12-B-CAN-QUAL2",
     "home": "Canada",
-    "away": "Bosnia and Herzegovina/Italy/Northern Ireland/Wales",
+    "away": "TBA",
     "utc": "2026-06-12T00:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "B"
@@ -44,7 +44,7 @@
   {
     "id": "2026-06-13-D-AUS-QUAL3",
     "home": "Australia",
-    "away": "Kosovo/Romania/Slovakia/Türkiye",
+    "away": "TBA",
     "utc": "2026-06-13T00:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "D"
@@ -92,7 +92,7 @@
   },
   {
     "id": "2026-06-14-F-QUAL4-TUN",
-    "home": "Albania/Poland/Sweden/Ukraine",
+    "home": "TBA",
     "away": "Tunisia",
     "utc": "2026-06-14T00:00:00Z",
     "stadium": "Estadio Monterrey",
@@ -142,7 +142,7 @@
   },
   {
     "id": "2026-06-16-I-QUAL5-NOR",
-    "home": "Bolivia/Iraq/Suriname",
+    "home": "TBA",
     "away": "Norway",
     "utc": "2026-06-16T00:00:00Z",
     "stadium": "Boston Stadium",
@@ -184,7 +184,7 @@
   {
     "id": "2026-06-17-K-POR-QUAL6",
     "home": "Portugal",
-    "away": "Congo DR/Jamaica/New Caledonia",
+    "away": "TBA",
     "utc": "2026-06-17T00:00:00Z",
     "stadium": "Houston Stadium",
     "group": "K"
@@ -200,7 +200,7 @@
 
   {
     "id": "2026-06-18-A-QUAL7-ZAF",
-    "home": "Czechia/Denmark/North Macedonia/Republic of Ireland",
+    "home": "TBA",
     "away": "South Africa",
     "utc": "2026-06-18T00:00:00Z",
     "stadium": "Atlanta Stadium",
@@ -209,7 +209,7 @@
   {
     "id": "2026-06-18-B-SUI-QUAL8",
     "home": "Switzerland",
-    "away": "Bosnia and Herzegovina/Italy/Northern Ireland/Wales",
+    "away": "TBA",
     "utc": "2026-06-18T00:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "B"
@@ -249,7 +249,7 @@
   },
   {
     "id": "2026-06-19-D-QUAL9-PAR",
-    "home": "Kosovo/Romania/Slovakia/Türkiye",
+    "home": "TBA",
     "away": "Paraguay",
     "utc": "2026-06-19T00:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
@@ -283,7 +283,7 @@
   {
     "id": "2026-06-20-F-NED-QUAL10",
     "home": "Netherlands",
-    "away": "Albania/Poland/Sweden/Ukraine",
+    "away": "TBA",
     "utc": "2026-06-20T00:00:00Z",
     "stadium": "Houston Stadium",
     "group": "F"
@@ -341,7 +341,7 @@
   {
     "id": "2026-06-22-I-FRA-QUAL11",
     "home": "France",
-    "away": "Bolivia/Iraq/Suriname",
+    "away": "TBA",
     "utc": "2026-06-22T00:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "I"
@@ -390,7 +390,7 @@
   {
     "id": "2026-06-23-K-COL-QUAL12",
     "home": "Colombia",
-    "away": "Congo DR/Jamaica/New Caledonia",
+    "away": "TBA",
     "utc": "2026-06-23T00:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "K"
@@ -422,7 +422,7 @@
   },
   {
     "id": "2026-06-24-B-QUAL13-QAT",
-    "home": "Bosnia and Herzegovina/Italy/Northern Ireland/Wales",
+    "home": "TBA",
     "away": "Qatar",
     "utc": "2026-06-24T00:00:00Z",
     "stadium": "Seattle Stadium",
@@ -430,7 +430,7 @@
   },
   {
     "id": "2026-06-24-A-QUAL14-MEX",
-    "home": "Czechia/Denmark/North Macedonia/Republic of Ireland",
+    "home": "TBA",
     "away": "Mexico",
     "utc": "2026-06-24T00:00:00Z",
     "stadium": "Mexico City Stadium",
@@ -464,7 +464,7 @@
   {
     "id": "2026-06-25-F-JPN-QUAL15",
     "home": "Japan",
-    "away": "Albania/Poland/Sweden/Ukraine",
+    "away": "TBA",
     "utc": "2026-06-25T00:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "F"
@@ -479,7 +479,7 @@
   },
   {
     "id": "2026-06-25-D-QUAL16-USA",
-    "home": "Kosovo/Romania/Slovakia/Türkiye",
+    "home": "TBA",
     "away": "USA",
     "utc": "2026-06-25T00:00:00Z",
     "stadium": "Los Angeles Stadium",
@@ -505,7 +505,7 @@
   {
     "id": "2026-06-26-I-SEN-QUAL17",
     "home": "Senegal",
-    "away": "Bolivia/Iraq/Suriname",
+    "away": "TBA",
     "utc": "2026-06-26T00:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "I"
@@ -585,7 +585,7 @@
   },
   {
     "id": "2026-06-27-K-QUAL18-UZB",
-    "home": "Congo DR/Jamaica/New Caledonia",
+    "home": "TBA",
     "away": "Uzbekistan",
     "utc": "2026-06-27T00:00:00Z",
     "stadium": "Atlanta Stadium",
