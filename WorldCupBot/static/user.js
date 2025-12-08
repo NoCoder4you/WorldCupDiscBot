@@ -5,537 +5,471 @@
   const $btnLogin = qs('#btn-discord-login');
   const $btnLogout = qs('#btn-discord-logout');
   const $body = qs('#user-body');
-  const MASQ_KEY = 'wc:masqUid';
-  let currentMasqId = localStorage.getItem(MASQ_KEY) || '';
+  const $notify = qs('#notify');
 
-const STAGE_PROGRESS = {
-  "Eliminated": 0,
-  "Group Stage": 15,
-  "Round of 32": 25,
-  "Round of 16": 35,
-  "Quarter Final": 55,
-  "Semi Finals": 75,
-  "Final": 95,
-  "Champion": 100,
-  "Winner": 100
-};
-
-const STAGE_ORDER = {
-  "Eliminated": 0,
-  "Group Stage": 1,
-  "Round of 32": 2,
-  "Round of 16": 3,
-  "Quarter Final": 4,
-  "Semi Final": 5,
-  "Final": 6,
-  "Champion": 7,
-  "Winner": 7
-};
-
-const STAGE_BADGES = {
-  "Winner": "Main",
-  "Champion": "Main"
-};
-
-// Map short or variant stage labels to your canonical ones
-function normalizeStageLabel(s){
-  if(!s) return s;
-  const map = {
-    "R32": "Round of 32",
-    "R16": "Round of 16",
-    "QF": "Quarter Final",
-    "SF": "Semi Final",
-    "F": "Final",
-    "Second Place": "Final" // or remove if you bring it back later
-  };
-  return map[s] || s;
-}
-
-// Map common team-name variants to your JSON keys
-const TEAM_ALIASES = {
-  'USA': 'United States',
-  'U.S.A.': 'United States',
-  'United States of America': 'United States',
-  'South Korea': 'Korea Republic',   // use this if your JSON uses "Korea Republic"; otherwise set to "South Korea"
-  'Cote d\'Ivoire': 'Ivory Coast',
-  'Côte d’Ivoire': 'Ivory Coast',
-  'Côte d\'Ivoire': 'Ivory Coast'
-};
-
-// Country name to ISO-2 or ISO-3 code if needed later
-const COUNTRY_ISO = {
-  "United States": "us",
-  "Mexico": "mx",
-  "Canada": "ca",
-  "New Zealand": "nz",
-  "Japan": "jp",
-  "Iran": "ir"
-};
-
-function getStageProgress(stage){
-  if(!stage) return 0;
-  const norm = normalizeStageLabel(stage);
-  return STAGE_PROGRESS[norm] ?? 0;
-}
-
-function getStageOrder(stage){
-  if(!stage) return -1;
-  const norm = normalizeStageLabel(stage);
-  return STAGE_ORDER[norm] ?? -1;
-}
-
-function mergeTeamLists(owned, split){
-  const map = new Map();
-
-  (owned || []).forEach(t => {
-    const keyName = TEAM_ALIASES[t.team] || t.team;
-    if(!map.has(keyName)){
-      map.set(keyName, {
-        team: keyName,
-        stage: normalizeStageLabel(t.stage),
-        owners: [t.owner],
-        splitOwners: []
-      });
-    }else{
-      const existing = map.get(keyName);
-      existing.stage = betterStage(existing.stage, t.stage);
-      if(!existing.owners.includes(t.owner)) existing.owners.push(t.owner);
+    function notify(msg, ok = true) {
+        const div = document.createElement('div');
+        div.className = `notice ${ok ? 'ok' : 'err'}`;
+        div.textContent = msg;
+    if ($notify) {
+      $notify.appendChild(div);
+      setTimeout(() => div.remove(), 2200);
     }
-  });
-
-  (split || []).forEach(t => {
-    const keyName = TEAM_ALIASES[t.team] || t.team;
-    if(!map.has(keyName)){
-      map.set(keyName, {
-        team: keyName,
-        stage: normalizeStageLabel(t.stage),
-        owners: [],
-        splitOwners: [t.owner]
-      });
-    }else{
-      const existing = map.get(keyName);
-      existing.stage = betterStage(existing.stage, t.stage);
-      if(!existing.splitOwners.includes(t.owner)) existing.splitOwners.push(t.owner);
     }
-  });
 
-  return [...map.values()].sort((a, b) => {
-    const ao = getStageOrder(a.stage);
-    const bo = getStageOrder(b.stage);
-    if(ao !== bo) return bo - ao;
-    return (a.team || '').localeCompare(b.team || '');
-  });
-}
-
-function betterStage(a, b){
-  const ao = getStageOrder(a);
-  const bo = getStageOrder(b);
-  return bo > ao ? normalizeStageLabel(b) : normalizeStageLabel(a);
-}
-
-function formatStage(stage){
-  const norm = normalizeStageLabel(stage);
-  return norm || 'Unknown';
-}
-
-function teamFlag(teamName){
-  const keyName = TEAM_ALIASES[teamName] || teamName;
-  const iso = COUNTRY_ISO[keyName];
-  if(!iso) return '';
-  return `<img src="https://flagcdn.com/32x24/${iso}.png" alt="${keyName}" style="width:32px;height:24px;border-radius:3px;vertical-align:middle;margin-right:6px">`;
-}
-
-function teamChip(team){
-  const stage = formatStage(team.stage);
-  const progress = getStageProgress(team.stage);
-  const badge = STAGE_BADGES[team.stage] || '';
-
-  const circle = `
-    <div class="stage-ring">
-      <svg viewBox="0 0 36 36" class="ring-svg">
-        <path
-          class="ring-bg"
-          d="M18 2.0845
-             a 15.9155 15.9155 0 0 1 0 31.831
-             a 15.9155 15.9155 0 0 1 0 -31.831"
-        />
-        <path
-          class="ring-fg"
-          stroke-dasharray="${progress}, 100"
-          d="M18 2.0845
-             a 15.9155 15.9155 0 0 1 0 31.831
-             a 15.9155 15.9155 0 0 1 0 -31.831"
-        />
-        <text x="18" y="20.35" class="ring-text">WC</text>
-      </svg>
-      <div class="ring-label">${stage}</div>
-    </div>
-  `;
-
-  const flag = teamFlag(team.team);
-
-  const badgeHtml = badge
-    ? `<span class="pill pill-main">${badge}</span>`
-    : '';
-
-  return `
-    <div class="team-card">
-      <div class="team-main">
-        ${circle}
-        <div class="team-info">
-          <div class="team-name">
-            ${flag}
-            <span>${team.team}</span>
-            ${badgeHtml}
-          </div>
-          <div class="team-owners muted">
-            ${renderOwnersLine(team)}
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderOwnersLine(team){
-  const mainOwners = team.owners || [];
-  const splitOwners = team.splitOwners || [];
-
-  if(!mainOwners.length && !splitOwners.length) return 'Unassigned';
-
-  const mainStr = mainOwners.length
-    ? `Main: ${mainOwners.join(', ')}`
-    : '';
-
-  const splitStr = splitOwners.length
-    ? `Co-Owners: ${splitOwners.join(', ')}`
-    : '';
-
-  if(mainStr && splitStr) return `${mainStr} | ${splitStr}`;
-  return mainStr || splitStr;
-}
-
-async function fetchMyBets(discordId){
-  if(!discordId) return [];
-  try{
-    const res = await fetch(`/api/my_bets?uid=${encodeURIComponent(discordId)}`, { cache:'no-store' });
-    if(!res.ok) throw new Error('bets ' + res.status);
-    const data = await res.json();
-    return Array.isArray(data.bets) ? data.bets : [];
-  }catch(e){
-    console.error('fetchMyBets error:', e);
-    return [];
+    function cleanTag(tag){
+    if (!tag) return '';
+    const s = String(tag);
+    return s.endsWith('#0') ? s.slice(0, -2) : s;
   }
-}
 
-async function renderUserBetsCard(user){
-  if(!$body) return;
-  const discordId = user && (user.discord_id || user.id);
-  const bets = await fetchMyBets(discordId);
 
-  const rows = bets.map(b => {
-    const status = (b.status || '').toUpperCase();
-    const choice = b.choice || '';
-    const matchup = b.matchup || '';
+  const STAGE_PROGRESS = {
+    "Eliminated": 0,
+    "Group Stage": 15,
+    "Round of 32": 25,
+    "Round of 16": 35,
+    "Quarter Final": 55,
+    "Semi Final": 70,
+    "Final": 90,
+    "Winner": 100
+  };
+
+  function normalizeStage(label){
+    const s = String(label || '').trim();
+    const map = {
+      "Group": "Group Stage",
+      "R32": "Round of 32",
+      "R16": "Round of 16",
+      "QF": "Quarter Final",
+      "SF": "Semi Final",
+      "F": "Final",
+      "Second Place": "Final" // or remove if you bring it back later
+    };
+    return map[s] || s || "Group Stage";
+  }
+
+  // Map common team-name variants to your JSON keys
+  const TEAM_ALIASES = {
+    'USA': 'United States',
+    'U.S.A.': 'United States',
+    'United States of America': 'United States',
+    'South Korea': 'Korea Republic',
+    'Cote d\'Ivoire': 'Ivory Coast',
+    'Côte d’Ivoire': 'Ivory Coast',
+    'Cape Verde': 'Cape Verde',
+    'DR Congo': 'Congo DR',
+    'Iran': 'Iran',
+    'UAE': 'United Arab Emirates'
+  };
+
+  function canon(s){
+    return String(s||'')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  }
+
+  function resolveStageFor(stages, name){
+    if (!stages || !name) return undefined;
+
+    if (Object.prototype.hasOwnProperty.call(stages, name)) return stages[name];
+
+    const alias = TEAM_ALIASES[name];
+    if (alias && Object.prototype.hasOwnProperty.call(stages, alias)) return stages[alias];
+
+    const want = canon(name);
+    for (const k of Object.keys(stages)) {
+      if (canon(k) === want) return stages[k];
+    }
+
+    return undefined;
+  }
+
+  async function fetchTeamStagesFresh(){
+    const url = `/api/team_stage?t=${Date.now()}`;
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) return {};
+    return r.json();
+  }
+
+  async function jget(url){
+    const r = await fetch(url, {credentials:'include'});
+    return r.json().catch(()=>({}));
+  }
+  async function jpost(url, data){
+    const r = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'include',
+      body: JSON.stringify(data||{})
+    });
+    return r.json().catch(()=>({}));
+  }
+
+  function renderSignedOut(){
+    if($btnLogin) $btnLogin.style.display = '';
+    if($btnLogout) $btnLogout.style.display = 'none';
+    if($body) $body.innerHTML = `
+      <div class="card" style="height:auto">
+        <div class="card-title">Not signed in</div>
+        <p>Connect your Discord account to see your teams and upcoming matches.</p>
+      </div>`;
+    if ($notify) $notify.textContent = '';
+  }
+
+  // === SVG progress ring ===
+  function makeStageRing(stage, color) {
+    const p = STAGE_PROGRESS[stage] ?? 0;
+    const r = 52;
+    const C = 2 * Math.PI * r;
+    const off = C * (1 - p / 100);
+    const label = String(stage || 'Group');
+    const fontSize = (label.length > 10) ? 10 : 12;
+    const track = 'rgba(255,255,255,.08)';
+
     return `
-      <tr>
-        <td>${b.id || ''}</td>
-        <td>${matchup}</td>
-        <td>${choice}</td>
-        <td><span class="pill pill-${status === 'PENDING' ? 'pending' : status.toLowerCase()}">${status}</span></td>
-      </tr>
+      <svg class="stage-ring stage-ring--lg" width="120" height="120" viewBox="0 0 120 120" aria-label="Stage ${label}">
+        <circle cx="60" cy="60" r="${r}" stroke="${track}" stroke-width="10" fill="none"></circle>
+        <circle cx="60" cy="60" r="${r}" stroke="${color}" stroke-width="10"
+          stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" fill="none"
+          transform="rotate(-90 60 60)"></circle>
+        <text x="60" y="64" text-anchor="middle" fill="#fff" font-size="${fontSize}" font-weight="700">${label}</text>
+      </svg>
     `;
-  }).join('');
+  }
 
-  const table = rows
-    ? `
-      <table class="table small">
-        <thead>
-          <tr><th>ID</th><th>Bet</th><th>Your Choice</th><th>Status</th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `
-    : `<div class="muted">No bets found.</div>`;
+  async function renderTeamsProgressMerged(ownedTeams, splitTeams){
+    const body = document.getElementById('user-body');
+    if(!body) return;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'card';
-  wrap.innerHTML = `
-    <div class="card-head">
-      <div class="card-title">Your Bets</div>
-    </div>
-    <div class="card-body">
-      ${table}
-    </div>
-  `;
+    const stages = await fetchTeamStagesFresh();
+    const MAIN_COLOR  = '#00F8FF';
+    const SPLIT_COLOR = '#2aa8ff';
 
-  $body.appendChild(wrap);
-}
-
-async function renderTeamsProgressMerged(owned, split){
-  if(!$body) return;
-
-  const merged = mergeTeamLists(owned, split);
-
-  const wrap = document.createElement('div');
-  wrap.className = 'card';
-  wrap.innerHTML = `
-    <div class="card-head">
-      <div class="card-title">Your Teams</div>
-    </div>
-    <div class="card-body">
-      <div class="team-grid">
-        ${merged.map(teamChip).join('') || '<div class="muted">You do not currently own any teams.</div>'}
-      </div>
-    </div>
-  `;
-
-  $body.appendChild(wrap);
-}
-
-function renderSignedOut(){
-  if($btnLogin) $btnLogin.style.display = '';
-  if($btnLogout) $btnLogout.style.display = 'none';
-  if($body) $body.innerHTML = `
-    <div class="muted">
-      Connect your Discord account to see your World Cup profile, teams and bets.
-    </div>
-  `;
-}
-
-    async function fetchVerifiedList(){
-      try{
-        const res = await fetch('/api/verified', { cache: 'no-store' });
-        if(!res.ok) throw new Error('verified ' + res.status);
-        const data = await res.json();
-        if(Array.isArray(data)) return data;
-        if(Array.isArray(data.users)) return data.users;
-        if(Array.isArray(data.verified_users)) return data.verified_users;
-        return [];
-      }catch(e){
-        console.error('fetchVerifiedList failed:', e);
-        return [];
-      }
-    }
-
-    async function fetchAvatarMap(ids){
-      if(!ids || !ids.length) return {};
-      const qsIds = encodeURIComponent(ids.join(','));
-      try{
-        const res = await fetch(`/api/avatars?ids=${qsIds}`, { cache:'no-store' });
-        if(!res.ok) throw new Error('avatars ' + res.status);
-        const data = await res.json();
-        const m = data && data.avatars;
-        return m && typeof m === 'object' ? m : {};
-      }catch(e){
-        console.error('fetchAvatarMap failed:', e);
-        return {};
-      }
-    }
-
-    function findVerifiedById(list, uid){
-      if(!uid) return null;
-      const idStr = String(uid);
-      return (list || []).find(v => String(v.discord_id || v.id || '') === idStr) || null;
-    }
-
-    function escapeHtml(str){
-      return String(str || '')
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#39;');
-    }
-
-    async function renderSignedIn(user, owned, split, matches, isAdmin){
-      if($btnLogin) $btnLogin.style.display = 'none';
-      if($btnLogout) $btnLogout.style.display = '';
-
-      const inAdminView = localStorage.getItem('wc:adminView') === '1';
-      const $host = $body;
-      if(!$host) return;
-
-      const verified = await fetchVerifiedList();
-
-      const selfId = String(user.discord_id || user.id || '');
-      let masqId = currentMasqId && currentMasqId !== selfId ? currentMasqId : '';
-
-      let target = null;
-      if(isAdmin && inAdminView && masqId){
-        target = findVerifiedById(verified, masqId);
-        if(!target){
-          masqId = '';
-          currentMasqId = '';
-          localStorage.removeItem(MASQ_KEY);
-        }
-      }
-
-      const viewed = { ...user };
-      if(target){
-        viewed.discord_id = String(target.discord_id || target.id || viewed.discord_id || viewed.id || '');
-        const displayName = target.display_name || target.username || viewed.global_name || viewed.username;
-        viewed.global_name = displayName;
-        viewed.username = target.username || target.display_name || viewed.username;
-      }
-
-      const niceTag = String(viewed.username || '')
-        .replace(/#\d+$/, '');
-
-      let avatarUrl = viewed.avatar || (target && target.avatar_url);
-      if(!avatarUrl && viewed.discord_id){
-        const amap = await fetchAvatarMap([viewed.discord_id]);
-        avatarUrl = amap[viewed.discord_id] || avatarUrl;
-      }
-
-      const avatarHtml = avatarUrl
-        ? `<img src="${avatarUrl}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
-        : '';
-
-      const adminLine = inAdminView
-        ? `<div class="muted mono">ID: ${viewed.discord_id || viewed.id || ''}</div>`
-        : '';
-
-      const nowShowingText = target
-        ? (target.display_name || target.username || `ID ${viewed.discord_id}`)
-        : (viewed.global_name || niceTag || 'Yourself');
-
-      let masqControls = '';
-      if(isAdmin && inAdminView){
-        const options = ['<option value="">-- Choose user --</option>'].concat(
-          (verified || []).map(v=>{
-            const vid = String(v.discord_id || v.id || '');
-            const label = v.display_name || v.username || vid;
-            const selected = vid === masqId ? ' selected' : '';
-            return `<option value="${vid}"${selected}>${escapeHtml(label)}</option>`;
-          })
-        ).join('');
-        masqControls = `
-          <div style="margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-            <span class="muted">View as</span>
-            <select id="masq-select" class="input" style="max-width:260px">${options}</select>
-            <button id="masq-apply" class="btn small">Apply</button>
-            <button id="masq-reset" class="btn small">Back to self</button>
-          </div>
-        `;
-      }
-
-      const upcomingRows = (matches || []).map(m=>{
-        const when = (m.utc || '').replace('T',' ').replace('Z',' UTC');
-        return `<tr><td>${escapeHtml(when)}</td><td>${escapeHtml(m.home||'')}</td><td>${escapeHtml(m.away||'')}</td><td>${escapeHtml(m.stadium||'')}</td></tr>`;
-      }).join('');
-
-      const upcomingTable = upcomingRows
-        ? `<table class="table small"><thead><tr><th>When</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${upcomingRows}</tbody></table>`
-        : `<div class="muted">No upcoming matches found for your teams.</div>`;
-
-      $host.innerHTML = `
-        <div class="card">
-          <div class="card-head">
-            <div class="card-title">Profile</div>
-          </div>
-          <div class="card-body">
-            <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
-              ${avatarHtml}
-              <div>
-                <div style="font-weight:900;font-size:1.1rem">${escapeHtml(viewed.global_name || niceTag || '')}</div>
-                <div class="muted mono">${escapeHtml(niceTag)}</div>
-                ${adminLine}
-                <div class="muted" style="margin-top:8px">Now Showing as: ${escapeHtml(nowShowingText)}</div>
-                ${masqControls}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <div class="card-title">Upcoming Matches</div>
-          </div>
-          <div class="card-body">
-            ${upcomingTable}
-          </div>
+    const makeTile = (t, isMain) => {
+      const name = t.team || t.name || String(t);
+      const color = isMain ? MAIN_COLOR : SPLIT_COLOR;
+      const raw = resolveStageFor(stages, name);
+      const stage = normalizeStage(raw) || 'Group Stage';
+      const ring  = makeStageRing(stage, color);
+      const flag  = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
+      const badge = isMain ? '<span class="owner-pill owner-pill--main">Main</span>'
+                           : '<span class="owner-pill owner-pill--split">Co-owner</span>';
+      return `
+        <div class="team-tile ${isMain ? 'is-main' : 'is-split'}" title="${name} - ${stage}">
+          <div class="ring-wrap">${ring}</div>
+          <div class="team-caption">${flag}<span>${name}</span>${badge}</div>
         </div>
       `;
+    };
 
-      await renderTeamsProgressMerged(owned, split);
-      await renderUserBetsCard(viewed);
+    const mainTiles  = (ownedTeams||[]).map(t => makeTile(t, true)).join('');
+    const splitTiles = (splitTeams||[]).map(t => makeTile(t, false)).join('');
+    const tiles = mainTiles + splitTiles;
 
-      if(isAdmin && inAdminView){
-        const sel = qs('#masq-select', $host);
-        const btnApply = qs('#masq-apply', $host);
-        const btnReset = qs('#masq-reset', $host);
+    const card = `
+      <div class="card" style="height:auto; margin-top:12px">
+        <div class="card-title">Your Teams</div>
+        ${tiles ? `<div class="teams-grid">${tiles}</div>` : `<p class="muted">No teams yet.</p>`}
+      </div>
+    `;
 
-        if(btnApply){
-          btnApply.addEventListener('click', ()=>{
-            const val = sel && sel.value ? sel.value.trim() : '';
-            const newId = val && val !== selfId ? val : '';
-            currentMasqId = newId;
-            if(newId){
-              localStorage.setItem(MASQ_KEY, newId);
-            }else{
-              localStorage.removeItem(MASQ_KEY);
-            }
+    body.insertAdjacentHTML('beforeend', card);
+  }
 
-            if(typeof notify === 'function'){
-              const tgt = findVerifiedById(verified, newId) || target;
-              const name = newId
-                ? (tgt && (tgt.display_name || tgt.username)) || newId
-                : (user.global_name || user.username || 'Yourself');
-              notify(`Now Showing as: ${name}`, true);
-            }
+  function teamChip(t){
+    const img = t.flag ? `<img class="flag-img" src="${t.flag}" alt="">` : '';
+    return `<span class="pill pill-off" style="margin:2px 6px 2px 0">${img}${t.team}</span>`;
+  }
 
-            refreshUser();
-          });
-        }
+  async function fetchMyBets(uid){
+    const r = await fetch(`/api/my_bets?uid=${encodeURIComponent(uid)}&t=${Date.now()}`, { cache:'no-store' });
+    if(!r.ok) throw new Error('Failed to load bets');
+    return r.json();
+  }
 
-        if(btnReset){
-          btnReset.addEventListener('click', ()=>{
-            currentMasqId = '';
-            localStorage.removeItem(MASQ_KEY);
-            if(typeof notify === 'function'){
-              notify('Now Showing as: yourself', true);
-            }
-            refreshUser();
-          });
-        }
+  function betRowHTML(b){
+    const choice = b.your_choice || (b.roles||[]).join(', ') || '—';
+
+    let label = 'Pending', cls = 'pill-wait-UP';
+    if (b.winner_side) {
+      if (b.your_side && b.your_side === b.winner_side) {
+        label = 'Won';  cls = 'pill-win-UP';
+      } else {
+        label = 'Lost'; cls = 'pill-loss-UP';
       }
     }
 
-    async function refreshUser(){
-      try{
-        const me = await jgetAuth('/api/me');
-        if(!me?.user){ renderSignedOut(); return; }
+    const statusPill = `<span class="pill-UP ${cls}">${label}</span>`;
 
-        const [own, games] = await Promise.all([
-          jgetAuth('/api/me/ownership'),
-          jgetAuth('/api/me/matches')
-        ]);
+    return `
+      <tr>
+        <td class="col-id mono">${b.id || ''}</td>
+        <td class="col-title">${b.title || ''}</td>
+        <td class="col-roles">${choice}</td>
+        <td class="col-status">${statusPill}</td>
+      </tr>`;
+  }
 
-        await renderSignedIn(
-          me.user,
-          own.owned || [],
-          own.split || [],
-          (games && games.matches) || [],
-          !!me.is_admin
-        );
-      }catch(e){
-        console.error('refreshUser failed:', e);
-        renderSignedOut();
+  async function renderUserBetsCard(user){
+    const body = document.getElementById('user-body');
+    if(!body || !user) return;
+
+    let data = { bets: [] };
+    try{
+      data = await fetchMyBets(user.discord_id || user.id);
+    }catch(_){}
+
+    const rows = (data.bets||[]).map(betRowHTML).join('');
+    const table = rows
+      ? `<div class="table-scroll">
+           <table class="table">
+             <thead>
+               <tr>
+                 <th>ID</th>
+                 <th>Bet</th>
+                 <th>Your Choice</th>
+                 <th>Status</th>
+               </tr>
+             </thead>
+             <tbody>${rows}</tbody>
+           </table>
+         </div>`
+      : `<p class="muted">No bets found for your account.</p>`;
+
+    body.insertAdjacentHTML('beforeend', `
+      <div class="card" style="height:auto; margin-top:12px">
+        <div class="card-title">Your Bets</div>
+        ${table}
+      </div>
+    `);
+  }
+
+  async function renderSignedIn(user, owned, split, matches, isAdmin, masqueradingAs, verified){
+    if($btnLogin) $btnLogin.style.display = 'none';
+    if($btnLogout) $btnLogout.style.display = '';
+
+    const inAdminView = localStorage.getItem('wc:adminView') === '1';
+
+    // base details from real logged-in user
+    const baseUsername =
+      user.username || user.tag || user.name || '';
+    let viewName   = user.global_name || user.display_name || cleanTag(baseUsername);
+    let viewTag    = cleanTag(baseUsername);
+    let viewId     = user.discord_id || user.id || '';
+    let viewAvatar = user.avatar_url || user.avatar || null;
+
+    let masqDisplay = '';
+
+    // override with masquerade target, if any
+    if (masqueradingAs) {
+      const list   = Array.isArray(verified) ? verified : [];
+      const target = list.find(v => String(v.discord_id || v.id || '') === String(masqueradingAs));
+
+      if (target) {
+        const tUsername =
+          target.username || target.tag || target.name || '';
+
+        masqDisplay = target.display_name || target.global_name ||
+                      cleanTag(tUsername) || String(masqueradingAs);
+
+        viewName   = target.display_name || target.global_name ||
+                     cleanTag(tUsername) || viewName;
+        viewTag    = cleanTag(tUsername) || viewTag;
+        viewId     = target.discord_id || target.id || viewId;
+
+        const tAvatar =
+          target.avatar_url || target.avatarUrl || target.avatar || target.profile_pic || null;
+        if (tAvatar) viewAvatar = tAvatar;
+      } else {
+        masqDisplay = String(masqueradingAs);
+        viewTag     = cleanTag(viewTag);
       }
     }
 
-    async function jgetAuth(url){
-      const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
-      if(!r.ok)
-        throw new Error(`${url} ${r.status}`);
-      return r.json();
+    const avatar = viewAvatar
+      ? `<img src="${viewAvatar}" style="width:56px;height:56px;border-radius:12px;vertical-align:middle;margin-right:10px">`
+      : '';
+
+    const adminLine = inAdminView
+      ? `<div class="muted mono">ID: ${viewId}</div>`
+      : '';
+
+    const title = `<div style="display:flex;align-items:center;gap:10px">
+        ${avatar}
+        <div>
+          <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
+          <div class="muted mono">${viewTag}</div>
+          ${adminLine}
+        </div>
+      </div>`;
+
+    // Admin-only masquerade controls
+    let masqControls = '';
+    if (isAdmin && inAdminView) {
+      const list = Array.isArray(verified) ? verified : [];
+      const options = list.map(v => {
+        const id = String(v.discord_id || v.id || '');
+        if (!id) return '';
+        const label = v.display_name || v.username || v.global_name || id;
+        const selected = masqueradingAs && String(masqueradingAs) === id ? ' selected' : '';
+        return `<option value="${id}"${selected}>${label}</option>`;
+      }).join('');
+
+      const bannerText = masqDisplay
+        ? `Now Showing as: ${masqDisplay}`
+        : 'Viewing as yourself';
+
+      masqControls = `
+        <div class="muted" id="masq-banner" style="margin-top:8px;font-size:12px">${bannerText}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;align-items:center">
+          <label for="masq-select" class="muted" style="font-size:12px">View as</label>
+          <select id="masq-select" class="select"
+                  style="min-width:220px;padding:6px 12px;border-radius:999px;">
+            <option value="">-- Choose user --</option>
+            ${options}
+          </select>
+            <button id="masq-apply" class="btn small">Apply</button>
+            <button id="masq-clear" class="btn small secondary">Back to self</button>
+        </div>
+      `;
     }
 
-    if($userPage){
-      refreshUser().catch(e=>{
-        console.error('User page init failed:', e);
-        renderSignedOut();
-      });
+    const matchRows = (matches||[]).map(m=>{
+      const when = (m.utc||'').replace('T',' ').replace('Z',' UTC');
+      return `<tr><td>${when}</td><td>${m.home||''}</td><td>${m.away||''}</td><td>${m.stadium||''}</td></tr>`;
+    }).join('');
+
+    if($body) $body.innerHTML = `
+      <div class="card" style="height:auto">
+        <div class="card-title">Profile</div>
+        ${title}
+        ${masqControls}
+      </div>
+
+      <div class="card" style="height:auto; margin-top:12px">
+        <div class="card-title">Upcoming Matches</div>
+        ${
+          matchRows
+            ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
+            : `<p class="muted">No upcoming matches found for your teams.</p>`
+        }
+      </div>
+    `;
+
+    // Wire up masquerade controls + notify popup
+    if (isAdmin && inAdminView) {
+      const banner   = document.getElementById('masq-banner');
+      const sel      = document.getElementById('masq-select');
+      const btnApply = document.getElementById('masq-apply');
+      const btnClear = document.getElementById('masq-clear');
+
+      const updateBanner = (name, selfLabel) => {
+        if (banner) {
+          banner.textContent = name ? `Now Showing as: ${name}` : (selfLabel || 'Viewing as yourself');
+        }
+        if (typeof notify === 'function' && name) {
+          notify(`Now Showing as: ${name}`, true);
+        }
+      };
+
+      if (btnApply && sel) {
+        btnApply.onclick = async () => {
+          const id = sel.value.trim();
+          if (!id) return;
+          try{
+            await jpost('/admin/masquerade/start', { discord_id: id });
+          }catch(e){
+            console.error('masquerade start failed', e);
+          }
+          const label = sel.options[sel.selectedIndex]?.text || id;
+          updateBanner(label);
+          refreshUser();
+        };
+      }
+
+      if (btnClear) {
+        btnClear.onclick = async () => {
+          try{
+            await jpost('/admin/masquerade/stop', {});
+          }catch(e){
+            console.error('masquerade stop failed', e);
+          }
+          if (banner) banner.textContent = 'Viewing as yourself';
+          refreshUser();
+        };
+      }
+
+      if (masqDisplay) {
+        updateBanner(masqDisplay);
+      } else if (banner) {
+        banner.textContent = 'Viewing as yourself';
+      }
     }
+
+    // Teams grid with progress rings
+    renderTeamsProgressMerged(owned || [], split || []);
+
+    // Your Bets card - use masquerade target if present
+    const betsUser = { discord_id: masqueradingAs || user.discord_id || user.id };
+    await renderUserBetsCard(betsUser);
+  }
+
+  async function jgetAuth(url){
+    const r = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    if(!r.ok) throw new Error(`GET ${url} ${r.status}`);
+    return r.json();
+  }
+
+  async function refreshUser(){
+    try{
+      const me = await jgetAuth('/api/me');
+      if(!me?.user){ renderSignedOut(); return; }
+
+      const inAdminView = localStorage.getItem('wc:adminView') === '1';
+      const wantVerified = !!me.is_admin && inAdminView;
+
+      const promises = [
+        jgetAuth('/api/me/ownership'),
+        jgetAuth('/api/me/matches')
+      ];
+      if (wantVerified) {
+        promises.push(jgetAuth('/api/verified'));
+      }
+
+      const results = await Promise.all(promises);
+      const own = results[0] || {};
+      const games = results[1] || {};
+      const verified = wantVerified ? (results[2] || []) : null;
+
+      await renderSignedIn(
+        me.user,
+        own.owned || [],
+        own.split || [],
+        (games && games.matches) || [],
+        !!me.is_admin,
+        me.masquerading_as || null,
+        Array.isArray(verified) ? verified : []
+      );
+    }catch(e){
+      console.error('refreshUser failed:', e);
+      renderSignedOut();
+    }
+  }
+
+  function wire(){
+    if(!$userPage) return;
+    setTimeout(refreshUser, 0);
+    if($btnLogin) $btnLogin.onclick = ()=> window.location.href = '/auth/discord/login';
+    if($btnLogout) $btnLogout.onclick = async ()=>{ await jpost('/auth/discord/logout',{}); refreshUser(); };
+    document.addEventListener('click', (e)=>{
+      const a = e.target.closest('a[data-page="user"]');
+      if(a){ setTimeout(refreshUser, 50); }
+    });
+    if($userPage.classList.contains('active-section')){
+      refreshUser();
+    }
+  }
+
+  wire();
 })();
