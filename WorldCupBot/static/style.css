@@ -2651,9 +2651,18 @@ body.user-admin-view #ownership .ownership-card {
   text-transform:uppercase;
 }
 
-.pill-win-UP  { background:#22c55e; color:#08131d; }
-.pill-loss-UP { background:#ef4444; color:#fff; }
-.pill-wait-UP { background:#334155; color:#fff; }
+.pill-win-UP  {
+    background:#0dff00;
+    color:#08131d;
+}
+.pill-loss-UP {
+    background:#ff0000;
+    color:#fff;
+}
+.pill-wait-UP {
+    background:#334155;
+    color:#fff;
+}
 
 /* tighten column widths */
 .col-id { width:80px; text-align:center; }
