@@ -3082,6 +3082,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const nextMatch   = el.dataset.nextMatch   || '';
       const prizeShare  = el.dataset.prizeShare  || '';
 
+      const isSplit =
+        el.classList.contains('split') ||
+        (ownersCount && parseInt(ownersCount, 10) > 1);
+
       const status =
         el.classList.contains('self')  ? 'Owned (Self)'   :
         el.classList.contains('owned') ? 'Owned (Other)'  :
@@ -3107,11 +3111,29 @@ document.addEventListener('DOMContentLoaded', () => {
       if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
       if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
       if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
-      if (coEl)     coEl.textContent     = 'Co-Owners: ' + (coOwners || '—');
       if (totalEl)  totalEl.textContent  = 'Owners Total: ' + ownersNum;
       if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
-      if (shareEl)  shareEl.textContent  = 'Prize Share: ' + (prizeShare || '—');
       if (statusEl) statusEl.textContent = 'Status: ' + status;
+
+      // Co-Owners - only visible for split teams
+      if (coEl) {
+        if (isSplit) {
+          coEl.style.display = '';
+          coEl.textContent = 'Co-Owners: ' + (coOwners || '—');
+        } else {
+          coEl.style.display = 'none';
+        }
+      }
+
+      // Prize Share - only visible for split teams
+      if (shareEl) {
+        if (isSplit && prizeShare) {
+          shareEl.style.display = '';
+          shareEl.textContent = 'Prize Share: ' + prizeShare;
+        } else {
+          shareEl.style.display = 'none';
+        }
+      }
 
       if (infoBox) infoBox.classList.remove('hidden');
 
