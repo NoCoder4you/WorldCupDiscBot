@@ -2394,6 +2394,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return await r.json();
   });
 
+    function formatMatchDateShort(isoString){
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return '';
+    const day = d.getUTCDate();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mon = months[d.getUTCMonth()];
+    return `${day} ${mon}`;
+  }
+
+
   function escapeHtml(str){
     return String(str || '')
       .replace(/&/g,'&amp;')
@@ -2439,6 +2450,31 @@ document.addEventListener('DOMContentLoaded', () => {
       return null;
     }
   }
+
+    async function loadTeamStages(){
+    const CK = 'wc:team_stage';
+    const cached = getCache(CK);
+    if (cached) return cached;
+    try {
+      const data = await fetchJSON('/api/team_stage');
+      setCache(CK, data);
+      return data || {};
+    } catch (e) {
+      console.warn('loadTeamStages failed:', e);
+      return {};
+    }
+  }
+
+  async function loadFixtures(){
+    try {
+      const data = await fetchJSON('/api/fixtures');
+      return (data && data.fixtures) || [];
+    } catch (e) {
+      console.warn('loadFixtures failed:', e);
+      return [];
+    }
+  }
+
 
   async function loadTeamIso(){
     const CK = 'wc:team_iso';
@@ -2524,12 +2560,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return normalizeTeamName(fromIso);
   }
 
-  function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams){
+  function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams, teamStages, fixtures){
     const rows       = (merged && merged.rows) || [];
     const teamIsoMap = teamIso || {};
     const selfSet    = (selfTeams && typeof selfTeams.has === 'function')
       ? selfTeams
       : new Set();
+    const stageMap   = teamStages || {};
+    const fixturesList = Array.isArray(fixtures) ? fixtures : [];
 
     // map normalized team name -> iso from /api/team_iso
     const nameToIso = {};
@@ -2556,6 +2594,49 @@ document.addEventListener('DOMContentLoaded', () => {
       const norm = normalizeTeamName(name);
       return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
     }
+
+    // 0) Precompute "next match" per ISO from fixtures
+    const nextMatchByIso = {};
+    const nowMs = Date.now();
+
+    function considerNext(iso, opponentName, whenStr){
+      if (!iso || !opponentName) return;
+      iso = String(iso).toLowerCase();
+
+      let whenMs = null;
+      if (whenStr) {
+        const d = new Date(whenStr);
+        if (!Number.isNaN(d.getTime())) whenMs = d.getTime();
+      }
+
+      const isFuture = whenMs != null ? (whenMs >= nowMs) : false;
+      const labelDate = formatMatchDateShort(whenStr);
+      const label = `vs ${opponentName}${labelDate ? ` (${labelDate})` : ''}`;
+
+      const prev = nextMatchByIso[iso];
+      if (!prev) {
+        nextMatchByIso[iso] = { label, whenMs: whenMs ?? 0, isFuture };
+        return;
+      }
+
+      // Prefer future over past, then earlier time
+      if (isFuture && !prev.isFuture) {
+        nextMatchByIso[iso] = { label, whenMs: whenMs ?? 0, isFuture };
+        return;
+      }
+      if (isFuture === prev.isFuture && whenMs != null && whenMs < prev.whenMs) {
+        nextMatchByIso[iso] = { label, whenMs: whenMs ?? 0, isFuture };
+      }
+    }
+
+    fixturesList.forEach(f => {
+      if (!f) return;
+      const whenStr = f.utc || f.kickoff || f.time || '';
+      const homeIso = (f.home_iso || '').toLowerCase();
+      const awayIso = (f.away_iso || '').toLowerCase();
+      if (homeIso && f.away) considerNext(homeIso, f.away, whenStr);
+      if (awayIso && f.home) considerNext(awayIso, f.home, whenStr);
+    });
 
     // 1) team -> ownership state (store both raw and normalized keys)
     const teamState = {};
@@ -2589,8 +2670,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const isoGroup  = {};
 
     if (teamMeta) {
-      // grouped style: { groups:{A:[...strings or objects...]}, not_qualified:[...optional...] }
       if (teamMeta.groups) {
+        // grouped style: { groups:{A:[...strings or objects...]}, not_qualified:[...optional...] }
         Object.entries(teamMeta.groups).forEach(([g, arr]) => {
           (arr || []).forEach(entry => {
             let tName = '';
@@ -2615,8 +2696,8 @@ document.addEventListener('DOMContentLoaded', () => {
               teamGroup[tName] = g;
             }
             if (norm) {
-              teamQual[norm]  = q;
-              teamGroup[norm] = g;
+              teamQual[norm]   = q;
+              teamGroup[norm]  = g;
             }
             if (iso) {
               isoQual[iso]  = q;
@@ -2728,31 +2809,69 @@ document.addEventListener('DOMContentLoaded', () => {
         status = ownership ? ownership.status : 'free';
       }
 
-      // owners list for tooltip
+      // owners list for tooltip + details
       const ownerNames = [];
+      let mainName = '';
+      let coNames  = '';
+
       if (ownership) {
         const main   = ownership.main;
         const splits = ownership.splits || [];
-        if (main && main.username) ownerNames.push(main.username);
+        if (main && main.username) {
+          mainName = main.username;
+          ownerNames.push(main.username);
+        }
         if (splits && splits.length) {
-          ownerNames.push(...splits.map(s => s && s.username).filter(Boolean));
+          const sNames = splits.map(s => s && s.username).filter(Boolean);
+          if (sNames.length) {
+            coNames = sNames.join(', ');
+            ownerNames.push(...sNames);
+          }
         }
       }
-      const ownersText = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+
+      const ownersText  = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
+      const ownersCount = ownerNames.length;
+
+      // equal-split prize share text (only if there are owners)
+      let prizeShare = '';
+      if (ownersCount > 0) {
+        const base = Math.floor(100 / ownersCount);
+        const rem  = 100 - base * ownersCount;
+        const parts = [];
+        for (let i = 0; i < ownersCount; i++) {
+          const v = base + (i < rem ? 1 : 0);
+          parts.push(`${v}%`);
+        }
+        prizeShare = parts.join(' / ');
+      }
 
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
+
+      // tournament stage
+      let stage = (stageMap[team] || stageMap[normTeam]) || 'Group Stage';
+
+      // map fixtures to this ISO
+      const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
+      const nextMatch = matchObj ? matchObj.label : '';
 
       // apply base status classes (self/owned/split/free/nq)
       el.classList.remove('owned','split','free','nq','dim','self');
       el.classList.add(status);
 
-      // datasets for tooltip + group filter + self-owner overlay
-      el.dataset.owners = ownersText;
-      el.dataset.team   = teamLabel;
-      el.dataset.group  = group;
-      el.dataset.iso    = isoUp;
-      el.dataset.flag   = flag;
+      // datasets for tooltip + group filter + self-owner overlay + info card
+      el.dataset.owners      = ownersText;
+      el.dataset.team        = teamLabel;
+      el.dataset.group       = group;
+      el.dataset.iso         = isoUp;
+      el.dataset.flag        = flag;
+      el.dataset.stage       = stage || '';
+      el.dataset.mainOwner   = mainName || '';
+      el.dataset.coOwners    = coNames || '';
+      el.dataset.ownersCount = String(ownersCount);
+      el.dataset.prizeShare  = prizeShare || '';
+      el.dataset.nextMatch   = nextMatch || '';
 
       // tooltip handlers
       el.onmouseenter = ev => {
@@ -2952,10 +3071,16 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.add('active');
       currentCountry = el;
 
-      const name   = el.dataset.team   || el.dataset.iso || 'Unknown';
-      const flag   = el.dataset.flag   || '';
-      const group  = el.dataset.group  || '—';
-      const owners = el.dataset.owners || 'Unassigned';
+      const name        = el.dataset.team   || el.dataset.iso || 'Unknown';
+      const flag        = el.dataset.flag   || '';
+      const group       = el.dataset.group  || '—';
+      const owners      = el.dataset.owners || 'Unassigned';
+      const stage       = el.dataset.stage  || 'Group Stage';
+      const mainOwner   = el.dataset.mainOwner   || '';
+      const coOwners    = el.dataset.coOwners    || '';
+      const ownersCount = el.dataset.ownersCount || '';
+      const nextMatch   = el.dataset.nextMatch   || '';
+      const prizeShare  = el.dataset.prizeShare  || '';
 
       const status =
         el.classList.contains('self')  ? 'Owned (Self)'   :
@@ -2967,14 +3092,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const nameEl   = document.getElementById('map-info-name');
       const flagEl   = document.getElementById('map-info-flag');
       const groupEl  = document.getElementById('map-info-group');
-      const ownersEl = document.getElementById('map-info-owners');
+      const stageEl  = document.getElementById('map-info-stage');
+      const mainEl   = document.getElementById('map-info-main');
+      const coEl     = document.getElementById('map-info-coowners');
+      const totalEl  = document.getElementById('map-info-total');
+      const nextEl   = document.getElementById('map-info-next');
+      const shareEl  = document.getElementById('map-info-share');
       const statusEl = document.getElementById('map-info-status');
 
-      if (nameEl)   nameEl.textContent          = name;
-      if (flagEl)   flagEl.innerHTML            = flag;
-      if (groupEl)  groupEl.textContent         = 'Group: ' + group;
-      if (ownersEl) ownersEl.textContent        = 'Owners: ' + owners;
-      if (statusEl) statusEl.textContent        = 'Status: ' + status;
+      const ownersNum = ownersCount ? parseInt(ownersCount, 10) || 0 : 0;
+
+      if (nameEl)   nameEl.textContent   = name;
+      if (flagEl)   flagEl.innerHTML     = flag;
+      if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
+      if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
+      if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
+      if (coEl)     coEl.textContent     = 'Co-Owners: ' + (coOwners || '—');
+      if (totalEl)  totalEl.textContent  = 'Owners Total: ' + ownersNum;
+      if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
+      if (shareEl)  shareEl.textContent  = 'Prize Share: ' + (prizeShare || '—');
+      if (statusEl) statusEl.textContent = 'Status: ' + status;
 
       if (infoBox) infoBox.classList.remove('hidden');
 
@@ -3004,21 +3141,25 @@ document.addEventListener('DOMContentLoaded', () => {
   async function render(){
     try {
       console.time('worldmap:fetch');
-      const [iso, merged, meta, selfTeams] = await Promise.all([
+      const [iso, merged, meta, selfTeams, stages, fixtures] = await Promise.all([
         loadTeamIso(),
         loadOwnership(),
         loadTeamMeta(),
-        loadSelfOwnership()
+        loadSelfOwnership(),
+        loadTeamStages(),
+        loadFixtures()
       ]);
       console.debug('team_iso ok:', Object.keys(iso || {}).length, 'entries');
       console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
       console.debug('team_meta:', meta ? 'loaded' : 'absent');
       console.debug('self ownership:', selfTeams ? selfTeams.size : 0, 'teams');
+      console.debug('team_stage entries:', stages ? Object.keys(stages).length : 0);
+      console.debug('fixtures count:', fixtures ? fixtures.length : 0);
       console.timeEnd('worldmap:fetch');
 
       const svg = await inlineSVG('world.svg');
 
-      classifyCountries(svg, iso, merged, meta, selfTeams);
+      classifyCountries(svg, iso, merged, meta, selfTeams, stages, fixtures);
       populateGroupSelector(meta);
       applyGroupFilter(svg);
 
@@ -3046,6 +3187,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem('wc:ownership_merged');
       localStorage.removeItem('wc:team_iso');
       localStorage.removeItem('wc:team_meta');
+      localStorage.removeItem('wc:team_stage');
       render();
     });
   }
