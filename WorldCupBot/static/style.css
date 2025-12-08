@@ -3135,3 +3135,28 @@ body.modal-open footer {
   background: rgba(0, 255, 200, 0.18);
   font-weight: 600;
 }
+
+/* USERS PAGE */
+
+#masq-select {
+    background: #0d141d;
+    color: #dce6f0;
+    border: 1px solid #1b2838;
+    border-radius: 999px;
+    outline: none;
+    font-size: 14px;
+    padding: 6px 12px;
+    cursor: pointer;
+    min-width: 220px;
+}
+
+#masq-select:focus {
+    border-color: #4da4ff;
+    box-shadow: 0 0 0 3px rgba(77, 164, 255, 0.25);
+}
+
+#masq-select option {
+    background-color: #0d141d;
+    color: #dce6f0;
+    padding: 8px 10px;
+}

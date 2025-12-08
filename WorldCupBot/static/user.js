@@ -281,14 +281,22 @@
     const target = list.find(v => String(v.discord_id || v.id || '') === String(masqueradingAs));
 
     if (target) {
-      const tId       = String(target.discord_id || target.id || '');
-      const tUserName = target.discord_username || target.username || '';
-      const tGlobal   = target.discord_global_name || target.global_name || '';
-      const tDisp     =
-        target.discord_display_name ||
-        target.display_name ||
-        tGlobal ||
-        tUserName;
+        const tId = String(target.discord_id || target.id || '');
+
+        const tUserName =
+          target.discord_username ||
+          target.username ||
+          target.discord_display_name ||
+          target.display_name ||
+          '';
+
+        const tGlobal = target.discord_global_name || target.global_name || '';
+
+        const tDisp =
+          target.discord_display_name ||
+          target.display_name ||
+          tGlobal ||
+          tUserName;
 
       const tAvatar   =
         target.discord_avatar || target.avatar_url || target.avatar || '';
