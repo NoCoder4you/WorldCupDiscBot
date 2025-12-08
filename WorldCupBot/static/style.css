@@ -1190,6 +1190,10 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     border: 1px solid var(--border);
 }
 
+.reassign-btn.btn.xs:hover {
+    background: var(--accent)
+}
+
 /* Narrow screens: keep header readable */
 @media (max-width: 720px) {
     .ownership-table th,
@@ -1575,8 +1579,8 @@ body.user-admin-view #ownership .ownership-card {
 }
 
 #reassign-cancel {
-    background: rgba(255, 255, 255, 0.06);
-    color: #c7d6e8;
+    background: var(--danger);
+    color: var(--bg);
     border-color: var(--border, #213040);
 }
 #reassign-cancel:hover {
@@ -1587,15 +1591,9 @@ body.user-admin-view #ownership .ownership-card {
 }
 
 #reassign-submit {
-    background: #05c46b;
-    color: #082016;
+    background: var(--accent);
+    color: var(--bg);
     border-color: #05b462;
-}
-#reassign-submit:hover {
-    filter: brightness(1.04);
-}
-#reassign-submit:active {
-    transform: translateY(1px);
 }
 
 /* Compact help text or placeholders */
@@ -1996,16 +1994,6 @@ body.user-admin-view #ownership .ownership-card {
 #map-tip[style*="opacity: 1"] {
     transform: translateY(0);
 }
-
-/* Simple pan/zoom cursors */
-.map-pannable {
-    cursor: grab;
-}
-
-.map-pannable:active {
-    cursor: grabbing;
-}
-
 
 #map-svg-host .country.split,
 #map-svg-host .country.split * {
