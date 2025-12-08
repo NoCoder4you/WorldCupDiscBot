@@ -574,8 +574,8 @@ body.admin .dashboard-grid .card {
 }
 
 .table-scroll {
-    max-height: 85vh;
-    overflow: auto
+    max-height: none;
+    overflow: none
 }
 
 .table {
