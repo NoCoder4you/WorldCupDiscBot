@@ -189,6 +189,25 @@ def _discord_default_avatar_url(user_id: str) -> str:
         idx = 0
     return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
 
+# ---------- Masquerade helper ----------
+def _effective_uid():
+    """Return actual logged-in user OR masqueraded user id."""
+    user = session.get("wc_user")
+    if not user:
+        return None
+
+    real_id = str(user.get("discord_id") or "")
+    masquerade_id = session.get("wc_masquerade_id")
+
+    # Only allow masquerade if the real user is an admin
+    base = current_app.config.get("BASE_DIR", "")
+    cfg = _load_config(base)
+    admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
+
+    if masquerade_id and real_id in admin_ids:
+        return str(masquerade_id)
+
+    return real_id
 
 # ---------- Blueprints ----------
 def create_public_routes(ctx):
@@ -568,7 +587,7 @@ def create_public_routes(ctx):
     @api.get("/my_bets")
     def api_my_bets():
         base = ctx.get("BASE_DIR", "")
-        uid = str((request.args.get("uid") or "").strip())
+        uid = _effective_uid() or ""
 
         def _s(x):
             return str(x or "").strip()
@@ -1040,17 +1059,23 @@ def create_public_routes(ctx):
 
     @api.get("/me")
     def me_get():
-        # Single source of truth for front-end: session user + admin flag
         base = ctx.get("BASE_DIR", "")
         cfg = _load_config(base)
         admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
 
-        user = session.get(_session_key())  # session key = "wc_user"
+        user = session.get(_session_key())
         if not user:
-            return jsonify({"ok": True, "user": None, "is_admin": False})
+            return jsonify({"ok": True, "user": None, "is_admin": False, "masquerading_as": None})
 
-        uid = str(user.get("discord_id") or user.get("id") or "")
-        return jsonify({"ok": True, "user": user, "is_admin": uid in admin_ids})
+        real_uid = str(user.get("discord_id") or "")
+        effective_uid = _effective_uid()
+
+        return jsonify({
+            "ok": True,
+            "user": user,
+            "is_admin": real_uid in admin_ids,
+            "masquerading_as": None if effective_uid == real_uid else effective_uid
+        })
 
     @api.get("/me/is_admin")
     def api_me_is_admin():
@@ -1151,7 +1176,9 @@ def create_public_routes(ctx):
 
         players = _json_load(_players_path(base), {})
         teams_iso = _json_load(_team_iso_path(base), {})
-        uid = str(user["discord_id"])
+        uid = _effective_uid()
+        if not uid:
+            return jsonify({"ok": True, "owned": [], "split": []})
 
         owned_set, split_set = set(), set()
 
@@ -1191,7 +1218,10 @@ def create_public_routes(ctx):
         if not user or not user.get("discord_id"):
             return jsonify({"ok": True, "matches": []})
 
-        uid = str(user["discord_id"])
+        uid = _effective_uid()
+        if not uid:
+            return jsonify({"ok": True, "matches": []})
+
         players = _json_load(_players_path(base), {})
         owned_set = set()
         pdata = players.get(uid) if isinstance(players, dict) else None

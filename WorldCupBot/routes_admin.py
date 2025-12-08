@@ -689,5 +689,29 @@ def create_admin_routes(ctx):
         _write_json_atomic(path, data)
         return jsonify({"ok": True, "team": team, "stage": stage})
 
+    # ---------- Masquerade Mode ----------
+    @bp.post("/masquerade/start")
+    def admin_masquerade_start():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        data = request.get_json(silent=True) or {}
+        target = str(data.get("discord_id") or "").strip()
+        if not target:
+            return jsonify({"ok": False, "error": "missing discord_id"}), 400
+
+        session["wc_masquerade_id"] = target
+        return jsonify({"ok": True, "masquerading_as": target})
+
+    @bp.post("/masquerade/stop")
+    def admin_masquerade_stop():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        session.pop("wc_masquerade_id", None)
+        return jsonify({"ok": True, "masquerading_as": None})
+
 
     return bp
