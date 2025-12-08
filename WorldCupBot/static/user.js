@@ -325,7 +325,7 @@
           banner.textContent = name ? `Now Showing as: ${name}` : (selfLabel || 'Viewing as yourself');
         }
         if ($notify) {
-          $notify.textContent = name ? `Now Showing as: ${name}` : '';
+          if (name) notify(`Now Showing as: ${name}`);
         }
       };
 
