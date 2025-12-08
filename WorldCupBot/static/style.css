@@ -11,6 +11,7 @@
     --text: #eaf1ff;
     --muted: #93a4bd;
     --accent: #00ffd5;
+    --accentbg: #80ffea;
     --accent-2: #2aa8ff;
     --danger: #e6505c;
     --border: #273247;
@@ -2962,12 +2963,10 @@ body.modal-open footer {
   transition: transform .08s, background .2s, border-color .2s;
 }
 
-
-/* when Admin View is ON, tint the pill */
 .user-admin-view .fab-admin {
-    background: rgba(34,197,94,.2);
-    border-color: rgba(34,197,94,.45);
-    color:#22c55e;
+    background: var(--bg);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 /* ===== FAN ZONE ===== */
