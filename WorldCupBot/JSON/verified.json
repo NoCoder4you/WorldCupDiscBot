@@ -3,27 +3,47 @@
         {
             "discord_id": "1202812518398169111",
             "habbo_name": "noah7479",
-            "display_name": "noah7479"
+            "display_name": "noah7479",
+            "discord_username": "noahtest0842",
+            "discord_global_name": "Noah Test",
+            "discord_display_name": "Noah Test",
+            "discord_avatar": "https://cdn.discordapp.com/avatars/1202812518398169111/a592887e29152ac0d260dfd7df4f7583.png?size=256"
         },
         {
             "discord_id": "298121351871594497",
             "habbo_name": "Siren",
-            "display_name": "Noah"
+            "display_name": "Noah",
+            "discord_username": "itsnoahh1",
+            "discord_global_name": "Noah",
+            "discord_display_name": "Noahh",
+            "discord_avatar": "https://cdn.discordapp.com/avatars/298121351871594497/52faf224adbaa2af121bf6970170dc0b.png?size=256"
         },
         {
             "discord_id": "570704277840855050",
             "habbo_name": "Aaelin",
-            "display_name": "Tori"
+            "display_name": "Tori",
+            "discord_username": "aaelin_1242",
+            "discord_global_name": "Tori",
+            "discord_display_name": "Aaelin",
+            "discord_avatar": "https://cdn.discordapp.com/avatars/570704277840855050/989e5c6d96a391734bc73e553d5c5d6f.png?size=256"
         },
         {
             "discord_id": "513795974330580994",
             "habbo_name": "Decepted",
-            "display_name": "Decepted"
+            "display_name": "Decepted",
+            "discord_username": "elysiawolf",
+            "discord_global_name": "\ud835\udcd4\ud835\udcf5\ud835\udcf5\ud835\udd02 | Sick \ud83e\udd12",
+            "discord_display_name": "\ud835\udcd4\ud835\udcf5\ud835\udcf5\ud835\udd02 | Sick \ud83e\udd12",
+            "discord_avatar": "https://cdn.discordapp.com/avatars/513795974330580994/4c6e2bdbf6b7a066589394790690c13b.png?size=256"
         },
         {
             "discord_id": "420236541349068801",
             "habbo_name": "marsun",
-            "display_name": "marsun"
+            "display_name": "marsun",
+            "discord_username": "marsun02",
+            "discord_global_name": "marsun",
+            "discord_display_name": "marsun",
+            "discord_avatar": "https://cdn.discordapp.com/avatars/420236541349068801/4b80b1792a58953d5010aecd1e07d311.png?size=256"
         }
     ]
 }
