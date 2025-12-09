@@ -420,12 +420,13 @@ def create_public_routes(ctx):
                 if not did:
                     continue
 
-                # Accept various avatar fields from your JSON:
-                # - avatar_url (full URL)
-                # - avatar (may be hash OR full URL)
-                # - avatar_hash
-                avatar_field = v.get("avatar_url") or v.get("avatarUrl") or v.get("avatar") or v.get(
-                    "avatar_hash") or v.get("avatarHash")
+                avatar_field = (
+                    v.get("avatar_url")
+                    or v.get("avatarUrl")
+                    or v.get("avatar")
+                    or v.get("avatar_hash")
+                    or v.get("avatarHash")
+                )
                 avatar_url = None
                 avatar_hash = None
 
@@ -447,6 +448,8 @@ def create_public_routes(ctx):
                     "habbo_name": v.get("habbo_name") or "",
                     "avatar_hash": avatar_hash,
                     "avatar_url": avatar_url,
+                    # IP info - adjust keys if your JSON uses a different name
+                    "ip": v.get("ip") or v.get("ip_address") or "",
                 }
                 out.append(user)
         return jsonify(out)
