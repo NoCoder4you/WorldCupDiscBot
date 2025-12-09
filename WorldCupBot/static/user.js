@@ -346,13 +346,8 @@
       return `<option value="${id}"${selected}>${label}</option>`;
     }).join('');
 
-    const bannerText = masqDisplay
-      ? `Now Showing as: ${masqDisplay}`
-      : '';
-
     masqControls = `
       <div class="user-masq-wrap">
-        <div class="user-masq-banner muted" id="masq-banner"></div>
         <div class="user-masq-row">
             <select id="masq-select" class="select">
               <option value=""></option>
@@ -410,22 +405,11 @@
     }
   }
 
-  // ---------- wire masquerade controls + notify ----------
+  // ---------- wire masquerade controls ----------
   if (isAdmin && inAdminView) {
     const sel      = document.getElementById('masq-select');
     const btnApply = document.getElementById('masq-apply');
     const btnClear = document.getElementById('masq-clear');
-
-    const updateBanner = (name, selfLabel) => {
-      if (banner) {
-        banner.textContent = name
-          ? `Now Showing as: ${name}`
-          : (selfLabel || '');
-      }
-      if (typeof notify === 'function' && name) {
-        notify(`Now Showing as: ${name}`, true);
-      }
-    };
 
     if (btnApply && sel) {
       btnApply.onclick = async () => {
@@ -436,8 +420,6 @@
         } catch (e) {
           console.error('masquerade start failed', e);
         }
-        const label = sel.options[sel.selectedIndex]?.text || id;
-        updateBanner(label);
         refreshUser();
       };
     }
@@ -449,15 +431,8 @@
         } catch (e) {
           console.error('masquerade stop failed', e);
         }
-        if (banner) banner.textContent = '';
         refreshUser();
       };
-    }
-
-    if (masqDisplay) {
-      updateBanner(masqDisplay);
-    } else if (banner) {
-      banner.textContent = '';
     }
   }
 
