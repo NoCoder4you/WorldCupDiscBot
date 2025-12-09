@@ -99,16 +99,22 @@ body {
   height: 20px;
   accent-color: var(--accent);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.35s ease,
+    filter 0.35s ease;
 }
 
-
 .terms-agree input[type="checkbox"]:active {
-  transform: scale(0.9);
+  transform: scale(0.82);
 }
 
 .terms-agree input[type="checkbox"]:checked {
-  box-shadow: 0 0 6px #00ffd5, 0 0 10px #00ffd5;
+  box-shadow:
+    0 0 6px  #00ffd5,
+    0 0 12px #00ffd5,
+    0 0 20px #00ffd5;
+  filter: drop-shadow(0 0 6px #00ffd5);
 }
 
 
