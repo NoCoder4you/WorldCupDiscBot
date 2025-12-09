@@ -3000,10 +3000,14 @@ body.user-admin-view #ownership .ownership-card {
 
 #user .user-masq-row {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+#user .user-masq-buttons {
+    display: flex;
     gap: 8px;
-    align-items: center;
-    justify-content: flex-end;
 }
 
 #user .user-masq-label {

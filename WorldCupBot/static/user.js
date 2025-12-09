@@ -354,11 +354,10 @@
       <div class="user-masq-wrap">
         <div class="user-masq-banner muted" id="masq-banner">${bannerText}</div>
         <div class="user-masq-row">
-          <label for="masq-select" class="muted user-masq-label">View as</label>
-          <select id="masq-select" class="select">
-            <option value="">-- Choose user --</option>
-            ${options}
-          </select>
+            <select id="masq-select" class="select">
+              <option value=""></option>
+              ${options}
+            </select>
           <div class="user-masq-buttons">
             <button id="masq-apply" class="btn small">Apply</button>
             <button id="masq-clear" class="btn small secondary">Back to self</button>
