@@ -11,7 +11,7 @@
   try{
     const st = await fx('/api/me/tos');
     ver.textContent = 'v' + (st.version || '?');
-  }catch(e){ /* ignore */ }
+  }catch(e){  }
 
   btn.addEventListener('click', async () => {
     msg.textContent = '';
