@@ -99,7 +99,18 @@ body {
   height: 20px;
   accent-color: var(--accent);
   cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
 }
+
+
+.terms-agree input[type="checkbox"]:active {
+  transform: scale(0.9);
+}
+
+.terms-agree input[type="checkbox"]:checked {
+  box-shadow: 0 0 6px #00ffd5, 0 0 10px #00ffd5;
+}
+
 
 /* Buttons row */
 .terms-actions {
