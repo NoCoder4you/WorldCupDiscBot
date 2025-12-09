@@ -5,17 +5,19 @@
 
 /* Root inherits from main theme */
 :root {
-  --bg: #0f141a;
-  --card: #182231;
-  --text: #eaf1ff;
-  --muted: #93a4bd;
-  --accent: #00c896;
-  --accent-2: #2aa8ff;
-  --danger: #e6505c;
-  --border: #273247;
-  --btn: #223145;
-  --btn-hover: #2a3b55;
-  --warn: #f6c343;
+    --bg: #0f141a;
+    --card: #182231;
+    --text: #eaf1ff;
+    --muted: #93a4bd;
+    --accent: #00ffd5;
+    --accentbg: #80ffea;
+    --accent-2: #2aa8ff;
+    --danger: #e6505c;
+    --border: #273247;
+    --btn: #223145;
+    --btn-hover: #2a3b55;
+    --card-h: 220px;
+    --warn: #f6c343;
 }
 
 body {
