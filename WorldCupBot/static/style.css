@@ -2994,9 +2994,6 @@ body.user-admin-view #ownership .ownership-card {
     gap: 6px;
 }
 
-#user .user-masq-banner {
-    font-size: 12px;
-}
 
 #user .user-masq-row {
     display: flex;

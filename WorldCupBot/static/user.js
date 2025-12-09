@@ -412,7 +412,6 @@
 
   // ---------- wire masquerade controls + notify ----------
   if (isAdmin && inAdminView) {
-    const banner   = document.getElementById('masq-banner');
     const sel      = document.getElementById('masq-select');
     const btnApply = document.getElementById('masq-apply');
     const btnClear = document.getElementById('masq-clear');
