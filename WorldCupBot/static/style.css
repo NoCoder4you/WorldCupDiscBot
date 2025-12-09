@@ -3020,6 +3020,33 @@ body.user-admin-view #ownership .ownership-card {
     gap: 6px;
 }
 
+#user .user-masq-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+#user .user-masq-buttons {
+    display: inline-flex;
+    gap: 8px;
+    width: auto;
+}
+
+#user #masq-select {
+    width: calc( (100% * 0) + auto );
+    min-width: calc( (var(--btn-width, auto)) );
+}
+
+/* Actual auto-measured width that matches the buttons */
+#user .user-masq-row {
+    --buttons-width: auto;
+}
+
+#user #masq-select {
+    width: calc(var(--buttons-width));
+}
+
 /* Stack nicely on smaller screens */
 @media (max-width: 800px) {
     #user .user-profile-layout {

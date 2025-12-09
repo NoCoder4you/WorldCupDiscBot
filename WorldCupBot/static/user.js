@@ -352,7 +352,7 @@
 
     masqControls = `
       <div class="user-masq-wrap">
-        <div class="user-masq-banner muted" id="masq-banner">${bannerText}</div>
+        <div class="user-masq-banner muted" id="masq-banner"></div>
         <div class="user-masq-row">
             <select id="masq-select" class="select">
               <option value=""></option>
