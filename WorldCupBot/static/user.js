@@ -348,7 +348,7 @@
 
     const bannerText = masqDisplay
       ? `Now Showing as: ${masqDisplay}`
-      : 'Viewing as yourself';
+      : '';
 
     masqControls = `
       <div class="user-masq-wrap">
@@ -398,6 +398,16 @@
     if (typeof upgradeAvatar === 'function' && viewId) {
       upgradeAvatar(viewId);
     }
+    if (isAdmin && inAdminView) {
+      const btnGroup = document.querySelector('.user-masq-buttons');
+      const sel = document.getElementById('masq-select');
+      if (btnGroup && sel) {
+        const w = btnGroup.offsetWidth;
+        if (w > 0) {
+          sel.style.width = `${w}px`;
+        }
+      }
+    }
   }
 
   // ---------- wire masquerade controls + notify ----------
@@ -411,7 +421,7 @@
       if (banner) {
         banner.textContent = name
           ? `Now Showing as: ${name}`
-          : (selfLabel || 'Viewing as yourself');
+          : (selfLabel || '');
       }
       if (typeof notify === 'function' && name) {
         notify(`Now Showing as: ${name}`, true);
@@ -440,7 +450,7 @@
         }catch(e){
           console.error('masquerade stop failed', e);
         }
-        if (banner) banner.textContent = 'Viewing as yourself';
+        if (banner) banner.textContent = '';
         refreshUser();
       };
     }
@@ -448,9 +458,8 @@
     if (masqDisplay) {
       updateBanner(masqDisplay);
     } else if (banner) {
-      banner.textContent = 'Viewing as yourself';
+      banner.textContent = '';
     }
-  }
 
   // teams + bets unchanged
   renderTeamsProgressMerged(owned || [], split || []);
