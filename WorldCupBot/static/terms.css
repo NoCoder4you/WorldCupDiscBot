@@ -166,13 +166,13 @@ body {
 }
 
 .btn-continue:hover {
-  background: #1e2a38; /* softer dark blue so neon glow doesn't muddy */
+  background: var(--accent);
   transform: translateY(-2px);
   box-shadow:
     0 0 10px #00ffd5,
-    0 0 20px #00ffd5,
-    0 0 32px #00ffd5,
-    0 0 40px #00ffd5;
+    0 0 22px #00ffd5,
+    0 0 36px #00ffd5,
+    0 0 48px #00ffd5;
 }
 
 .btn-continue:active {
