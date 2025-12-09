@@ -432,9 +432,9 @@
       btnApply.onclick = async () => {
         const id = sel.value.trim();
         if (!id) return;
-        try{
+        try {
           await jpost('/admin/masquerade/start', { discord_id: id });
-        }catch(e){
+        } catch (e) {
           console.error('masquerade start failed', e);
         }
         const label = sel.options[sel.selectedIndex]?.text || id;
@@ -445,9 +445,9 @@
 
     if (btnClear) {
       btnClear.onclick = async () => {
-        try{
+        try {
           await jpost('/admin/masquerade/stop', {});
-        }catch(e){
+        } catch (e) {
           console.error('masquerade stop failed', e);
         }
         if (banner) banner.textContent = '';
@@ -460,6 +460,7 @@
     } else if (banner) {
       banner.textContent = '';
     }
+  }
 
   // teams + bets unchanged
   renderTeamsProgressMerged(owned || [], split || []);
