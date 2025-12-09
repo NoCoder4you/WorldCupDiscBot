@@ -2967,6 +2967,70 @@ body.user-admin-view #ownership .ownership-card {
     padding: 8px 10px;
 }
 
+/* User profile layout - avatar left, masquerade right */
+#user .user-profile-card {
+    height: auto;
+}
+
+#user .user-profile-layout {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+#user .user-profile-main {
+    flex: 0 0 auto;
+    min-width: 220px;
+}
+
+/* Masquerade controls on the right */
+#user .user-masq-wrap {
+    flex: 1 1 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+#user .user-masq-banner {
+    font-size: 12px;
+}
+
+#user .user-masq-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+#user .user-masq-label {
+    font-size: 12px;
+}
+
+#user .user-masq-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Stack nicely on smaller screens */
+@media (max-width: 800px) {
+    #user .user-profile-layout {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    #user .user-masq-wrap {
+        align-items: flex-start;
+    }
+
+    #user .user-masq-row {
+        justify-content: flex-start;
+    }
+}
 
 #user .card,
 #user .card *,

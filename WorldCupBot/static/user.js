@@ -351,16 +351,19 @@
       : 'Viewing as yourself';
 
     masqControls = `
-      <div class="muted" id="masq-banner" style="margin-top:8px;font-size:12px">${bannerText}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;align-items:center">
-        <label for="masq-select" class="muted" style="font-size:12px">View as</label>
-        <select id="masq-select" class="select"
-                style="min-width:220px;padding:6px 12px;border-radius:999px;">
-          <option value="">-- Choose user --</option>
-          ${options}
-        </select>
-        <button id="masq-apply" class="btn small">Apply</button>
-        <button id="masq-clear" class="btn small secondary">Back to self</button>
+      <div class="user-masq-wrap">
+        <div class="user-masq-banner muted" id="masq-banner">${bannerText}</div>
+        <div class="user-masq-row">
+          <label for="masq-select" class="muted user-masq-label">View as</label>
+          <select id="masq-select" class="select">
+            <option value="">-- Choose user --</option>
+            ${options}
+          </select>
+          <div class="user-masq-buttons">
+            <button id="masq-apply" class="btn small">Apply</button>
+            <button id="masq-clear" class="btn small secondary">Back to self</button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -372,10 +375,14 @@
 
   if ($body) {
     $body.innerHTML = `
-      <div class="card" style="height:auto">
+      <div class="card user-profile-card" style="height:auto">
         <div class="card-title">Profile</div>
-        ${title}
-        ${masqControls}
+        <div class="user-profile-layout">
+          <div class="user-profile-main">
+            ${title}
+          </div>
+          ${masqControls}
+        </div>
       </div>
 
       <div class="card" style="height:auto; margin-top:12px">
