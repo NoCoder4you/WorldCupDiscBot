@@ -5,6 +5,9 @@ import secrets
 import urllib.parse
 import requests
 
+TOS_VERSION = "2026.1"
+
+
 # ======================
 # Core helpers
 # ======================
@@ -1156,19 +1159,58 @@ def create_public_routes(ctx):
         uid = str(user["discord_id"])
         disp = user.get("global_name") or user.get("username") or uid
 
-        # store acceptance
+        # --- capture IP from request ---
+        xff = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        ip = xff or (request.remote_addr or "")
+
+        # --- store acceptance in tos.json (unchanged, plus ip) ---
         path = _tos_path(base)
         data = _json_load(path, {})
         if not isinstance(data, dict):
             data = {}
-        data[uid] = {"version": version, "ts": int(time.time()), "display_name": disp}
+        data[uid] = {
+            "version": version,
+            "ts": int(time.time()),
+            "display_name": disp,
+            "ip": ip,
+        }
         _json_save(path, data)
+
+        # --- also write IP into verified.json if this user is in there ---
+        vpath = _verified_path(base)
+        vblob = _json_load(vpath, {})
+        vraw = vblob.get("verified_users") if isinstance(vblob, dict) else vblob
+        changed = False
+
+        if isinstance(vraw, list):
+            for v in vraw:
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                if did != uid:
+                    continue
+                if ip:
+                    v["ip"] = ip
+                # you can also store tos info here if you want
+                v.setdefault("meta", {})
+                if isinstance(v["meta"], dict):
+                    v["meta"]["tos_version"] = version
+                    v["meta"]["tos_accepted_ts"] = int(time.time())
+                changed = True
+                break
+
+        if changed:
+            if isinstance(vblob, dict):
+                vblob["verified_users"] = vraw
+                _json_save(vpath, vblob)
+            else:
+                _json_save(vpath, vraw)
 
         # ensure a players.json entry exists so the user area can work
         if not _in_players(base, uid):
             _ensure_player(base, uid, disp)
 
-        return jsonify({"ok": True, "version": version})
+        return jsonify({"ok": True, "version": version, "ip": ip})
 
     @api.get("/me/ownership")
     def me_ownership():
