@@ -1,25 +1,42 @@
 (async () => {
   'use strict';
 
+  /* ========= Helpers ========= */
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 
   async function fx(url, opts) {
-    const r = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {}));
+    const r = await fetch(
+      url,
+      Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts || {})
+    );
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   }
 
+  /* ========= Elements ========= */
   const ver = $('#ver');
   const msg = $('#msg');
-  const btn = $('#btn-accept');
-  const chk = $('#chk-accept');
+  const btnAccept = $('#btn-accept');
+  const chkAccept = $('#chk-accept');
 
   const content = $('#terms-content');
   const tocLinks = $$('.terms-toc .toc-link');
 
-  if (!msg || !btn || !chk || !content || !tocLinks.length) return;
+  const welcome = $('#welcome-overlay');
+  const btnWelcome = $('#btn-welcome-continue');
 
+  if (!msg || !btnAccept || !chkAccept || !content || !tocLinks.length) return;
+
+  /* ========= Welcome Overlay ========= */
+  if (welcome && btnWelcome) {
+    btnWelcome.addEventListener('click', () => {
+      welcome.style.display = 'none';
+      content.focus();
+    });
+  }
+
+  /* ========= Build Sections from TOC ========= */
   const sectionIds = tocLinks
     .map(a => (a.getAttribute('href') || '').trim())
     .filter(h => h.startsWith('#'))
@@ -31,41 +48,54 @@
 
   if (!sections.length) return;
 
+  /* ========= State ========= */
   const state = {};
-  sections.forEach(s => state[s.id] = { opened: false, read: false });
+  sections.forEach(s => {
+    state[s.id] = {
+      opened: false,
+      read: false,
+      gesturePx: 0
+    };
+  });
 
   let currentIndex = 0;
 
-  // For short sections: require a real scroll gesture (wheel/touch) while on that section
-  let gestureScrollPx = 0;
-
-  const MIN_GESTURE_PX = 120; // must actually scroll input a bit
+  const MIN_GESTURE_PX = 120; // required scroll input for short sections
   const BOTTOM_TOL = 10;
 
+  /* ========= Helpers ========= */
   function allRead() {
-    return sections.every(s => state[s.id]?.read);
+    return sections.every(s => state[s.id].read);
   }
 
   function gateIndex() {
     for (let i = 0; i < sections.length; i++) {
-      if (!state[sections[i].id]?.read) return i;
+      if (!state[sections[i].id].read) return i;
     }
     return sections.length;
   }
 
+  function needsScroll() {
+    return content.scrollHeight > (content.clientHeight + 2);
+  }
+
+  function atBottom() {
+    return (content.scrollTop + content.clientHeight) >= (content.scrollHeight - BOTTOM_TOL);
+  }
+
   function updateTocUI() {
     const gate = gateIndex();
+
     tocLinks.forEach((a, i) => {
       const id = sectionIds[i];
       const st = state[id];
 
       const locked = i > gate;
-      const cur = i === currentIndex;
-      const read = !!st?.read;
+      const current = i === currentIndex;
 
       a.classList.toggle('toc-locked', locked);
-      a.classList.toggle('toc-current', cur);
-      a.classList.toggle('toc-read', read);
+      a.classList.toggle('toc-current', current);
+      a.classList.toggle('toc-read', st.read);
 
       a.style.pointerEvents = locked ? 'none' : '';
       a.style.opacity = locked ? '0.45' : '';
@@ -74,32 +104,42 @@
   }
 
   function updateUI() {
-    const done = sections.filter(s => state[s.id]?.read).length;
+    const done = sections.filter(s => state[s.id].read).length;
     const total = sections.length;
 
     if (!allRead()) {
-      btn.disabled = true;
-      msg.textContent = `Complete each section: ${done}/${total}`;
+      btnAccept.disabled = true;
+
+      const cur = sections[currentIndex];
+      const st = state[cur.id];
+
+      if (!st.opened) {
+        msg.textContent = `Click this section to begin. (${done}/${total})`;
+      } else {
+        msg.textContent = `Scroll to the bottom to complete this section. (${done}/${total})`;
+      }
       return;
     }
 
-    if (!chk.checked) {
-      btn.disabled = true;
+    if (!chkAccept.checked) {
+      btnAccept.disabled = true;
       msg.textContent = 'Please tick the box to continue.';
       return;
     }
 
     msg.textContent = '';
-    btn.disabled = false;
+    btnAccept.disabled = false;
   }
 
   function showOnly(index) {
     currentIndex = Math.max(0, Math.min(index, sections.length - 1));
-    gestureScrollPx = 0;
 
     sections.forEach((s, i) => {
       s.el.style.display = (i === currentIndex) ? '' : 'none';
     });
+
+    const st = state[sections[currentIndex].id];
+    st.gesturePx = 0;
 
     requestAnimationFrame(() => {
       content.scrollTop = 0;
@@ -110,9 +150,9 @@
 
   function markCurrentRead() {
     const s = sections[currentIndex];
-    if (!s) return;
     const st = state[s.id];
-    if (!st || st.read) return;
+
+    if (st.read) return;
     if (!st.opened) return;
 
     st.read = true;
@@ -121,59 +161,50 @@
 
     const gate = gateIndex();
     if (gate < sections.length) {
-      msg.textContent = `Section completed. Click the next section. (${sections.filter(x => state[x.id].read).length}/${sections.length})`;
+      msg.textContent =
+        `Section completed. Click the next section. (${sections.filter(x => state[x.id].read).length}/${sections.length})`;
     }
-  }
-
-  function currentNeedsScroll() {
-    // If scrollHeight > clientHeight, there is content to scroll
-    return content.scrollHeight > (content.clientHeight + 2);
-  }
-
-  function isAtBottom() {
-    return (content.scrollTop + content.clientHeight) >= (content.scrollHeight - BOTTOM_TOL);
   }
 
   function maybeCompleteByScroll() {
     const s = sections[currentIndex];
-    if (!s) return;
     const st = state[s.id];
-    if (!st || st.read || !st.opened) return;
 
-    if (currentNeedsScroll()) {
-      // Normal case: must scroll to bottom
-      if (isAtBottom()) markCurrentRead();
+    if (st.read || !st.opened) return;
+
+    if (needsScroll()) {
+      if (atBottom()) markCurrentRead();
     } else {
-      // Short section: no bottom to reach, so require real scroll gesture input
-      if (gestureScrollPx >= MIN_GESTURE_PX) markCurrentRead();
+      if (st.gesturePx >= MIN_GESTURE_PX) markCurrentRead();
     }
   }
 
-  // Track scroll gestures (no time, no whitespace)
+  /* ========= Scroll / Gesture Tracking ========= */
+  content.addEventListener('scroll', () => {
+    maybeCompleteByScroll();
+  }, { passive: true });
+
   content.addEventListener('wheel', (e) => {
-    gestureScrollPx += Math.abs(e.deltaY || 0);
+    state[sections[currentIndex].id].gesturePx += Math.abs(e.deltaY || 0);
     maybeCompleteByScroll();
   }, { passive: true });
 
   let touchY = null;
   content.addEventListener('touchstart', (e) => {
-    if (!e.touches || !e.touches.length) return;
-    touchY = e.touches[0].clientY;
+    if (e.touches && e.touches.length) {
+      touchY = e.touches[0].clientY;
+    }
   }, { passive: true });
 
   content.addEventListener('touchmove', (e) => {
-    if (touchY == null || !e.touches || !e.touches.length) return;
+    if (!touchY || !e.touches || !e.touches.length) return;
     const y = e.touches[0].clientY;
-    gestureScrollPx += Math.abs(y - touchY);
+    state[sections[currentIndex].id].gesturePx += Math.abs(y - touchY);
     touchY = y;
     maybeCompleteByScroll();
   }, { passive: true });
 
-  // Also react to actual scroll position for long sections
-  content.addEventListener('scroll', () => {
-    maybeCompleteByScroll();
-  }, { passive: true });
-
+  /* ========= TOC Clicks ========= */
   tocLinks.forEach((a, i) => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
@@ -181,35 +212,41 @@
       if (i > gate) return;
 
       const id = sectionIds[i];
-      if (!state[id]) return;
-
       state[id].opened = true;
       showOnly(i);
     });
   });
 
-  chk.addEventListener('change', () => updateUI());
+  /* ========= Checkbox ========= */
+  chkAccept.addEventListener('change', () => updateUI());
 
+  /* ========= Version ========= */
   try {
     const st = await fx('/api/me/tos');
     if (ver) ver.textContent = 'v' + (st.version || '?');
   } catch (e) { /* ignore */ }
 
-  btn.addEventListener('click', async () => {
+  /* ========= Accept ========= */
+  btnAccept.addEventListener('click', async () => {
     updateUI();
-    if (btn.disabled) return;
+    if (btnAccept.disabled) return;
 
-    btn.disabled = true;
+    btnAccept.disabled = true;
     try {
-      await fx('/api/me/tos/accept', { method: 'POST', body: JSON.stringify({}) });
+      await fx('/api/me/tos/accept', {
+        method: 'POST',
+        body: JSON.stringify({})
+      });
       window.location.href = '/';
     } catch (e) {
-      msg.textContent = 'Could not record acceptance. Make sure you are logged in with Discord.';
-      btn.disabled = false;
+      msg.textContent =
+        'Could not record acceptance. Make sure you are logged in with Discord.';
+      btnAccept.disabled = false;
     }
   });
 
-  btn.disabled = true;
+  /* ========= Init ========= */
+  btnAccept.disabled = true;
   showOnly(0);
   updateUI();
 })();
