@@ -296,3 +296,8 @@ body {
   .btn { width: 100%; min-width: 0; }
   .terms-accept { grid-template-columns: 1fr; }
 }
+
+.toc-link.toc-read {
+  border-color: #00ffd5;
+  box-shadow: 0 0 8px #00ffd5;
+}
