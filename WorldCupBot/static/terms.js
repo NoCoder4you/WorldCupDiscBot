@@ -130,25 +130,31 @@
     btnAccept.disabled = false;
   }
 
-  function showOnly(index) {
-    currentIndex = Math.max(0, Math.min(index, sections.length - 1));
+    function showOnly(index) {
+      currentIndex = Math.max(0, Math.min(index, sections.length - 1));
 
-    // hide placeholder
-    if (placeholder) placeholder.style.display = 'none';
+      // Hide placeholder
+      if (placeholder) placeholder.style.display = 'none';
 
-    sections.forEach((s, i) => {
-      s.el.style.display = (i === currentIndex) ? '' : 'none';
-    });
+      // Hide all sections first
+      sections.forEach(s => { s.el.style.display = 'none'; });
 
-    const st = state[sections[currentIndex].id];
-    st.gesturePx = 0;
-
-    requestAnimationFrame(() => {
+      // HARD reset scroll before showing new content
       content.scrollTop = 0;
-      updateTocUI();
-      updateUI();
-    });
-  }
+
+      // Show the selected section
+      sections[currentIndex].el.style.display = '';
+
+      const st = state[sections[currentIndex].id];
+      st.gesturePx = 0;
+
+      // Force scroll reset again after paint
+      requestAnimationFrame(() => {
+        content.scrollTop = 0;
+        updateTocUI();
+        updateUI();
+      });
+    }
 
   function markCurrentRead() {
     const s = sections[currentIndex];
