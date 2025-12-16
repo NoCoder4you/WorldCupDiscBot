@@ -35,7 +35,6 @@
   sections.forEach(s => state[s.id] = { read: false });
 
   let currentIndex = 0;
-  let activeTimer = null;
 
   function allRead() {
     return sections.every(s => state[s.id]?.read);
@@ -72,7 +71,7 @@
 
     if (!allRead()) {
       btn.disabled = true;
-      msg.textContent = `Read each section to unlock the next: ${done}/${sections.length}`;
+      msg.textContent = `Scroll to the bottom of each section to unlock the next: ${done}/${sections.length}`;
       return;
     }
 
@@ -86,27 +85,43 @@
     btn.disabled = false;
   }
 
-  function clearActiveTimer() {
-    if (activeTimer) {
-      clearTimeout(activeTimer);
-      activeTimer = null;
-    }
+  function removePads() {
+    sections.forEach(s => {
+      const pad = s.el.querySelector('.read-pad');
+      if (pad) pad.remove();
+    });
+  }
+
+  // Force scrolling even for short sections by adding an invisible pad at the end
+  function ensurePadForCurrent() {
+    const s = sections[currentIndex];
+    if (!s) return;
+
+    // remove pads from other sections
+    removePads();
+
+    // add pad only to visible section
+    const pad = document.createElement('div');
+    pad.className = 'read-pad';
+    // Big enough to force scrolling but visually invisible
+    pad.style.height = '70vh';
+    pad.style.pointerEvents = 'none';
+    pad.style.opacity = '0';
+    s.el.appendChild(pad);
   }
 
   function showOnly(index) {
-    clearActiveTimer();
-
     currentIndex = Math.max(0, Math.min(index, sections.length - 1));
 
     sections.forEach((s, i) => {
       s.el.style.display = (i === currentIndex) ? '' : 'none';
     });
 
-    // reset scroll to top (do after layout)
-    requestAnimationFrame(() => {
-      content.scrollTop = 0;
-      setupShortSectionGuard();
-    });
+    // force scroll requirement
+    ensurePadForCurrent();
+
+    // reset scroll
+    requestAnimationFrame(() => { content.scrollTop = 0; });
 
     updateTocUI();
     updateUI();
@@ -127,32 +142,8 @@
     }
   }
 
-  // If a section fits without scrolling, don't insta-skip it.
-  // Require a small "dwell time" before unlocking next.
-  function setupShortSectionGuard() {
-    const tolerance = 12;
-    const maxScroll = content.scrollHeight - content.clientHeight;
-
-    // Needs scrolling
-    if (maxScroll > tolerance) return;
-
-    // No scrolling possible - require time spent on section
-    const minMs = 2500; // 2.5s per short section (tweak if you want)
-    activeTimer = setTimeout(() => {
-      markReadAndAdvance();
-    }, minMs);
-  }
-
-  // Scroll-to-bottom detection for sections that do require scrolling
   function maybeMarkCurrentReadByScroll() {
-    clearActiveTimer(); // if they can scroll, time guard no longer needed
-
     const tolerance = 12;
-    const maxScroll = content.scrollHeight - content.clientHeight;
-
-    // If there's nothing to scroll, do not mark read here (timer handles it)
-    if (maxScroll <= tolerance) return;
-
     const atBottom = (content.scrollTop + content.clientHeight) >= (content.scrollHeight - tolerance);
     if (atBottom) markReadAndAdvance();
   }
