@@ -20,7 +20,6 @@
 
   if (!msg || !btn || !chk || !content || !tocLinks.length) return;
 
-  // Build ordered sections from TOC
   const sectionIds = tocLinks
     .map(a => (a.getAttribute('href') || '').trim())
     .filter(h => h.startsWith('#'))
@@ -33,13 +32,16 @@
   if (!sections.length) return;
 
   const state = {};
-  sections.forEach(s => state[s.id] = { opened: false, read: false, maxScrollTop: 0 });
+  sections.forEach(s => state[s.id] = { opened: false, read: false });
 
   let currentIndex = 0;
-  const MIN_SCROLL_PX = 60;     // must actually scroll, not just "already at bottom"
-  const BOTTOM_TOL = 12;
 
-  // ---- helpers ----
+  // For short sections: require a real scroll gesture (wheel/touch) while on that section
+  let gestureScrollPx = 0;
+
+  const MIN_GESTURE_PX = 120; // must actually scroll input a bit
+  const BOTTOM_TOL = 10;
+
   function allRead() {
     return sections.every(s => state[s.id]?.read);
   }
@@ -51,51 +53,8 @@
     return sections.length;
   }
 
-  function removeScrollPad() {
-    const old = content.querySelector('.terms-scrollpad');
-    if (old) old.remove();
-  }
-
-  function ensureScrollPad() {
-    // Always ensure there is something to scroll through, even for short sections.
-    removeScrollPad();
-    const s = sections[currentIndex];
-    if (!s) return;
-
-    const pad = document.createElement('div');
-    pad.className = 'terms-scrollpad';
-    pad.setAttribute('aria-hidden', 'true');
-    s.el.appendChild(pad);
-
-    // Set height based on viewport so every section requires scrolling.
-    requestAnimationFrame(() => {
-      const h = Math.max(220, Math.floor(content.clientHeight * 0.8));
-      pad.style.height = `${h}px`;
-    });
-  }
-
-  function showOnly(index) {
-    currentIndex = Math.max(0, Math.min(index, sections.length - 1));
-
-    sections.forEach((s, i) => {
-      s.el.style.display = (i === currentIndex) ? '' : 'none';
-    });
-
-    // reset scroll tracking for the newly opened section
-    const sid = sections[currentIndex].id;
-    state[sid].maxScrollTop = 0;
-
-    requestAnimationFrame(() => {
-      content.scrollTop = 0;
-      ensureScrollPad();
-      updateTocUI();
-      updateUI();
-    });
-  }
-
   function updateTocUI() {
     const gate = gateIndex();
-
     tocLinks.forEach((a, i) => {
       const id = sectionIds[i];
       const st = state[id];
@@ -120,15 +79,7 @@
 
     if (!allRead()) {
       btn.disabled = true;
-
-      const sid = sections[currentIndex]?.id;
-      const st = sid ? state[sid] : null;
-
-      if (st && !st.opened) {
-        msg.textContent = `Click this section in the contents to begin. (${done}/${total})`;
-      } else {
-        msg.textContent = `Scroll to the bottom to mark this section as read. (${done}/${total})`;
-      }
+      msg.textContent = `Complete each section: ${done}/${total}`;
       return;
     }
 
@@ -142,36 +93,87 @@
     btn.disabled = false;
   }
 
-  function markCurrentReadIfEligible() {
+  function showOnly(index) {
+    currentIndex = Math.max(0, Math.min(index, sections.length - 1));
+    gestureScrollPx = 0;
+
+    sections.forEach((s, i) => {
+      s.el.style.display = (i === currentIndex) ? '' : 'none';
+    });
+
+    requestAnimationFrame(() => {
+      content.scrollTop = 0;
+      updateTocUI();
+      updateUI();
+    });
+  }
+
+  function markCurrentRead() {
     const s = sections[currentIndex];
     if (!s) return;
-
     const st = state[s.id];
     if (!st || st.read) return;
-
-    // Must have opened via click
     if (!st.opened) return;
-
-    // Must have scrolled a little
-    st.maxScrollTop = Math.max(st.maxScrollTop, content.scrollTop);
-    if (st.maxScrollTop < MIN_SCROLL_PX) return;
-
-    // Must be at bottom of scroll pane
-    const atBottom = (content.scrollTop + content.clientHeight) >= (content.scrollHeight - BOTTOM_TOL);
-    if (!atBottom) return;
 
     st.read = true;
     updateTocUI();
     updateUI();
 
-    // Do NOT auto-advance - they must click the next section.
     const gate = gateIndex();
     if (gate < sections.length) {
-      msg.textContent = `Section completed. Click the next section in the contents. (${sections.filter(x => state[x.id].read).length}/${sections.length})`;
+      msg.textContent = `Section completed. Click the next section. (${sections.filter(x => state[x.id].read).length}/${sections.length})`;
     }
   }
 
-  // ---- TOC click behaviour: must click each section ----
+  function currentNeedsScroll() {
+    // If scrollHeight > clientHeight, there is content to scroll
+    return content.scrollHeight > (content.clientHeight + 2);
+  }
+
+  function isAtBottom() {
+    return (content.scrollTop + content.clientHeight) >= (content.scrollHeight - BOTTOM_TOL);
+  }
+
+  function maybeCompleteByScroll() {
+    const s = sections[currentIndex];
+    if (!s) return;
+    const st = state[s.id];
+    if (!st || st.read || !st.opened) return;
+
+    if (currentNeedsScroll()) {
+      // Normal case: must scroll to bottom
+      if (isAtBottom()) markCurrentRead();
+    } else {
+      // Short section: no bottom to reach, so require real scroll gesture input
+      if (gestureScrollPx >= MIN_GESTURE_PX) markCurrentRead();
+    }
+  }
+
+  // Track scroll gestures (no time, no whitespace)
+  content.addEventListener('wheel', (e) => {
+    gestureScrollPx += Math.abs(e.deltaY || 0);
+    maybeCompleteByScroll();
+  }, { passive: true });
+
+  let touchY = null;
+  content.addEventListener('touchstart', (e) => {
+    if (!e.touches || !e.touches.length) return;
+    touchY = e.touches[0].clientY;
+  }, { passive: true });
+
+  content.addEventListener('touchmove', (e) => {
+    if (touchY == null || !e.touches || !e.touches.length) return;
+    const y = e.touches[0].clientY;
+    gestureScrollPx += Math.abs(y - touchY);
+    touchY = y;
+    maybeCompleteByScroll();
+  }, { passive: true });
+
+  // Also react to actual scroll position for long sections
+  content.addEventListener('scroll', () => {
+    maybeCompleteByScroll();
+  }, { passive: true });
+
   tocLinks.forEach((a, i) => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
@@ -186,21 +188,13 @@
     });
   });
 
-  // ---- Scroll behaviour: marks read only by scrolling to bottom ----
-  content.addEventListener('scroll', () => {
-    markCurrentReadIfEligible();
-  }, { passive: true });
-
-  // checkbox affects final accept
   chk.addEventListener('change', () => updateUI());
 
-  // Version fetch unchanged
   try {
     const st = await fx('/api/me/tos');
     if (ver) ver.textContent = 'v' + (st.version || '?');
   } catch (e) { /* ignore */ }
 
-  // Accept unchanged
   btn.addEventListener('click', async () => {
     updateUI();
     if (btn.disabled) return;
@@ -215,7 +209,6 @@
     }
   });
 
-  // Init: show first section, but it will not count unless they click it in TOC
   btn.disabled = true;
   showOnly(0);
   updateUI();
