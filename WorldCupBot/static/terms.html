@@ -1,53 +1,304 @@
 <!doctype html>
 <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Terms and Conditions - World Cup 2026</title>
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-      <link rel="stylesheet" href="terms.css">
-    </head>
-    <body>
-      <div class="shell">
-        <div class="terms-card">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terms and Conditions - World Cup 2026</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="terms.css">
+  </head>
+  <body>
+    <div class="shell">
+      <div class="terms-frame">
+        <header class="terms-head">
+          <div class="terms-head-left">
             <h1 class="terms-title">
               Terms and Conditions
               <span class="terms-version" id="ver"></span>
             </h1>
+            <div class="terms-meta">
+              <span class="muted">World Cup 2026 Discord Bot - Terms & Conditions</span>
+              <span class="dot">•</span>
+              <span class="muted">Last updated: 16 Dec 2025</span>
+            </div>
+          </div>
+        </header>
 
-            <p class="terms-sub">Read carefully. You must agree before joining the game.</p>
+        <div class="terms-body">
+          <aside class="terms-toc" aria-label="Table of contents">
+            <div class="toc-title">Contents</div>
+            <a class="toc-link" href="#s1">1. Roles & Authority</a>
+            <a class="toc-link" href="#s2">2. Overview - How It Works</a>
+            <a class="toc-link" href="#s3">3. Joining, Eligibility & Late Entry</a>
+            <a class="toc-link" href="#s4">4. Channels & Match Discussion</a>
+            <a class="toc-link" href="#s5">5. Rules & Enforcement</a>
+            <a class="toc-link" href="#s6">6. Splitting Ownership</a>
+            <a class="toc-link" href="#s7">7. Betting Terms</a>
+            <a class="toc-link" href="#s8">8. Winnings & Payouts</a>
+            <a class="toc-link" href="#s9">9. Technical, Bugs & Liability</a>
+            <a class="toc-link" href="#s10">10. Amendments</a>
+            <a class="toc-link" href="#s11">11. Contact</a>
+          </aside>
 
-            <h2 class="terms-section-title">Fair Play</h2>
-            <ul class="terms-list">
-                <li>Follow Discord Community Guidelines and server rules.</li>
-                <li>No multi-accounting, collusion, or exploit attempts.</li>
-                <li>Admins may void actions that exploit bugs or loopholes.</li>
-            </ul>
+          <main class="terms-content" id="terms-content" tabindex="0">
+            <section class="lead">
+              <p>
+                Welcome to the World Cup 2026 Discord Sweepstake, a community-run football event hosted on Discord and administered
+                through the custom-built World Cup Bot. This sweepstake is intended solely for entertainment purposes and does not
+                involve any real-world financial stakes.
+              </p>
+            </section>
 
-            <h2 class="terms-section-title">Gameplay Data</h2>
-            <ul class="terms-list">
-                <li>We store your Discord ID and display name to operate features.</li>
-                <li>Bets, transfers, and ownership changes are logged for audits.</li>
-            </ul>
+            <section id="s1" class="tsec">
+              <h2>1. Roles & Authority</h2>
 
-            <h2 class="terms-section-title">Disputes</h2>
-            <ul class="terms-list">
-                <li>Admin decisions are final for resolving disputes.</li>
-                <li>Material rule changes bump the terms version.</li>
-            </ul>
+              <h3>1.1 Referees</h3>
+              <ol>
+                <li>Referees are designated administrators of the sweepstake and hold the Discord role with ID <span class="mono">1388286661158502515</span>.</li>
+                <li>Referees are the final authority in all matters relating to registration, team assignment, rule interpretation, dispute resolution, disciplinary action, and prize distribution.</li>
+                <li>Decisions made by Referees in good faith pursuant to these Terms and Conditions shall be final and binding.</li>
+              </ol>
 
+              <h3>1.2 Players</h3>
+              <ol>
+                <li>Players are participants who hold one or more national teams and possess the Discord role with ID <span class="mono">1388690549229490317</span>.</li>
+                <li>Players may participate in betting activities where permitted and are eligible for winnings in accordance with these Terms and Conditions.</li>
+                <li>Player participation is subject at all times to compliance with these Terms and Conditions, server rules, and applicable platform rules.</li>
+              </ol>
+
+              <h3>1.3 Spectators</h3>
+              <ol>
+                <li>Spectators are users who do not hold any national teams and possess the Discord role with ID <span class="mono">1388690743782146178</span>.</li>
+                <li>Spectators may participate in betting activities where permitted but are not eligible to hold, inherit, or be assigned teams, nor to receive winnings associated with team ownership.</li>
+              </ol>
+            </section>
+
+            <section id="s2" class="tsec">
+              <h2>2. Overview - How It Works</h2>
+
+              <h3>2.1 Entry Fee Collection</h3>
+              <ol>
+                <li>All participants (“Players”) must pay a one-time, non-recurring entry fee, set as a specified amount of Habbo credits, prior to the stated entry deadline.</li>
+                <li>The entry fee amount will be disclosed via the official Google registration form and a pinned server message. If there is any discrepancy, the pinned server message prevails.</li>
+                <li>Entry fees are pooled to fund the prize pool and may be subject to reasonable tax, platform, or administrative deductions where applicable.</li>
+                <li>No discounts, waivers, substitutions, or alternative forms of entry are permitted.</li>
+                <li>Entry fees are strictly non-refundable once paid.</li>
+                <li>Entry closes at 23:59 UTC on INPUT DATE. No new Players shall be accepted after the official kick-off.</li>
+              </ol>
+
+              <h3>2.2 Team Draw</h3>
+              <ol>
+                <li>Each confirmed Player is randomly assigned one (1) national team by the bot following the close of the entry period.</li>
+                <li>The assignment process is automated and impartial. No manual bias, weighting, preference, or selective treatment is applied.</li>
+                <li>Final team assignment may be deferred until all forty-eight (48) national teams have been purchased by Players.</li>
+                <li>Draw results may be published in a dedicated server channel for transparency and audit, including machine-readable files such as JSON.</li>
+                <li>Publication of the draw constitutes official confirmation of assignment.</li>
+                <li>Assignments are final upon publication and may not be swapped except via explicitly bot-sanctioned mechanisms defined elsewhere.</li>
+                <li>All teams commence on equal terms provided all 48 teams are allocated before the opening match.</li>
+              </ol>
+
+              <h3>2.3 Team Reveal</h3>
+              <ol>
+                <li>Assigned teams will be revealed via an official Referee announcement embed no later than one (1) week prior to kick-off.</li>
+                <li>Nicknames and roles may be updated for visibility, subject to platform limits.</li>
+                <li>DMs may be sent confirming assignments; failure to receive a DM does not invalidate assignment.</li>
+                <li>Referee announcement and published records take precedence over nickname/role/DM indicators.</li>
+              </ol>
+
+              <h3>2.4 Leaderboard & Winnings</h3>
+              <ol>
+                <li>The bot updates leaderboards following completion of each official match.</li>
+                <li>Standings may update near real time and remain subject to verification and correction.</li>
+                <li>No entitlement arises from interim standings; confirmed final standings are binding.</li>
+              </ol>
+
+              <h3>2.5 Time-Zone Reference</h3>
+              <ol>
+                <li>All official times are stated in UTC.</li>
+                <li>Players are responsible for converting UTC to local time.</li>
+              </ol>
+
+              <h3>2.6 The Habbo Way</h3>
+              <ol>
+                <li>Habbo’s community rules (“The Habbo Way”) apply across all sweepstake-related activity.</li>
+                <li>Breaches may result in disciplinary action including removal and forfeiture of prize eligibility.</li>
+              </ol>
+
+              <h3>2.7 Force-Majeure</h3>
+              <ol>
+                <li>If the tournament is delayed/cancelled/disrupted, Referees may determine reasonable outcomes, including freezing standings or terminating the event.</li>
+                <li>No refunds are issued due to force-majeure delay, suspension, or cancellation.</li>
+              </ol>
+            </section>
+
+            <section id="s3" class="tsec">
+              <h2>3. Joining, Eligibility & Late Entry</h2>
+
+              <h3>3.1 Joining Process</h3>
+              <ol>
+                <li>Users must satisfy all eligibility requirements and complete joining steps to be eligible.</li>
+                <li>Users must have an active Habbo account meeting minimum criteria set by Referees.</li>
+                <li>A single Discord user may register a maximum of five (5) entries.</li>
+                <li>Users must join the official Discord server and complete verification.</li>
+                <li>Users must submit the official Google registration form agreeing to these Terms.</li>
+                <li>Users must pay the entry fee in full.</li>
+                <li>Participation is confirmed only when the bot issues confirmation of successful entry.</li>
+              </ol>
+
+              <h3>3.2 Wait-List</h3>
+              <ol>
+                <li>Late users may join a wait-list without paying until a team becomes available.</li>
+                <li>Wait-listed users have 24 hours to accept and pay when offered a team.</li>
+                <li>No wait-list reassignment occurs after kick-off except to resolve Referee-identified errors.</li>
+              </ol>
+
+              <h3>3.3 Leaving Early</h3>
+              <ol>
+                <li>If a Player leaves or is removed prior to the Final, all teams owned are forfeited.</li>
+                <li>Active/pending bets by a departing Player are voided unless Referees determine otherwise.</li>
+                <li>No refunds are issued due to departure or removal.</li>
+              </ol>
+            </section>
+
+            <section id="s4" class="tsec">
+              <h2>4. Channels & Match Discussion</h2>
+              <h3>4.1 World Cup Channels</h3>
+              <ol>
+                <li>Matches may be tracked in dedicated text channels (e.g., #group-a).</li>
+                <li>Voice channels may exist for watch parties, subject to capacity/moderation.</li>
+                <li>Official results/standings posted by the bot are the primary source for sweepstake administration.</li>
+                <li>Non-World Cup discussion must remain outside the World Cup categories.</li>
+                <li>Channel structure may be modified by Referees without affecting validity of results.</li>
+              </ol>
+
+              <h3>4.2 Players & Teams Tracking</h3>
+              <ol>
+                <li>#players-and-teams is the authoritative ownership reference.</li>
+                <li>Changes occur only via bot-sanctioned mechanisms (including splits).</li>
+              </ol>
+            </section>
+
+            <section id="s5" class="tsec">
+              <h2>5. Rules & Enforcement</h2>
+
+              <h3>5.1 Conduct, Language & Discord Policy</h3>
+              <ol>
+                <li>All participants must comply with Discord Terms, Discord Community Guidelines, and server rules.</li>
+                <li>Prohibited conduct includes harassment, hate speech, discrimination, trolling, spamming, threats, doxxing, or disruption.</li>
+              </ol>
+
+              <h3>5.2 Gambling & Stakes</h3>
+              <ol>
+                <li>No real-money gambling is permitted.</li>
+                <li>Bets are limited to virtual items with no real-world monetary value.</li>
+                <li>Politics/discrimination/illegal-themed bets are prohibited.</li>
+              </ol>
+
+              <h3>5.3 Enforcement Actions & Finality</h3>
+              <ol>
+                <li>Referees may enforce rules up to and including forfeiture and removal.</li>
+                <li>Serious misconduct may result in immediate penalties.</li>
+                <li>Disputes must be raised within 24 hours; Referee decisions are final.</li>
+              </ol>
+            </section>
+
+            <section id="s6" class="tsec">
+              <h2>6. Splitting Ownership</h2>
+              <h3>6.1 Owner’s Discretion</h3>
+              <ol>
+                <li>Only the primary owner may initiate/approve sharing ownership.</li>
+                <li>No participant may compel a split.</li>
+              </ol>
+
+              <h3>6.2 Bot-Managed Process</h3>
+              <ol>
+                <li>Splits are initiated via <span class="mono">/split team:COUNTRY</span>.</li>
+                <li>Splits are confirmed via DM actions; outcomes are logged and may be published publicly.</li>
+              </ol>
+
+              <h3>6.3 Winnings Allocation & Approval</h3>
+              <ol>
+                <li>Default is equal split unless otherwise approved.</li>
+                <li>Custom ratios require co-owner consent and Referee approval.</li>
+              </ol>
+
+              <h3>6.4 Referee Oversight</h3>
+              <ol>
+                <li>Referees may veto/modify/reverse splits to ensure integrity and compliance.</li>
+              </ol>
+            </section>
+
+            <section id="s7" class="tsec">
+              <h2>7. Betting Terms</h2>
+              <ol>
+                <li>Bets are created via bot commands; a bet becomes active when an opposing user accepts.</li>
+                <li>Cancellation requires consent and Referee determination where required.</li>
+                <li>Forbidden bets include real-money/external transactions and prohibited themes.</li>
+                <li>Outcomes are based solely on official FIFA results; settlement is authoritative once processed.</li>
+                <li>Non-payment may result in restrictions and enforcement.</li>
+              </ol>
+            </section>
+
+            <section id="s8" class="tsec">
+              <h2>8. Winnings & Payouts</h2>
+              <ol>
+                <li>Habbo marketplace tax applies (platform controlled).</li>
+                <li>Administration deduction (Y%) may be applied and disclosed before the draw.</li>
+                <li>Prize distribution: 70% / 20% / 10% among top finishers, subject to split arrangements.</li>
+                <li>Payouts occur within 72 hours after the Final, subject to verification and availability.</li>
+                <li>Unclaimed prizes may be forfeited and disposed of at Referee discretion.</li>
+              </ol>
+            </section>
+
+            <section id="s9" class="tsec">
+              <h2>9. Technical, Bugs & Liability</h2>
+              <ol>
+                <li>Bot is best-efforts and may have downtime; Referees may correct results using official FIFA data.</li>
+                <li>Bug exploitation is a serious breach and may result in immediate penalties.</li>
+                <li>Services are “as-is” and “as-available”; liability is limited to the maximum extent permitted.</li>
+              </ol>
+            </section>
+
+            <section id="s10" class="tsec">
+              <h2>10. Amendments</h2>
+              <ol>
+                <li>Referees may amend these Terms at any time.</li>
+                <li>Changes will be announced in #bot-updates and may take effect immediately.</li>
+                <li>Continued participation after changes constitutes acceptance.</li>
+                <li>If a participant disagrees, their remedy is to cease participation.</li>
+              </ol>
+            </section>
+
+            <section id="s11" class="tsec">
+              <h2>11. Contact</h2>
+              <ol>
+                <li>For gameplay/rules queries, contact a Referee via DM.</li>
+                <li>For bot/technical issues, contact Discord ID <span class="mono">298121351871594497</span>.</li>
+              </ol>
+
+              <div class="closing">
+                By participating in the World Cup 2026 Discord Sweepstake, you acknowledge you have read, understood, and agreed to
+                abide by all rules and terms stated above.
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer class="terms-foot">
+          <div class="terms-accept">
             <label class="terms-agree">
-              <input id="chk-accept" type="checkbox"> I have read and agree to the Terms and Conditions.
+              <input id="chk-accept" type="checkbox">
+              I have read and agree to the Terms and Conditions.
             </label>
-
-            <p id="msg"></p>
-
-            <div class="terms-actions single">
+            <div class="accept-right">
+              <p id="msg" class="terms-msg"></p>
               <button class="btn btn-continue" id="btn-accept">Accept</button>
             </div>
-        </div>
+          </div>
+        </footer>
       </div>
+    </div>
 
-      <script src="terms.js"></script>
-    </body>
+    <script src="terms.js"></script>
+  </body>
 </html>
