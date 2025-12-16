@@ -297,7 +297,6 @@ body {
   .terms-accept { grid-template-columns: 1fr; }
 }
 
-.toc-link.toc-read {
-  border-color: #00ffd5;
-  box-shadow: 0 0 8px #00ffd5;
-}
+.toc-link.toc-locked { opacity: 0.45; }
+.toc-link.toc-current { border-color: var(--accent-2); }
+.toc-link.toc-read { border-color: var(--accent); box-shadow: 0 0 8px #00ffd5; }

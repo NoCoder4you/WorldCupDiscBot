@@ -18,13 +18,9 @@
   const content = $('#terms-content');
   const tocLinks = $$('.terms-toc .toc-link');
 
-  // Guard: if the page structure changes, fail safely
   if (!msg || !btn || !chk || !content || !tocLinks.length) return;
 
-  // Disable accept until requirements satisfied
-  btn.disabled = true;
-
-  // Track per-section “opened + read-to-bottom”
+  // ---- Build ordered section list from TOC ----
   const sectionIds = tocLinks
     .map(a => (a.getAttribute('href') || '').trim())
     .filter(h => h.startsWith('#'))
@@ -34,116 +30,131 @@
     .map(id => ({ id, el: document.getElementById(id) }))
     .filter(x => x.el);
 
+  if (!sections.length) return;
+
+  // ---- State ----
   const state = {};
-  sections.forEach(s => { state[s.id] = { opened: false, read: false }; });
+  sections.forEach(s => state[s.id] = { read: false });
 
-  let activeId = null;
+  let currentIndex = 0; // only one section visible at a time
 
-  // Helpers
+  // ---- Helpers ----
+  function showOnly(index) {
+    currentIndex = Math.max(0, Math.min(index, sections.length - 1));
+
+    sections.forEach((s, i) => {
+      s.el.style.display = (i === currentIndex) ? '' : 'none';
+    });
+
+    // ensure the visible section starts at the top of scroll pane
+    content.scrollTop = 0;
+
+    updateTocUI();
+    updateUI();
+  }
+
+  function unlockableIndex() {
+    // first unread section index is the next one they must read
+    for (let i = 0; i < sections.length; i++) {
+      if (!state[sections[i].id].read) return i;
+    }
+    return sections.length; // all read
+  }
+
+  function updateTocUI() {
+    const gate = unlockableIndex();
+
+    tocLinks.forEach((a, i) => {
+      const id = sectionIds[i];
+      const isCurrent = (i === currentIndex);
+      const isRead = !!state[id]?.read;
+
+      // lock anything beyond the next required section
+      const locked = i > gate;
+
+      a.classList.toggle('toc-current', isCurrent);
+      a.classList.toggle('toc-read', isRead);
+      a.classList.toggle('toc-locked', locked);
+
+      a.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      a.style.pointerEvents = locked ? 'none' : '';
+      a.style.opacity = locked ? '0.45' : '';
+    });
+  }
+
   function allRead() {
     return sections.every(s => state[s.id]?.read);
   }
 
-  function updateTocUI() {
-    tocLinks.forEach(a => {
-      const id = (a.getAttribute('href') || '').slice(1);
-      const st = state[id];
-      if (!st) return;
-      a.classList.toggle('toc-opened', !!st.opened);
-      a.classList.toggle('toc-read', !!st.read);
-      a.setAttribute('aria-pressed', st.opened ? 'true' : 'false');
-    });
-  }
-
   function updateUI() {
-    const okRead = allRead();
-    const okChk = !!chk.checked;
+    const done = sections.filter(s => state[s.id]?.read).length;
 
-    // Button only enabled when both conditions met
-    btn.disabled = !(okRead && okChk);
-
-    if (!okRead) {
-      const done = sections.filter(s => state[s.id]?.read).length;
-      msg.textContent = `Read each section: ${done}/${sections.length}`;
+    if (!allRead()) {
+      btn.disabled = true;
+      msg.textContent = `Read each section to unlock the next: ${done}/${sections.length}`;
       return;
     }
 
-    if (!okChk) {
+    if (!chk.checked) {
+      btn.disabled = true;
       msg.textContent = 'Please tick the box to continue.';
       return;
     }
 
     msg.textContent = '';
+    btn.disabled = false;
   }
 
-  function markOpened(id) {
-    if (!state[id]) return;
-    state[id].opened = true;
-    activeId = id;
-    updateTocUI();
-    updateUI();
-  }
-
-  function maybeMarkReadToBottom(id) {
-    const s = sections.find(x => x.id === id);
+  function maybeMarkCurrentRead() {
+    const s = sections[currentIndex];
     if (!s) return;
 
-    const st = state[id];
-    if (!st || st.read) return;
+    // already marked
+    if (state[s.id].read) return;
 
-    // We require: user has clicked this section at least once
-    if (!st.opened) return;
+    // user must scroll to bottom of the scroll pane (since only one section is visible)
+    const tolerance = 8;
+    const atBottom = (content.scrollTop + content.clientHeight) >= (content.scrollHeight - tolerance);
 
-    // Detect if the scroll container has reached the bottom of this section
-    // within the scrollable #terms-content pane.
-    const scrollTop = content.scrollTop;
-    const viewBottom = scrollTop + content.clientHeight;
+    if (atBottom) {
+      state[s.id].read = true;
 
-    // offsetTop is relative to offsetParent; with our layout, this is fine.
-    // Add a small tolerance so they don’t have to land on the exact pixel.
-    const sectionBottom = s.el.offsetTop + s.el.offsetHeight;
-    const tolerance = 12;
-
-    if (viewBottom >= (sectionBottom - tolerance)) {
-      st.read = true;
-      updateTocUI();
-      updateUI();
+      // auto-advance to next section if any
+      if (currentIndex < sections.length - 1) {
+        showOnly(currentIndex + 1);
+      } else {
+        // last section read
+        updateTocUI();
+        updateUI();
+      }
     }
   }
 
-  // Wire TOC clicks: must click each section
-  tocLinks.forEach(a => {
+  // ---- Wire scrolling: scrolling to bottom marks current section read ----
+  content.addEventListener('scroll', () => {
+    maybeMarkCurrentRead();
+  }, { passive: true });
+
+  // ---- Wire TOC clicks: can only open up to the current gate ----
+  tocLinks.forEach((a, i) => {
     a.addEventListener('click', (e) => {
-      const href = (a.getAttribute('href') || '').trim();
-      if (!href.startsWith('#')) return;
-
-      const id = href.slice(1);
-      if (!state[id]) return;
-
-      // Let anchor navigation happen, but ensure “opened” is recorded
-      markOpened(id);
-
-      // Small delay so the scroll happens before we test “bottom reached”
-      setTimeout(() => maybeMarkReadToBottom(id), 50);
+      e.preventDefault();
+      const gate = unlockableIndex();
+      if (i > gate) return; // locked
+      showOnly(i);
     });
   });
 
-  // Wire scrolling: only counts toward the currently opened section
-  content.addEventListener('scroll', () => {
-    if (!activeId) return;
-    maybeMarkReadToBottom(activeId);
-  }, { passive: true });
-
-  // Checkbox changes affect button enablement
+  // ---- Checkbox controls final accept ----
   chk.addEventListener('change', () => updateUI());
 
-  // Pull current terms version (existing behavior)
+  // ---- Version fetch (existing behavior) ----
   try {
     const st = await fx('/api/me/tos');
     if (ver) ver.textContent = 'v' + (st.version || '?');
   } catch (e) { /* ignore */ }
 
-  // Accept handler (existing behavior)
+  // ---- Accept (existing behavior) ----
   btn.addEventListener('click', async () => {
     updateUI();
     if (btn.disabled) return;
@@ -158,7 +169,7 @@
     }
   });
 
-  // Initial UI state
-  updateTocUI();
-  updateUI();
+  // ---- Init: show first section only; lock the rest until read ----
+  btn.disabled = true;
+  showOnly(0);
 })();
