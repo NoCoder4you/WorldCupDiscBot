@@ -26,6 +26,8 @@
   const welcome = $('#welcome-overlay');
   const btnWelcome = $('#btn-welcome-continue');
 
+  const placeholder = $('#terms-placeholder');
+
   if (!msg || !btnAccept || !chkAccept || !content || !tocLinks.length) return;
 
   /* ========= Welcome Overlay ========= */
@@ -58,7 +60,7 @@
     };
   });
 
-  let currentIndex = 0;
+  let currentIndex = -1; // nothing selected initially
 
   const MIN_GESTURE_PX = 120; // required scroll input for short sections
   const BOTTOM_TOL = 10;
@@ -110,11 +112,8 @@
     if (!allRead()) {
       btnAccept.disabled = true;
 
-      const cur = sections[currentIndex];
-      const st = state[cur.id];
-
-      if (!st.opened) {
-        msg.textContent = `Click this section to begin. (${done}/${total})`;
+      if (currentIndex === -1) {
+        msg.textContent = `Click a section to begin. (${done}/${total})`;
       } else {
         msg.textContent = `Scroll to the bottom to complete this section. (${done}/${total})`;
       }
@@ -134,6 +133,9 @@
   function showOnly(index) {
     currentIndex = Math.max(0, Math.min(index, sections.length - 1));
 
+    // hide placeholder
+    if (placeholder) placeholder.style.display = 'none';
+
     sections.forEach((s, i) => {
       s.el.style.display = (i === currentIndex) ? '' : 'none';
     });
@@ -152,21 +154,19 @@
     const s = sections[currentIndex];
     const st = state[s.id];
 
-    if (st.read) return;
-    if (!st.opened) return;
+    if (st.read || !st.opened) return;
 
     st.read = true;
     updateTocUI();
     updateUI();
 
-    const gate = gateIndex();
-    if (gate < sections.length) {
-      msg.textContent =
-        `Section completed. Click the next section. (${sections.filter(x => state[x.id].read).length}/${sections.length})`;
-    }
+    const done = sections.filter(x => state[x.id].read).length;
+    msg.textContent = `Section completed. Click the next section. (${done}/${sections.length})`;
   }
 
   function maybeCompleteByScroll() {
+    if (currentIndex === -1) return;
+
     const s = sections[currentIndex];
     const st = state[s.id];
 
@@ -185,6 +185,7 @@
   }, { passive: true });
 
   content.addEventListener('wheel', (e) => {
+    if (currentIndex === -1) return;
     state[sections[currentIndex].id].gesturePx += Math.abs(e.deltaY || 0);
     maybeCompleteByScroll();
   }, { passive: true });
@@ -197,7 +198,8 @@
   }, { passive: true });
 
   content.addEventListener('touchmove', (e) => {
-    if (!touchY || !e.touches || !e.touches.length) return;
+    if (currentIndex === -1 || touchY == null) return;
+    if (!e.touches || !e.touches.length) return;
     const y = e.touches[0].clientY;
     state[sections[currentIndex].id].gesturePx += Math.abs(y - touchY);
     touchY = y;
@@ -247,6 +249,12 @@
 
   /* ========= Init ========= */
   btnAccept.disabled = true;
-  showOnly(0);
+
+  // hide all sections initially
+  sections.forEach(s => { s.el.style.display = 'none'; });
+
+  if (placeholder) placeholder.style.display = '';
+
+  updateTocUI();
   updateUI();
 })();

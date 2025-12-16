@@ -357,3 +357,21 @@ body {
   font-weight: 700;
   font-size: 0.95rem;
 }
+.terms-placeholder { padding: 6px 0 18px; }
+.ph-card{
+  background:#121a25;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:16px 16px;
+}
+.ph-title{
+  color:var(--accent-2);
+  font-weight:900;
+  font-size:1.15rem;
+  margin-bottom:6px;
+}
+.ph-text{
+  color:var(--muted);
+  font-weight:700;
+  line-height:1.5;
+}
