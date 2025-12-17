@@ -3205,3 +3205,9 @@ body.user-admin-view #ownership .ownership-card {
 .notify-item .a a{
   text-decoration: none;
 }
+body.is-admin .notify-fab{
+  bottom: 88px;
+}
+body.is-admin .notify-panel{
+  bottom: 152px;
+}
