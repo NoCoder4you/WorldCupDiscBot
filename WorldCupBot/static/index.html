@@ -355,14 +355,19 @@
           </div>
       </main>
 
-    <div id="global-notify" class="global-notify" style="display:none">
-      <div class="global-notify-inner">
-        <div id="global-notify-text"></div>
-        <div class="global-notify-actions">
-          <a id="global-notify-link" class="btn small" href="/terms">Review</a>
-          <button id="global-notify-dismiss" class="btn small">Dismiss</button>
-        </div>
+    <!-- Notifications button -->
+    <button id="notify-fab" class="notify-fab" type="button" aria-haspopup="dialog" aria-expanded="false" title="Notifications">
+      <span class="notify-dot" aria-hidden="true"></span>
+      🔔
+    </button>
+
+    <!-- Notifications panel -->
+    <div id="notify-panel" class="notify-panel" role="dialog" aria-label="Notifications" aria-hidden="true">
+      <div class="notify-head">
+        <div class="notify-title">Notifications</div>
+        <button id="notify-close" class="notify-close" type="button" aria-label="Close">✕</button>
       </div>
+      <div id="notify-body" class="notify-body"></div>
     </div>
 
 

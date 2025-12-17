@@ -213,29 +213,128 @@ function setPage(p) {
 }
 
     async function checkGlobalNotices(){
-      const bar = document.getElementById('global-notify');
-      const txt = document.getElementById('global-notify-text');
-      const link = document.getElementById('global-notify-link');
-      const dismiss = document.getElementById('global-notify-dismiss');
-      if (!bar || !txt || !link || !dismiss) return;
+      const fab = document.getElementById('notify-fab');
+      const panel = document.getElementById('notify-panel');
+      const body = document.getElementById('notify-body');
+      const close = document.getElementById('notify-close');
+      if (!fab || !panel || !body || !close) return;
 
-      // allow dismiss per-version
-      const tos = await fetch('/api/me/tos', { cache:'no-store' }).then(r => r.json());
-      const dismissKey = `wc:tos:dismiss:${tos.version || 'unknown'}`;
-      const dismissed = localStorage.getItem(dismissKey) === '1';
-
-      if (tos.connected && tos.in_players && !tos.accepted && !dismissed) {
-        txt.textContent = `Terms and Conditions updated (v${tos.version || '?'}) - you must review to continue.`;
-        link.href = tos.url || '/terms';
-        bar.style.display = '';
-      } else {
-        bar.style.display = 'none';
+      // Pull server state
+      let items = [];
+      try {
+        // If you have /api/me/notifications use it, else fall back to tos only.
+        const res = await fetch('/api/me/notifications', { cache:'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          items = (data && data.items) ? data.items : [];
+        } else {
+          // fallback: only terms status
+          const tos = await fetch('/api/me/tos', { cache:'no-store' }).then(r=>r.json());
+          if (tos && tos.connected && tos.in_players && !tos.accepted) {
+            items = [{
+              type:'terms',
+              title:`Terms updated (v${tos.version || '?'})`,
+              body:'You must review and accept the updated Terms and Conditions.',
+              action_url: tos.url || '/terms'
+            }];
+          }
+        }
+      } catch(e){
+        // ignore
       }
 
-      dismiss.onclick = () => {
-        localStorage.setItem(dismissKey, '1');
-        bar.style.display = 'none';
+      // Per-version dismiss for Terms only (optional)
+      const filtered = [];
+      for (const it of items) {
+        if (it && it.type === 'terms') {
+          const v = (it.title || '').match(/\(v([^)]+)\)/i);
+          const version = v ? v[1] : 'unknown';
+          const key = `wc:tos:dismiss:${version}`;
+          if (localStorage.getItem(key) === '1') continue;
+        }
+        filtered.push(it);
+      }
+
+      // Glow if we have any notifications
+      if (filtered.length) fab.classList.add('has-new');
+      else fab.classList.remove('has-new');
+
+      // Render panel content (but do not auto-open)
+      if (!filtered.length) {
+        body.innerHTML = `<div class="notify-empty">No New Notifications</div>`;
+      } else {
+        body.innerHTML = filtered.map((it, idx) => {
+          const title = (it.title || 'Notification');
+          const text = (it.body || '');
+          const url = it.action_url || it.actionUrl || '';
+          const isTerms = (it.type === 'terms');
+
+          const action = url
+            ? `<div class="a"><a class="btn small" href="${url}">Open</a></div>`
+            : '';
+
+          const dismissBtn = isTerms
+            ? `<div class="a"><button class="btn small" data-dismiss-terms="${title}">Dismiss</button></div>`
+            : '';
+
+          return `
+            <div class="notify-item" data-idx="${idx}">
+              <div class="t">${escapeHtml(title)}</div>
+              <div class="b">${escapeHtml(text)}</div>
+              ${action}
+              ${dismissBtn}
+            </div>
+          `;
+        }).join('');
+
+        // Wire dismiss for terms
+        body.querySelectorAll('button[data-dismiss-terms]').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const t = btn.getAttribute('data-dismiss-terms') || '';
+            const m = t.match(/\(v([^)]+)\)/i);
+            const version = m ? m[1] : 'unknown';
+            localStorage.setItem(`wc:tos:dismiss:${version}`, '1');
+            checkGlobalNotices();
+          });
+        });
+      }
+
+      // Toggle panel
+      const openPanel = () => {
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        fab.setAttribute('aria-expanded', 'true');
       };
+      const closePanel = () => {
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        fab.setAttribute('aria-expanded', 'false');
+      };
+
+      // Ensure handlers wired once
+      if (!fab._wiredNotifyFab) {
+        fab._wiredNotifyFab = true;
+
+        fab.addEventListener('click', () => {
+          if (panel.classList.contains('open')) closePanel();
+          else openPanel();
+        });
+
+        close.addEventListener('click', closePanel);
+
+        document.addEventListener('click', (e) => {
+          if (!panel.classList.contains('open')) return;
+          const inside = panel.contains(e.target) || fab.contains(e.target);
+          if (!inside) closePanel();
+        });
+      }
+    }
+
+    // small helper (safe, tiny)
+    function escapeHtml(s){
+      return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
     }
 
     function showTestNotice(text = 'Test notification - everything is alive ✅') {
