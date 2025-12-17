@@ -3080,7 +3080,7 @@ body.user-admin-view #ownership .ownership-card {
 /* Notifications FAB */
 .notify-fab{
   position: fixed;
-  right: 18px;
+  left: 18px;
   bottom: 18px;
   width: 54px;
   height: 54px;
@@ -3124,7 +3124,7 @@ body.user-admin-view #ownership .ownership-card {
 /* Notifications panel */
 .notify-panel{
   position: fixed;
-  right: 18px;
+  left: 18px;
   bottom: 82px;
   width: min(360px, calc(100vw - 36px));
   background: var(--card);
