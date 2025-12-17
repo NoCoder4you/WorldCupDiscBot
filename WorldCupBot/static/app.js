@@ -238,6 +238,26 @@ function setPage(p) {
       };
     }
 
+    function showTestNotice(text = 'Test notification - everything is alive ✅') {
+      const bar = document.getElementById('global-notify');
+      const txt = document.getElementById('global-notify-text');
+      const link = document.getElementById('global-notify-link');
+      const dismiss = document.getElementById('global-notify-dismiss');
+      if (!bar || !txt || !link || !dismiss) {
+        console.warn('global-notify elements not found in index.html');
+        return;
+      }
+
+      txt.textContent = text;
+      link.textContent = 'Open Terms';
+      link.href = '/terms';
+
+      bar.style.display = '';
+
+      dismiss.onclick = () => {
+        bar.style.display = 'none';
+      };
+    }
 
     function wireNav(){
       $menu.addEventListener('click', async e=>{
