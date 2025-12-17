@@ -216,14 +216,17 @@ window.wcTestNotify = function () {
   const fab = document.getElementById('notify-fab');
   const panel = document.getElementById('notify-panel');
   const body = document.getElementById('notify-body');
+  const close = document.getElementById('notify-close');
 
-  if (!fab || !panel || !body) {
+  if (!fab || !panel || !body || !close) {
     console.warn('Notification UI not found');
     return;
   }
 
+  // Show glow
   fab.classList.add('has-new');
 
+  // Render test content
   body.innerHTML = `
     <div class="notify-item">
       <div class="t">Test Notification</div>
@@ -231,18 +234,33 @@ window.wcTestNotify = function () {
         This is a manual test notification to confirm the system is working.
       </div>
       <div class="a">
-        <button class="btn small" onclick="alert('Action clicked')">Test Action</button>
+        <button class="btn small">Test Action</button>
       </div>
     </div>
   `;
 
+  // Open panel
   panel.classList.add('open');
   panel.setAttribute('aria-hidden', 'false');
   fab.setAttribute('aria-expanded', 'true');
 
+  // Wire close button (THIS was missing)
+  close.onclick = () => {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    fab.setAttribute('aria-expanded', 'false');
+  };
+
+  // Optional: clicking the bell again toggles
+  fab.onclick = () => {
+    panel.classList.toggle('open');
+    const open = panel.classList.contains('open');
+    panel.setAttribute('aria-hidden', String(!open));
+    fab.setAttribute('aria-expanded', String(open));
+  };
+
   console.log('Test notification shown');
 };
-
 
     function showTestNotice(text = 'Test notification - everything is alive ✅') {
       const bar = document.getElementById('global-notify');
@@ -279,7 +297,6 @@ window.wcTestNotify = function () {
         }
         setPage(p);
         await routePage();
-        await checkGlobalNotices();
       });
     }
 
@@ -2384,9 +2401,6 @@ async function getCogStatus(name){
       wireBotButtons();
       setPage(state.currentPage);
       await routePage();
-
-      await checkGlobalNotices();
-
       startPolling();
     }
   window.addEventListener('load', init);
