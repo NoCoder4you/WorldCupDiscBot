@@ -1083,6 +1083,52 @@ def create_public_routes(ctx):
             "masquerading_as": None if effective_uid == real_uid else effective_uid
         })
 
+    @api.get("/me/notifications")
+    def me_notifications():
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"connected": False, "items": []})
+
+        uid = str(user["discord_id"])
+
+        items = []
+
+        # Terms update flag
+        cfg = _load_config(base)
+        version = str(cfg.get("TERMS_VERSION") or "2026.1")
+        accepted_map = _json_load(_tos_path(base), {})
+        rec = accepted_map.get(uid) if isinstance(accepted_map, dict) else None
+        accepted = bool(rec and str(rec.get("version") or "") == version)
+        if not accepted:
+            items.append({
+                "type": "terms",
+                "title": f"Terms updated (v{version})",
+                "body": "You must review and accept the updated Terms and Conditions.",
+                "action_url": cfg.get("TERMS_URL") or "/terms",
+                "severity": "warn"
+            })
+
+        # Split requests (example file written by bot)
+        # Expected: dict of uid -> list of requests
+        path = os.path.join(base, "JSON", "split_requests.json")
+        blob = _json_load(path, {})
+        reqs = (blob.get(uid) if isinstance(blob, dict) else None) or []
+        if isinstance(reqs, list):
+            for r in reqs:
+                if not isinstance(r, dict):
+                    continue
+                items.append({
+                    "type": "split",
+                    "title": "Split request pending",
+                    "body": f"{r.get('team', 'A team')} - action required.",
+                    "action_url": "/#user",  # or wherever your split UI lives
+                    "severity": "info",
+                    "meta": r
+                })
+
+        return jsonify({"connected": True, "items": items})
+
     @api.get("/me/is_admin")
     def api_me_is_admin():
         base = ctx.get("BASE_DIR", "")

@@ -212,17 +212,48 @@ function setPage(p) {
   document.getElementById(p)?.classList.add('active-section');
 }
 
+    async function checkGlobalNotices(){
+      const bar = document.getElementById('global-notify');
+      const txt = document.getElementById('global-notify-text');
+      const link = document.getElementById('global-notify-link');
+      const dismiss = document.getElementById('global-notify-dismiss');
+      if (!bar || !txt || !link || !dismiss) return;
 
-  function wireNav(){
-    $menu.addEventListener('click', e=>{
-      const a = e.target.closest('a[data-page]'); if(!a) return;
-      e.preventDefault();
-      const p = a.dataset.page;
-      const sec = qs(`#${p}`);
-      if(sec && sec.classList.contains('admin-only') && !state.admin){ notify('Admin required', false); return; }
-      setPage(p); routePage();
-    });
-  }
+      // allow dismiss per-version
+      const tos = await fetch('/api/me/tos', { cache:'no-store' }).then(r => r.json());
+      const dismissKey = `wc:tos:dismiss:${tos.version || 'unknown'}`;
+      const dismissed = localStorage.getItem(dismissKey) === '1';
+
+      if (tos.connected && tos.in_players && !tos.accepted && !dismissed) {
+        txt.textContent = `Terms and Conditions updated (v${tos.version || '?'}) - you must review to continue.`;
+        link.href = tos.url || '/terms';
+        bar.style.display = '';
+      } else {
+        bar.style.display = 'none';
+      }
+
+      dismiss.onclick = () => {
+        localStorage.setItem(dismissKey, '1');
+        bar.style.display = 'none';
+      };
+    }
+
+
+    function wireNav(){
+      $menu.addEventListener('click', async e=>{
+        const a = e.target.closest('a[data-page]'); if(!a) return;
+        e.preventDefault();
+        const p = a.dataset.page;
+        const sec = qs(`#${p}`);
+        if(sec && sec.classList.contains('admin-only') && !state.admin){
+          notify('Admin required', false);
+          return;
+        }
+        setPage(p);
+        await routePage();
+        await checkGlobalNotices();
+      });
+    }
 
 
     // ===== Admin state (single source of truth) =====
@@ -2325,6 +2356,9 @@ async function getCogStatus(name){
       wireBotButtons();
       setPage(state.currentPage);
       await routePage();
+
+      await checkGlobalNotices();
+
       startPolling();
     }
   window.addEventListener('load', init);

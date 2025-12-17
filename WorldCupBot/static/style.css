@@ -3076,3 +3076,19 @@ body.user-admin-view #ownership .ownership-card {
 #user.page-section {
     height: auto;
 }
+
+.global-notify{
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background: #101826;
+  border-bottom: 1px solid var(--border);
+}
+.global-notify-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+}
+.global-notify-actions{ display:flex; gap:10px; align-items:center; }
