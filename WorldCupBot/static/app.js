@@ -212,36 +212,36 @@ function setPage(p) {
   document.getElementById(p)?.classList.add('active-section');
 }
 
-    async function checkGlobalNotices(){
-      const fab = document.getElementById('notify-fab');
-      const panel = document.getElementById('notify-panel');
-      const body = document.getElementById('notify-body');
-      const close = document.getElementById('notify-close');
-      if (!fab || !panel || !body || !close) return;
+window.wcTestNotify = function () {
+  const fab = document.getElementById('notify-fab');
+  const panel = document.getElementById('notify-panel');
+  const body = document.getElementById('notify-body');
 
-      // Pull server state
-      let items = [];
-      try {
-        // If you have /api/me/notifications use it, else fall back to tos only.
-        const res = await fetch('/api/me/notifications', { cache:'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          items = (data && data.items) ? data.items : [];
-        } else {
-          // fallback: only terms status
-          const tos = await fetch('/api/me/tos', { cache:'no-store' }).then(r=>r.json());
-          if (tos && tos.connected && tos.in_players && !tos.accepted) {
-            items = [{
-              type:'terms',
-              title:`Terms updated (v${tos.version || '?'})`,
-              body:'You must review and accept the updated Terms and Conditions.',
-              action_url: tos.url || '/terms'
-            }];
-          }
-        }
-      } catch(e){
-        // ignore
-      }
+  if (!fab || !panel || !body) {
+    console.warn('Notification UI not found');
+    return;
+  }
+
+  fab.classList.add('has-new');
+
+  body.innerHTML = `
+    <div class="notify-item">
+      <div class="t">Test Notification</div>
+      <div class="b">
+        This is a manual test notification to confirm the system is working.
+      </div>
+      <div class="a">
+        <button class="btn small" onclick="alert('Action clicked')">Test Action</button>
+      </div>
+    </div>
+  `;
+
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
+  fab.setAttribute('aria-expanded', 'true');
+
+  console.log('Test notification shown');
+};
 
       // Per-version dismiss for Terms only (optional)
       const filtered = [];
