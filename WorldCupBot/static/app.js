@@ -259,6 +259,8 @@ function setPage(p) {
       };
     }
 
+    window.wcTestNotice = showTestNotice;
+
     function wireNav(){
       $menu.addEventListener('click', async e=>{
         const a = e.target.closest('a[data-page]'); if(!a) return;
