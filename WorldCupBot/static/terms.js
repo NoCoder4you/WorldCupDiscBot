@@ -133,28 +133,32 @@
     function showOnly(index) {
       currentIndex = Math.max(0, Math.min(index, sections.length - 1));
 
-      // Hide placeholder
+      // hide placeholder
       if (placeholder) placeholder.style.display = 'none';
 
-      // Hide all sections first
-      sections.forEach(s => { s.el.style.display = 'none'; });
-
-      // HARD reset scroll before showing new content
-      content.scrollTop = 0;
-
-      // Show the selected section
-      sections[currentIndex].el.style.display = '';
+      sections.forEach((s, i) => {
+        s.el.style.display = (i === currentIndex) ? '' : 'none';
+      });
 
       const st = state[sections[currentIndex].id];
       st.gesturePx = 0;
 
-      // Force scroll reset again after paint
+      // HARD reset scroll every time a section opens
+      content.scrollTop = 0;
+
       requestAnimationFrame(() => {
-        content.scrollTop = 0;
+        content.scrollTop = 0;         // after DOM/layout settles
+        content.scrollTo(0, 0);        // extra belt + braces
         updateTocUI();
         updateUI();
+
+        // one more frame for stubborn browsers
+        requestAnimationFrame(() => {
+          content.scrollTop = 0;
+          content.scrollTo(0, 0);
+        });
       });
-    }
+}
 
   function markCurrentRead() {
     const s = sections[currentIndex];
