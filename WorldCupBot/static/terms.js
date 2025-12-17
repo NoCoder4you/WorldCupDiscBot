@@ -60,9 +60,9 @@
     };
   });
 
-  let currentIndex = -1; // nothing selected initially
+  let currentIndex = -1;
 
-  const MIN_GESTURE_PX = 120; // required scroll input for short sections
+  const MIN_GESTURE_PX = 120;
   const BOTTOM_TOL = 10;
 
   /* ========= Helpers ========= */
@@ -130,41 +130,28 @@
     btnAccept.disabled = false;
   }
 
-function showOnly(index) {
-  currentIndex = Math.max(0, Math.min(index, sections.length - 1));
+  function showOnly(index) {
+    currentIndex = Math.max(0, Math.min(index, sections.length - 1));
 
-  // hide placeholder
-  if (placeholder) placeholder.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'none';
 
-  sections.forEach((s, i) => {
-    s.el.style.display = (i === currentIndex) ? '' : 'none';
-  });
+    sections.forEach((s, i) => {
+      s.el.style.display = (i === currentIndex) ? '' : 'none';
+    });
 
-  const st = state[sections[currentIndex].id];
-  st.gesturePx = 0;
+    const st = state[sections[currentIndex].id];
+    st.gesturePx = 0;
 
-  // Force instant scroll reset (overrides CSS smooth scrolling)
-  const prevBehavior = content.style.scrollBehavior;
-  content.style.scrollBehavior = 'auto';
-
-  // Reset both the terms scroller and the page (covers edge cases)
-  content.scrollTop = 0;
-  content.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  document.documentElement.scrollTop = 0;
-  document.body.scrollTop = 0;
-
-  requestAnimationFrame(() => {
+    // hard reset scroll
+    const prev = content.style.scrollBehavior;
+    content.style.scrollBehavior = 'auto';
     content.scrollTop = 0;
-    content.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-
-    // restore original behavior
-    content.style.scrollBehavior = prevBehavior || '';
+    content.scrollTo(0, 0);
+    content.style.scrollBehavior = prev || '';
 
     updateTocUI();
     updateUI();
-  });
-}
+  }
 
   function markCurrentRead() {
     const s = sections[currentIndex];
@@ -185,7 +172,6 @@ function showOnly(index) {
 
     const s = sections[currentIndex];
     const st = state[s.id];
-
     if (st.read || !st.opened) return;
 
     if (needsScroll()) {
@@ -238,10 +224,15 @@ function showOnly(index) {
   /* ========= Checkbox ========= */
   chkAccept.addEventListener('change', () => updateUI());
 
-  /* ========= Version ========= */
+  /* ========= Version / acceptance check ========= */
   try {
     const st = await fx('/api/me/tos');
     if (ver) ver.textContent = 'v' + (st.version || '?');
+
+    if (st && st.connected && st.accepted) {
+      window.location.href = '/';
+      return;
+    }
   } catch (e) { /* ignore */ }
 
   /* ========= Accept ========= */
@@ -265,12 +256,8 @@ function showOnly(index) {
 
   /* ========= Init ========= */
   btnAccept.disabled = true;
-
-  // hide all sections initially
   sections.forEach(s => { s.el.style.display = 'none'; });
-
   if (placeholder) placeholder.style.display = '';
-
   updateTocUI();
   updateUI();
 })();
