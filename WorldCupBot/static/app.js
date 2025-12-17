@@ -212,55 +212,152 @@ function setPage(p) {
   document.getElementById(p)?.classList.add('active-section');
 }
 
-window.wcTestNotify = function () {
-  const fab = document.getElementById('notify-fab');
-  const panel = document.getElementById('notify-panel');
-  const body = document.getElementById('notify-body');
-  const close = document.getElementById('notify-close');
+    function esc(s){
+      return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
 
-  if (!fab || !panel || !body || !close) {
-    console.warn('Notification UI not found');
-    return;
-  }
+    function notifDismissKey(id){ return `wc:notif:dismiss:${id}`; }
+    function isDismissed(id){ return localStorage.getItem(notifDismissKey(id)) === '1'; }
+    function dismissNotif(id){ localStorage.setItem(notifDismissKey(id), '1'); }
 
-  // Show glow
-  fab.classList.add('has-new');
+    async function loadNotifications(){
+      try{
+        const res = await fetch('/api/me/notifications', { cache:'no-store', credentials:'include' });
+        if(!res.ok) return [];
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        return items.filter(it => it && it.id && !isDismissed(it.id));
+      }catch{
+        return [];
+      }
+    }
 
-  // Render test content
-  body.innerHTML = `
-    <div class="notify-item">
-      <div class="t">Test Notification</div>
-      <div class="b">
-        This is a manual test notification to confirm the system is working.
-      </div>
-      <div class="a">
-        <button class="btn small">Test Action</button>
-      </div>
-    </div>
-  `;
+    function renderNotifications(items){
+      const fab = document.getElementById('notify-fab');
+      const panel = document.getElementById('notify-panel');
+      const body = document.getElementById('notify-body');
+      const close = document.getElementById('notify-close');
+      if (!fab || !panel || !body || !close) return;
 
-  // Open panel
-  panel.classList.add('open');
-  panel.setAttribute('aria-hidden', 'false');
-  fab.setAttribute('aria-expanded', 'true');
+      // Glow if any
+      fab.classList.toggle('has-new', items.length > 0);
 
-  // Wire close button (THIS was missing)
-  close.onclick = () => {
-    panel.classList.remove('open');
-    panel.setAttribute('aria-hidden', 'true');
-    fab.setAttribute('aria-expanded', 'false');
-  };
+      if (!items.length){
+        body.innerHTML = `<div class="notify-empty">No New Notifications</div>`;
+        return;
+      }
 
-  // Optional: clicking the bell again toggles
-  fab.onclick = () => {
-    panel.classList.toggle('open');
-    const open = panel.classList.contains('open');
-    panel.setAttribute('aria-hidden', String(!open));
-    fab.setAttribute('aria-expanded', String(open));
-  };
+      body.innerHTML = items.map(it => {
+        const title = esc(it.title || 'Notification');
+        const text  = esc(it.body || '');
+        const id    = esc(it.id);
 
-  console.log('Test notification shown');
-};
+        let actionHtml = '';
+        const action = it.action || {};
+
+        if (action.kind === 'url' && action.url){
+          actionHtml = `<a class="btn small" href="${esc(action.url)}">Open</a>`;
+        } else if (action.kind === 'page' && action.page){
+          actionHtml = `<button class="btn small" data-open-page="${esc(action.page)}">Open</button>`;
+        }
+
+        return `
+          <div class="notify-item" data-id="${id}">
+            <div class="t">${title}</div>
+            <div class="b">${text}</div>
+            <div class="a" style="gap:10px; display:flex; justify-content:flex-end;">
+              ${actionHtml}
+              <button class="btn small" data-dismiss="${id}">Dismiss</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Wire buttons
+      body.querySelectorAll('button[data-dismiss]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = btn.getAttribute('data-dismiss');
+          dismissNotif(id);
+          btn.closest('.notify-item')?.remove();
+          // refresh glow state
+          const remaining = body.querySelectorAll('.notify-item').length;
+          fab.classList.toggle('has-new', remaining > 0);
+          if (remaining === 0) body.innerHTML = `<div class="notify-empty">No New Notifications</div>`;
+        });
+      });
+
+      body.querySelectorAll('button[data-open-page]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const page = btn.getAttribute('data-open-page');
+          // close panel
+          panel.classList.remove('open');
+          panel.setAttribute('aria-hidden', 'true');
+          fab.setAttribute('aria-expanded', 'false');
+
+          // navigate
+          setPage(page);
+          await routePage();
+        });
+      });
+    }
+
+    function wireNotifyUIOnce(){
+      const fab = document.getElementById('notify-fab');
+      const panel = document.getElementById('notify-panel');
+      const close = document.getElementById('notify-close');
+      if (!fab || !panel || !close) return;
+      if (fab._wiredNotify) return;
+      fab._wiredNotify = true;
+
+      const openPanel = ()=> {
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden','false');
+        fab.setAttribute('aria-expanded','true');
+      };
+      const closePanel = ()=> {
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden','true');
+        fab.setAttribute('aria-expanded','false');
+      };
+
+      fab.addEventListener('click', async ()=>{
+        if (panel.classList.contains('open')){
+          closePanel();
+          return;
+        }
+        const items = await loadNotifications();
+        renderNotifications(items);
+        openPanel();
+      });
+
+      close.addEventListener('click', closePanel);
+
+      document.addEventListener('click', (e)=>{
+        if (!panel.classList.contains('open')) return;
+        const inside = panel.contains(e.target) || fab.contains(e.target);
+        if (!inside) closePanel();
+      });
+    }
+
+    // Real test command that uses the same rendering path
+    window.wcTestNotify = async function(){
+      wireNotifyUIOnce();
+      const fake = [{
+        id: `test:${Date.now()}`,
+        type: 'test',
+        severity: 'info',
+        title: 'Test Notification',
+        body: 'This is a manual test notification to confirm the system is working.',
+        action: { kind:'page', page:'dashboard' },
+        ts: Date.now()
+      }];
+      renderNotifications(fake);
+      document.getElementById('notify-panel')?.classList.add('open');
+      document.getElementById('notify-panel')?.setAttribute('aria-hidden','false');
+      document.getElementById('notify-fab')?.setAttribute('aria-expanded','true');
+    };
 
     function showTestNotice(text = 'Test notification - everything is alive ✅') {
       const bar = document.getElementById('global-notify');
@@ -2398,6 +2495,7 @@ async function getCogStatus(name){
       applyAdminView();
       wireAuthButtons();
       wireNav();
+      wireNotifyUIOnce();
       wireBotButtons();
       setPage(state.currentPage);
       await routePage();

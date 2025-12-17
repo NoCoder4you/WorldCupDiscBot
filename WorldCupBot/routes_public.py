@@ -75,6 +75,10 @@ def _team_stage_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage.json")
 def _fanzone_votes_path(base):
     return os.path.join(_json_dir(base), "fan_votes.json")
+def _fan_zone_results_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "fan_zone_results.json")
+def _swap_requests_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "swap_requests.json")
 
 
 
@@ -1091,42 +1095,171 @@ def create_public_routes(ctx):
             return jsonify({"connected": False, "items": []})
 
         uid = str(user["discord_id"])
-
         items = []
+        now = int(time.time())
 
-        # Terms update flag
+        # ----------------------------
+        # Terms updated
+        # ----------------------------
         cfg = _load_config(base)
         version = str(cfg.get("TERMS_VERSION") or "2026.1")
+        tos_url = cfg.get("TERMS_URL") or "/terms"
+
         accepted_map = _json_load(_tos_path(base), {})
-        rec = accepted_map.get(uid) if isinstance(accepted_map, dict) else None
-        accepted = bool(rec and str(rec.get("version") or "") == version)
+        accepted = False
+        if isinstance(accepted_map, dict):
+            rec = accepted_map.get(uid) or {}
+            accepted = (str(rec.get("version") or "") == version)
+
         if not accepted:
             items.append({
+                "id": f"terms:{version}",
                 "type": "terms",
+                "severity": "warn",
                 "title": f"Terms updated (v{version})",
                 "body": "You must review and accept the updated Terms and Conditions.",
-                "action_url": cfg.get("TERMS_URL") or "/terms",
-                "severity": "warn"
+                "action": {"kind": "url", "url": tos_url},
+                "ts": now
             })
 
-        # Split requests (example file written by bot)
-        # Expected: dict of uid -> list of requests
-        path = os.path.join(base, "JSON", "split_requests.json")
-        blob = _json_load(path, {})
-        reqs = (blob.get(uid) if isinstance(blob, dict) else None) or []
-        if isinstance(reqs, list):
-            for r in reqs:
+        # ----------------------------
+        # Split requests
+        # Supports either:
+        #   {"<uid>":[{...},{...}]}  OR  {"requests":[{to_uid:"..", ...}]}
+        # ----------------------------
+        sr = _json_load(_split_requests_path(base), {})
+        if isinstance(sr, dict):
+            for rid, r in sr.items():
                 if not isinstance(r, dict):
                     continue
+
+                main_owner = str(r.get("main_owner_id") or "").strip()
+                if main_owner != uid:
+                    continue
+
+                expires_at = r.get("expires_at")
+                try:
+                    exp = float(expires_at) if expires_at is not None else 0.0
+                except Exception:
+                    exp = 0.0
+
+                # skip expired
+                if exp and exp <= time.time():
+                    continue
+
+                team = r.get("team") or "Team"
+                requester_id = str(r.get("requester_id") or "").strip()
+                ts = int(exp - 86400) if exp else now  # rough ts if you don't store one
+
                 items.append({
+                    "id": f"split:{rid}",
                     "type": "split",
-                    "title": "Split request pending",
-                    "body": f"{r.get('team', 'A team')} - action required.",
-                    "action_url": "/#user",  # or wherever your split UI lives
                     "severity": "info",
-                    "meta": r
+                    "title": "Split request pending",
+                    "body": f"Split requested for {team}.",
+                    "action": {"kind": "page", "page": "user"},
+                    "ts": ts,
+                    "meta": {
+                        "request_id": rid,
+                        "team": team,
+                        "requester_id": requester_id,
+                        "expires_at": exp
+                    }
                 })
 
+        # ----------------------------
+        # Bets (based on your bets.json fields)
+        # ----------------------------
+        bets = _json_load(_bets_path(base), [])
+        if isinstance(bets, list):
+            for b in bets:
+                if not isinstance(b, dict):
+                    continue
+
+                bet_id = str(b.get("bet_id") or "")
+                if not bet_id:
+                    continue
+
+                o1 = str(b.get("option1_user_id") or "")
+                o2 = str(b.get("option2_user_id") or "")
+                settled = bool(b.get("settled"))
+                winner = str(b.get("winner_user_id") or "")
+
+                involved = (uid == o1) or (uid == o2)
+                if not involved:
+                    continue
+
+                title = b.get("bet_title") or "Bet"
+                wager = b.get("wager") or "-"
+                ts = int(b.get("ts") or now)
+
+                # Your bet waiting to be claimed
+                if (uid == o1) and (not o2) and (not settled):
+                    items.append({
+                        "id": f"bet:{bet_id}:unclaimed",
+                        "type": "bet",
+                        "severity": "info",
+                        "title": "Your bet is unclaimed",
+                        "body": f"{title} - wager: {wager}. Waiting for someone to claim.",
+                        "action": {"kind": "page", "page": "bets"},
+                        "ts": ts
+                    })
+
+                # Settled - win/lose
+                if settled and winner:
+                    if uid == winner:
+                        items.append({
+                            "id": f"bet:{bet_id}:win",
+                            "type": "bet",
+                            "severity": "ok",
+                            "title": "Bet won",
+                            "body": f"You won: {title} - wager: {wager}.",
+                            "action": {"kind": "page", "page": "bets"},
+                            "ts": ts
+                        })
+                    else:
+                        items.append({
+                            "id": f"bet:{bet_id}:lose",
+                            "type": "bet",
+                            "severity": "warn",
+                            "title": "Bet lost",
+                            "body": f"You lost: {title} - wager: {wager}.",
+                            "action": {"kind": "page", "page": "bets"},
+                            "ts": ts
+                        })
+
+        # ----------------------------
+        # Fan Zone win/lose (optional)
+        # JSON/ fan_zone_results.json:
+        # { "events":[ { "id":"...", "discord_id":"..", "result":"win|lose", "title":"..", "body":"..", "ts":123 } ] }
+        # ----------------------------
+        fz = _json_load(_fan_zone_results_path(base), {})
+        events = []
+        if isinstance(fz, dict) and isinstance(fz.get("events"), list):
+            events = fz["events"]
+
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            if str(ev.get("discord_id") or "") != uid:
+                continue
+
+            rid = str(ev.get("id") or f"{ev.get('ts') or now}")
+            res = str(ev.get("result") or "info").lower()
+            sev = "ok" if res == "win" else ("warn" if res == "lose" else "info")
+            ts = int(ev.get("ts") or now)
+
+            items.append({
+                "id": f"fz:{rid}",
+                "type": "fanzone",
+                "severity": sev,
+                "title": ev.get("title") or "Fan Zone result",
+                "body": ev.get("body") or ("You won a Fan Zone pick." if res == "win" else "You lost a Fan Zone pick."),
+                "action": {"kind": "page", "page": "fanzone"},
+                "ts": ts
+            })
+
+        items.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
         return jsonify({"connected": True, "items": items})
 
     @api.get("/me/is_admin")
