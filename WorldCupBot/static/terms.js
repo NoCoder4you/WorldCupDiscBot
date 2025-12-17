@@ -130,34 +130,40 @@
     btnAccept.disabled = false;
   }
 
-    function showOnly(index) {
-      currentIndex = Math.max(0, Math.min(index, sections.length - 1));
+function showOnly(index) {
+  currentIndex = Math.max(0, Math.min(index, sections.length - 1));
 
-      // hide placeholder
-      if (placeholder) placeholder.style.display = 'none';
+  // hide placeholder
+  if (placeholder) placeholder.style.display = 'none';
 
-      sections.forEach((s, i) => {
-        s.el.style.display = (i === currentIndex) ? '' : 'none';
-      });
+  sections.forEach((s, i) => {
+    s.el.style.display = (i === currentIndex) ? '' : 'none';
+  });
 
-      const st = state[sections[currentIndex].id];
-      st.gesturePx = 0;
+  const st = state[sections[currentIndex].id];
+  st.gesturePx = 0;
 
-      // HARD reset scroll every time a section opens
-      content.scrollTop = 0;
+  // Force instant scroll reset (overrides CSS smooth scrolling)
+  const prevBehavior = content.style.scrollBehavior;
+  content.style.scrollBehavior = 'auto';
 
-      requestAnimationFrame(() => {
-        content.scrollTop = 0;         // after DOM/layout settles
-        content.scrollTo(0, 0);        // extra belt + braces
-        updateTocUI();
-        updateUI();
+  // Reset both the terms scroller and the page (covers edge cases)
+  content.scrollTop = 0;
+  content.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
 
-        // one more frame for stubborn browsers
-        requestAnimationFrame(() => {
-          content.scrollTop = 0;
-          content.scrollTo(0, 0);
-        });
-      });
+  requestAnimationFrame(() => {
+    content.scrollTop = 0;
+    content.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+    // restore original behavior
+    content.style.scrollBehavior = prevBehavior || '';
+
+    updateTocUI();
+    updateUI();
+  });
 }
 
   function markCurrentRead() {
