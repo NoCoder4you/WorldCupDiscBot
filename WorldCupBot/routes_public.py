@@ -1133,38 +1133,29 @@ def create_public_routes(ctx):
                 if not isinstance(r, dict):
                     continue
 
+                # only notify the main owner
                 main_owner = str(r.get("main_owner_id") or "").strip()
                 if main_owner != uid:
                     continue
 
-                expires_at = r.get("expires_at")
+                # ignore expired
                 try:
-                    exp = float(expires_at) if expires_at is not None else 0.0
+                    exp = float(r.get("expires_at") or 0)
                 except Exception:
-                    exp = 0.0
-
-                # skip expired
+                    exp = 0
                 if exp and exp <= time.time():
                     continue
 
                 team = r.get("team") or "Team"
                 requester_id = str(r.get("requester_id") or "").strip()
-                ts = int(exp - 86400) if exp else now  # rough ts if you don't store one
 
                 items.append({
                     "id": f"split:{rid}",
                     "type": "split",
                     "severity": "info",
-                    "title": "Split request pending",
+                    "title": "Split request",
                     "body": f"Split requested for {team}.",
-                    "action": {"kind": "page", "page": "user"},
-                    "ts": ts,
-                    "meta": {
-                        "request_id": rid,
-                        "team": team,
-                        "requester_id": requester_id,
-                        "expires_at": exp
-                    }
+                    "ts": int(time.time())
                 })
 
         # ----------------------------
@@ -1176,14 +1167,17 @@ def create_public_routes(ctx):
                 if not isinstance(b, dict):
                     continue
 
-                bet_id = str(b.get("bet_id") or "")
+                bet_id = str(b.get("bet_id") or "").strip()
                 if not bet_id:
                     continue
 
-                o1 = str(b.get("option1_user_id") or "")
-                o2 = str(b.get("option2_user_id") or "")
+                o1 = str(b.get("option1_user_id") or "").strip()
+                o2 = str(b.get("option2_user_id") or "").strip()
+                winner = str(b.get("winner_user_id") or "").strip()
                 settled = bool(b.get("settled"))
-                winner = str(b.get("winner_user_id") or "")
+
+                if not settled or not winner:
+                    continue
 
                 involved = (uid == o1) or (uid == o2)
                 if not involved:
@@ -1191,42 +1185,25 @@ def create_public_routes(ctx):
 
                 title = b.get("bet_title") or "Bet"
                 wager = b.get("wager") or "-"
-                ts = int(b.get("ts") or now)
 
-                # Your bet waiting to be claimed
-                if (uid == o1) and (not o2) and (not settled):
+                if uid == winner:
                     items.append({
-                        "id": f"bet:{bet_id}:unclaimed",
+                        "id": f"bet:{bet_id}:win",
                         "type": "bet",
-                        "severity": "info",
-                        "title": "Your bet is unclaimed",
-                        "body": f"{title} - wager: {wager}. Waiting for someone to claim.",
-                        "action": {"kind": "page", "page": "bets"},
-                        "ts": ts
+                        "severity": "ok",
+                        "title": "Bet won",
+                        "body": f"You won: {title} - wager: {wager}.",
+                        "ts": int(time.time())
                     })
-
-                # Settled - win/lose
-                if settled and winner:
-                    if uid == winner:
-                        items.append({
-                            "id": f"bet:{bet_id}:win",
-                            "type": "bet",
-                            "severity": "ok",
-                            "title": "Bet won",
-                            "body": f"You won: {title} - wager: {wager}.",
-                            "action": {"kind": "page", "page": "bets"},
-                            "ts": ts
-                        })
-                    else:
-                        items.append({
-                            "id": f"bet:{bet_id}:lose",
-                            "type": "bet",
-                            "severity": "warn",
-                            "title": "Bet lost",
-                            "body": f"You lost: {title} - wager: {wager}.",
-                            "action": {"kind": "page", "page": "bets"},
-                            "ts": ts
-                        })
+                else:
+                    items.append({
+                        "id": f"bet:{bet_id}:lose",
+                        "type": "bet",
+                        "severity": "warn",
+                        "title": "Bet lost",
+                        "body": f"You lost: {title} - wager: {wager}.",
+                        "ts": int(time.time())
+                    })
 
         # ----------------------------
         # Fan Zone win/lose (optional)
@@ -1568,5 +1545,27 @@ def create_public_routes(ctx):
 
         _json_save(_fanzone_votes_path(base), data)
         return jsonify({"ok": True, "fixture_id": fixture_id, "choice": choice})
+
+    @api.post("/fanzone/declare")
+    def fanzone_declare():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+
+        match_id = body.get("match_id")
+        winner = body.get("winner")
+
+        if winner not in ("home", "away"):
+            return jsonify({"ok": False, "error": "invalid winner"}), 400
+
+        path = _fan_zone_results_path(base)
+        data = _json_load(path, {})
+
+        data[str(match_id)] = {
+            "winner": winner,
+            "ts": int(time.time())
+        }
+
+        _json_save(path, data)
+        return jsonify({"ok": True})
 
     return root, api, auth

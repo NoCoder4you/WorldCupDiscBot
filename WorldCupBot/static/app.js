@@ -4019,6 +4019,25 @@ async function fetchGoalsData(){
       }
     }
 
+    async function declareFanZoneWinner(matchId, side) {
+      try {
+        const res = await fetch('/admin/fanzone/declare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            match_id: matchId,
+            winner: side
+          })
+        });
+
+        if (!res.ok) throw new Error('request failed');
+        notify('Winner declared', true);
+        loadFanZone(); // re-render cards
+      } catch (e) {
+        notify('Failed to declare winner', false);
+      }
+    }
 
   async function renderFanZone() {
     const host = $('#fanzone-list');
@@ -4053,14 +4072,33 @@ async function fetchGoalsData(){
           card.outerHTML = cardHTML(f, stats);
         }
     }
-
-    // Wire vote buttons
+    // Wire vote + admin winner buttons (event delegation survives outerHTML refreshes)
     host.addEventListener('click', async (ev) => {
-      const btn = ev.target.closest('.fan-vote');
-      if (!btn) return;
-      const card = btn.closest('.fan-card');
-      const fid = card?.dataset?.fid;
-      const choice = btn?.dataset?.choice;
+
+      // --- Admin: declare winner ---
+      const winBtn = ev.target.closest('.fan-win');
+      if (winBtn) {
+        const card = winBtn.closest('.fan-card');
+        const fid  = card?.dataset?.fid;
+        const side = winBtn.dataset.side; // "home" or "away"
+        if (!fid || !side) return;
+
+        if (!isAdminUI()) {
+          notify('Admin required', false);
+          return;
+        }
+
+        await declareFanZoneWinner(fid, side);
+        return;
+      }
+
+      // --- Public: vote ---
+      const voteBtn = ev.target.closest('.fan-vote');
+      if (!voteBtn) return;
+
+      const card   = voteBtn.closest('.fan-card');
+      const fid    = card?.dataset?.fid;
+      const choice = voteBtn?.dataset?.choice;
       if (!fid || !choice) return;
 
       // disable both while posting
@@ -4071,17 +4109,11 @@ async function fetchGoalsData(){
         if (!(res && res.ok)) throw new Error('vote_failed');
       } catch {
         await sleep(400);
-        } finally {
-          const stats = await getStats(fid).catch(() => null);
-          if (stats?.ok) applyStatsToCard(card, stats);
-        }
+      } finally {
+        const stats = await getStats(fid).catch(() => null);
+        if (stats?.ok) applyStatsToCard(card, stats);
+      }
     }, { once: false });
-  }
-
-  // Public loader (call when entering the page)
-  window.loadFanZone = async function loadFanZone() {
-    await renderFanZone();
-  };
 
   // Auto-refresh while the Fan Zone section is visible
   let fanTimer = null;

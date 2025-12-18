@@ -2832,12 +2832,18 @@ body.user-admin-view #ownership .ownership-card {
 }
 
 .fan-foot {
-  margin-top: auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
 }
+
+.fan-foot .fan-win {
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .pill { min-width: 84px; }
 
 .fan-card.voted-home .fan-bar-home,

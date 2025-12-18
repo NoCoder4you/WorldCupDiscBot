@@ -15,7 +15,6 @@
     "stadium": "Estadio Guadalajara",
     "group": "A"
   },
-
   {
     "id": "2026-06-12-B-CAN-QUAL2",
     "home": "Canada",
@@ -32,7 +31,6 @@
     "stadium": "Los Angeles Stadium",
     "group": "D"
   },
-
   {
     "id": "2026-06-13-C-HAI-SCO",
     "home": "Haiti",
@@ -65,7 +63,6 @@
     "stadium": "San Francisco Bay Area Stadium",
     "group": "B"
   },
-
   {
     "id": "2026-06-14-E-CIV-ECU",
     "home": "Côte d'Ivoire",
@@ -98,7 +95,6 @@
     "stadium": "Estadio Monterrey",
     "group": "F"
   },
-
   {
     "id": "2026-06-15-H-KSA-URU",
     "home": "Saudi Arabia",
@@ -131,7 +127,6 @@
     "stadium": "Seattle Stadium",
     "group": "G"
   },
-
   {
     "id": "2026-06-16-I-FRA-SEN",
     "home": "France",
@@ -164,7 +159,6 @@
     "stadium": "San Francisco Bay Area Stadium",
     "group": "J"
   },
-
   {
     "id": "2026-06-17-L-GHA-PAN",
     "home": "Ghana",
@@ -197,7 +191,6 @@
     "stadium": "Mexico City Stadium",
     "group": "K"
   },
-
   {
     "id": "2026-06-18-A-QUAL7-ZAF",
     "home": "TBA",
@@ -230,7 +223,6 @@
     "stadium": "Estadio Guadalajara",
     "group": "A"
   },
-
   {
     "id": "2026-06-19-C-BRA-HAI",
     "home": "Brazil",
@@ -263,7 +255,6 @@
     "stadium": "Seattle Stadium",
     "group": "D"
   },
-
   {
     "id": "2026-06-20-E-GER-CIV",
     "home": "Germany",
