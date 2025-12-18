@@ -3962,11 +3962,17 @@ async function fetchGoalsData(){
             </button>
           </div>
 
-          <div class="fan-foot">
-            <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
-            ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
-            ${adminControls}
-          </div>
+            <div class="fan-foot">
+              <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
+              ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+
+              ${isAdminUI() ? `
+                <span class="fan-win-wrap">
+                  <button class="btn xs fan-win" data-side="home">Home Win</button>
+                  <button class="btn xs fan-win" data-side="away">Away Win</button>
+                </span>
+              ` : ''}
+            </div>
         </div>
       `;
     }
