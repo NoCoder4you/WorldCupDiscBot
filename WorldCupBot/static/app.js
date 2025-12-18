@@ -4087,50 +4087,53 @@ async function fetchGoalsData(){
       if (card) card.outerHTML = cardHTML(f, stats);
     }
 
-    // Admin winner buttons
-    const winBtn = ev.target.closest('.fan-win');
-    if (winBtn) {
-      if (!isAdminUI()) {
-        notify('Admin required', false);
+    // One click handler for both vote + declare winner
+    host.addEventListener('click', async (ev) => {
+
+      // --- Admin declare winner ---
+      const winBtn = ev.target.closest('.fan-win');
+      if (winBtn) {
+        if (!isAdminUI()) {
+          notify('Admin required', false);
+          return;
+        }
+
+        const card = winBtn.closest('.fan-card');
+        if (!card) return;
+
+        const fid = card.dataset.fid;
+        if (!fid) return;
+
+        const winnerTeam = winBtn.dataset.team;
+        if (!winnerTeam) return;
+
+        // pull names from the vote buttons (they already contain "Vote X")
+        const home = card.querySelector('.fan-vote.home')?.textContent.replace(/^Vote\s+/,'') || '';
+        const away = card.querySelector('.fan-vote.away')?.textContent.replace(/^Vote\s+/,'') || '';
+        const utc  = card.querySelector('.fan-time')?.textContent || '';
+
+        try {
+          await declareFanZoneWinner({
+            id: fid,
+            winner_team: winnerTeam,
+            winner_iso: winBtn.dataset.iso || '',
+            home,
+            away,
+            utc,
+            stage: ''
+          });
+
+          notify(`Winner declared: ${winnerTeam}`, true);
+          await refreshVisibleCards();
+        } catch (e) {
+          console.error(e);
+          notify('Failed to declare winner', false);
+        }
+
         return;
       }
 
-      const card = winBtn.closest('.fan-card');
-      if (!card) return;
-
-      const fid = card.dataset.fid;
-      if (!fid) return;
-
-      // Country names now come from data attributes
-      const winnerTeam = winBtn.dataset.team;
-      if (!winnerTeam) return;
-
-      // Extract fixture info directly from the card
-      const home = card.querySelector('.fan-vote.home')?.textContent.replace(/^Vote\s+/,'') || '';
-      const away = card.querySelector('.fan-vote.away')?.textContent.replace(/^Vote\s+/,'') || '';
-      const utc  = card.querySelector('.fan-time')?.textContent || '';
-
-      try {
-        await declareFanZoneWinner({
-          id: fid,
-          winner_team: winnerTeam,
-          home,
-          away,
-          utc,
-          stage: '' // optional for now
-        });
-
-        notify(`Winner declared: ${winnerTeam}`, true);
-        await refreshVisibleCards();
-      } catch (e) {
-        console.error(e);
-        notify('Failed to declare winner', false);
-      }
-
-      return;
-    }
-
-      // Public vote buttons
+      // --- Public vote ---
       const voteBtn = ev.target.closest('.fan-vote');
       if (!voteBtn) return;
 
