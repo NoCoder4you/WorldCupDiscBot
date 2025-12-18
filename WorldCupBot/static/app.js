@@ -3918,6 +3918,14 @@ async function fetchGoalsData(){
       const votedAway = last === 'away';
       const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
 
+      // show admin winner buttons only when admin is unlocked + Admin View enabled
+      const adminControls = (typeof isAdminUI === 'function' && isAdminUI()) ? `
+        <div class="fan-win-wrap">
+          <button class="btn xs fan-win" data-side="home" type="button">Winner: ${f.home}</button>
+          <button class="btn xs fan-win" data-side="away" type="button">Winner: ${f.away}</button>
+        </div>
+      ` : '';
+
       return `
         <div class="fan-card ${votedClass}" data-fid="${f.id}">
           <div class="fan-head">
@@ -3957,6 +3965,7 @@ async function fetchGoalsData(){
           <div class="fan-foot">
             <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
             ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+            ${adminControls}
           </div>
         </div>
       `;

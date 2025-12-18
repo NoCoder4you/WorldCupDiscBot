@@ -2831,17 +2831,23 @@ body.user-admin-view #ownership .ownership-card {
   width: 100%;
 }
 
-.fan-foot {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 8px;
+.fan-foot{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
 }
 
-.fan-foot .fan-win {
-  padding: 4px 8px;
-  font-size: 11px;
-  line-height: 1;
+.fan-win-wrap{
+  margin-left:auto;
+  display:flex;
+  gap:8px;
+}
+
+.btn.xs.fan-win{
+  padding:6px 10px;
+  font-size:12px;
+  line-height:1;
 }
 
 .pill { min-width: 84px; }
