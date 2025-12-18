@@ -9,7 +9,7 @@
   },
   {
     "id": "2026-06-11-A-KOR-QUAL1",
-    "home": "Korea Republic",
+    "home": "South Korea",
     "away": "TBA",
     "utc": "2026-06-11T00:00:00Z",
     "stadium": "Estadio Guadalajara",
@@ -218,7 +218,7 @@
   {
     "id": "2026-06-18-A-MEX-KOR",
     "home": "Mexico",
-    "away": "Korea Republic",
+    "away": "South Korea",
     "utc": "2026-06-18T00:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "A"
@@ -430,7 +430,7 @@
   {
     "id": "2026-06-24-A-ZAF-KOR",
     "home": "South Africa",
-    "away": "Korea Republic",
+    "away": "South Korea",
     "utc": "2026-06-24T00:00:00Z",
     "stadium": "Estadio Monterrey",
     "group": "A"
