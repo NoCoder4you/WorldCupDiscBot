@@ -173,7 +173,7 @@ def _discord_client_info(ctx):
     )
 
 def _is_admin(base_dir, uid):
-    cfg = _json_load(_load_config(base_dir), {})
+    cfg = _load_config(base_dir)
     admin_ids = cfg.get("ADMIN_IDS") or cfg.get("ADMIN_IDs") or cfg.get("admins") or []
     admin_ids = [str(x).strip() for x in admin_ids if str(x).strip()]
     return str(uid).strip() in admin_ids
@@ -1548,24 +1548,6 @@ def create_public_routes(ctx):
 
     @api.post("/fanzone/declare")
     def fanzone_declare():
-        base = ctx.get("BASE_DIR", "")
-        body = request.get_json(silent=True) or {}
-
-        match_id = body.get("match_id")
-        winner = body.get("winner")
-
-        if winner not in ("home", "away"):
-            return jsonify({"ok": False, "error": "invalid winner"}), 400
-
-        path = _fan_zone_results_path(base)
-        data = _json_load(path, {})
-
-        data[str(match_id)] = {
-            "winner": winner,
-            "ts": int(time.time())
-        }
-
-        _json_save(path, data)
-        return jsonify({"ok": True})
+        return jsonify({"ok": False, "error": "use_admin_endpoint"}), 403
 
     return root, api, auth
