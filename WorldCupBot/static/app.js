@@ -3881,6 +3881,10 @@ async function fetchGoalsData(){
     return r.json();
   });
 
+  function isAdminUI() {
+  return document.body.classList.contains('admin');
+}
+
   async function getFixtures() {
     const d = await fetchJSON('/api/fixtures');
     return (d && d.fixtures) || [];
@@ -3966,12 +3970,14 @@ async function fetchGoalsData(){
               <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
               ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
 
-              ${isAdminUI() ? `
-                <span class="fan-win-wrap">
-                  <button class="btn xs fan-win" data-side="home">Home Win</button>
-                  <button class="btn xs fan-win" data-side="away">Away Win</button>
-                </span>
-              ` : ''}
+              <div class="fan-win-wrap" data-admin="true">
+                <button class="btn xs fan-win" data-side="home" title="Declare ${f.home} winner">
+                  ${f.home} Win
+                </button>
+                <button class="btn xs fan-win" data-side="away" title="Declare ${f.away} winner">
+                  ${f.away} Win
+                </button>
+              </div>
             </div>
         </div>
       `;
