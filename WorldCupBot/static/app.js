@@ -3882,8 +3882,25 @@ async function fetchGoalsData(){
   });
 
   function isAdminUI() {
-  return document.body.classList.contains('admin');
-}
+    return document.body.classList.contains('admin');
+  }
+
+  // Small notifier fallback
+  function toast(msg, ok=true) {
+    if (typeof window.notify === 'function') window.notify(msg, ok);
+    else console.log((ok ? '[OK] ' : '[ERR] ') + msg);
+  }
+
+  // Declare winner (uses country names, not "home/away")
+  async function declareFanZoneWinner(payload) {
+    return fetchJSON('/admin/fanzone/declare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload || {})
+    });
+  }
+
 
   async function getFixtures() {
     const d = await fetchJSON('/api/fixtures');
@@ -3931,7 +3948,13 @@ async function fetchGoalsData(){
       ` : '';
 
       return `
-        <div class="fan-card ${votedClass}" data-fid="${f.id}">
+        <div class="fan-card ${votedClass}"
+             data-fid="${f.id}"
+             data-home="${f.home}"
+             data-away="${f.away}"
+             data-utc="${f.utc || ''}"
+             data-stage="${f.stage || f.group || ''}">
+
           <div class="fan-head">
             <div class="fan-team">
               ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
@@ -3966,19 +3989,28 @@ async function fetchGoalsData(){
             </button>
           </div>
 
-            <div class="fan-foot">
-              <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
-              ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+          <div class="fan-foot">
+            <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
+            ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
 
-              <div class="fan-win-wrap" data-admin="true">
-                <button class="btn xs fan-win" data-side="home" title="Declare ${f.home} winner">
-                  ${f.home} Win
-                </button>
-                <button class="btn xs fan-win" data-side="away" title="Declare ${f.away} winner">
-                  ${f.away} Win
-                </button>
-              </div>
-            </div>
+            <span class="fan-win-wrap" data-admin="true">
+              <button class="btn xs fan-win"
+                      type="button"
+                      data-team="${f.home}"
+                      data-iso="${f.home_iso || ''}"
+                      title="Declare ${f.home} winner">
+                ${f.home} Win
+              </button>
+
+              <button class="btn xs fan-win"
+                      type="button"
+                      data-team="${f.away}"
+                      data-iso="${f.away_iso || ''}"
+                      title="Declare ${f.away} winner">
+                ${f.away} Win
+              </button>
+            </span>
+          </div>
         </div>
       `;
     }
@@ -4094,36 +4126,55 @@ async function fetchGoalsData(){
         }
     }
 
-    // Wire vote + admin winner buttons (event delegation survives outerHTML refreshes)
+    // Wire vote + declare-winner buttons (event delegation survives outerHTML swaps)
     host.addEventListener('click', async (ev) => {
 
-      // --- Admin: declare winner ---
+      // Declare winner (admin only)
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
-        const card = winBtn.closest('.fan-card');
-        const fid  = card?.dataset?.fid;
-        const side = winBtn.dataset.side; // "home" or "away"
-        if (!fid || !side) return;
-
         if (!isAdminUI()) {
-          notify('Admin required', false);
+          toast('Admin required', false);
           return;
         }
 
-        await declareFanZoneWinner(fid, side);
+        const card = winBtn.closest('.fan-card');
+        const fid = card?.dataset?.fid;
+        const winnerTeam = winBtn.dataset.team;
+        const winnerIso = winBtn.dataset.iso || '';
+
+        if (!fid || !winnerTeam) return;
+
+        const payload = {
+          fixture_id: fid,
+          winner_team: winnerTeam,
+          winner_iso: winnerIso,
+          home: card.dataset.home || '',
+          away: card.dataset.away || '',
+          utc: card.dataset.utc || '',
+          stage: card.dataset.stage || ''
+        };
+
+        try {
+          const res = await declareFanZoneWinner(payload);
+          if (!(res && res.ok)) throw new Error('declare_failed');
+          toast('Winner declared', true);
+        } catch {
+          toast('Failed to declare winner', false);
+        } finally {
+          await refreshVisibleCards();
+        }
         return;
       }
 
-      // --- Public: vote ---
-      const voteBtn = ev.target.closest('.fan-vote');
-      if (!voteBtn) return;
+      // Voting (public)
+      const btn = ev.target.closest('.fan-vote');
+      if (!btn) return;
 
-      const card   = voteBtn.closest('.fan-card');
-      const fid    = card?.dataset?.fid;
-      const choice = voteBtn?.dataset?.choice;
+      const card = btn.closest('.fan-card');
+      const fid = card?.dataset?.fid;
+      const choice = btn?.dataset?.choice;
       if (!fid || !choice) return;
 
-      // disable both while posting
       card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
 
       try {

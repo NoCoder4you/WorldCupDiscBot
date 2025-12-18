@@ -2839,15 +2839,16 @@ body.user-admin-view #ownership .ownership-card {
 }
 
 .fan-win-wrap{
-  margin-left:auto;
-  display:flex;
-  gap:8px;
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.btn.xs.fan-win{
-  padding:6px 10px;
-  font-size:12px;
-  line-height:1;
+.btn.xs{
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .pill { min-width: 84px; }
