@@ -4072,6 +4072,7 @@ async function fetchGoalsData(){
           card.outerHTML = cardHTML(f, stats);
         }
     }
+
     // Wire vote + admin winner buttons (event delegation survives outerHTML refreshes)
     host.addEventListener('click', async (ev) => {
 
@@ -4114,6 +4115,11 @@ async function fetchGoalsData(){
         if (stats?.ok) applyStatsToCard(card, stats);
       }
     }, { once: false });
+
+      // Public loader (call when entering the page)
+      window.loadFanZone = async function loadFanZone() {
+        await renderFanZone();
+      };
 
   // Auto-refresh while the Fan Zone section is visible
   let fanTimer = null;
