@@ -4115,6 +4115,7 @@ async function fetchGoalsData(){
         if (stats?.ok) applyStatsToCard(card, stats);
       }
     }, { once: false });
+  }
 
       // Public loader (call when entering the page)
       window.loadFanZone = async function loadFanZone() {
