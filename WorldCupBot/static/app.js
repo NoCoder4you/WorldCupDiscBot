@@ -3871,36 +3871,21 @@ async function fetchGoalsData(){
 
 // ---------------- Fan Zone (fixtures + voting) ----------------
 (() => {
-  const $ = sel => document.querySelector(sel);
-  const $$ = sel => Array.from(document.querySelectorAll(sel));
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const $ = (sel) => document.querySelector(sel);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  const notify = window.notify || ((msg) => console.log('[notify]', msg));
   const fetchJSON = window.fetchJSON || (async (url, opts) => {
     const r = await fetch(url, { cache: 'no-store', ...opts });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
     return r.json();
   });
 
-  function isAdminUI() {
-    return document.body.classList.contains('admin');
-  }
-
-  // Small notifier fallback
-  function toast(msg, ok=true) {
-    if (typeof window.notify === 'function') window.notify(msg, ok);
-    else console.log((ok ? '[OK] ' : '[ERR] ') + msg);
-  }
-
-  // Declare winner (uses country names, not "home/away")
-  async function declareFanZoneWinner(payload) {
-    return fetchJSON('/admin/fanzone/declare', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(payload || {})
-    });
-  }
-
+  // If you already have isAdminUI() elsewhere, we use it.
+  // Fallback: treat body.admin as admin.
+  const isAdminUI = (typeof window.isAdminUI === 'function')
+    ? window.isAdminUI
+    : (() => document.body.classList.contains('admin'));
 
   async function getFixtures() {
     const d = await fetchJSON('/api/fixtures');
@@ -3929,172 +3914,151 @@ async function fetchGoalsData(){
     return Math.max(0, Math.min(100, Number.isFinite(n) ? n : 0)).toFixed(0);
   }
 
-    function cardHTML(f, stats) {
-      const hp = pct(stats?.home_pct || 0);
-      const ap = pct(stats?.away_pct || 0);
-      const total = stats?.total || 0;
-      const last = stats?.last_choice;
+  function cardHTML(f, stats) {
+    const hp = pct(stats?.home_pct || 0);
+    const ap = pct(stats?.away_pct || 0);
+    const total = stats?.total || 0;
+    const last = stats?.last_choice;
 
-      const votedHome = last === 'home';
-      const votedAway = last === 'away';
-      const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
+    const votedHome = last === 'home';
+    const votedAway = last === 'away';
+    const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
 
-      // show admin winner buttons only when admin is unlocked + Admin View enabled
-      const adminControls = (typeof isAdminUI === 'function' && isAdminUI()) ? `
-        <div class="fan-win-wrap">
-          <button class="btn xs fan-win" data-side="home" type="button">Winner: ${f.home}</button>
-          <button class="btn xs fan-win" data-side="away" type="button">Winner: ${f.away}</button>
-        </div>
-      ` : '';
+    // Buttons go INSIDE fan-foot (your request).
+    // Uses country names, not "Home/Away".
+    const adminControls = (isAdminUI()) ? `
+      <span class="fan-win-wrap">
+        <button class="btn xs fan-win" data-side="home" type="button">Winner: ${f.home}</button>
+        <button class="btn xs fan-win" data-side="away" type="button">Winner: ${f.away}</button>
+      </span>
+    ` : '';
 
-      return `
-        <div class="fan-card ${votedClass}"
-             data-fid="${f.id}"
-             data-home="${f.home}"
-             data-away="${f.away}"
-             data-utc="${f.utc || ''}"
-             data-stage="${f.stage || f.group || ''}">
-
-          <div class="fan-head">
-            <div class="fan-team">
-              ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
-            </div>
-            <div class="fan-vs">vs</div>
-            <div class="fan-team">
-              ${flagImg(f.away_iso)} <span class="fan-team-name">${f.away}</span>
-            </div>
+    return `
+      <div class="fan-card ${votedClass}" data-fid="${f.id}">
+        <div class="fan-head">
+          <div class="fan-team">
+            ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
           </div>
-
-          <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
-
-          <div class="fan-bars">
-            <div class="fan-bar-row">
-              <div class="fan-bar fan-bar-home" style="width:${hp}%">
-                <span>${hp}%</span>
-              </div>
-            </div>
-            <div class="fan-bar-row">
-              <div class="fan-bar fan-bar-away" style="width:${ap}%">
-                <span>${ap}%</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="fan-actions">
-            <button class="btn fan-vote home ${votedHome ? 'active' : ''}" data-choice="home" ${last ? 'disabled' : ''}>
-              Vote ${f.home}
-            </button>
-            <button class="btn fan-vote away ${votedAway ? 'active' : ''}" data-choice="away" ${last ? 'disabled' : ''}>
-              Vote ${f.away}
-            </button>
-          </div>
-
-          <div class="fan-foot">
-            <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
-            ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
-
-            <span class="fan-win-wrap" data-admin="true">
-              <button class="btn xs fan-win"
-                      type="button"
-                      data-team="${f.home}"
-                      data-iso="${f.home_iso || ''}"
-                      title="Declare ${f.home} winner">
-                ${f.home} Win
-              </button>
-
-              <button class="btn xs fan-win"
-                      type="button"
-                      data-team="${f.away}"
-                      data-iso="${f.away_iso || ''}"
-                      title="Declare ${f.away} winner">
-                ${f.away} Win
-              </button>
-            </span>
+          <div class="fan-vs">vs</div>
+          <div class="fan-team">
+            ${flagImg(f.away_iso)} <span class="fan-team-name">${f.away}</span>
           </div>
         </div>
-      `;
+
+        <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
+
+        <div class="fan-bars">
+          <div class="fan-bar-row">
+            <div class="fan-bar fan-bar-home" style="width:${hp}%">
+              <span>${hp}%</span>
+            </div>
+          </div>
+          <div class="fan-bar-row">
+            <div class="fan-bar fan-bar-away" style="width:${ap}%">
+              <span>${ap}%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="fan-actions">
+          <button class="btn fan-vote home ${votedHome ? 'active' : ''}" data-choice="home" ${last ? 'disabled' : ''}>
+            Vote ${f.home}
+          </button>
+          <button class="btn fan-vote away ${votedAway ? 'active' : ''}" data-choice="away" ${last ? 'disabled' : ''}>
+            Vote ${f.away}
+          </button>
+        </div>
+
+        <div class="fan-foot">
+          <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
+          ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+          ${adminControls}
+        </div>
+      </div>
+    `;
+  }
+
+  function applyStatsToCard(card, stats) {
+    if (!card || !stats) return;
+    const homeBar = card.querySelector('.fan-bar-home');
+    const awayBar = card.querySelector('.fan-bar-away');
+    const totalEl = card.querySelector('.fan-total');
+
+    const hp = pct(stats.home_pct || 0);
+    const ap = pct(stats.away_pct || 0);
+
+    requestAnimationFrame(() => {
+      if (homeBar) {
+        homeBar.style.width = hp + '%';
+        const s = homeBar.querySelector('span');
+        if (s) s.textContent = hp + '%';
+      }
+      if (awayBar) {
+        awayBar.style.width = ap + '%';
+        const s = awayBar.querySelector('span');
+        if (s) s.textContent = ap + '%';
+      }
+    });
+
+    if (totalEl) totalEl.textContent = String(stats.total || 0);
+
+    card.classList.toggle('voted-home', stats.last_choice === 'home');
+    card.classList.toggle('voted-away', stats.last_choice === 'away');
+
+    const btnHome = card.querySelector('.btn.fan-vote.home');
+    const btnAway = card.querySelector('.btn.fan-vote.away');
+    const voted = stats.last_choice;
+
+    if (btnHome && btnAway) {
+      btnHome.disabled = !!voted;
+      btnAway.disabled = !!voted;
+      btnHome.classList.toggle('active', voted === 'home');
+      btnAway.classList.toggle('active', voted === 'away');
     }
 
-    function applyStatsToCard(card, stats) {
-      if (!card || !stats) return;
-      const homeBar = card.querySelector('.fan-bar-home');
-      const awayBar = card.querySelector('.fan-bar-away');
-      const totalEl = card.querySelector('.fan-total');
+    const pill = card.querySelector('.pill.pill-ok');
+    if (pill) pill.textContent = voted ? `You voted: ${voted}` : '';
+  }
 
-      const hp = pct(stats.home_pct || 0);
-      const ap = pct(stats.away_pct || 0);
+  async function refreshVisibleCards() {
+    const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
+    if (!cards.length) return;
 
-      // smooth width changes without rebuilding DOM
-      requestAnimationFrame(() => {
-        if (homeBar) {
-          homeBar.style.width = hp + '%';
-          const s = homeBar.querySelector('span'); if (s) s.textContent = hp + '%';
-        }
-        if (awayBar) {
-          awayBar.style.width = ap + '%';
-          const s = awayBar.querySelector('span'); if (s) s.textContent = ap + '%';
-        }
+    for (const card of cards) {
+      const fid = card.dataset.fid;
+      try {
+        const stats = await getStats(fid);
+        if (stats?.ok) applyStatsToCard(card, stats);
+      } catch { /* ignore */ }
+    }
+  }
+
+  async function declareFanZoneWinner(matchId, side) {
+    try {
+      const res = await fetch('/admin/fanzone/declare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ match_id: matchId, winner: side })
       });
 
-      if (totalEl) totalEl.textContent = String(stats.total || 0);
-
-      // voted highlight classes
-      card.classList.toggle('voted-home', stats.last_choice === 'home');
-      card.classList.toggle('voted-away', stats.last_choice === 'away');
-
-      // button states
-      const btnHome = card.querySelector('.btn.fan-vote.home');
-      const btnAway = card.querySelector('.btn.fan-vote.away');
-      const voted = stats.last_choice;
-      if (btnHome && btnAway) {
-        btnHome.disabled = !!voted;
-        btnAway.disabled = !!voted;
-        btnHome.classList.toggle('active', voted === 'home');
-        btnAway.classList.toggle('active', voted === 'away');
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(t || 'request_failed');
       }
 
-      // pill text
-      const pill = card.querySelector('.pill.pill-ok');
-      if (pill) pill.textContent = voted ? `You voted: ${voted}` : '';
+      notify('Winner declared', true);
+      await window.loadFanZone?.();
+    } catch (e) {
+      console.error(e);
+      notify('Failed to declare winner', false);
     }
-
-    async function refreshVisibleCards() {
-      const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
-      if (!cards.length) return;
-
-      // fetch stats for each without replacing the whole card
-      for (const card of cards) {
-        const fid = card.dataset.fid;
-        try {
-          const stats = await getStats(fid);
-          if (stats?.ok) applyStatsToCard(card, stats);
-        } catch { /* ignore */ }
-      }
-    }
-
-    async function declareFanZoneWinner(matchId, side) {
-      try {
-        const res = await fetch('/admin/fanzone/declare', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            match_id: matchId,
-            winner: side
-          })
-        });
-
-        if (!res.ok) throw new Error('request failed');
-        notify('Winner declared', true);
-        loadFanZone(); // re-render cards
-      } catch (e) {
-        notify('Failed to declare winner', false);
-      }
-    }
+  }
 
   async function renderFanZone() {
     const host = $('#fanzone-list');
     if (!host) return;
+
     host.innerHTML = `<div class="muted" style="padding:12px">Loading fixtures…</div>`;
 
     let fixtures = [];
@@ -4110,69 +4074,44 @@ async function fetchGoalsData(){
       return;
     }
 
-    // Render skeletons first for nice animation
     host.innerHTML = fixtures.map(f => `
       <div class="fan-card" data-fid="${f.id}">
         <div class="muted" style="padding:12px">Loading…</div>
       </div>
     `).join('');
 
-    // Fill each with live stats
     for (const f of fixtures) {
       const stats = await getStats(f.id).catch(() => null);
       const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(f.id)}"]`);
-        if (card) {
-          card.outerHTML = cardHTML(f, stats);
-        }
+      if (card) card.outerHTML = cardHTML(f, stats);
     }
 
-    // Wire vote + declare-winner buttons (event delegation survives outerHTML swaps)
+    // One click handler for both vote + declare winner
     host.addEventListener('click', async (ev) => {
-
-      // Declare winner (admin only)
+      // Admin winner buttons
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
+        const card = winBtn.closest('.fan-card');
+        const fid = card?.dataset?.fid;
+        const side = winBtn.dataset.side; // "home" or "away"
+        if (!fid || !side) return;
+
         if (!isAdminUI()) {
-          toast('Admin required', false);
+          notify('Admin required', false);
           return;
         }
 
-        const card = winBtn.closest('.fan-card');
-        const fid = card?.dataset?.fid;
-        const winnerTeam = winBtn.dataset.team;
-        const winnerIso = winBtn.dataset.iso || '';
-
-        if (!fid || !winnerTeam) return;
-
-        const payload = {
-          fixture_id: fid,
-          winner_team: winnerTeam,
-          winner_iso: winnerIso,
-          home: card.dataset.home || '',
-          away: card.dataset.away || '',
-          utc: card.dataset.utc || '',
-          stage: card.dataset.stage || ''
-        };
-
-        try {
-          const res = await declareFanZoneWinner(payload);
-          if (!(res && res.ok)) throw new Error('declare_failed');
-          toast('Winner declared', true);
-        } catch {
-          toast('Failed to declare winner', false);
-        } finally {
-          await refreshVisibleCards();
-        }
+        await declareFanZoneWinner(fid, side);
         return;
       }
 
-      // Voting (public)
-      const btn = ev.target.closest('.fan-vote');
-      if (!btn) return;
+      // Public vote buttons
+      const voteBtn = ev.target.closest('.fan-vote');
+      if (!voteBtn) return;
 
-      const card = btn.closest('.fan-card');
+      const card = voteBtn.closest('.fan-card');
       const fid = card?.dataset?.fid;
-      const choice = btn?.dataset?.choice;
+      const choice = voteBtn?.dataset?.choice;
       if (!fid || !choice) return;
 
       card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
@@ -4189,10 +4128,10 @@ async function fetchGoalsData(){
     }, { once: false });
   }
 
-      // Public loader (call when entering the page)
-      window.loadFanZone = async function loadFanZone() {
-        await renderFanZone();
-      };
+  // Public loader (call when entering the page)
+  window.loadFanZone = async function loadFanZone() {
+    await renderFanZone();
+  };
 
   // Auto-refresh while the Fan Zone section is visible
   let fanTimer = null;
@@ -4205,25 +4144,23 @@ async function fetchGoalsData(){
     }, 20000);
   }
 
-  // Hook your existing nav toggle: when Fan Zone is selected, load + start refresher
+  // When Fan Zone is selected, load + start refresher
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page="fanzone"]');
     if (!a) return;
-    // small delay lets your page switcher add .active-section
     setTimeout(() => { window.loadFanZone(); ensureFanRefresh(); }, 50);
   });
 
   // Manual refresh button
   document.addEventListener('click', (e) => {
-    if (e.target.id === 'fanzone-refresh') {
-      window.loadFanZone();
-    }
+    if (e.target.id === 'fanzone-refresh') window.loadFanZone();
   });
 
   // If landing directly on Fan Zone
   window.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('#fanzone.page-section.active-section')) {
-      window.loadFanZone(); ensureFanRefresh();
+      window.loadFanZone();
+      ensureFanRefresh();
     }
   });
 })();
