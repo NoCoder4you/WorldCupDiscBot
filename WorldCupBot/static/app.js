@@ -39,9 +39,8 @@ function setAdminView(on){
   applyAdminView();
 }
 
-function isAdminUI() {
-  return !!(window.state && window.state.admin) || document.body.classList.contains('admin');
-}
+// admin UI = (admin session unlocked) AND (admin view enabled)
+function isAdminUI(){ return !!(state.admin && getAdminView()); }
 
 function applyAdminView(){
   const enabled = isAdminUI();
