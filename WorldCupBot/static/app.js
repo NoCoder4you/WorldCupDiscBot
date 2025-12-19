@@ -4099,8 +4099,6 @@ async function fetchGoalsData(){
           console.error(e);
           notify('Failed to declare winner', false);
         }
-        return;
-      }
 
       // --- Public vote ---
       const voteBtn = ev.target.closest('.fan-vote');
