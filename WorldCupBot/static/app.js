@@ -4035,24 +4035,21 @@ async function fetchGoalsData(){
     }
   }
 
-    async function declareFanZoneWinner(fixture) {
+    async function declareFanZoneWinner(matchId, side) {
       const res = await fetch('/admin/fanzone/declare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          fixture_id: String(fixture.id),
-          winner_team: String(fixture.winner_team),
-          winner_iso: String(fixture.winner_iso || ''),
-          home: String(fixture.home),
-          away: String(fixture.away),
-          utc: String(fixture.utc || ''),
-          stage: String(fixture.stage || '')
+          match_id: String(matchId),
+          winner: String(side) // "home" or "away" (or "" to clear)
         })
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) throw new Error(data.error || 'declare_failed');
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || `declare_failed_${res.status}`);
+      }
       return data;
     }
 
