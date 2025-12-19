@@ -4042,10 +4042,9 @@ async function fetchGoalsData(){
         credentials: 'include',
         body: JSON.stringify({
           match_id: String(matchId),
-          winner: String(side) // "home" or "away" (or "" to clear)
+          winner: String(side) // MUST be "home" or "away"
         })
       });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
         throw new Error(data?.error || `declare_failed_${res.status}`);
@@ -4088,45 +4087,18 @@ async function fetchGoalsData(){
     host.addEventListener('click', async (ev) => {
 
       // --- Admin declare winner ---
-      const winBtn = ev.target.closest('.fan-win');
-      if (winBtn) {
-        if (!isAdminUI()) {
-          notify('Admin required', false);
-          return;
-        }
-
-        const card = winBtn.closest('.fan-card');
-        if (!card) return;
-
-        const fid = card.dataset.fid;
-        if (!fid) return;
-
-        const winnerTeam = winBtn.dataset.team;
-        if (!winnerTeam) return;
-
-        // pull names from the vote buttons (they already contain "Vote X")
-        const home = card.querySelector('.fan-vote.home')?.textContent.replace(/^Vote\s+/,'') || '';
-        const away = card.querySelector('.fan-vote.away')?.textContent.replace(/^Vote\s+/,'') || '';
-        const utc  = card.querySelector('.fan-time')?.textContent || '';
+        const side = winBtn.dataset.side; // "home" or "away"
+        if (!side || !['home','away'].includes(side)) return;
 
         try {
-          await declareFanZoneWinner({
-            id: fid,
-            winner_team: winnerTeam,
-            winner_iso: winBtn.dataset.iso || '',
-            home,
-            away,
-            utc,
-            stage: ''
-          });
+          const r = await declareFanZoneWinner(fid, side);
 
-          notify(`Winner declared: ${winnerTeam}`, true);
+          notify(`Winner declared: ${r.winner_team}`, true);
           await refreshVisibleCards();
         } catch (e) {
           console.error(e);
           notify('Failed to declare winner', false);
         }
-
         return;
       }
 
