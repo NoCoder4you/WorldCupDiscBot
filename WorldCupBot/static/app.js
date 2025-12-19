@@ -4083,22 +4083,31 @@ async function fetchGoalsData(){
       if (card) card.outerHTML = cardHTML(f, stats);
     }
 
-    // One click handler for both vote + declare winner
-    host.addEventListener('click', async (ev) => {
+    // --- Admin declare winner ---
+    const winBtn = ev.target.closest('.fan-win');
+    if (winBtn) {
+      if (!isAdminUI()) {
+        notify('Admin required', false);
+        return;
+      }
 
-      // --- Admin declare winner ---
-        const side = winBtn.dataset.side; // "home" or "away"
-        if (!side || !['home','away'].includes(side)) return;
+      const card = winBtn.closest('.fan-card');
+      const fid = card?.dataset?.fid;
+      if (!fid) return;
 
-        try {
-          const r = await declareFanZoneWinner(fid, side);
+      const side = String(winBtn.dataset.side || '').toLowerCase(); // "home" or "away"
+      if (!['home', 'away'].includes(side)) return;
 
-          notify(`Winner declared: ${r.winner_team}`, true);
-          await refreshVisibleCards();
-        } catch (e) {
-          console.error(e);
-          notify('Failed to declare winner', false);
-        }
+      try {
+        const r = await declareFanZoneWinner(fid, side);
+        notify(`Winner declared: ${r.winner_team}`, true);
+        await refreshVisibleCards();
+      } catch (e) {
+        console.error(e);
+        notify('Failed to declare winner', false);
+      }
+      return;
+    }
 
       // --- Public vote ---
       const voteBtn = ev.target.closest('.fan-vote');
