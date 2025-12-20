@@ -121,6 +121,9 @@ function stagePill(stage){
     setTimeout(()=>div.remove(), 2200);
   }
 
+  window.notify = notify;
+
+
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
     const to = setTimeout(()=>ctrl.abort(), timeoutMs);
@@ -3874,7 +3877,9 @@ async function fetchGoalsData(){
   const $ = (sel) => document.querySelector(sel);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const notify = window.notify || ((msg) => console.log('[notify]', msg));
+  const notify = (typeof window.notify === 'function')
+    ? window.notify
+    : ((msg) => console.log('[notify]', msg));
   const fetchJSON = window.fetchJSON || (async (url, opts) => {
     const r = await fetch(url, { cache: 'no-store', credentials: 'include', ...opts });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
