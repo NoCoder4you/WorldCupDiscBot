@@ -114,24 +114,29 @@ function stagePill(stage){
             : 'pill';
   return `<span class="${cls}">${s}</span>`;
 }
-function notify(msg, ok=true){
-  // Toast bar (top)
-  if ($notify) {
-    const div = document.createElement('div');
-    div.className = `notice ${ok ? 'ok' : 'err'}`;
-    div.textContent = msg;
-    $notify.appendChild(div);
-    setTimeout(()=>div.remove(), 2200);
-  }
+function toast(msg, ok=true){
+  if (!$notify) return;
+  const div = document.createElement('div');
+  div.className = `notice ${ok ? 'ok' : 'err'}`;
+  div.textContent = msg;
+  $notify.appendChild(div);
+  setTimeout(()=>div.remove(), 2200);
+}
 
-  // Bell panel (local notification)
-  try {
-    pushLocalNotif(ok ? 'Success' : 'Error', String(msg || ''), ok);
-  } catch {}
+function notify(msg, ok=true){
+  // Prefer the bell panel when it exists, otherwise fall back to toast bar.
+  const hasBell = !!document.getElementById('notify-fab');
+  if (hasBell) {
+    try { pushLocalNotif(ok ? 'Success' : 'Error', String(msg || ''), ok); }
+    catch { /* ignore */ }
+    return;
+  }
+  toast(msg, ok);
 }
 
 // allow other modules (user.js etc) to call notify(...)
 window.notify = notify;
+window.toast = toast;
 
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
@@ -440,7 +445,7 @@ async function loadNotifications(){
         const p = a.dataset.page;
         const sec = qs(`#${p}`);
         if(sec && sec.classList.contains('admin-only') && !state.admin){
-          notify('Admin required', false);
+          toast('Admin required', false);
           return;
         }
         setPage(p);
@@ -1325,7 +1330,7 @@ document.addEventListener('click', async (ev) => {
   }
 
   if (!state.admin) {
-    notify('Admin required', false);
+    toast('Admin required', false);
     return;
   }
 
@@ -1337,7 +1342,7 @@ document.addEventListener('click', async (ev) => {
 document.addEventListener('change', async (e) => {
   const sel = e.target.closest && e.target.closest('.stage-select');
   if (!sel) return;
-  if (!isAdminUI()) return notify('Admin required', false);
+  if (!isAdminUI()) return toast('Admin required', false);
 
   const team  = sel.getAttribute('data-team') || '';
   const stage = sel.value || 'Group';
@@ -1438,7 +1443,7 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
     if (res.status === 401) {
       state.admin = false;
       document.body.classList.remove('admin');
-      notify('Admin required', false);
+      toast('Admin required', false);
       return; // do not keep the modal open pretending it worked
     }
 
@@ -1797,7 +1802,7 @@ state.splitsBuilt = false;
 
 // entry point called by router
 async function loadSplits(){
-  if (!state.admin) { notify('Admin required', false); return; }
+  if (!state.admin) { toast('Admin required', false); return; }
   try {
     if (!state.splitsBuilt) buildSplitsShell();
 
@@ -4142,7 +4147,7 @@ async function fetchGoalsData(){
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
         if (!isAdminUI()) {
-          notify('Admin required', false);
+          toast('Admin required', false);
           return;
         }
 
@@ -4159,11 +4164,11 @@ async function fetchGoalsData(){
         try {
           await declareFanZoneWinner(fid, side);
 
-          notify(`Winner declared: ${winnerTeam}`, true);
+          toast(`Winner declared: ${winnerTeam}`, true);
           await refreshVisibleCards();
         } catch (e) {
           console.error(e);
-          notify('Failed to declare winner', false);
+          toast('Failed to declare winner', false);
         }
 
         return;
