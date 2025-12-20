@@ -3977,10 +3977,10 @@ async function fetchGoalsData(){
 
     const adminControls = (isAdminUI()) ? `
       <span class="fan-win-wrap" data-admin="true">
-        <button class="btn xs fan-win" type="button" data-team="${f.home}" data-iso="${f.home_iso || ''}">
+        <button class="btn xs fan-win" type="button" data-side="home" data-team="${f.home}" data-iso="${f.home_iso || ''}">
           Declare ${f.home}
         </button>
-        <button class="btn xs fan-win" type="button" data-team="${f.away}" data-iso="${f.away_iso || ''}">
+        <button class="btn xs fan-win" type="button" data-side="away" data-team="${f.away}" data-iso="${f.away_iso || ''}">
           Declare ${f.away}
         </button>
       </span>
@@ -4153,23 +4153,11 @@ async function fetchGoalsData(){
         if (!fid) return;
 
         const winnerTeam = winBtn.dataset.team;
-        if (!winnerTeam) return;
-
-        // pull names from the vote buttons (they already contain "Vote X")
-        const home = card.querySelector('.fan-vote.home')?.textContent.replace(/^Vote\s+/,'') || '';
-        const away = card.querySelector('.fan-vote.away')?.textContent.replace(/^Vote\s+/,'') || '';
-        const utc  = card.querySelector('.fan-time')?.textContent || '';
+        const side = (winBtn.dataset.side || '').toLowerCase();
+        if (!winnerTeam || (side !== 'home' && side !== 'away')) return;
 
         try {
-          await declareFanZoneWinner({
-            id: fid,
-            winner_team: winnerTeam,
-            winner_iso: winBtn.dataset.iso || '',
-            home,
-            away,
-            utc,
-            stage: ''
-          });
+          await declareFanZoneWinner(fid, side);
 
           notify(`Winner declared: ${winnerTeam}`, true);
           await refreshVisibleCards();
