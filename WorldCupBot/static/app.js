@@ -113,63 +113,13 @@ function stagePill(stage){
   return `<span class="${cls}">${s}</span>`;
 }
 
-
-  // ===== Notifications =====
-  // - Toasts (top-right bar) for immediate feedback
-  // - Bell panel (bottom-left) for a readable history
-  const LOCAL_NOTIFS_KEY = 'wc:localNotifs';
-
-  function getLocalNotifs(){
-    try{
-      const raw = localStorage.getItem(LOCAL_NOTIFS_KEY);
-      const arr = JSON.parse(raw || '[]');
-      return Array.isArray(arr) ? arr : [];
-    }catch{
-      return [];
-    }
-  }
-
-  function saveLocalNotifs(items){
-    try{ localStorage.setItem(LOCAL_NOTIFS_KEY, JSON.stringify(items)); }catch{}
-  }
-
-  function addLocalNotif(msg, ok=true){
-    const items = getLocalNotifs();
-    const now = Date.now();
-    items.unshift({
-      id: `local:${now}:${Math.random().toString(16).slice(2)}`,
-      type: ok ? 'info' : 'error',
-      severity: ok ? 'ok' : 'err',
-      title: ok ? 'Update' : 'Error',
-      body: String(msg || ''),
-      ts: now
-    });
-    // keep it small
-    const trimmed = items.slice(0, 30);
-    saveLocalNotifs(trimmed);
-
-    // update bell dot immediately (no need to open the panel)
-    const fab = document.getElementById('notify-fab');
-    if (fab) fab.classList.add('has-new');
-  }
-
   function notify(msg, ok=true){
-    // 1) Add to bell history
-    addLocalNotif(msg, ok);
-
-    // 2) Show a quick toast (if the bar exists)
-    if ($notify){
-      const div = document.createElement('div');
-      div.className = `notice ${ok?'ok':'err'}`;
-      div.textContent = msg;
-      $notify.appendChild(div);
-      setTimeout(()=>div.remove(), 2200);
-    }
+    const div = document.createElement('div');
+    div.className = `notice ${ok?'ok':'err'}`;
+    div.textContent = msg;
+    $notify.appendChild(div);
+    setTimeout(()=>div.remove(), 2200);
   }
-
-  // Make notify globally available for any other scripts/modules
-  window.notify = notify;
-
 
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
@@ -272,32 +222,16 @@ function setPage(p) {
     function isDismissed(id){ return localStorage.getItem(notifDismissKey(id)) === '1'; }
     function dismissNotif(id){ localStorage.setItem(notifDismissKey(id), '1'); }
 
-    
     async function loadNotifications(){
-      // Server-side notifications (if implemented) + local client-side ones.
-      let serverItems = [];
       try{
         const res = await fetch('/api/me/notifications', { cache:'no-store', credentials:'include' });
-        if(res.ok){
-          const data = await res.json();
-          serverItems = Array.isArray(data?.items) ? data.items : [];
-        }
+        if(!res.ok) return [];
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        return items.filter(it => it && it.id && !isDismissed(it.id));
       }catch{
-        serverItems = [];
+        return [];
       }
-
-      const localItems = getLocalNotifs();
-
-      const merged = []
-        .concat(serverItems || [])
-        .concat(localItems || [])
-        .filter(it => it && it.id && !isDismissed(it.id));
-
-      // If everything is dismissed, clear the bell glow
-      const fab = document.getElementById('notify-fab');
-      if (fab) fab.classList.toggle('has-new', merged.length > 0);
-
-      return merged;
     }
 
     function renderNotifications(items){
@@ -4152,7 +4086,6 @@ async function fetchGoalsData(){
 
     // One click handler for both vote + declare winner
     host.addEventListener('click', async (ev) => {
-
       // --- Admin declare winner ---
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
@@ -4162,29 +4095,17 @@ async function fetchGoalsData(){
         }
 
         const card = winBtn.closest('.fan-card');
-        if (!card) return;
-
-        const fid = card.dataset.fid;
-        if (!fid) return;
-
-        const winnerTeam = winBtn.dataset.team;
-        if (!winnerTeam) return;
-
-        // pull names from the vote buttons (they already contain "Vote X")
-        const home = card.querySelector('.fan-vote.home')?.textContent.replace(/^Vote\s+/,'') || '';
-        const away = card.querySelector('.fan-vote.away')?.textContent.replace(/^Vote\s+/,'') || '';
-        const utc  = card.querySelector('.fan-time')?.textContent || '';
+        const fid = card?.dataset?.fid;
+        const side = String(winBtn.dataset.side || '').toLowerCase(); // home | away
+        if (!fid || !['home', 'away'].includes(side)) return;
 
         try {
-          await declareFanZoneWinner({
-            id: fid,
-            winner_team: winnerTeam,
-            winner_iso: winBtn.dataset.iso || '',
-            home,
-            away,
-            utc,
-            stage: ''
-          });
+          const r = await declareFanZoneWinner(fid, side);
+
+          const fx = r?.fixture || {};
+          const winnerTeam = (fx.winner === 'home') ? (fx.home || 'Home')
+                           : (fx.winner === 'away') ? (fx.away || 'Away')
+                           : 'Cleared';
 
           notify(`Winner declared: ${winnerTeam}`, true);
           await refreshVisibleCards();
@@ -4197,6 +4118,7 @@ async function fetchGoalsData(){
       }
 
       // --- Public vote ---
+
       const voteBtn = ev.target.closest('.fan-vote');
       if (!voteBtn) return;
 
