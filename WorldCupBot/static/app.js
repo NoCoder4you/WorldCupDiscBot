@@ -10,6 +10,7 @@
     admin:false,
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
     pollingId: null,
+    notifPollingId: null,
     logsKind: 'bot',
     logsInit: false,
   };
@@ -41,8 +42,6 @@ function setAdminView(on){
 
 // admin UI = (admin session unlocked) AND (admin view enabled)
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
-window.isAdminUI = isAdminUI;
-
 
 function applyAdminView(){
   const enabled = isAdminUI();
@@ -114,29 +113,14 @@ function stagePill(stage){
             : 'pill';
   return `<span class="${cls}">${s}</span>`;
 }
-function toast(msg, ok=true){
-  if (!$notify) return;
-  const div = document.createElement('div');
-  div.className = `notice ${ok ? 'ok' : 'err'}`;
-  div.textContent = msg;
-  $notify.appendChild(div);
-  setTimeout(()=>div.remove(), 2200);
-}
 
-function notify(msg, ok=true){
-  // Prefer the bell panel when it exists, otherwise fall back to toast bar.
-  const hasBell = !!document.getElementById('notify-fab');
-  if (hasBell) {
-    try { pushLocalNotif(ok ? 'Success' : 'Error', String(msg || ''), ok); }
-    catch { /* ignore */ }
-    return;
+  function notify(msg, ok=true){
+    const div = document.createElement('div');
+    div.className = `notice ${ok?'ok':'err'}`;
+    div.textContent = msg;
+    $notify.appendChild(div);
+    setTimeout(()=>div.remove(), 2200);
   }
-  toast(msg, ok);
-}
-
-// allow other modules (user.js etc) to call notify(...)
-window.notify = notify;
-window.toast = toast;
 
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
@@ -153,8 +137,6 @@ window.toast = toast;
         try{ const j = await res.json(); msg = j.error || j.message || JSON.stringify(j); }catch{}
         throw new Error(msg);
       }
-
-  window.fetchJSON = fetchJSON;
       const ct = res.headers.get('content-type')||'';
       return ct.includes('application/json') ? await res.json() : {};
     }catch(e){
@@ -237,58 +219,30 @@ function setPage(p) {
       }[c]));
     }
 
-    
-// Local (client-side) notifications that feed the bell UI
-const _localNotifs = [];
-let _localNotifLast = { key: '', ts: 0 };
-
-function pushLocalNotif(title, body, ok=true){
-  const t = String(title || 'Notification');
-  const b = String(body || '');
-  const key = `${t}::${b}::${ok ? '1' : '0'}`;
-  const now = Date.now();
-
-  // simple de-dupe (same message spam)
-  if (_localNotifLast.key === key && (now - _localNotifLast.ts) < 800) return;
-  _localNotifLast = { key, ts: now };
-
-  const id = `local:${now}:${Math.random().toString(16).slice(2)}`;
-  _localNotifs.unshift({
-    id,
-    type: 'local',
-    severity: ok ? 'info' : 'error',
-    title: t,
-    body: b,
-    action: null,
-    ts: now
-  });
-  if (_localNotifs.length > 25) _localNotifs.length = 25;
-
-  const fab = document.getElementById('notify-fab');
-  if (fab) fab.classList.add('has-new');
-}
-
-function notifDismissKey(id){ return `wc:notif:dismiss:${id}`; }
+    function notifDismissKey(id){ return `wc:notif:dismiss:${id}`; }
     function isDismissed(id){ return localStorage.getItem(notifDismissKey(id)) === '1'; }
     function dismissNotif(id){ localStorage.setItem(notifDismissKey(id), '1'); }
 
-    
-async function loadNotifications(){
-  try{
-    const res = await fetch('/api/me/notifications', { cache:'no-store', credentials:'include' });
-    const server = res.ok ? await res.json().catch(()=>({})) : {};
-    const items = Array.isArray(server?.items) ? server.items : [];
+    async function loadNotifications(){
+      try{
+        const res = await fetch('/api/me/notifications', { cache:'no-store', credentials:'include' });
+        if(!res.ok) return [];
+        const data = await res.json();
+        const items = Array.isArray(data?.items) ? data.items : [];
+        return items.filter(it => it && it.id && !isDismissed(it.id));
+      }catch{
+        return [];
+      }
+    }
 
-    const local = _localNotifs.filter(it => it && it.id && !isDismissed(it.id));
-    const remote = items.filter(it => it && it.id && !isDismissed(it.id));
-
-    return [...local, ...remote];
-  }catch{
-    const local = _localNotifs.filter(it => it && it.id && !isDismissed(it.id));
-    return local;
-  }
-}
-
+    // Keep the bell glow in sync without requiring the user to click it.
+    // This is intentionally cheap: just fetch + toggle the glow.
+    async function refreshNotifBadge(){
+      const fab = document.getElementById('notify-fab');
+      if (!fab) return;
+      const items = await loadNotifications();
+      fab.classList.toggle('has-new', items.length > 0);
+    }
 
     function renderNotifications(items){
       const fab = document.getElementById('notify-fab');
@@ -445,7 +399,7 @@ async function loadNotifications(){
         const p = a.dataset.page;
         const sec = qs(`#${p}`);
         if(sec && sec.classList.contains('admin-only') && !state.admin){
-          toast('Admin required', false);
+          notify('Admin required', false);
           return;
         }
         setPage(p);
@@ -481,6 +435,12 @@ async function loadNotifications(){
           const j = await r.json();
           setAdminUI(!!j.unlocked);
           setUserUI(j.user || null);
+
+	          // notifications bell
+	          wireNotifyUIOnce();
+	          await refreshNotifBadge();
+	          clearInterval(state.notifPollingId);
+	          state.notifPollingId = setInterval(refreshNotifBadge, 20000);
           return;
         }
       }catch(_){}
@@ -490,6 +450,12 @@ async function loadNotifications(){
           const j = await m.json();
           setAdminUI(false);
           setUserUI(j.user || null);
+
+          // notifications bell
+          wireNotifyUIOnce();
+          await refreshNotifBadge();
+          clearInterval(state.notifPollingId);
+          state.notifPollingId = setInterval(refreshNotifBadge, 20000);
           return;
         }
       }catch(_){}
@@ -1330,7 +1296,7 @@ document.addEventListener('click', async (ev) => {
   }
 
   if (!state.admin) {
-    toast('Admin required', false);
+    notify('Admin required', false);
     return;
   }
 
@@ -1342,7 +1308,7 @@ document.addEventListener('click', async (ev) => {
 document.addEventListener('change', async (e) => {
   const sel = e.target.closest && e.target.closest('.stage-select');
   if (!sel) return;
-  if (!isAdminUI()) return toast('Admin required', false);
+  if (!isAdminUI()) return notify('Admin required', false);
 
   const team  = sel.getAttribute('data-team') || '';
   const stage = sel.value || 'Group';
@@ -1443,7 +1409,7 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
     if (res.status === 401) {
       state.admin = false;
       document.body.classList.remove('admin');
-      toast('Admin required', false);
+      notify('Admin required', false);
       return; // do not keep the modal open pretending it worked
     }
 
@@ -1802,7 +1768,7 @@ state.splitsBuilt = false;
 
 // entry point called by router
 async function loadSplits(){
-  if (!state.admin) { toast('Admin required', false); return; }
+  if (!state.admin) { notify('Admin required', false); return; }
   try {
     if (!state.splitsBuilt) buildSplitsShell();
 
@@ -4147,7 +4113,7 @@ async function fetchGoalsData(){
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
         if (!isAdminUI()) {
-          toast('Admin required', false);
+          notify('Admin required', false);
           return;
         }
 
@@ -4157,18 +4123,20 @@ async function fetchGoalsData(){
         const fid = card.dataset.fid;
         if (!fid) return;
 
-        const winnerTeam = winBtn.dataset.team;
-        const side = (winBtn.dataset.side || '').toLowerCase();
-        if (!winnerTeam || (side !== 'home' && side !== 'away')) return;
+        const side = String(winBtn.dataset.side || '').toLowerCase(); // home | away
+        if (side !== 'home' && side !== 'away') return;
 
         try {
-          await declareFanZoneWinner(fid, side);
+          const resp = await declareFanZoneWinner(fid, side);
+          const winnerName = resp?.fixture?.winner_team || (side === 'home' ? 'Home' : 'Away');
+          notify(`Winner declared: ${winnerName}`, true);
 
-          toast(`Winner declared: ${winnerTeam}`, true);
+          // update bell without requiring a click
+          refreshNotifBadge().catch(()=>{});
           await refreshVisibleCards();
         } catch (e) {
           console.error(e);
-          toast('Failed to declare winner', false);
+          notify('Failed to declare winner', false);
         }
 
         return;

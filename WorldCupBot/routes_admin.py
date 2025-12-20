@@ -179,35 +179,6 @@ def _is_admin(ctx):
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
 
-    def _fanzone_fixture_id_from_fixture(f: dict) -> str:
-        home = str(f.get("home") or "").strip()
-        away = str(f.get("away") or "").strip()
-        utc  = str(f.get("utc") or "").strip()
-        return f"{home}-{away}-{utc}" if (home and away and utc) else ""
-
-    def _find_fixture_any(match_id: str):
-        # matches.json is a LIST in your project
-        fixtures = _read_json(_path(ctx, "matches.json"), [])
-        if not isinstance(fixtures, list):
-            fixtures = []
-
-        mid = str(match_id or "").strip()
-        if not mid:
-            return None
-
-        for f in fixtures:
-            if not isinstance(f, dict):
-                continue
-
-            fid1 = str(f.get("id") or "").strip()
-            fid2 = _fanzone_fixture_id_from_fixture(f)
-
-            if mid == fid1 or mid == fid2:
-                return f
-
-        return None
-
-
     # ---------- Auth endpoints (Discord-session based) ----------
     @bp.get("/auth/status")
     def auth_status():
@@ -777,6 +748,34 @@ def create_admin_routes(ctx):
 
 
     # ---------- Fan Zone: declare winner + notify owners ----------
+
+    def _fanzone_fixture_id_from_fixture(f: dict) -> str:
+        home = str(f.get("home") or "").strip()
+        away = str(f.get("away") or "").strip()
+        utc  = str(f.get("utc") or "").strip()
+        return f"{home}-{away}-{utc}" if (home and away and utc) else ""
+
+    def _find_fixture_any(match_id: str):
+        fixtures = _read_json(_path(ctx, "matches.json"), [])
+        if not isinstance(fixtures, list):
+            fixtures = []
+
+        mid = str(match_id or "").strip()
+        if not mid:
+            return None
+
+        for f in fixtures:
+            if not isinstance(f, dict):
+                continue
+
+            fid1 = str(f.get("id") or "").strip()
+            fid2 = _fanzone_fixture_id_from_fixture(f)
+
+            if mid == fid1 or mid == fid2:
+                return f
+
+        return None
+
     def _runtime_dir():
         rd = os.path.join(_base_dir(ctx), "runtime")
         os.makedirs(rd, exist_ok=True)
@@ -838,88 +837,131 @@ def create_admin_routes(ctx):
             return resp
 
         body = request.get_json(silent=True) or {}
-        match_id = str(body.get("match_id") or body.get("fixture_id") or "").strip()
-        winner = str(body.get("winner") or "").lower().strip()  # home | away | '' (clear)
-        winner_team_in = str(body.get("winner_team") or "").strip()
+        match_id = str(body.get("match_id") or "").strip()
+        winner = str(body.get("winner") or "").lower().strip()  # home | away | ''
 
-        if not match_id:
-            return jsonify({"ok": False, "error": "missing_match_id"}), 400
-        if winner not in ("home", "away", ""):
-            return jsonify({"ok": False, "error": "invalid_winner"}), 400
+        if not match_id or winner not in ("home", "away", ""):
+            return jsonify({"ok": False, "error": "invalid_request"}), 400
 
-        fx = _find_fixture_any(match_id)
-        if not fx:
+        matches_path = _path(ctx, "matches.json")
+        raw = _read_json(matches_path, {"fixtures": []})
+        fixtures = raw.get("fixtures") if isinstance(raw, dict) else raw
+        if not isinstance(fixtures, list):
+            fixtures = []
+
+        found = None
+        for f in fixtures:
+            if isinstance(f, dict) and str(f.get("id") or f.get("fixture_id") or "") == match_id:
+                found = f
+                break
+
+        if not found:
             return jsonify({"ok": False, "error": "fixture_not_found"}), 404
 
-        home = str(fx.get("home") or "").strip()
-        away = str(fx.get("away") or "").strip()
-        utc  = str(fx.get("utc") or "").strip()
-        if not (home and away):
-            return jsonify({"ok": False, "error": "fixture_invalid"}), 400
+        found["winner"] = winner or None
 
-        winners_path = _fanzone_winners_path()
-        winners_blob = _read_json(winners_path, {})
-        if not isinstance(winners_blob, dict):
-            winners_blob = {}
+        # Persist back in same top-level shape
+        if isinstance(raw, dict):
+            raw["fixtures"] = fixtures
+            _write_json_atomic(matches_path, raw)
+        else:
+            _write_json_atomic(matches_path, fixtures)
 
-        # Clear winner support
-        if winner == "":
-            winners_blob.pop(match_id, None)
-            _write_json_atomic(winners_path, winners_blob)
-            return jsonify({"ok": True, "cleared": True})
+        # Build a richer payload (used by the bot + web notifications)
+        home = found.get("home") or found.get("home_team") or found.get("team1") or ""
+        away = found.get("away") or found.get("away_team") or found.get("team2") or ""
+        home_iso = found.get("home_iso") or found.get("home_code") or found.get("team1_iso") or ""
+        away_iso = found.get("away_iso") or found.get("away_code") or found.get("team2_iso") or ""
 
-        # If winner side missing but winner_team provided, infer side
-        if winner not in ("home", "away") and winner_team_in:
-            if winner_team_in == home:
-                winner = "home"
-            elif winner_team_in == away:
-                winner = "away"
+        winner_team = home if winner == "home" else (away if winner == "away" else "")
+        loser_team = away if winner == "home" else (home if winner == "away" else "")
+        winner_iso = home_iso if winner == "home" else (away_iso if winner == "away" else "")
+        loser_iso = away_iso if winner == "home" else (home_iso if winner == "away" else "")
 
-        if winner not in ("home", "away"):
-            return jsonify({"ok": False, "error": "cannot_infer_winner"}), 400
+        # Resolve team owners from players.json (main owners + split owners)
+        def _owners_for_team(team_name: str, iso: str = ""):
+            tname = str(team_name or "").strip().lower()
+            tiso = str(iso or "").strip().lower()
+            if not tname and not tiso:
+                return []
 
-        winner_team = home if winner == "home" else away
-        loser_team = away if winner == "home" else home
+            players = _read_json(_path(ctx, "players.json"), {})
+            if not isinstance(players, dict):
+                return []
 
-        iso_map = _team_iso_map()
-        winner_iso = iso_map.get(winner_team.lower(), "")
-        loser_iso  = iso_map.get(loser_team.lower(), "")
+            out = set()
+            for pid, prec in players.items():
+                if not isinstance(prec, dict):
+                    continue
+                teams = prec.get("teams") or []
+                if not isinstance(teams, list):
+                    continue
+                for t in teams:
+                    if not isinstance(t, dict):
+                        continue
+                    nm = str(t.get("name") or t.get("team") or "").strip().lower()
+                    iso2 = str(t.get("iso") or t.get("code") or "").strip().lower()
+                    if (tname and nm == tname) or (tiso and iso2 == tiso):
+                        out.add(str(pid))
+                        split_with = t.get("split_with") or []
+                        if isinstance(split_with, list):
+                            for sid in split_with:
+                                sid = str(sid).strip()
+                                if sid:
+                                    out.add(sid)
+            return sorted(out)
 
-        win_owner_ids = _owners_for_team(winner_team)
-        lose_owner_ids = _owners_for_team(loser_team)
+        winner_owner_ids = _owners_for_team(winner_team, winner_iso)
+        loser_owner_ids = _owners_for_team(loser_team, loser_iso)
 
-        record = {
+        payload = {
             "match_id": match_id,
+            "winner": found.get("winner"),
             "home": home,
             "away": away,
-            "utc": utc,
-            "winner": winner,
             "winner_team": winner_team,
             "loser_team": loser_team,
             "winner_iso": winner_iso,
             "loser_iso": loser_iso,
-            "declared_at": _now_iso(),
+            "winner_owner_ids": winner_owner_ids,
+            "loser_owner_ids": loser_owner_ids,
         }
+        _enqueue_command(ctx, "fanzone_winner", payload)
 
-        winners_blob[match_id] = record
-        _write_json_atomic(winners_path, winners_blob)
+        now_ts = int(time.time())
+        fz_path = _path(ctx, "fan_zone_results.json")
+        fz = _read_json(fz_path, {})
+        if not isinstance(fz, dict):
+            fz = {}
+        events = fz.get("events")
+        if not isinstance(events, list):
+            events = []
 
-        cfg = _load_config(ctx)
-        channel_name = str(cfg.get("FANZONE_CHANNEL_NAME") or cfg.get("FANZONE_CHANNEL") or "fanzone")
+        def _upsert_event(discord_id: str, result: str, your_team: str, other_team: str):
+            eid = f"fz:{match_id}:{discord_id}:{result}"
+            title = "✅ Your team won" if result == "win" else "❌ Your team lost"
+            body = f"{your_team} {'beat' if result == 'win' else 'lost to'} {other_team}"
+            # prevent duplicates
+            for ev in events:
+                if isinstance(ev, dict) and str(ev.get("id") or "") == eid:
+                    return
+            events.append({
+                "id": eid,
+                "discord_id": str(discord_id),
+                "result": result,
+                "title": title,
+                "body": body,
+                "ts": now_ts,
+            })
 
-        _enqueue_command(ctx, "fanzone_winner", {
-            "match_id": match_id,
-            "home": home,
-            "away": away,
-            "winner_team": winner_team,
-            "loser_team": loser_team,
-            "winner_owner_ids": win_owner_ids,
-            "loser_owner_ids": lose_owner_ids,
-            "winner_iso": winner_iso,
-            "loser_iso": loser_iso,
-            "channel": channel_name
-        })
+        for uid in winner_owner_ids:
+            _upsert_event(uid, "win", winner_team, loser_team)
+        for uid in loser_owner_ids:
+            _upsert_event(uid, "lose", loser_team, winner_team)
 
-        return jsonify({"ok": True, "fixture": record})
+        fz["events"] = events
+        _write_json_atomic(fz_path, fz)
+
+        return jsonify({"ok": True, "fixture": payload})
 
     return bp
