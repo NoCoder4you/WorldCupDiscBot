@@ -1087,14 +1087,24 @@ def create_public_routes(ctx):
             "masquerading_as": None if effective_uid == real_uid else effective_uid
         })
 
+    def _terms_accept_path(base_dir):
+        return os.path.join(base_dir, "JSON", "terms_accept.json")
+
     @api.get("/me/notifications")
     def me_notifications():
         base = ctx.get("BASE_DIR", "")
         user = session.get(_session_key())
         if not user or not user.get("discord_id"):
-            return jsonify({"connected": False, "items": []})
+            resp = make_response(jsonify({"ok": True, "connected": False, "items": []}))
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
-        uid = str(user["discord_id"])
+        # Respect masquerade (admins viewing as another user)
+        uid = _effective_uid() or str(user.get("discord_id") or "")
+        uid = str(uid).strip()
+
         items = []
         now = int(time.time())
 
@@ -1102,39 +1112,35 @@ def create_public_routes(ctx):
         # Terms updated
         # ----------------------------
         cfg = _load_config(base)
-        version = str(cfg.get("TERMS_VERSION") or "2026.1")
-        tos_url = cfg.get("TERMS_URL") or "/terms"
-
-        accepted_map = _json_load(_tos_path(base), {})
-        accepted = False
-        if isinstance(accepted_map, dict):
-            rec = accepted_map.get(uid) or {}
-            accepted = (str(rec.get("version") or "") == version)
-
-        if not accepted:
-            items.append({
-                "id": f"terms:{version}",
-                "type": "terms",
-                "severity": "warn",
-                "title": f"Terms updated (v{version})",
-                "body": "You must review and accept the updated Terms and Conditions.",
-                "action": {"kind": "url", "url": tos_url},
-                "ts": now
-            })
+        latest = str(cfg.get("TERMS_VERSION") or "").strip()
+        if latest:
+            accepted = _json_load(_terms_accept_path(base), {})
+            rec = accepted.get(uid) if isinstance(accepted, dict) else None
+            accepted_ver = str(rec.get("version") or "") if isinstance(rec, dict) else ""
+            if accepted_ver != latest:
+                items.append({
+                    "id": f"terms:{latest}",
+                    "type": "terms",
+                    "severity": "warn",
+                    "title": "Terms updated",
+                    "body": "You need to re-accept the latest Terms & Conditions.",
+                    "action": {"kind": "page", "page": "terms"},
+                    "ts": now
+                })
 
         # ----------------------------
-        # Split requests
-        # Supports either:
-        #   {"<uid>":[{...},{...}]}  OR  {"requests":[{to_uid:"..", ...}]}
+        # Split requests requiring action
         # ----------------------------
-        sr = _json_load(_split_requests_path(base), {})
-        if isinstance(sr, dict):
-            for rid, r in sr.items():
+        splits = _json_load(_split_requests_path(base), {"pending": [], "resolved": []})
+        pending = splits.get("pending") if isinstance(splits, dict) else []
+        if isinstance(pending, list):
+            for r in pending:
                 if not isinstance(r, dict):
                     continue
 
                 # only notify the main owner
-                main_owner = str(r.get("main_owner_id") or "").strip()
+                owner = (r.get("ownership") or {})
+                main_owner = str(owner.get("main_owner") or "").strip()
                 if main_owner != uid:
                     continue
 
@@ -1150,65 +1156,19 @@ def create_public_routes(ctx):
                 requester_id = str(r.get("requester_id") or "").strip()
 
                 items.append({
-                    "id": f"split:{rid}",
+                    "id": f"split:{r.get('id') or requester_id or team}",
                     "type": "split",
                     "severity": "info",
                     "title": "Split request",
-                    "body": f"Split requested for {team}.",
-                    "ts": int(time.time())
+                    "body": f"Split request pending for {team}.",
+                    "action": {"kind": "page", "page": "splits"},
+                    "ts": int(r.get("created_at") or now)
                 })
-
-        # ----------------------------
-        # Bets (based on your bets.json fields)
-        # ----------------------------
-        bets = _json_load(_bets_path(base), [])
-        if isinstance(bets, list):
-            for b in bets:
-                if not isinstance(b, dict):
-                    continue
-
-                bet_id = str(b.get("bet_id") or "").strip()
-                if not bet_id:
-                    continue
-
-                o1 = str(b.get("option1_user_id") or "").strip()
-                o2 = str(b.get("option2_user_id") or "").strip()
-                winner = str(b.get("winner_user_id") or "").strip()
-                settled = bool(b.get("settled"))
-
-                if not settled or not winner:
-                    continue
-
-                involved = (uid == o1) or (uid == o2)
-                if not involved:
-                    continue
-
-                title = b.get("bet_title") or "Bet"
-                wager = b.get("wager") or "-"
-
-                if uid == winner:
-                    items.append({
-                        "id": f"bet:{bet_id}:win",
-                        "type": "bet",
-                        "severity": "ok",
-                        "title": "Bet won",
-                        "body": f"You won: {title} - wager: {wager}.",
-                        "ts": int(time.time())
-                    })
-                else:
-                    items.append({
-                        "id": f"bet:{bet_id}:lose",
-                        "type": "bet",
-                        "severity": "warn",
-                        "title": "Bet lost",
-                        "body": f"You lost: {title} - wager: {wager}.",
-                        "ts": int(time.time())
-                    })
 
         # ----------------------------
         # Fan Zone win/lose (optional)
         # JSON/ fan_zone_results.json:
-        # { "events":[ { "id":"...", "discord_id":"..", "result":"win|lose", "title":"..", "body":"..", "ts":123 } ] }
+        # { "events":[ { "id":".", "discord_id":".", "result":"win|lose", "title":".", "body":".", "ts":123 } ] }
         # ----------------------------
         fz = _json_load(_fan_zone_results_path(base), {})
         events = []
@@ -1237,7 +1197,12 @@ def create_public_routes(ctx):
             })
 
         items.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
-        return jsonify({"connected": True, "items": items})
+
+        resp = make_response(jsonify({"ok": True, "connected": True, "items": items}))
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
 
     @api.get("/me/is_admin")
     def api_me_is_admin():

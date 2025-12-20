@@ -10,7 +10,6 @@
     admin:false,
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
     pollingId: null,
-    notifPollingId: null,
     logsKind: 'bot',
     logsInit: false,
   };
@@ -42,7 +41,6 @@ function setAdminView(on){
 
 // admin UI = (admin session unlocked) AND (admin view enabled)
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
-window.isAdminUI = isAdminUI;
 
 function applyAdminView(){
   const enabled = isAdminUI();
@@ -123,9 +121,7 @@ function stagePill(stage){
     setTimeout(()=>div.remove(), 2200);
   }
 
-  // expose for other modules (Fan Zone etc)
   window.notify = notify;
-
 
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
@@ -149,10 +145,6 @@ function stagePill(stage){
       throw e;
     }finally{ clearTimeout(to); }
   }
-
-  // expose shared helpers
-  window.fetchJSON = fetchJSON;
-
 
     async function getJSON(url, opts = {}) {
       const res = await fetch(url, { cache: 'no-store', ...opts });
@@ -242,15 +234,6 @@ function setPage(p) {
       }catch{
         return [];
       }
-    }
-
-    // Keep the bell glow in sync without requiring the user to click it.
-    // This is intentionally cheap: just fetch + toggle the glow.
-    async function refreshNotifBadge(){
-      const fab = document.getElementById('notify-fab');
-      if (!fab) return;
-      const items = await loadNotifications();
-      fab.classList.toggle('has-new', items.length > 0);
     }
 
     function renderNotifications(items){
@@ -360,16 +343,47 @@ function setPage(p) {
       });
     }
 
-    // expose bell helpers for other modules
-    window.wireNotifyUIOnce = wireNotifyUIOnce;
-    window.refreshNotifBadge = refreshNotifBadge;
-    window.renderNotifications = renderNotifications;
-    window.loadNotifications = loadNotifications;
+    // Notifications polling - drives dot + bell animation
+    let _notifPollTimer = null;
+    let _lastNotifSig = '';
+
+    async function startNotifPolling(){
+      if (_notifPollTimer) return;
+      const tick = async () => {
+        try {
+          const items = await loadNotifications();
+          const fab = document.getElementById('notify-fab');
+          if (!fab) return;
+
+          const sig = (items || []).map(it => String(it.id || '')).join('|');
+          const hasNew = (items || []).length > 0;
+          fab.classList.toggle('has-new', hasNew);
+
+          if (sig && sig != _lastNotifSig) {
+            // ring only when something changed
+            fab.classList.add('ring');
+            setTimeout(() => fab.classList.remove('ring'), 1400);
+          }
+          _lastNotifSig = sig;
+
+          const panel = document.getElementById('notify-panel');
+          if (panel && panel.classList.contains('open')) {
+            renderNotifications(items || []);
+          }
+        } catch (e) {
+          // ignore
+        }
+      };
+
+      await tick();
+      _notifPollTimer = setInterval(tick, 15000);
+    }
 
 
     // Real test command that uses the same rendering path
     window.wcTestNotify = async function(){
       wireNotifyUIOnce();
+      startNotifPolling();
       const fake = [{
         id: `test:${Date.now()}`,
         type: 'test',
@@ -451,12 +465,6 @@ function setPage(p) {
           const j = await r.json();
           setAdminUI(!!j.unlocked);
           setUserUI(j.user || null);
-
-	          // notifications bell
-	          wireNotifyUIOnce();
-	          await refreshNotifBadge();
-	          clearInterval(state.notifPollingId);
-	          state.notifPollingId = setInterval(refreshNotifBadge, 20000);
           return;
         }
       }catch(_){}
@@ -466,12 +474,6 @@ function setPage(p) {
           const j = await m.json();
           setAdminUI(false);
           setUserUI(j.user || null);
-
-          // notifications bell
-          wireNotifyUIOnce();
-          await refreshNotifBadge();
-          clearInterval(state.notifPollingId);
-          state.notifPollingId = setInterval(refreshNotifBadge, 20000);
           return;
         }
       }catch(_){}
@@ -2534,6 +2536,7 @@ async function getCogStatus(name){
       wireAuthButtons();
       wireNav();
       wireNotifyUIOnce();
+      startNotifPolling();
       wireBotButtons();
       setPage(state.currentPage);
       await routePage();
@@ -3912,9 +3915,7 @@ async function fetchGoalsData(){
   const $ = (sel) => document.querySelector(sel);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const notify = (typeof window.notify === 'function')
-    ? window.notify
-    : ((msg, ok=true) => console.log('[notify]', ok ? 'OK' : 'ERR', msg));
+  const notify = window.notify || ((msg) => console.log('[notify]', msg));
   const fetchJSON = window.fetchJSON || (async (url, opts) => {
     const r = await fetch(url, { cache: 'no-store', ...opts });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
@@ -4125,6 +4126,8 @@ async function fetchGoalsData(){
     }
 
     // One click handler for both vote + declare winner
+    if (host.dataset.fanWired === '1') return;
+    host.dataset.fanWired = '1';
     host.addEventListener('click', async (ev) => {
 
       // --- Admin declare winner ---
@@ -4141,16 +4144,18 @@ async function fetchGoalsData(){
         const fid = card.dataset.fid;
         if (!fid) return;
 
-        const side = String(winBtn.dataset.side || '').toLowerCase(); // home | away
+        const side = String(winBtn.dataset.side || '').toLowerCase();
         if (side !== 'home' && side !== 'away') return;
 
-        try {
-          const resp = await declareFanZoneWinner(fid, side);
-          const winnerName = resp?.fixture?.winner_team || (side === 'home' ? 'Home' : 'Away');
-          notify(`Winner declared: ${winnerName}`, true);
+        const winnerTeam = String(winBtn.dataset.team || '').trim();
 
-          // update bell without requiring a click
-          window.refreshNotifBadge?.().catch(()=>{});
+        try {
+          const r = await declareFanZoneWinner(fid, side);
+          if (r && r.ok) {
+            notify(`Winner declared: ${winnerTeam || side}`, true);
+          } else {
+            notify('Failed to declare winner', false);
+          }
           await refreshVisibleCards();
         } catch (e) {
           console.error(e);
