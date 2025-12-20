@@ -244,6 +244,33 @@ function setPage(p) {
       fab.classList.toggle('has-new', items.length > 0);
     }
 
+    async function refreshBellBadge() {
+      try {
+        const res = await fetch('/api/me/notifications?unread=1', {
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const hasUnread = Array.isArray(data?.events) && data.events.length > 0;
+
+        const dot = document.querySelector('#notify-fab .notify-dot');
+        if (dot) {
+          dot.style.display = hasUnread ? 'block' : 'none';
+        }
+      } catch (e) {
+        // silent
+      }
+    }
+
+// poll every 15s
+setInterval(refreshBellBadge, 15000);
+
+// run once on load
+refreshBellBadge();
+
+
     function renderNotifications(items){
       const fab = document.getElementById('notify-fab');
       const panel = document.getElementById('notify-panel');
