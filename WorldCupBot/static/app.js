@@ -41,6 +41,8 @@ function setAdminView(on){
 
 // admin UI = (admin session unlocked) AND (admin view enabled)
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
+window.isAdminUI = isAdminUI;
+
 
 function applyAdminView(){
   const enabled = isAdminUI();
@@ -112,14 +114,24 @@ function stagePill(stage){
             : 'pill';
   return `<span class="${cls}">${s}</span>`;
 }
-
-  function notify(msg, ok=true){
+function notify(msg, ok=true){
+  // Toast bar (top)
+  if ($notify) {
     const div = document.createElement('div');
-    div.className = `notice ${ok?'ok':'err'}`;
+    div.className = `notice ${ok ? 'ok' : 'err'}`;
     div.textContent = msg;
     $notify.appendChild(div);
     setTimeout(()=>div.remove(), 2200);
   }
+
+  // Bell panel (local notification)
+  try {
+    pushLocalNotif(ok ? 'Success' : 'Error', String(msg || ''), ok);
+  } catch {}
+}
+
+// allow other modules (user.js etc) to call notify(...)
+window.notify = notify;
 
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
@@ -136,6 +148,8 @@ function stagePill(stage){
         try{ const j = await res.json(); msg = j.error || j.message || JSON.stringify(j); }catch{}
         throw new Error(msg);
       }
+
+  window.fetchJSON = fetchJSON;
       const ct = res.headers.get('content-type')||'';
       return ct.includes('application/json') ? await res.json() : {};
     }catch(e){
@@ -218,21 +232,58 @@ function setPage(p) {
       }[c]));
     }
 
-    function notifDismissKey(id){ return `wc:notif:dismiss:${id}`; }
+    
+// Local (client-side) notifications that feed the bell UI
+const _localNotifs = [];
+let _localNotifLast = { key: '', ts: 0 };
+
+function pushLocalNotif(title, body, ok=true){
+  const t = String(title || 'Notification');
+  const b = String(body || '');
+  const key = `${t}::${b}::${ok ? '1' : '0'}`;
+  const now = Date.now();
+
+  // simple de-dupe (same message spam)
+  if (_localNotifLast.key === key && (now - _localNotifLast.ts) < 800) return;
+  _localNotifLast = { key, ts: now };
+
+  const id = `local:${now}:${Math.random().toString(16).slice(2)}`;
+  _localNotifs.unshift({
+    id,
+    type: 'local',
+    severity: ok ? 'info' : 'error',
+    title: t,
+    body: b,
+    action: null,
+    ts: now
+  });
+  if (_localNotifs.length > 25) _localNotifs.length = 25;
+
+  const fab = document.getElementById('notify-fab');
+  if (fab) fab.classList.add('has-new');
+}
+
+function notifDismissKey(id){ return `wc:notif:dismiss:${id}`; }
     function isDismissed(id){ return localStorage.getItem(notifDismissKey(id)) === '1'; }
     function dismissNotif(id){ localStorage.setItem(notifDismissKey(id), '1'); }
 
-    async function loadNotifications(){
-      try{
-        const res = await fetch('/api/me/notifications', { cache:'no-store', credentials:'include' });
-        if(!res.ok) return [];
-        const data = await res.json();
-        const items = Array.isArray(data?.items) ? data.items : [];
-        return items.filter(it => it && it.id && !isDismissed(it.id));
-      }catch{
-        return [];
-      }
-    }
+    
+async function loadNotifications(){
+  try{
+    const res = await fetch('/api/me/notifications', { cache:'no-store', credentials:'include' });
+    const server = res.ok ? await res.json().catch(()=>({})) : {};
+    const items = Array.isArray(server?.items) ? server.items : [];
+
+    const local = _localNotifs.filter(it => it && it.id && !isDismissed(it.id));
+    const remote = items.filter(it => it && it.id && !isDismissed(it.id));
+
+    return [...local, ...remote];
+  }catch{
+    const local = _localNotifs.filter(it => it && it.id && !isDismissed(it.id));
+    return local;
+  }
+}
+
 
     function renderNotifications(items){
       const fab = document.getElementById('notify-fab');
@@ -4086,6 +4137,7 @@ async function fetchGoalsData(){
 
     // One click handler for both vote + declare winner
     host.addEventListener('click', async (ev) => {
+
       // --- Admin declare winner ---
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
@@ -4095,17 +4147,29 @@ async function fetchGoalsData(){
         }
 
         const card = winBtn.closest('.fan-card');
-        const fid = card?.dataset?.fid;
-        const side = String(winBtn.dataset.side || '').toLowerCase(); // home | away
-        if (!fid || !['home', 'away'].includes(side)) return;
+        if (!card) return;
+
+        const fid = card.dataset.fid;
+        if (!fid) return;
+
+        const winnerTeam = winBtn.dataset.team;
+        if (!winnerTeam) return;
+
+        // pull names from the vote buttons (they already contain "Vote X")
+        const home = card.querySelector('.fan-vote.home')?.textContent.replace(/^Vote\s+/,'') || '';
+        const away = card.querySelector('.fan-vote.away')?.textContent.replace(/^Vote\s+/,'') || '';
+        const utc  = card.querySelector('.fan-time')?.textContent || '';
 
         try {
-          const r = await declareFanZoneWinner(fid, side);
-
-          const fx = r?.fixture || {};
-          const winnerTeam = (fx.winner === 'home') ? (fx.home || 'Home')
-                           : (fx.winner === 'away') ? (fx.away || 'Away')
-                           : 'Cleared';
+          await declareFanZoneWinner({
+            id: fid,
+            winner_team: winnerTeam,
+            winner_iso: winBtn.dataset.iso || '',
+            home,
+            away,
+            utc,
+            stage: ''
+          });
 
           notify(`Winner declared: ${winnerTeam}`, true);
           await refreshVisibleCards();
@@ -4118,7 +4182,6 @@ async function fetchGoalsData(){
       }
 
       // --- Public vote ---
-
       const voteBtn = ev.target.closest('.fan-vote');
       if (!voteBtn) return;
 

@@ -110,6 +110,32 @@ def _enqueue_command(ctx, kind, payload=None):
     with open(_commands_path(ctx), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd, separators=(",", ":")) + "\n")
 
+def _fanzone_fixture_id_from_fixture(f: dict) -> str:
+    home = str(f.get("home") or "").strip()
+    away = str(f.get("away") or "").strip()
+    utc  = str(f.get("utc") or "").strip()
+    return f"{home}-{away}-{utc}" if (home and away and utc) else ""
+
+def _find_fixture_any(match_id: str):
+    # matches.json in your project is a LIST of fixtures
+    fixtures = _read_json(_path(ctx, "matches.json"), [])
+    if not isinstance(fixtures, list):
+        fixtures = []
+
+    mid = str(match_id or "").strip()
+    if not mid:
+        return None
+
+    for f in fixtures:
+        if not isinstance(f, dict):
+            continue
+        fid1 = str(f.get("id") or "").strip()
+        fid2 = _fanzone_fixture_id_from_fixture(f)
+        if mid == fid1 or mid == fid2:
+            return f
+    return None
+
+
 # ---- LOG HELPERS ----
 def _logs_dir(ctx):
     d = os.path.join(_base_dir(ctx), "logs")
@@ -809,18 +835,22 @@ def create_admin_routes(ctx):
             return resp
 
         body = request.get_json(silent=True) or {}
-        match_id = str(body.get("match_id") or "").strip()
-        winner = str(body.get("winner") or "").lower().strip()  # home | away | ''
+        match_id = str(body.get("match_id") or body.get("fixture_id") or "").strip()
+        winner = str(body.get("winner") or "").lower().strip()  # home | away | '' (clear)
+        winner_team_in = str(body.get("winner_team") or "").strip()
 
-        if not match_id or winner not in ("home", "away", ""):
-            return jsonify({"ok": False, "error": "invalid_request"}), 400
+        if not match_id:
+            return jsonify({"ok": False, "error": "missing_match_id"}), 400
+        if winner not in ("home", "away", ""):
+            return jsonify({"ok": False, "error": "invalid_winner"}), 400
 
-        fx = _find_fixture(match_id)
+        fx = _find_fixture_any(match_id)
         if not fx:
             return jsonify({"ok": False, "error": "fixture_not_found"}), 404
 
         home = str(fx.get("home") or "").strip()
         away = str(fx.get("away") or "").strip()
+        utc  = str(fx.get("utc") or "").strip()
         if not (home and away):
             return jsonify({"ok": False, "error": "fixture_invalid"}), 400
 
@@ -829,31 +859,48 @@ def create_admin_routes(ctx):
         if not isinstance(winners_blob, dict):
             winners_blob = {}
 
-        # Optional: allow clearing
+        # Clear winner support
         if winner == "":
             winners_blob.pop(match_id, None)
             _write_json_atomic(winners_path, winners_blob)
             return jsonify({"ok": True, "cleared": True})
+
+        # If winner side missing but winner_team provided, infer side
+        if winner not in ("home", "away") and winner_team_in:
+            if winner_team_in == home:
+                winner = "home"
+            elif winner_team_in == away:
+                winner = "away"
+
+        if winner not in ("home", "away"):
+            return jsonify({"ok": False, "error": "cannot_infer_winner"}), 400
 
         winner_team = home if winner == "home" else away
         loser_team = away if winner == "home" else home
 
         iso_map = _team_iso_map()
         winner_iso = iso_map.get(winner_team.lower(), "")
-        loser_iso = iso_map.get(loser_team.lower(), "")
+        loser_iso  = iso_map.get(loser_team.lower(), "")
 
         win_owner_ids = _owners_for_team(winner_team)
         lose_owner_ids = _owners_for_team(loser_team)
 
-        winners_blob[match_id] = {
+        record = {
+            "match_id": match_id,
+            "home": home,
+            "away": away,
+            "utc": utc,
             "winner": winner,
             "winner_team": winner_team,
             "loser_team": loser_team,
+            "winner_iso": winner_iso,
+            "loser_iso": loser_iso,
             "declared_at": _now_iso(),
         }
+
+        winners_blob[match_id] = record
         _write_json_atomic(winners_path, winners_blob)
 
-        # Enqueue bot notification (FanZoneAnnouncer consumes kind=fanzone_winner)
         cfg = _load_config(ctx)
         channel_name = str(cfg.get("FANZONE_CHANNEL_NAME") or cfg.get("FANZONE_CHANNEL") or "fanzone")
 
@@ -870,15 +917,6 @@ def create_admin_routes(ctx):
             "channel": channel_name
         })
 
-        return jsonify({
-            "ok": True,
-            "match_id": match_id,
-            "winner": winner,
-            "winner_team": winner_team,
-            "loser_team": loser_team,
-            "notified": True,
-            "winner_owner_ids": win_owner_ids,
-            "loser_owner_ids": lose_owner_ids,
-        })
+        return jsonify({"ok": True, "fixture": record})
 
     return bp
