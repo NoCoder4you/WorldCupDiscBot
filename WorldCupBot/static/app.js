@@ -42,6 +42,7 @@ function setAdminView(on){
 
 // admin UI = (admin session unlocked) AND (admin view enabled)
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
+window.isAdminUI = isAdminUI;
 
 function applyAdminView(){
   const enabled = isAdminUI();
@@ -122,6 +123,10 @@ function stagePill(stage){
     setTimeout(()=>div.remove(), 2200);
   }
 
+  // expose for other modules (Fan Zone etc)
+  window.notify = notify;
+
+
   async function fetchJSON(url, opts={}, {timeoutMs=10000, retries=1}={}){
     const ctrl = new AbortController();
     const to = setTimeout(()=>ctrl.abort(), timeoutMs);
@@ -144,6 +149,10 @@ function stagePill(stage){
       throw e;
     }finally{ clearTimeout(to); }
   }
+
+  // expose shared helpers
+  window.fetchJSON = fetchJSON;
+
 
     async function getJSON(url, opts = {}) {
       const res = await fetch(url, { cache: 'no-store', ...opts });
@@ -243,33 +252,6 @@ function setPage(p) {
       const items = await loadNotifications();
       fab.classList.toggle('has-new', items.length > 0);
     }
-
-    async function refreshBellBadge() {
-      try {
-        const res = await fetch('/api/me/notifications?unread=1', {
-          credentials: 'include',
-          cache: 'no-store'
-        });
-        if (!res.ok) return;
-
-        const data = await res.json();
-        const hasUnread = Array.isArray(data?.events) && data.events.length > 0;
-
-        const dot = document.querySelector('#notify-fab .notify-dot');
-        if (dot) {
-          dot.style.display = hasUnread ? 'block' : 'none';
-        }
-      } catch (e) {
-        // silent
-      }
-    }
-
-// poll every 15s
-setInterval(refreshBellBadge, 15000);
-
-// run once on load
-refreshBellBadge();
-
 
     function renderNotifications(items){
       const fab = document.getElementById('notify-fab');
@@ -377,6 +359,13 @@ refreshBellBadge();
         if (!inside) closePanel();
       });
     }
+
+    // expose bell helpers for other modules
+    window.wireNotifyUIOnce = wireNotifyUIOnce;
+    window.refreshNotifBadge = refreshNotifBadge;
+    window.renderNotifications = renderNotifications;
+    window.loadNotifications = loadNotifications;
+
 
     // Real test command that uses the same rendering path
     window.wcTestNotify = async function(){
@@ -3923,7 +3912,9 @@ async function fetchGoalsData(){
   const $ = (sel) => document.querySelector(sel);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  const notify = window.notify || ((msg) => console.log('[notify]', msg));
+  const notify = (typeof window.notify === 'function')
+    ? window.notify
+    : ((msg, ok=true) => console.log('[notify]', ok ? 'OK' : 'ERR', msg));
   const fetchJSON = window.fetchJSON || (async (url, opts) => {
     const r = await fetch(url, { cache: 'no-store', ...opts });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
@@ -4159,7 +4150,7 @@ async function fetchGoalsData(){
           notify(`Winner declared: ${winnerName}`, true);
 
           // update bell without requiring a click
-          refreshNotifBadge().catch(()=>{});
+          window.refreshNotifBadge?.().catch(()=>{});
           await refreshVisibleCards();
         } catch (e) {
           console.error(e);

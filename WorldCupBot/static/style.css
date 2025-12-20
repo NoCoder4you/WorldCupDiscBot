@@ -3223,3 +3223,21 @@ body .notify-fab{ right: 90px; }
 .notify-panel{ right: 18px; }
 body .notify-panel{ right: 90px; }
 
+#notify-fab.has-new .notify-dot {
+  display:block;
+}
+
+#notify-fab.bell-ring {
+  animation: bellRing 1.1s ease-in-out;
+}
+
+@keyframes bellRing {
+  0%   { transform: rotate(0deg) scale(1); }
+  10%  { transform: rotate(-12deg) scale(1.02); }
+  20%  { transform: rotate(12deg) scale(1.02); }
+  30%  { transform: rotate(-10deg) scale(1.02); }
+  40%  { transform: rotate(10deg) scale(1.02); }
+  50%  { transform: rotate(-6deg) scale(1.01); }
+  60%  { transform: rotate(6deg) scale(1.01); }
+  100% { transform: rotate(0deg) scale(1); }
+}
