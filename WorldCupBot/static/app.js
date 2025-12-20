@@ -3876,13 +3876,13 @@ async function fetchGoalsData(){
 
   const notify = window.notify || ((msg) => console.log('[notify]', msg));
   const fetchJSON = window.fetchJSON || (async (url, opts) => {
-    const r = await fetch(url, { cache: 'no-store', ...opts });
+    const r = await fetch(url, { cache: 'no-store', credentials: 'include', ...opts });
     if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
-    return r.json();
+    const ct = r.headers.get('content-type') || '';
+    return ct.includes('application/json') ? r.json() : {};
   });
 
-  // If you already have isAdminUI() elsewhere, we use it.
-  // Fallback: treat body.admin as admin.
+  // Prefer your existing isAdminUI() if present
   const isAdminUI = (typeof window.isAdminUI === 'function')
     ? window.isAdminUI
     : (() => document.body.classList.contains('admin'));
@@ -3905,6 +3905,23 @@ async function fetchGoalsData(){
     });
   }
 
+  async function declareFanZoneWinner(matchId, side) {
+    const res = await fetch('/admin/fanzone/declare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        match_id: String(matchId),
+        winner: String(side) // "home" or "away"
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data?.error || `declare_failed_${res.status}`);
+    }
+    return data;
+  }
+
   function flagImg(iso) {
     if (!iso) return '';
     return `<img class="fan-flag" alt="${iso}" src="https://flagcdn.com/w40/${iso}.png" loading="lazy">`;
@@ -3924,12 +3941,13 @@ async function fetchGoalsData(){
     const votedAway = last === 'away';
     const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
 
+    // IMPORTANT: buttons must expose data-side so the handler can read it
     const adminControls = (isAdminUI()) ? `
       <span class="fan-win-wrap" data-admin="true">
-        <button class="btn xs fan-win" type="button" data-team="${f.home}" data-iso="${f.home_iso || ''}">
+        <button class="btn xs fan-win" type="button" data-side="home">
           Declare ${f.home}
         </button>
-        <button class="btn xs fan-win" type="button" data-team="${f.away}" data-iso="${f.away_iso || ''}">
+        <button class="btn xs fan-win" type="button" data-side="away">
           Declare ${f.away}
         </button>
       </span>
@@ -3951,14 +3969,10 @@ async function fetchGoalsData(){
 
         <div class="fan-bars">
           <div class="fan-bar-row">
-            <div class="fan-bar fan-bar-home" style="width:${hp}%">
-              <span>${hp}%</span>
-            </div>
+            <div class="fan-bar fan-bar-home" style="width:${hp}%"><span>${hp}%</span></div>
           </div>
           <div class="fan-bar-row">
-            <div class="fan-bar fan-bar-away" style="width:${ap}%">
-              <span>${ap}%</span>
-            </div>
+            <div class="fan-bar fan-bar-away" style="width:${ap}%"><span>${ap}%</span></div>
           </div>
         </div>
 
@@ -4031,26 +4045,9 @@ async function fetchGoalsData(){
       try {
         const stats = await getStats(fid);
         if (stats?.ok) applyStatsToCard(card, stats);
-      } catch { /* ignore */ }
+      } catch {}
     }
   }
-
-    async function declareFanZoneWinner(matchId, side) {
-      const res = await fetch('/admin/fanzone/declare', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          match_id: String(matchId),
-          winner: String(side) // MUST be "home" or "away"
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        throw new Error(data?.error || `declare_failed_${res.status}`);
-      }
-      return data;
-    }
 
   async function renderFanZone() {
     const host = $('#fanzone-list');
@@ -4071,65 +4068,65 @@ async function fetchGoalsData(){
       return;
     }
 
-    host.innerHTML = fixtures.map(f => `
-      <div class="fan-card" data-fid="${f.id}">
-        <div class="muted" style="padding:12px">Loading…</div>
-      </div>
-    `).join('');
-
+    // Build cards (with per-card stats fetch)
+    const htmlParts = [];
     for (const f of fixtures) {
       const stats = await getStats(f.id).catch(() => null);
-      const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(f.id)}"]`);
-      if (card) card.outerHTML = cardHTML(f, stats);
+      htmlParts.push(cardHTML(f, stats));
     }
+    host.innerHTML = htmlParts.join('');
 
-    // --- Admin declare winner ---
-    const winBtn = ev.target.closest('.fan-win');
-    if (winBtn) {
-      if (!isAdminUI()) {
-        notify('Admin required', false);
-        return;
-      }
+    // Wire click delegation ONCE
+    if (!host.dataset.wired) {
+      host.dataset.wired = '1';
 
-      const card = winBtn.closest('.fan-card');
-      const fid = card?.dataset?.fid;
-      if (!fid) return;
+      host.addEventListener('click', async (ev) => {
+        // Admin winner buttons
+        const winBtn = ev.target.closest('.fan-win');
+        if (winBtn) {
+          if (!isAdminUI()) {
+            notify('Admin required', false);
+            return;
+          }
 
-      const side = String(winBtn.dataset.side || '').toLowerCase(); // "home" or "away"
-      if (!['home', 'away'].includes(side)) return;
+          const card = winBtn.closest('.fan-card');
+          const fid = card?.dataset?.fid;
+          const side = String(winBtn.dataset.side || '').toLowerCase(); // home | away
+          if (!fid || !['home', 'away'].includes(side)) return;
 
-      try {
-        const r = await declareFanZoneWinner(fid, side);
-        notify(`Winner declared: ${r.winner_team}`, true);
-        await refreshVisibleCards();
-      } catch (e) {
-        console.error(e);
-        notify('Failed to declare winner', false);
-      }
-      return;
+          try {
+            const r = await declareFanZoneWinner(fid, side);
+            notify(`Winner declared: ${r.winner_team || side}`, true);
+            await refreshVisibleCards();
+          } catch (e) {
+            console.error(e);
+            notify('Failed to declare winner', false);
+          }
+          return;
+        }
+
+        // Public voting buttons
+        const voteBtn = ev.target.closest('.fan-vote');
+        if (!voteBtn) return;
+
+        const card = voteBtn.closest('.fan-card');
+        const fid = card?.dataset?.fid;
+        const choice = voteBtn?.dataset?.choice; // home | away
+        if (!fid || !choice) return;
+
+        card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
+
+        try {
+          const res = await sendVote(fid, choice);
+          if (!(res && res.ok)) throw new Error('vote_failed');
+        } catch {
+          await sleep(250);
+        } finally {
+          const stats = await getStats(fid).catch(() => null);
+          if (stats?.ok) applyStatsToCard(card, stats);
+        }
+      });
     }
-
-      // --- Public vote ---
-      const voteBtn = ev.target.closest('.fan-vote');
-      if (!voteBtn) return;
-
-      const card = voteBtn.closest('.fan-card');
-      const fid = card?.dataset?.fid;
-      const choice = voteBtn?.dataset?.choice;
-      if (!fid || !choice) return;
-
-      card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
-
-      try {
-        const res = await sendVote(fid, choice);
-        if (!(res && res.ok)) throw new Error('vote_failed');
-      } catch {
-        await sleep(400);
-      } finally {
-        const stats = await getStats(fid).catch(() => null);
-        if (stats?.ok) applyStatsToCard(card, stats);
-      }
-    }, { once: false });
   }
 
   // Public loader (call when entering the page)
@@ -4137,7 +4134,7 @@ async function fetchGoalsData(){
     await renderFanZone();
   };
 
-  // Auto-refresh while the Fan Zone section is visible
+  // Auto-refresh while Fan Zone is visible
   let fanTimer = null;
   function ensureFanRefresh() {
     clearInterval(fanTimer);
@@ -4168,3 +4165,4 @@ async function fetchGoalsData(){
     }
   });
 })();
+
