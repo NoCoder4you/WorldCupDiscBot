@@ -175,6 +175,14 @@
     "stadium": "Dallas Stadium",
     "group": "L"
   },
+    {
+    "id": "2026-06-17-L-ENG-SPA",
+    "home": "England",
+    "away": "Spain",
+    "utc": "2026-06-17T00:00:00Z",
+    "stadium": "Dallas Stadium",
+    "group": "L"
+  },
   {
     "id": "2026-06-17-K-POR-QUAL6",
     "home": "Portugal",
