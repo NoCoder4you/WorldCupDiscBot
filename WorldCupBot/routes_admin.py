@@ -110,32 +110,6 @@ def _enqueue_command(ctx, kind, payload=None):
     with open(_commands_path(ctx), "a", encoding="utf-8") as f:
         f.write(json.dumps(cmd, separators=(",", ":")) + "\n")
 
-def _fanzone_fixture_id_from_fixture(f: dict) -> str:
-    home = str(f.get("home") or "").strip()
-    away = str(f.get("away") or "").strip()
-    utc  = str(f.get("utc") or "").strip()
-    return f"{home}-{away}-{utc}" if (home and away and utc) else ""
-
-def _find_fixture_any(match_id: str):
-    # matches.json in your project is a LIST of fixtures
-    fixtures = _read_json(_path(ctx, "matches.json"), [])
-    if not isinstance(fixtures, list):
-        fixtures = []
-
-    mid = str(match_id or "").strip()
-    if not mid:
-        return None
-
-    for f in fixtures:
-        if not isinstance(f, dict):
-            continue
-        fid1 = str(f.get("id") or "").strip()
-        fid2 = _fanzone_fixture_id_from_fixture(f)
-        if mid == fid1 or mid == fid2:
-            return f
-    return None
-
-
 # ---- LOG HELPERS ----
 def _logs_dir(ctx):
     d = os.path.join(_base_dir(ctx), "logs")
@@ -204,6 +178,35 @@ def _is_admin(ctx):
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
+
+    def _fanzone_fixture_id_from_fixture(f: dict) -> str:
+        home = str(f.get("home") or "").strip()
+        away = str(f.get("away") or "").strip()
+        utc  = str(f.get("utc") or "").strip()
+        return f"{home}-{away}-{utc}" if (home and away and utc) else ""
+
+    def _find_fixture_any(match_id: str):
+        # matches.json is a LIST in your project
+        fixtures = _read_json(_path(ctx, "matches.json"), [])
+        if not isinstance(fixtures, list):
+            fixtures = []
+
+        mid = str(match_id or "").strip()
+        if not mid:
+            return None
+
+        for f in fixtures:
+            if not isinstance(f, dict):
+                continue
+
+            fid1 = str(f.get("id") or "").strip()
+            fid2 = _fanzone_fixture_id_from_fixture(f)
+
+            if mid == fid1 or mid == fid2:
+                return f
+
+        return None
+
 
     # ---------- Auth endpoints (Discord-session based) ----------
     @bp.get("/auth/status")
