@@ -3265,3 +3265,38 @@ body .notify-panel{ right: 90px; }
   color: var(--muted);
   letter-spacing: 0.08em;
 }
+
+/* Fan Zone - FULL LOCK state */
+.fan-card.locked {
+  opacity: 0.75;
+}
+
+/* Block BOTH vote + declare areas */
+.fan-card.locked .fan-actions,
+.fan-card.locked .fan-win-wrap {
+  position: relative;
+  pointer-events: none;
+  filter: grayscale(1);
+  opacity: 0.4;
+}
+
+.fan-card.locked .fan-actions::after,
+.fan-card.locked .fan-win-wrap::after {
+  content: "MATCH DECLARED";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 15, 25, 0.65),
+    rgba(10, 15, 25, 0.85)
+  );
+  border-radius: 12px;
+}
+

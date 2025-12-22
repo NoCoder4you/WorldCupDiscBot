@@ -4068,9 +4068,18 @@ async function fetchGoalsData(){
   const winner = String(stats.winner_side || stats.winner || '').toLowerCase(); // "home"|"away"|""
   const isLocked = (winner === 'home' || winner === 'away');
 
-  // Disable voting:
-  // - locked: always disabled
-  // - not locked: disabled after you voted once
+    if (isLocked) {
+      card.classList.add('locked');
+      card.dataset.winner = winner;
+
+      card.querySelectorAll('.fan-vote, .fan-win').forEach(b => {
+        b.disabled = true;
+      });
+    } else {
+      card.classList.remove('locked');
+      delete card.dataset.winner;
+    }
+
   if (btnHome) btnHome.disabled = isLocked || !!last;
   if (btnAway) btnAway.disabled = isLocked || !!last;
 
