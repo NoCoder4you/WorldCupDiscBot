@@ -1620,8 +1620,4 @@ def create_public_routes(ctx):
             "declared_at": declared_at  # optional, handy for debugging/UI
         })
 
-    @api.get("/fanzone/stats/<fixture_id>")
-    def api_fanzone_stats_alias(fixture_id):
-        return api_fanzone_stats(fixture_id)
-
     return root, api, auth
