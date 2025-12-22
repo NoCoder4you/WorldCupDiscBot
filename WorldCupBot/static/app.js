@@ -4064,9 +4064,8 @@ async function fetchGoalsData(){
   card.classList.toggle('voted-home', last === 'home');
   card.classList.toggle('voted-away', last === 'away');
 
-  // Winner lock (server truth)
-  const winner = String(stats.winner_side || stats.winner || '').toLowerCase(); // "home"|"away"|""
-  const isLocked = (winner === 'home' || winner === 'away');
+    const winner = String(stats.winner || stats.winner_side || '').toLowerCase();
+    const isLocked = (winner === 'home' || winner === 'away');
 
     if (isLocked) {
       card.classList.add('locked');
