@@ -3945,7 +3945,6 @@ async function fetchGoalsData(){
         body: JSON.stringify({ fixture_id: fid, choice })
       });
 
-      // HARD LOCK: backend truth
       if (res.status === 409) {
         throw new Error('voting_closed');
       }
@@ -4032,13 +4031,12 @@ async function fetchGoalsData(){
     `;
   }
 
-  function applyStatsToCard(card, stats) {
+    function applyStatsToCard(card, stats) {
   if (!card || !stats) return;
 
   const btnHome = card.querySelector('.fan-vote[data-choice="home"]');
   const btnAway = card.querySelector('.fan-vote[data-choice="away"]');
 
-  // Match the markup created by cardHTML()
   const barHome = card.querySelector('.fan-bar-home');
   const barAway = card.querySelector('.fan-bar-away');
   const barHomePct = barHome ? barHome.querySelector('span') : null;
@@ -4054,21 +4052,36 @@ async function fetchGoalsData(){
   if (barHomePct) barHomePct.textContent = `${hp.toFixed(0)}%`;
   if (barAwayPct) barAwayPct.textContent = `${ap.toFixed(0)}%`;
 
-  // fan-total is the number only in cardHTML()
   if (totalEl) totalEl.textContent = String(Number(stats.total || 0));
+
+  // Re-apply "you voted" styling (THIS is what brings the outline back)
+  const last = String(stats.last_choice || stats.last || '').toLowerCase(); // "home"|"away"|""
+  if (btnHome) btnHome.classList.toggle('active', last === 'home');
+  if (btnAway) btnAway.classList.toggle('active', last === 'away');
+
+  card.classList.toggle('voted-home', last === 'home');
+  card.classList.toggle('voted-away', last === 'away');
 
   // Lock UI if a winner is declared (server truth)
   const winner = String(stats.winner_side || stats.winner || '').toLowerCase(); // "home" | "away" | ""
   if (winner === 'home' || winner === 'away') {
     card.dataset.winner = winner;
+    card.classList.add('locked');
     if (btnHome) btnHome.disabled = true;
     if (btnAway) btnAway.disabled = true;
-    card.classList.add('locked');
+    return;
   } else {
-    delete card.dataset.winner;
-    if (btnHome) btnHome.disabled = false;
-    if (btnAway) btnAway.disabled = false;
-    card.classList.remove('locked');
+    // Only unlock if the user has NOT already voted
+    if (!last) {
+      delete card.dataset.winner;
+      card.classList.remove('locked');
+      if (btnHome) btnHome.disabled = false;
+      if (btnAway) btnAway.disabled = false;
+    } else {
+      // User already voted - keep disabled to prevent re-vote
+      if (btnHome) btnHome.disabled = true;
+      if (btnAway) btnAway.disabled = true;
+    }
   }
 }
 
@@ -4174,27 +4187,29 @@ async function fetchGoalsData(){
         return;
       }
 
-      // --- Public vote ---
-      const voteBtn = ev.target.closest('.fan-vote');
-      if (!voteBtn) return;
+    // --- Public vote ---
+    const voteBtn = ev.target.closest('.fan-vote');
+    if (!voteBtn) return;
 
-      const card = voteBtn.closest('.fan-card');
-      const fid = card?.dataset?.fid;
-      const choice = voteBtn?.dataset?.choice;
-      if (!fid || !choice) return;
+    const card = voteBtn.closest('.fan-card');
+    const fid = card?.dataset?.fid;
+    const choice = voteBtn?.dataset?.choice;
+    if (!fid || !choice) return;
 
-      card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
-
+    // If already locked (winner declared), do not even try
     if (card?.dataset?.winner) {
       notify('Voting is locked for this match', false);
       return;
     }
 
+    // Disable immediately to prevent spam clicks
+    card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
+
     try {
       await sendVote(fid, choice);
     } catch (err) {
       if (String(err?.message).includes('voting_closed')) {
-        // HARD LOCK from server
+        // HARD LOCK from server (winner declared between refresh + click)
         card.dataset.winner = 'locked';
         card.classList.add('locked');
         card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
