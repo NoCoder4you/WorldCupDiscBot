@@ -4032,16 +4032,18 @@ async function fetchGoalsData(){
     `;
   }
 
-    function applyStatsToCard(card, stats) {
+  function applyStatsToCard(card, stats) {
   if (!card || !stats) return;
 
   const btnHome = card.querySelector('.fan-vote[data-choice="home"]');
   const btnAway = card.querySelector('.fan-vote[data-choice="away"]');
 
-  const barHome = card.querySelector('.fan-bar.home .fill');
-  const barAway = card.querySelector('.fan-bar.away .fill');
-  const pctHome = card.querySelector('.fan-bar.home .pct');
-  const pctAway = card.querySelector('.fan-bar.away .pct');
+  // Match the markup created by cardHTML()
+  const barHome = card.querySelector('.fan-bar-home');
+  const barAway = card.querySelector('.fan-bar-away');
+  const barHomePct = barHome ? barHome.querySelector('span') : null;
+  const barAwayPct = barAway ? barAway.querySelector('span') : null;
+
   const totalEl = card.querySelector('.fan-total');
 
   const hp = Math.max(0, Math.min(100, Number(stats.home_pct || 0)));
@@ -4049,12 +4051,14 @@ async function fetchGoalsData(){
 
   if (barHome) barHome.style.width = `${hp}%`;
   if (barAway) barAway.style.width = `${ap}%`;
-  if (pctHome) pctHome.textContent = `${hp.toFixed(0)}%`;
-  if (pctAway) pctAway.textContent = `${ap.toFixed(0)}%`;
-  if (totalEl) totalEl.textContent = `${Number(stats.total || 0)} votes`;
+  if (barHomePct) barHomePct.textContent = `${hp.toFixed(0)}%`;
+  if (barAwayPct) barAwayPct.textContent = `${ap.toFixed(0)}%`;
 
-  // Lock UI if a winner is declared
-  const winner = (stats.winner || '').toLowerCase(); // "home" | "away" | ""
+  // fan-total is the number only in cardHTML()
+  if (totalEl) totalEl.textContent = String(Number(stats.total || 0));
+
+  // Lock UI if a winner is declared (server truth)
+  const winner = String(stats.winner_side || stats.winner || '').toLowerCase(); // "home" | "away" | ""
   if (winner === 'home' || winner === 'away') {
     card.dataset.winner = winner;
     if (btnHome) btnHome.disabled = true;
