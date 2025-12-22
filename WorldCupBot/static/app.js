@@ -4021,60 +4021,61 @@ async function fetchGoalsData(){
     `;
   }
 
-  function applyStatsToCard(card, stats) {
-    if (!card || !stats) return;
-    const homeBar = card.querySelector('.fan-bar-home');
-    const awayBar = card.querySelector('.fan-bar-away');
-    const totalEl = card.querySelector('.fan-total');
+    function applyStatsToCard(card, stats) {
+      if (!card || !stats) return;
 
-    const hp = pct(stats.home_pct || 0);
-    const ap = pct(stats.away_pct || 0);
+      const homeBar = card.querySelector('.fan-bar-home');
+      const awayBar = card.querySelector('.fan-bar-away');
+      const totalEl = card.querySelector('.fan-total');
 
+      const hp = pct(stats.home_pct || 0);
+      const ap = pct(stats.away_pct || 0);
 
-    // Lock voting if a winner has been declared
-    const winner = stats.winner || null; // 'home' | 'away' | null
-    const closed = !!winner;
+      // Lock voting if a winner has been declared
+      const winner = stats.winner || null; // 'home' | 'away' | null
+      const closed = !!winner;
 
-    const btnHome = card.querySelector('.fan-vote.home');
-    const btnAway = card.querySelector('.fan-vote.away');
-    if (btnHome) btnHome.disabled = closed || !!stats.last_choice;
-    if (btnAway) btnAway.disabled = closed || !!stats.last_choice;
+      const btnHome = card.querySelector('.fan-vote.home');
+      const btnAway = card.querySelector('.fan-vote.away');
+      const voted = stats.last_choice || null;
 
-    card.classList.toggle('fan-closed', closed);
-    card.classList.toggle('winner-home', closed && winner === 'home');
-    card.classList.toggle('winner-away', closed && winner === 'away');
-    requestAnimationFrame(() => {
-      if (homeBar) {
-        homeBar.style.width = hp + '%';
-        const s = homeBar.querySelector('span');
-        if (s) s.textContent = hp + '%';
+      // Disable rules:
+      // - If winner declared: always disabled
+      // - Else: disabled once user has voted
+      if (btnHome) btnHome.disabled = closed || !!voted;
+      if (btnAway) btnAway.disabled = closed || !!voted;
+
+      // Visual state
+      card.classList.toggle('fan-closed', closed);
+      card.classList.toggle('winner-home', closed && winner === 'home');
+      card.classList.toggle('winner-away', closed && winner === 'away');
+
+      requestAnimationFrame(() => {
+        if (homeBar) {
+          homeBar.style.width = hp + '%';
+          const s = homeBar.querySelector('span');
+          if (s) s.textContent = hp + '%';
+        }
+        if (awayBar) {
+          awayBar.style.width = ap + '%';
+          const s = awayBar.querySelector('span');
+          if (s) s.textContent = ap + '%';
+        }
+      });
+
+      if (totalEl) totalEl.textContent = String(stats.total || 0);
+
+      card.classList.toggle('voted-home', voted === 'home');
+      card.classList.toggle('voted-away', voted === 'away');
+
+      if (btnHome && btnAway) {
+        btnHome.classList.toggle('active', voted === 'home');
+        btnAway.classList.toggle('active', voted === 'away');
       }
-      if (awayBar) {
-        awayBar.style.width = ap + '%';
-        const s = awayBar.querySelector('span');
-        if (s) s.textContent = ap + '%';
-      }
-    });
 
-    if (totalEl) totalEl.textContent = String(stats.total || 0);
-
-    card.classList.toggle('voted-home', stats.last_choice === 'home');
-    card.classList.toggle('voted-away', stats.last_choice === 'away');
-
-    const btnHome = card.querySelector('.btn.fan-vote.home');
-    const btnAway = card.querySelector('.btn.fan-vote.away');
-    const voted = stats.last_choice;
-
-    if (btnHome && btnAway) {
-      btnHome.disabled = !!voted;
-      btnAway.disabled = !!voted;
-      btnHome.classList.toggle('active', voted === 'home');
-      btnAway.classList.toggle('active', voted === 'away');
+      const pill = card.querySelector('.pill.pill-ok');
+      if (pill) pill.textContent = voted ? `You voted: ${voted}` : '';
     }
-
-    const pill = card.querySelector('.pill.pill-ok');
-    if (pill) pill.textContent = voted ? `You voted: ${voted}` : '';
-  }
 
   async function refreshVisibleCards() {
     const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
