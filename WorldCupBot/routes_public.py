@@ -1557,8 +1557,7 @@ def create_public_routes(ctx):
         home_pct = (home_n / total * 100.0) if total else 0.0
         away_pct = (away_n / total * 100.0) if total else 0.0
 
-        # IMPORTANT: support the schema your /fanzone/declare writes
-        winner = None  # frontend expects 'winner' = 'home'|'away' or null
+        winner = None
         winner_team = None
         declared_at = None
 
@@ -1577,9 +1576,13 @@ def create_public_routes(ctx):
             "home_pct": home_pct,
             "away_pct": away_pct,
             "last_choice": last_choice,
-            "winner": winner,  # 'home'|'away' when declared
-            "winner_team": winner_team,  # optional, handy for UI text
-            "declared_at": declared_at  # optional, handy for debugging/UI
+            "winner": winner,
+            "winner_team": winner_team,
+            "declared_at": declared_at
         })
+
+    @api.get("/fanzone/stats/<fixture_id>")
+    def api_fanzone_stats_alias(fixture_id):
+        return api_fanzone_stats(fixture_id)
 
     return root, api, auth
