@@ -3241,3 +3241,27 @@ body .notify-panel{ right: 90px; }
   60%  { transform: rotate(6deg) scale(1.01); }
   100% { transform: rotate(0deg) scale(1); }
 }
+
+.fan-card.locked .fan-win-wrap {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.fan-card.locked .fan-win {
+  cursor: not-allowed;
+}
+
+.fan-card.locked .fan-win-wrap {
+  position: relative;
+}
+
+.fan-card.locked .fan-win-wrap::after {
+  content: "LOCKED";
+  position: absolute;
+  right: 0;
+  top: -18px;
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+}

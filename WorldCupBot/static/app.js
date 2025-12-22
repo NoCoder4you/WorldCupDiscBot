@@ -4034,14 +4034,17 @@ async function fetchGoalsData(){
     function applyStatsToCard(card, stats) {
   if (!card || !stats) return;
 
+  // Vote buttons
   const btnHome = card.querySelector('.fan-vote[data-choice="home"]');
   const btnAway = card.querySelector('.fan-vote[data-choice="away"]');
 
+  // Percent bars (matches cardHTML markup: .fan-bar-home/.fan-bar-away each contains a <span>)
   const barHome = card.querySelector('.fan-bar-home');
   const barAway = card.querySelector('.fan-bar-away');
   const barHomePct = barHome ? barHome.querySelector('span') : null;
   const barAwayPct = barAway ? barAway.querySelector('span') : null;
 
+  // Totals
   const totalEl = card.querySelector('.fan-total');
 
   const hp = Math.max(0, Math.min(100, Number(stats.home_pct || 0)));
@@ -4054,38 +4057,40 @@ async function fetchGoalsData(){
 
   if (totalEl) totalEl.textContent = String(Number(stats.total || 0));
 
-  // Re-apply "you voted" styling (THIS is what brings the outline back)
+  // "You voted" state (this is what brings the outline back)
   const last = String(stats.last_choice || stats.last || '').toLowerCase(); // "home"|"away"|""
   if (btnHome) btnHome.classList.toggle('active', last === 'home');
   if (btnAway) btnAway.classList.toggle('active', last === 'away');
-
   card.classList.toggle('voted-home', last === 'home');
   card.classList.toggle('voted-away', last === 'away');
 
-  // Lock UI if a winner is declared (server truth)
-  const winner = String(stats.winner_side || stats.winner || '').toLowerCase(); // "home" | "away" | ""
-  if (winner === 'home' || winner === 'away') {
-    card.dataset.winner = winner;
-    card.classList.add('locked');
-    if (btnHome) btnHome.disabled = true;
-    if (btnAway) btnAway.disabled = true;
-    return;
-  } else {
-    // Only unlock if the user has NOT already voted
-    if (!last) {
-      delete card.dataset.winner;
-      card.classList.remove('locked');
-      if (btnHome) btnHome.disabled = false;
-      if (btnAway) btnAway.disabled = false;
-    } else {
-      // User already voted - keep disabled to prevent re-vote
-      if (btnHome) btnHome.disabled = true;
-      if (btnAway) btnAway.disabled = true;
-    }
-  }
+  // Winner lock (server truth)
+  const winner = String(stats.winner_side || stats.winner || '').toLowerCase(); // "home"|"away"|""
+  const isLocked = (winner === 'home' || winner === 'away');
+
+  // Disable voting:
+  // - locked: always disabled
+  // - not locked: disabled after you voted once
+  if (btnHome) btnHome.disabled = isLocked || !!last;
+  if (btnAway) btnAway.disabled = isLocked || !!last;
+
+  // Lock visuals + disable Admin "Declare" buttons too
+  card.classList.toggle('locked', isLocked);
+  card.dataset.winner = isLocked ? winner : '';
+
+  const declareBtns = card.querySelectorAll('.fan-win');
+  declareBtns.forEach(b => { b.disabled = isLocked; });
+
+  // Optional winner highlight classes if you want them
+  card.classList.toggle('winner-home', isLocked && winner === 'home');
+  card.classList.toggle('winner-away', isLocked && winner === 'away');
+
+  // Update the little pill if present
+  const pill = card.querySelector('.pill.pill-ok');
+  if (pill) pill.textContent = last ? `You voted: ${last}` : '';
 }
 
-  async function refreshVisibleCards() {
+    async function refreshVisibleCards() {
     const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
     if (!cards.length) return;
 
@@ -4096,7 +4101,7 @@ async function fetchGoalsData(){
         if (stats?.ok) applyStatsToCard(card, stats);
       } catch { /* ignore */ }
     }
-  }
+    }
 
     async function declareFanZoneWinner(matchId, side) {
       const res = await fetch('/admin/fanzone/declare', {
@@ -4162,6 +4167,11 @@ async function fetchGoalsData(){
 
         const card = winBtn.closest('.fan-card');
         if (!card) return;
+
+          if (card.dataset.winner === 'home' || card.dataset.winner === 'away') {
+            notify('This match has already been declared and is locked.', false);
+            return;
+  }
 
         const fid = card.dataset.fid;
         if (!fid) return;
