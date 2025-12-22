@@ -3938,13 +3938,24 @@ async function fetchGoalsData(){
     return d || { ok: false };
   }
 
-  async function sendVote(fid, choice) {
-    return fetchJSON('/api/fanzone/vote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fixture_id: fid, choice })
-    });
-  }
+    async function sendVote(fid, choice) {
+      const res = await fetch('/api/fanzone/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixture_id: fid, choice })
+      });
+
+      // HARD LOCK: backend truth
+      if (res.status === 409) {
+        throw new Error('voting_closed');
+      }
+
+      if (!res.ok) {
+        throw new Error('vote_failed');
+      }
+
+      return res.json();
+    }
 
   function flagImg(iso) {
     if (!iso) return '';
@@ -4022,60 +4033,40 @@ async function fetchGoalsData(){
   }
 
     function applyStatsToCard(card, stats) {
-      if (!card || !stats) return;
+  if (!card || !stats) return;
 
-      const homeBar = card.querySelector('.fan-bar-home');
-      const awayBar = card.querySelector('.fan-bar-away');
-      const totalEl = card.querySelector('.fan-total');
+  const btnHome = card.querySelector('.fan-vote[data-choice="home"]');
+  const btnAway = card.querySelector('.fan-vote[data-choice="away"]');
 
-      const hp = pct(stats.home_pct || 0);
-      const ap = pct(stats.away_pct || 0);
+  const barHome = card.querySelector('.fan-bar.home .fill');
+  const barAway = card.querySelector('.fan-bar.away .fill');
+  const pctHome = card.querySelector('.fan-bar.home .pct');
+  const pctAway = card.querySelector('.fan-bar.away .pct');
+  const totalEl = card.querySelector('.fan-total');
 
-      // Lock voting if a winner has been declared
-      const winner = stats.winner || null; // 'home' | 'away' | null
-      const closed = !!winner;
+  const hp = Math.max(0, Math.min(100, Number(stats.home_pct || 0)));
+  const ap = Math.max(0, Math.min(100, Number(stats.away_pct || 0)));
 
-      const btnHome = card.querySelector('.fan-vote.home');
-      const btnAway = card.querySelector('.fan-vote.away');
-      const voted = stats.last_choice || null;
+  if (barHome) barHome.style.width = `${hp}%`;
+  if (barAway) barAway.style.width = `${ap}%`;
+  if (pctHome) pctHome.textContent = `${hp.toFixed(0)}%`;
+  if (pctAway) pctAway.textContent = `${ap.toFixed(0)}%`;
+  if (totalEl) totalEl.textContent = `${Number(stats.total || 0)} votes`;
 
-      // Disable rules:
-      // - If winner declared: always disabled
-      // - Else: disabled once user has voted
-      if (btnHome) btnHome.disabled = closed || !!voted;
-      if (btnAway) btnAway.disabled = closed || !!voted;
-
-      // Visual state
-      card.classList.toggle('fan-closed', closed);
-      card.classList.toggle('winner-home', closed && winner === 'home');
-      card.classList.toggle('winner-away', closed && winner === 'away');
-
-      requestAnimationFrame(() => {
-        if (homeBar) {
-          homeBar.style.width = hp + '%';
-          const s = homeBar.querySelector('span');
-          if (s) s.textContent = hp + '%';
-        }
-        if (awayBar) {
-          awayBar.style.width = ap + '%';
-          const s = awayBar.querySelector('span');
-          if (s) s.textContent = ap + '%';
-        }
-      });
-
-      if (totalEl) totalEl.textContent = String(stats.total || 0);
-
-      card.classList.toggle('voted-home', voted === 'home');
-      card.classList.toggle('voted-away', voted === 'away');
-
-      if (btnHome && btnAway) {
-        btnHome.classList.toggle('active', voted === 'home');
-        btnAway.classList.toggle('active', voted === 'away');
-      }
-
-      const pill = card.querySelector('.pill.pill-ok');
-      if (pill) pill.textContent = voted ? `You voted: ${voted}` : '';
-    }
+  // Lock UI if a winner is declared
+  const winner = (stats.winner || '').toLowerCase(); // "home" | "away" | ""
+  if (winner === 'home' || winner === 'away') {
+    card.dataset.winner = winner;
+    if (btnHome) btnHome.disabled = true;
+    if (btnAway) btnAway.disabled = true;
+    card.classList.add('locked');
+  } else {
+    delete card.dataset.winner;
+    if (btnHome) btnHome.disabled = false;
+    if (btnAway) btnAway.disabled = false;
+    card.classList.remove('locked');
+  }
+}
 
   async function refreshVisibleCards() {
     const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
@@ -4190,15 +4181,27 @@ async function fetchGoalsData(){
 
       card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
 
-      try {
-        const res = await sendVote(fid, choice);
-        if (!(res && res.ok)) throw new Error('vote_failed');
-      } catch {
-        await sleep(400);
-      } finally {
-        const stats = await getStats(fid).catch(() => null);
-        if (stats?.ok) applyStatsToCard(card, stats);
+    if (card?.dataset?.winner) {
+      notify('Voting is locked for this match', false);
+      return;
+    }
+
+    try {
+      await sendVote(fid, choice);
+    } catch (err) {
+      if (String(err?.message).includes('voting_closed')) {
+        // HARD LOCK from server
+        card.dataset.winner = 'locked';
+        card.classList.add('locked');
+        card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
+        notify('Voting is locked for this match', false);
+        return;
       }
+      await sleep(400);
+    } finally {
+      const stats = await getStats(fid).catch(() => null);
+      if (stats?.ok) applyStatsToCard(card, stats);
+    }
     }, { once: false });
   }
 

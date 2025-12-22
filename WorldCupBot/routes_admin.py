@@ -853,7 +853,12 @@ def create_admin_routes(ctx):
         away = str(f.get('away') or f.get('away_team') or f.get('team2') or '').strip()
         utc = str(f.get('utc') or f.get('time') or '').strip()
 
-        fixture_id = _fanzone_fixture_id_from_fixture({'home': home, 'away': away, 'utc': utc}) or match_id
+        fixture_id = match_id
+
+        derived_id = _fanzone_fixture_id_from_fixture({'home': home, 'away': away, 'utc': utc})
+        alias_ids = []
+        if derived_id and derived_id != fixture_id:
+            alias_ids.append(derived_id)
 
         # Winner can be provided as side (home|away) or as team name.
         side = str(body.get('winner') or '').strip().lower()  # 'home' | 'away'
@@ -872,7 +877,6 @@ def create_admin_routes(ctx):
             winner_team = home if side == 'home' else away
             loser_team = away if side == 'home' else home
         elif winner_team_in:
-            # infer side by name
             if winner_team_in.lower() == home.lower():
                 winner_team = home
                 loser_team = away
@@ -886,7 +890,7 @@ def create_admin_routes(ctx):
         else:
             return jsonify({'ok': False, 'error': 'invalid_winner'}), 400
 
-        # Save winner record for the panel + lock voting (must be runtime path)
+        # Save winner record + lock voting (runtime path matches routes_public.py)
         winners_path = _runtime_path(ctx, 'fan_winners.json')
         winners = _read_json(winners_path, {})
         if not isinstance(winners, dict):
@@ -894,6 +898,8 @@ def create_admin_routes(ctx):
 
         if clear:
             winners.pop(fixture_id, None)
+            for aid in alias_ids:
+                winners.pop(aid, None)
             _write_json_atomic(winners_path, winners)
             return jsonify({'ok': True, 'cleared': True, 'fixture_id': fixture_id})
 
@@ -902,12 +908,16 @@ def create_admin_routes(ctx):
             'home': home,
             'away': away,
             'utc': utc,
+            'winner': side,  # <- your public stats endpoint reads this
             'winner_side': side,
             'winner_team': winner_team,
             'winner_iso': winner_iso_in,
             'ts': int(time.time())
         }
+
         winners[fixture_id] = rec
+        for aid in alias_ids:
+            winners[aid] = rec  # alias lock
         _write_json_atomic(winners_path, winners)
 
         # Snapshot votes at declare-time for fairness/audit
@@ -978,7 +988,7 @@ def create_admin_routes(ctx):
             'total_votes': total_votes
         })
 
-        # Write website bell notifications (one per owner)
+        # Website bell notifications
         _append_fanzone_results(winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
         _append_fanzone_results(loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
 
