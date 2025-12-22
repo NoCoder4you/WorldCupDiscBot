@@ -824,6 +824,14 @@ def create_admin_routes(ctx):
         data['events'] = events[:500]
         _write_json_atomic(path, data)
 
+    def _runtime_dir(ctx):
+        rd = os.path.join(_base_dir(ctx), "runtime")
+        os.makedirs(rd, exist_ok=True)
+        return rd
+
+    def _runtime_path(ctx, name):
+        return os.path.join(_runtime_dir(ctx), name)
+
     @bp.post('/fanzone/declare')
     def fanzone_declare_winner():
         resp = require_admin()
@@ -878,8 +886,8 @@ def create_admin_routes(ctx):
         else:
             return jsonify({'ok': False, 'error': 'invalid_winner'}), 400
 
-        # Save winner record for the panel (optional but handy)
-        winners_path = _path(ctx, 'fan_winners.json')
+        # Save winner record for the panel + lock voting (must be runtime path)
+        winners_path = _runtime_path(ctx, 'fan_winners.json')
         winners = _read_json(winners_path, {})
         if not isinstance(winners, dict):
             winners = {}
@@ -902,6 +910,49 @@ def create_admin_routes(ctx):
         winners[fixture_id] = rec
         _write_json_atomic(winners_path, winners)
 
+        # Snapshot votes at declare-time for fairness/audit
+        votes_path = _runtime_path(ctx, 'fan_votes.json')
+        votes_blob = _read_json(votes_path, {'fixtures': {}})
+        if not isinstance(votes_blob, dict):
+            votes_blob = {'fixtures': {}}
+
+        fixtures_votes = votes_blob.get('fixtures') or {}
+        if not isinstance(fixtures_votes, dict):
+            fixtures_votes = {}
+
+        fx = fixtures_votes.get(fixture_id, {})
+        if not isinstance(fx, dict):
+            fx = {}
+
+        home_votes = int(fx.get('home') or 0)
+        away_votes = int(fx.get('away') or 0)
+        total_votes = max(0, home_votes + away_votes)
+
+        snapshots_path = _runtime_path(ctx, 'fan_vote_snapshots.json')
+        snap_blob = _read_json(snapshots_path, {'fixtures': {}})
+        if not isinstance(snap_blob, dict):
+            snap_blob = {'fixtures': {}}
+
+        snap_fixtures = snap_blob.setdefault('fixtures', {})
+        if not isinstance(snap_fixtures, dict):
+            snap_fixtures = {}
+            snap_blob['fixtures'] = snap_fixtures
+
+        snap_fixtures[fixture_id] = {
+            'fixture_id': fixture_id,
+            'home': home,
+            'away': away,
+            'utc': utc,
+            'winner_side': side,
+            'winner_team': winner_team,
+            'loser_team': loser_team,
+            'declared_at': int(time.time()),
+            'home_votes': home_votes,
+            'away_votes': away_votes,
+            'total': total_votes
+        }
+        _write_json_atomic(snapshots_path, snap_blob)
+
         # Determine owners for DM + site notifications
         winner_owner_ids = _owners_for_team(ctx, winner_team)
         loser_owner_ids = _owners_for_team(ctx, loser_team)
@@ -921,7 +972,10 @@ def create_admin_routes(ctx):
             'loser_iso': '',
             'winner_owner_ids': winner_owner_ids,
             'loser_owner_ids': loser_owner_ids,
-            'channel': channel_name
+            'channel': channel_name,
+            'home_votes': home_votes,
+            'away_votes': away_votes,
+            'total_votes': total_votes
         })
 
         # Write website bell notifications (one per owner)
@@ -935,7 +989,10 @@ def create_admin_routes(ctx):
             'winner_team': winner_team,
             'loser_team': loser_team,
             'winner_owner_ids': winner_owner_ids,
-            'loser_owner_ids': loser_owner_ids
+            'loser_owner_ids': loser_owner_ids,
+            'home_votes': home_votes,
+            'away_votes': away_votes,
+            'total_votes': total_votes
         })
 
     return bp

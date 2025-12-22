@@ -4030,6 +4030,19 @@ async function fetchGoalsData(){
     const hp = pct(stats.home_pct || 0);
     const ap = pct(stats.away_pct || 0);
 
+
+    // Lock voting if a winner has been declared
+    const winner = stats.winner || null; // 'home' | 'away' | null
+    const closed = !!winner;
+
+    const btnHome = card.querySelector('.fan-vote.home');
+    const btnAway = card.querySelector('.fan-vote.away');
+    if (btnHome) btnHome.disabled = closed || !!stats.last_choice;
+    if (btnAway) btnAway.disabled = closed || !!stats.last_choice;
+
+    card.classList.toggle('fan-closed', closed);
+    card.classList.toggle('winner-home', closed && winner === 'home');
+    card.classList.toggle('winner-away', closed && winner === 'away');
     requestAnimationFrame(() => {
       if (homeBar) {
         homeBar.style.width = hp + '%';
