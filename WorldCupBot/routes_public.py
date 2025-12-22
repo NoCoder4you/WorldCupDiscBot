@@ -1571,4 +1571,57 @@ def create_public_routes(ctx):
     def fanzone_declare():
         return jsonify({"ok": False, "error": "use_admin_endpoint"}), 403
 
+    @api.get("/fanzone/<fixture_id>")
+    def api_fanzone_stats(fixture_id):
+        base = ctx.get("BASE_DIR", "")
+        fid = str(fixture_id or "").strip()
+        if not fid:
+            return jsonify({"ok": False, "error": "bad_fixture"}), 400
+
+        votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
+        winners_blob = _json_load(_fz_winners_path(base), {})
+
+        fx = (votes_blob.get("fixtures") or {}).get(fid, {}) if isinstance(votes_blob, dict) else {}
+        home_n = int(fx.get("home") or 0)
+        away_n = int(fx.get("away") or 0)
+        total = max(0, home_n + away_n)
+
+        last_choice = None
+        fan_id = _get_fan_id()
+        voters = fx.get("voters") if isinstance(fx, dict) else None
+        if fan_id and isinstance(voters, dict):
+            last_choice = voters.get(fan_id)
+
+        home_pct = (home_n / total * 100.0) if total else 0.0
+        away_pct = (away_n / total * 100.0) if total else 0.0
+
+        # IMPORTANT: support the schema your /fanzone/declare writes
+        winner = None  # frontend expects 'winner' = 'home'|'away' or null
+        winner_team = None
+        declared_at = None
+
+        if isinstance(winners_blob, dict) and fid in winners_blob:
+            rec = winners_blob.get(fid) or {}
+            if isinstance(rec, dict):
+                winner = (rec.get("winner_side") or rec.get("winner") or None)
+                winner_team = (rec.get("winner_team") or None)
+                declared_at = rec.get("ts") or rec.get("declared_at") or None
+
+        return jsonify({
+            "ok": True,
+            "home_votes": home_n,
+            "away_votes": away_n,
+            "total": total,
+            "home_pct": home_pct,
+            "away_pct": away_pct,
+            "last_choice": last_choice,
+            "winner": winner,  # 'home'|'away' when declared
+            "winner_team": winner_team,  # optional, handy for UI text
+            "declared_at": declared_at  # optional, handy for debugging/UI
+        })
+
+    @api.get("/fanzone/stats/<fixture_id>")
+    def api_fanzone_stats_alias(fixture_id):
+        return api_fanzone_stats(fixture_id)
+
     return root, api, auth
