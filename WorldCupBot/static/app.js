@@ -859,7 +859,7 @@ function setPage(p) {
     const wrap = document.createElement('div'); wrap.className='table-wrap';
     const head = document.createElement('div'); head.className='table-head';
     head.innerHTML = `<div class="table-title">${title}</div><div class="fan-controls"></div>`;
-    const actions = head.querySelector('.fan-controls');
+    const actions = head.querySelector('.fan-refresh');
     (controls||[]).forEach(([label, meta])=>{
       if(meta && meta.kind==='input'){
         const inp = document.createElement('input'); inp.type='text'; inp.id=meta.id; inp.placeholder=meta.placeholder||'';
