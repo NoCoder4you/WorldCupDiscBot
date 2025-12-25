@@ -20,7 +20,6 @@
               <li><a href="#" data-page="leaderboards">Leaderboards</a></li>
               <li><a href="#" data-page="fanzone">Fan Zone</a></li>
 
-
               <!-- Admin-only items -->
               <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
               <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
@@ -206,16 +205,33 @@
               <div class="table-wrap">
                   <div class="table-head">
                       <div class="table-title">Fan Zone</div>
-                      <div class="table-actions">
-                          <input id="fanzone-search" type="text" placeholder="Search country" aria-label="Search country">
-                          <select id="fanzone-group" aria-label="Group fixtures">
-                            <option value="none" selected>No grouping</option>
-                            <option value="home">Group by home country</option>
-                            <option value="away">Group by away country</option>
-                            <option value="either">Group by either country</option>
+                        <div class="fan-controls">
+                          <button id="fan-refresh" class="btn">Refresh</button>
+
+                          <select id="fan-group-filter" class="fan-filter">
+                            <option value="">All Groups</option>
+                            <option value="A">Group A</option>
+                            <option value="B">Group B</option>
+                            <option value="C">Group C</option>
+                            <option value="D">Group D</option>
+                            <option value="E">Group E</option>
+                            <option value="F">Group F</option>
+                            <option value="G">Group G</option>
+                            <option value="H">Group H</option>
+                            <option value="I">Group I</option>
+                            <option value="J">Group J</option>
+                            <option value="K">Group K</option>
+                            <option value="L">Group L</option>
                           </select>
-                          <button id="fanzone-refresh" class="btn sm">Refresh</button>
-                      </div>
+
+                          <input
+                            type="text"
+                            id="fan-country-filter"
+                            class="fan-filter"
+                            placeholder="Search country"
+                            autocomplete="off"
+                          />
+                        </div>
                   </div>
                   <div class="table-scroll">
                       <div id="fanzone-list" class="fan-list"></div>
