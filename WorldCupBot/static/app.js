@@ -858,8 +858,8 @@ function setPage(p) {
     const sec = qs(`#${id}`); sec.innerHTML='';
     const wrap = document.createElement('div'); wrap.className='table-wrap';
     const head = document.createElement('div'); head.className='table-head';
-    head.innerHTML = `<div class="table-title">${title}</div><div class="table-actions"></div>`;
-    const actions = head.querySelector('.table-actions');
+    head.innerHTML = `<div class="table-title">${title}</div><div class="fan-controls"></div>`;
+    const actions = head.querySelector('.fan-controls');
     (controls||[]).forEach(([label, meta])=>{
       if(meta && meta.kind==='input'){
         const inp = document.createElement('input'); inp.type='text'; inp.id=meta.id; inp.placeholder=meta.placeholder||'';
