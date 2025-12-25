@@ -79,8 +79,20 @@ def _fan_zone_results_path(base_dir):
     return os.path.join(_json_dir(base_dir), "fan_zone_results.json")
 def _swap_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "swap_requests.json")
+def _notifications_read_path(base_dir):
+    return os.path.join(base_dir, "JSON", "notifications_read.json")
 
+def _load_notifications_read(base_dir):
+    try:
+        with open(_notifications_read_path(base_dir), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
+def _save_notifications_read(base_dir, data):
+    os.makedirs(os.path.dirname(_notifications_read_path(base_dir)), exist_ok=True)
+    with open(_notifications_read_path(base_dir), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 def _json_read(path, default):
     try:
@@ -1094,8 +1106,14 @@ def create_public_routes(ctx):
     def me_notifications():
         base = ctx.get("BASE_DIR", "")
         user = session.get(_session_key())
+
         if not user or not user.get("discord_id"):
-            resp = make_response(jsonify({"ok": True, "connected": False, "items": []}))
+            resp = make_response(jsonify({
+                "ok": True,
+                "connected": False,
+                "items": [],
+                "unread": 0
+            }))
             resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             resp.headers["Pragma"] = "no-cache"
             resp.headers["Expires"] = "0"
@@ -1105,8 +1123,16 @@ def create_public_routes(ctx):
         uid = _effective_uid() or str(user.get("discord_id") or "")
         uid = str(uid).strip()
 
-        items = []
         now = int(time.time())
+        items = []
+
+        # Read-state store: { "<uid>": { "read": ["id1","id2",...], "updated_at": 123 } }
+        read_store = _load_notifications_read(base)
+        read_ids = set()
+        if isinstance(read_store, dict):
+            rec = read_store.get(uid) or {}
+            if isinstance(rec, dict) and isinstance(rec.get("read"), list):
+                read_ids = {str(x) for x in rec["read"] if str(x)}
 
         # ----------------------------
         # Terms updated
@@ -1129,18 +1155,36 @@ def create_public_routes(ctx):
                 })
 
         # ----------------------------
-        # Split requests requiring action
+        # Split requests requiring action (main owner only)
+        # Supports BOTH schemas:
+        #  1) { "pending": [ ... ], "resolved": [ ... ] }
+        #  2) { "<req_id>": { "requester_id": "...", "main_owner_id": 123, "team": "...", "expires_at": ... }, ... }
         # ----------------------------
-        splits = _json_load(_split_requests_path(base), {"pending": [], "resolved": []})
-        pending = splits.get("pending") if isinstance(splits, dict) else []
-        if isinstance(pending, list):
-            for r in pending:
+        splits_blob = _json_load(_split_requests_path(base), {})
+        pending_rows = []
+
+        if isinstance(splits_blob, dict):
+            if isinstance(splits_blob.get("pending"), list):
+                pending_rows = splits_blob.get("pending") or []
+            else:
+                # dict-of-requests schema
+                for req_id, r in splits_blob.items():
+                    if not isinstance(r, dict):
+                        continue
+                    rr = dict(r)
+                    rr.setdefault("id", req_id)
+                    pending_rows.append(rr)
+
+        if isinstance(pending_rows, list):
+            for r in pending_rows:
                 if not isinstance(r, dict):
                     continue
 
-                # only notify the main owner
+                # main owner can be stored as:
+                # - r["ownership"]["main_owner"] (older schema)
+                # - r["main_owner_id"] (your current schema)
                 owner = (r.get("ownership") or {})
-                main_owner = str(owner.get("main_owner") or "").strip()
+                main_owner = str(owner.get("main_owner") or r.get("main_owner_id") or "").strip()
                 if main_owner != uid:
                     continue
 
@@ -1152,11 +1196,11 @@ def create_public_routes(ctx):
                 if exp and exp <= time.time():
                     continue
 
-                team = r.get("team") or "Team"
-                requester_id = str(r.get("requester_id") or "").strip()
+                team = str(r.get("team") or "Team")
+                rid = str(r.get("id") or r.get("request_id") or r.get("requester_id") or f"{uid}:{team}").strip()
 
                 items.append({
-                    "id": f"split:{r.get('id') or requester_id or team}",
+                    "id": f"split:{rid}",
                     "type": "split",
                     "severity": "info",
                     "title": "Split request",
@@ -1166,43 +1210,81 @@ def create_public_routes(ctx):
                 })
 
         # ----------------------------
-        # Fan Zone win/lose (optional)
+        # Fan Zone results
         # JSON/ fan_zone_results.json:
         # { "events":[ { "id":".", "discord_id":".", "result":"win|lose", "title":".", "body":".", "ts":123 } ] }
         # ----------------------------
         fz = _json_load(_fan_zone_results_path(base), {})
-        events = []
-        if isinstance(fz, dict) and isinstance(fz.get("events"), list):
-            events = fz["events"]
+        events = fz.get("events") if isinstance(fz, dict) else []
+        if isinstance(events, list):
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+                if str(ev.get("discord_id") or "") != uid:
+                    continue
 
-        for ev in events:
-            if not isinstance(ev, dict):
-                continue
-            if str(ev.get("discord_id") or "") != uid:
-                continue
+                rid = str(ev.get("id") or ev.get("ts") or now)
+                res = str(ev.get("result") or "info").lower()
+                sev = "ok" if res == "win" else ("warn" if res == "lose" else "info")
 
-            rid = str(ev.get("id") or f"{ev.get('ts') or now}")
-            res = str(ev.get("result") or "info").lower()
-            sev = "ok" if res == "win" else ("warn" if res == "lose" else "info")
-            ts = int(ev.get("ts") or now)
+                items.append({
+                    "id": f"fz:{rid}",
+                    "type": "fanzone",
+                    "severity": sev,
+                    "title": ev.get("title") or "Fan Zone result",
+                    "body": ev.get("body") or (
+                        "You won a Fan Zone pick." if res == "win"
+                        else "You lost a Fan Zone pick."
+                    ),
+                    "action": {"kind": "page", "page": "fanzone"},
+                    "ts": int(ev.get("ts") or now)
+                })
 
-            items.append({
-                "id": f"fz:{rid}",
-                "type": "fanzone",
-                "severity": sev,
-                "title": ev.get("title") or "Fan Zone result",
-                "body": ev.get("body") or ("You won a Fan Zone pick." if res == "win" else "You lost a Fan Zone pick."),
-                "action": {"kind": "page", "page": "fanzone"},
-                "ts": ts
-            })
+        # Overlay read state + counts
+        for it in items:
+            it["read"] = str(it.get("id") or "") in read_ids
 
         items.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
+        unread = sum(1 for it in items if not it.get("read"))
 
-        resp = make_response(jsonify({"ok": True, "connected": True, "items": items}))
+        resp = make_response(jsonify({
+            "ok": True,
+            "connected": True,
+            "items": items,
+            "unread": unread
+        }))
         resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
         return resp
+
+
+    @api.post("/me/notifications/read")
+    def me_notifications_read():
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": False}), 401
+
+        uid = _effective_uid() or str(user.get("discord_id") or "")
+        uid = str(uid).strip()
+
+        body = request.get_json(silent=True) or {}
+        nid = str(body.get("id") or "").strip()
+        if not nid:
+            return jsonify({"ok": False, "error": "missing_id"}), 400
+
+        store = _load_notifications_read(base)
+        rec = store.setdefault(uid, {"read": []})
+
+        if nid not in rec["read"]:
+            rec["read"].append(nid)
+
+        rec["updated_at"] = int(time.time())
+        store[uid] = rec
+        _save_notifications_read(base, store)
+
+        return jsonify({"ok": True})
 
     @api.get("/me/is_admin")
     def api_me_is_admin():

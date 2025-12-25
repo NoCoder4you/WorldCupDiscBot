@@ -279,10 +279,24 @@ function setPage(p) {
 
       // Wire buttons
       body.querySelectorAll('button[data-dismiss]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
+        btn.addEventListener('click', async ()=>{
           const id = btn.getAttribute('data-dismiss');
+          if (!id) return;
+
+          // Persist read state on the server (fixes "comes back after refresh" + multi-device)
+          try{
+            await fetch('/api/me/notifications/read', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              credentials: 'include',
+              body: JSON.stringify({ id })
+            });
+          }catch{}
+
+          // keep local dismissal too (fast UI + offline fallback)
           dismissNotif(id);
           btn.closest('.notify-item')?.remove();
+
           // refresh glow state
           const remaining = body.querySelectorAll('.notify-item').length;
           fab.classList.toggle('has-new', remaining > 0);
@@ -293,6 +307,22 @@ function setPage(p) {
       body.querySelectorAll('button[data-open-page]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           const page = btn.getAttribute('data-open-page');
+
+          // Mark as read when opening (optional but makes behaviour feel consistent)
+          try{
+            const item = btn.closest('.notify-item');
+            const id = item?.getAttribute('data-id');
+            if (id){
+              await fetch('/api/me/notifications/read', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ id })
+              });
+              dismissNotif(id);
+            }
+          }catch{}
+
           // close panel
           panel.classList.remove('open');
           panel.setAttribute('aria-hidden', 'true');
