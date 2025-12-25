@@ -308,7 +308,6 @@ function setPage(p) {
         btn.addEventListener('click', async ()=>{
           const page = btn.getAttribute('data-open-page');
 
-          // Mark as read when opening (optional but makes behaviour feel consistent)
           try{
             const item = btn.closest('.notify-item');
             const id = item?.getAttribute('data-id');
@@ -406,7 +405,7 @@ function setPage(p) {
       };
 
       await tick();
-      _notifPollTimer = setInterval(tick, 15000);
+      _notifPollTimer = setInterval(tick, 1000);
     }
 
 
