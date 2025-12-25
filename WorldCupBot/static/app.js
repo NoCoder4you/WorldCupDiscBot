@@ -408,21 +408,34 @@ function setPage(p) {
       _notifPollTimer = setInterval(tick, 10000);
     }
 
-    // Force-refresh bell + panel from anywhere (used after server-side events like winner declare)
-    async function refreshNotificationsNow(openPanel = false){
+    async function refreshNotificationsNow(forceRing = false){
       try{
         wireNotifyUIOnce();
-        startNotifPolling(); // ensures glow continues updating
         const items = await loadNotifications();
-        renderNotifications(items);
-        if (openPanel){
-          document.getElementById('notify-panel')?.classList.add('open');
+
+        const fab = document.getElementById('notify-fab');
+        if (fab){
+          const sig = (items || []).map(it => String(it.id || '')).join('|');
+          const hasNew = (items || []).length > 0;
+          fab.classList.toggle('has-new', hasNew);
+
+          const changed = sig && sig !== _lastNotifSig;
+          if (forceRing || changed){
+            fab.classList.add('ring');
+            setTimeout(() => fab.classList.remove('ring'), 1400);
+          }
+          _lastNotifSig = sig;
+        }
+
+        const panel = document.getElementById('notify-panel');
+        if (panel && panel.classList.contains('open')){
+          renderNotifications(items || []);
         }
       }catch{
         // ignore
       }
     }
-    window.wcRefreshNotifications = refreshNotificationsNow;
+    window.refreshNotificationsNow = refreshNotificationsNow;
 
     // Real test command that uses the same rendering path
     window.wcTestNotify = async function(){
@@ -4308,7 +4321,7 @@ async function fetchGoalsData(){
         credentials: 'include',
         body: JSON.stringify({
           match_id: String(matchId),
-          winner: String(side) // "home" or "away" (or "" to clear)
+          winner: String(side) // "home" or "away"
         })
       });
 
@@ -4317,8 +4330,14 @@ async function fetchGoalsData(){
         throw new Error(data?.error || `declare_failed_${res.status}`);
       }
 
-      // Winner declared - refresh bell immediately (server writes notifications)
-      refreshNotificationsNow(false);
+      // Winner declared - refresh bell immediately
+      try {
+        if (typeof window.refreshNotificationsNow === 'function') {
+          await window.refreshNotificationsNow(true); // force ring + refresh
+        }
+      } catch (e) {
+        console.warn('refreshNotificationsNow failed', e);
+      }
 
       return data;
     }
