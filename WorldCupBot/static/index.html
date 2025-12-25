@@ -207,6 +207,13 @@
                   <div class="table-head">
                       <div class="table-title">Fan Zone</div>
                       <div class="table-actions">
+                          <input id="fanzone-search" type="text" placeholder="Search country" aria-label="Search country">
+                          <select id="fanzone-group" aria-label="Group fixtures">
+                            <option value="none" selected>No grouping</option>
+                            <option value="home">Group by home country</option>
+                            <option value="away">Group by away country</option>
+                            <option value="either">Group by either country</option>
+                          </select>
                           <button id="fanzone-refresh" class="btn sm">Refresh</button>
                       </div>
                   </div>

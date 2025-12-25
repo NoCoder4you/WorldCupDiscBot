@@ -3958,6 +3958,151 @@ async function fetchGoalsData(){
     ? window.isAdminUI
     : (() => document.body.classList.contains('admin'));
 
+
+  // Fan Zone UI state (filters)
+  const fanState = {
+    fixtures: [],
+    statsById: new Map(),
+    search: '',
+    group: 'none', // none | home | away | either
+  };
+
+  function _norm(s) {
+    return String(s || '').trim().toLowerCase();
+  }
+
+  function _fixtureMatchesSearch(f, q) {
+    if (!q) return true;
+    const home = _norm(f?.home);
+    const away = _norm(f?.away);
+    return home.includes(q) || away.includes(q);
+  }
+
+  function _groupKey(f, mode) {
+    const home = String(f?.home || '').trim();
+    const away = String(f?.away || '').trim();
+    if (mode === 'home') return home || '—';
+    if (mode === 'away') return away || '—';
+    if (mode === 'either') {
+      const a = home || '—';
+      const b = away || '—';
+      return (a.localeCompare(b) <= 0) ? a : b;
+    }
+    return '';
+  }
+
+  function _readFanControls() {
+    const q = document.querySelector('#fanzone-search');
+    const g = document.querySelector('#fanzone-group');
+    fanState.search = _norm(q?.value || '');
+    fanState.group = String(g?.value || 'none');
+  }
+
+  function _wireFanControls() {
+    const q = document.querySelector('#fanzone-search');
+    const g = document.querySelector('#fanzone-group');
+    if (q && q.dataset.wired !== '1') {
+      q.dataset.wired = '1';
+      q.addEventListener('input', () => {
+        _readFanControls();
+        if (fanState.fixtures.length) renderFanZoneView();
+      });
+    }
+    if (g && g.dataset.wired !== '1') {
+      g.dataset.wired = '1';
+      g.addEventListener('change', () => {
+        _readFanControls();
+        if (fanState.fixtures.length) renderFanZoneView();
+      });
+    }
+  }
+
+  function _ensureFanHostWired(host) {
+    if (!host || host.dataset.fanWired === '1') return;
+    host.dataset.fanWired = '1';
+
+    // One click handler for both vote + declare winner
+    host.addEventListener('click', async (ev) => {
+
+      // --- Admin declare winner ---
+      const winBtn = ev.target.closest('.fan-win');
+      if (winBtn) {
+        if (!isAdminUI()) {
+          notify('Admin required', false);
+          return;
+        }
+
+        const card = winBtn.closest('.fan-card');
+        if (!card) return;
+
+        if (card.dataset.winner === 'home' || card.dataset.winner === 'away') {
+          notify('This match has already been declared and is locked.', false);
+          return;
+        }
+
+        const fid = card.dataset.fid;
+        if (!fid) return;
+
+        const side = String(winBtn.dataset.side || '').toLowerCase();
+        if (side !== 'home' && side !== 'away') return;
+
+        const winnerTeam = String(winBtn.dataset.team || '').trim();
+
+        try {
+          const r = await declareFanZoneWinner(fid, side);
+          if (r && r.ok) {
+            notify(`Winner declared: ${winnerTeam || side}`, true);
+          } else {
+            notify('Failed to declare winner', false);
+          }
+          await refreshVisibleCards();
+        } catch (e) {
+          console.error(e);
+          notify('Failed to declare winner', false);
+        }
+
+        return;
+      }
+
+      // --- Public vote ---
+      const voteBtn = ev.target.closest('.fan-vote');
+      if (!voteBtn) return;
+
+      const card = voteBtn.closest('.fan-card');
+      const fid = card?.dataset?.fid;
+      const choice = voteBtn?.dataset?.choice;
+      if (!fid || !choice) return;
+
+      // If already locked (winner declared), do not even try
+      if (card?.dataset?.winner) {
+        notify('Voting is locked for this match', false);
+        return;
+      }
+
+      // Disable immediately to prevent spam clicks
+      card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
+
+      try {
+        await sendVote(fid, choice);
+      } catch (err) {
+        if (String(err?.message).includes('voting_closed')) {
+          // HARD LOCK from server (winner declared between refresh + click)
+          card.dataset.winner = 'locked';
+          card.classList.add('locked');
+          card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
+          notify('Voting is locked for this match', false);
+          return;
+        }
+        await sleep(400);
+      } finally {
+        const stats = await getStats(fid).catch(() => null);
+        if (stats?.ok) {
+          fanState.statsById.set(String(fid), stats);
+          applyStatsToCard(card, stats);
+        }
+      }
+    }, { once: false });
+  }
   async function getFixtures() {
     const d = await fetchJSON('/api/fixtures');
     return (d && d.fixtures) || [];
@@ -4159,9 +4304,74 @@ async function fetchGoalsData(){
       return data;
     }
 
+  
+  async function renderFanZoneView() {
+    _wireFanControls();
+    _readFanControls();
+
+    const host = $('#fanzone-list');
+    if (!host) return;
+
+    const q = fanState.search;
+    const groupMode = fanState.group;
+
+    const filtered = (fanState.fixtures || []).filter(f => _fixtureMatchesSearch(f, q));
+
+    if (!filtered.length) {
+      host.innerHTML = `<div class="muted" style="padding:12px">No fixtures match your search.</div>`;
+      _ensureFanHostWired(host);
+      return;
+    }
+
+    // Sort + group
+    let blocks = [];
+    if (groupMode === 'none') {
+      blocks = [{ key: '', items: filtered }];
+    } else {
+      const grouped = new Map();
+      for (const f of filtered) {
+        const k = _groupKey(f, groupMode) || '—';
+        if (!grouped.has(k)) grouped.set(k, []);
+        grouped.get(k).push(f);
+      }
+      const keys = Array.from(grouped.keys()).sort((a, b) => String(a).localeCompare(String(b)));
+      blocks = keys.map(k => ({ key: k, items: grouped.get(k) }));
+    }
+
+    // Render placeholders (fast)
+    host.innerHTML = blocks.map(b => {
+      const head = b.key ? `<div class="fan-group-head" style="padding:10px 12px;margin:10px 0 6px;border:1px solid var(--border);border-radius:12px;background:rgba(0,0,0,.15);font-weight:900;color:var(--accent)">${b.key}</div>` : '';
+      const cards = b.items.map(f => `
+        <div class="fan-card" data-fid="${f.id}">
+          <div class="muted" style="padding:12px">Loading…</div>
+        </div>
+      `).join('');
+      return head + cards;
+    }).join('');
+
+    // Fill cards (stats cached where possible)
+    for (const b of blocks) {
+      for (const f of b.items) {
+        const fid = String(f.id);
+        let stats = fanState.statsById.get(fid) || null;
+        if (!stats) {
+          stats = await getStats(fid).catch(() => null);
+          if (stats?.ok) fanState.statsById.set(fid, stats);
+        }
+        const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(fid)}"]`);
+        if (card) card.outerHTML = cardHTML(f, stats);
+      }
+    }
+
+    _ensureFanHostWired(host);
+  }
+
   async function renderFanZone() {
     const host = $('#fanzone-list');
     if (!host) return;
+
+    _wireFanControls();
+    _readFanControls();
 
     host.innerHTML = `<div class="muted" style="padding:12px">Loading fixtures…</div>`;
 
@@ -4170,106 +4380,18 @@ async function fetchGoalsData(){
       fixtures = await getFixtures();
     } catch {
       host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      _ensureFanHostWired(host);
       return;
     }
 
     if (!fixtures.length) {
       host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      _ensureFanHostWired(host);
       return;
     }
 
-    host.innerHTML = fixtures.map(f => `
-      <div class="fan-card" data-fid="${f.id}">
-        <div class="muted" style="padding:12px">Loading…</div>
-      </div>
-    `).join('');
-
-    for (const f of fixtures) {
-      const stats = await getStats(f.id).catch(() => null);
-      const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(f.id)}"]`);
-      if (card) card.outerHTML = cardHTML(f, stats);
-    }
-
-    // One click handler for both vote + declare winner
-    if (host.dataset.fanWired === '1') return;
-    host.dataset.fanWired = '1';
-    host.addEventListener('click', async (ev) => {
-
-      // --- Admin declare winner ---
-      const winBtn = ev.target.closest('.fan-win');
-      if (winBtn) {
-        if (!isAdminUI()) {
-          notify('Admin required', false);
-          return;
-        }
-
-        const card = winBtn.closest('.fan-card');
-        if (!card) return;
-
-          if (card.dataset.winner === 'home' || card.dataset.winner === 'away') {
-            notify('This match has already been declared and is locked.', false);
-            return;
-  }
-
-        const fid = card.dataset.fid;
-        if (!fid) return;
-
-        const side = String(winBtn.dataset.side || '').toLowerCase();
-        if (side !== 'home' && side !== 'away') return;
-
-        const winnerTeam = String(winBtn.dataset.team || '').trim();
-
-        try {
-          const r = await declareFanZoneWinner(fid, side);
-          if (r && r.ok) {
-            notify(`Winner declared: ${winnerTeam || side}`, true);
-          } else {
-            notify('Failed to declare winner', false);
-          }
-          await refreshVisibleCards();
-        } catch (e) {
-          console.error(e);
-          notify('Failed to declare winner', false);
-        }
-
-        return;
-      }
-
-    // --- Public vote ---
-    const voteBtn = ev.target.closest('.fan-vote');
-    if (!voteBtn) return;
-
-    const card = voteBtn.closest('.fan-card');
-    const fid = card?.dataset?.fid;
-    const choice = voteBtn?.dataset?.choice;
-    if (!fid || !choice) return;
-
-    // If already locked (winner declared), do not even try
-    if (card?.dataset?.winner) {
-      notify('Voting is locked for this match', false);
-      return;
-    }
-
-    // Disable immediately to prevent spam clicks
-    card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
-
-    try {
-      await sendVote(fid, choice);
-    } catch (err) {
-      if (String(err?.message).includes('voting_closed')) {
-        // HARD LOCK from server (winner declared between refresh + click)
-        card.dataset.winner = 'locked';
-        card.classList.add('locked');
-        card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
-        notify('Voting is locked for this match', false);
-        return;
-      }
-      await sleep(400);
-    } finally {
-      const stats = await getStats(fid).catch(() => null);
-      if (stats?.ok) applyStatsToCard(card, stats);
-    }
-    }, { once: false });
+    fanState.fixtures = fixtures;
+    await renderFanZoneView();
   }
 
   // Public loader (call when entering the page)
