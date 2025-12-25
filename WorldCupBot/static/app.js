@@ -408,6 +408,21 @@ function setPage(p) {
       _notifPollTimer = setInterval(tick, 10000);
     }
 
+    // Force-refresh bell + panel from anywhere (used after server-side events like winner declare)
+    async function refreshNotificationsNow(openPanel = false){
+      try{
+        wireNotifyUIOnce();
+        startNotifPolling(); // ensures glow continues updating
+        const items = await loadNotifications();
+        renderNotifications(items);
+        if (openPanel){
+          document.getElementById('notify-panel')?.classList.add('open');
+        }
+      }catch{
+        // ignore
+      }
+    }
+    window.wcRefreshNotifications = refreshNotificationsNow;
 
     // Real test command that uses the same rendering path
     window.wcTestNotify = async function(){
@@ -847,10 +862,6 @@ function setPage(p) {
         try { await populate(); } catch {}
       }
     }
-
-
-
-
 
     function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
@@ -4305,6 +4316,10 @@ async function fetchGoalsData(){
       if (!res.ok || !data.ok) {
         throw new Error(data?.error || `declare_failed_${res.status}`);
       }
+
+      // Winner declared - refresh bell immediately (server writes notifications)
+      refreshNotificationsNow(false);
+
       return data;
     }
 
