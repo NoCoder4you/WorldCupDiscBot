@@ -230,7 +230,7 @@ function setPage(p) {
         if(!res.ok) return [];
         const data = await res.json();
         const items = Array.isArray(data?.items) ? data.items : [];
-        return items.filter(it => it && it.id && !isDismissed(it.id));
+        return items.filter(it => it && it.id && !it.read && !isDismissed(it.id));
       }catch{
         return [];
       }

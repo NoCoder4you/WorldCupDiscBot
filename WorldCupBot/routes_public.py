@@ -1598,8 +1598,24 @@ def create_public_routes(ctx):
         resp = make_response(jsonify({"ok": True}))
         fan_id = _ensure_fan_id(resp)
 
-        # One vote per fixture per anonymous fan id
+        # If the voter is logged in, also record a per-discord vote so we can notify them later.
+        uid = None
+        try:
+            u = session.get(_session_key()) or {}
+            uid = _effective_uid() or str(u.get("discord_id") or "").strip()
+        except Exception:
+            uid = None
+        if uid:
+            dv = fx.setdefault("discord_voters", {})
+            if not isinstance(dv, dict):
+                dv = {}
+                fx["discord_voters"] = dv
+            dv.setdefault(uid, choice)
+
+        # One vote per fixture per anonymous fan id (cookie-based)
         if fan_id in voters:
+            # If they already voted anonymously, we still persist any discord linkage we just added
+            _json_save(votes_path, votes_blob)
             return resp
 
         voters[fan_id] = choice
@@ -1613,7 +1629,94 @@ def create_public_routes(ctx):
 
     @api.post("/fanzone/declare")
     def fanzone_declare():
-        return jsonify({"ok": False, "error": "use_admin_endpoint"}), 403
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        fixture_id = str(body.get("fixture_id") or body.get("match_id") or "").strip()
+        winner_side = str(body.get("winner") or body.get("winner_side") or "").strip().lower()  # home | away
+        winner_team = str(body.get("winner_team") or "").strip()
+
+        # Must be logged in as Discord user
+        user = session.get(_session_key()) or {}
+        uid = _effective_uid() or str(user.get("discord_id") or "").strip()
+        if not uid:
+            return jsonify({"ok": False, "error": "not_logged_in"}), 401
+
+        if not _is_admin(base, uid):
+            return jsonify({"ok": False, "error": "admin_required"}), 403
+
+        if not fixture_id or winner_side not in ("home", "away"):
+            return jsonify({"ok": False, "error": "invalid_request"}), 400
+
+        # Lock voting by writing winners record
+        winners_path = _fz_winners_path(base)
+        winners_blob = _json_load(winners_path, {})
+        if not isinstance(winners_blob, dict):
+            winners_blob = {}
+
+        if fixture_id in winners_blob:
+            # idempotent
+            return jsonify({"ok": True, "already_declared": True, "winner_side": winners_blob[fixture_id].get("winner_side")})
+
+        ts = int(time.time())
+        winners_blob[fixture_id] = {
+            "winner_side": winner_side,
+            "winner_team": winner_team or None,
+            "declared_by": str(uid),
+            "ts": ts
+        }
+        _json_save(winners_path, winners_blob)
+
+        # Create bell notifications for logged-in voters (discord_voters)
+        votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
+        fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
+        dv = fx.get("discord_voters") if isinstance(fx, dict) else None
+        if not isinstance(dv, dict):
+            dv = {}
+
+        # events file in JSON/
+        ev_path = _fan_zone_results_path(base)
+        ev_blob = _json_load(ev_path, {"events": []})
+        if not isinstance(ev_blob, dict):
+            ev_blob = {"events": []}
+        evs = ev_blob.get("events")
+        if not isinstance(evs, list):
+            evs = []
+            ev_blob["events"] = evs
+
+        # Dedup by id
+        existing_ids = {str(e.get("id")) for e in evs if isinstance(e, dict)}
+
+        for voter_uid, choice in dv.items():
+            voter_uid = str(voter_uid).strip()
+            choice = str(choice or "").strip().lower()
+            if not voter_uid or choice not in ("home", "away"):
+                continue
+
+            result = "win" if choice == winner_side else "lose"
+            eid = f"fz:{fixture_id}:{voter_uid}:{ts}"
+            if eid in existing_ids:
+                continue
+
+            title = "Fan Zone result"
+            if winner_team:
+                title = f"Fan Zone: {winner_team} declared"
+
+            body_txt = "You won your Fan Zone pick." if result == "win" else "You lost your Fan Zone pick."
+
+            evs.append({
+                "id": eid,
+                "discord_id": voter_uid,
+                "fixture_id": fixture_id,
+                "result": result,
+                "title": title,
+                "body": body_txt,
+                "ts": ts
+            })
+            existing_ids.add(eid)
+
+        _json_save(ev_path, ev_blob)
+
+        return jsonify({"ok": True, "winner_side": winner_side, "winner_team": winner_team or None, "notified": len(dv)})
 
     @api.get("/fanzone/<fixture_id>")
     def api_fanzone_stats(fixture_id):
