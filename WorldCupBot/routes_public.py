@@ -1666,7 +1666,9 @@ def create_public_routes(ctx):
         }
         _json_save(winners_path, winners_blob)
 
-        # Create bell notifications for logged-in voters (discord_voters)
+        # Create bell notifications:
+        # - voters (if logged in + voted)
+        # - team owners (main owner + split owners) of the two teams in the fixture
         votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
         fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
         dv = fx.get("discord_voters") if isinstance(fx, dict) else None
@@ -1684,8 +1686,119 @@ def create_public_routes(ctx):
             ev_blob["events"] = evs
 
         # Dedup by id
-        existing_ids = {str(e.get("id")) for e in evs if isinstance(e, dict)}
+        existing_ids = {str(e.get("id")) for e in evs if isinstance(e, dict) and e.get("id")}
 
+        # Resolve home/away teams from matches.json so we can notify owners
+        home_team = ""
+        away_team = ""
+        try:
+            matches = _json_load(_matches_path(base), [])
+            if isinstance(matches, list):
+                for mm in matches:
+                    if not isinstance(mm, dict):
+                        continue
+                    if str(mm.get("id") or "").strip() == fixture_id:
+                        home_team = str(mm.get("home") or "").strip()
+                        away_team = str(mm.get("away") or "").strip()
+                        break
+        except Exception:
+            home_team = ""
+            away_team = ""
+
+        loser_team = ""
+        if home_team and away_team:
+            loser_team = away_team if winner_side == "home" else home_team
+
+        def _owners_for_team(team_name: str) -> list[str]:
+            team_name = str(team_name or "").strip()
+            if not team_name:
+                return []
+            players = _json_load(_players_path(base), {})
+            out = set()
+            # players.json is expected to be {uid: {teams:[...]}}
+            if isinstance(players, dict):
+                items = players.items()
+            elif isinstance(players, list):
+                # fallback: list of player dicts with an 'id' or 'discord_id'
+                items = []
+                for p in players:
+                    if isinstance(p, dict):
+                        pid = str(p.get("discord_id") or p.get("id") or p.get("user_id") or "").strip()
+                        items.append((pid, p))
+            else:
+                items = []
+
+            for pid, pdata in items:
+                if not isinstance(pdata, dict):
+                    continue
+                teams = pdata.get("teams")
+                if not isinstance(teams, list):
+                    continue
+                for t in teams:
+                    if not isinstance(t, dict):
+                        continue
+                    tname = str(t.get("team") or "").strip()
+                    if not tname:
+                        continue
+                    if tname.lower() != team_name.lower():
+                        continue
+                    own = t.get("ownership") or {}
+                    main_owner = str(own.get("main_owner") or pid or "").strip()
+                    if main_owner:
+                        out.add(main_owner)
+                    split_with = own.get("split_with")
+                    if isinstance(split_with, list):
+                        for sid in split_with:
+                            ssid = str(sid or "").strip()
+                            if ssid:
+                                out.add(ssid)
+            return list(out)
+
+        # 1) Notify team owners (this is the "permanent" bit - ownership doesn't depend on having voted)
+        owner_notified = 0
+        if home_team and away_team:
+            win_team = home_team if winner_side == "home" else away_team
+            lose_team = away_team if winner_side == "home" else home_team
+
+            win_ids = _owners_for_team(win_team)
+            lose_ids = _owners_for_team(lose_team)
+
+            # Winner owners
+            for ouid in win_ids:
+                eid = f"fz:{fixture_id}:{ouid}:win"
+                if eid in existing_ids:
+                    continue
+                evs.append({
+                    "id": eid,
+                    "discord_id": str(ouid),
+                    "fixture_id": fixture_id,
+                    "result": "win",
+                    "title": "Fan Zone result",
+                    "body": f"✅ {win_team} beat {lose_team} ({home_team} vs {away_team}).",
+                    "ts": ts
+                })
+                existing_ids.add(eid)
+                owner_notified += 1
+
+            # Loser owners
+            for ouid in lose_ids:
+                eid = f"fz:{fixture_id}:{ouid}:lose"
+                if eid in existing_ids:
+                    continue
+                evs.append({
+                    "id": eid,
+                    "discord_id": str(ouid),
+                    "fixture_id": fixture_id,
+                    "result": "lose",
+                    "title": "Fan Zone result",
+                    "body": f"❌ {lose_team} lost to {win_team} ({home_team} vs {away_team}).",
+                    "ts": ts
+                })
+                existing_ids.add(eid)
+                owner_notified += 1
+
+        # 2) Notify logged-in voters (optional)
+        voter_notified = 0
         for voter_uid, choice in dv.items():
             voter_uid = str(voter_uid).strip()
             choice = str(choice or "").strip().lower()
@@ -1693,7 +1806,7 @@ def create_public_routes(ctx):
                 continue
 
             result = "win" if choice == winner_side else "lose"
-            eid = f"fz:{fixture_id}:{voter_uid}:{ts}"
+            eid = f"fzvote:{fixture_id}:{voter_uid}:{result}"
             if eid in existing_ids:
                 continue
 
@@ -1713,6 +1826,7 @@ def create_public_routes(ctx):
                 "ts": ts
             })
             existing_ids.add(eid)
+            voter_notified += 1
 
         _json_save(ev_path, ev_blob)
 
