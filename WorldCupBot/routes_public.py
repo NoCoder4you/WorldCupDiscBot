@@ -1631,6 +1631,7 @@ def create_public_routes(ctx):
     def fanzone_declare():
         base = ctx.get("BASE_DIR", "")
         body = request.get_json(silent=True) or {}
+
         fixture_id = str(body.get("fixture_id") or body.get("match_id") or "").strip()
         winner_side = str(body.get("winner") or body.get("winner_side") or "").strip().lower()  # home | away
         winner_team = str(body.get("winner_team") or "").strip()
@@ -1647,15 +1648,71 @@ def create_public_routes(ctx):
         if not fixture_id or winner_side not in ("home", "away"):
             return jsonify({"ok": False, "error": "invalid_request"}), 400
 
+        # ----------------------------
+        # Resolve fixture teams from matches.json (robust schema support)
+        # ----------------------------
+        def _resolve_fixture_teams(fid: str):
+            matches = _json_load(_matches_path(base), [])
+            home = ""
+            away = ""
+
+            def pick(d, *keys):
+                for k in keys:
+                    v = d.get(k)
+                    if isinstance(v, str) and v.strip():
+                        return v.strip()
+                return ""
+
+            if isinstance(matches, list):
+                for m in matches:
+                    if not isinstance(m, dict):
+                        continue
+                    mid = str(m.get("fixture_id") or m.get("id") or m.get("match_id") or "").strip()
+                    if mid != fid:
+                        continue
+
+                    # Common schemas:
+                    # home/away strings
+                    home = pick(m, "home", "home_team", "team_home", "homeName", "home_name")
+                    away = pick(m, "away", "away_team", "team_away", "awayName", "away_name")
+
+                    # nested team objects
+                    if not home and isinstance(m.get("home_team"), dict):
+                        home = pick(m["home_team"], "name", "team", "title")
+                    if not away and isinstance(m.get("away_team"), dict):
+                        away = pick(m["away_team"], "name", "team", "title")
+
+                    # nested "teams": {"home": {"name":..}, "away": {"name":..}}
+                    teams = m.get("teams")
+                    if isinstance(teams, dict):
+                        h = teams.get("home")
+                        a = teams.get("away")
+                        if not home and isinstance(h, dict):
+                            home = pick(h, "name", "team", "title")
+                        if not away and isinstance(a, dict):
+                            away = pick(a, "name", "team", "title")
+
+                    break
+
+            return home, away
+
+        home, away = _resolve_fixture_teams(fixture_id)
+
+        # ----------------------------
         # Lock voting by writing winners record
+        # ----------------------------
         winners_path = _fz_winners_path(base)
         winners_blob = _json_load(winners_path, {})
         if not isinstance(winners_blob, dict):
             winners_blob = {}
 
         if fixture_id in winners_blob:
-            # idempotent
-            return jsonify({"ok": True, "already_declared": True, "winner_side": winners_blob[fixture_id].get("winner_side")})
+            rec = winners_blob.get(fixture_id) or {}
+            return jsonify({
+                "ok": True,
+                "already_declared": True,
+                "winner_side": (rec.get("winner_side") or rec.get("winner"))
+            })
 
         ts = int(time.time())
         winners_blob[fixture_id] = {
@@ -1666,16 +1723,18 @@ def create_public_routes(ctx):
         }
         _json_save(winners_path, winners_blob)
 
-        # Create bell notifications:
-        # - voters (if logged in + voted)
-        # - team owners (main owner + split owners) of the two teams in the fixture
+        # ----------------------------
+        # Load votes and voters (discord_voters)
+        # ----------------------------
         votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
         fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
         dv = fx.get("discord_voters") if isinstance(fx, dict) else None
         if not isinstance(dv, dict):
             dv = {}
 
-        # events file in JSON/
+        # ----------------------------
+        # Load/prepare events file
+        # ----------------------------
         ev_path = _fan_zone_results_path(base)
         ev_blob = _json_load(ev_path, {"events": []})
         if not isinstance(ev_blob, dict):
@@ -1685,120 +1744,11 @@ def create_public_routes(ctx):
             evs = []
             ev_blob["events"] = evs
 
-        # Dedup by id
-        existing_ids = {str(e.get("id")) for e in evs if isinstance(e, dict) and e.get("id")}
+        existing_ids = {str(e.get("id")) for e in evs if isinstance(e, dict)}
 
-        # Resolve home/away teams from matches.json so we can notify owners
-        home_team = ""
-        away_team = ""
-        try:
-            matches = _json_load(_matches_path(base), [])
-            if isinstance(matches, list):
-                for mm in matches:
-                    if not isinstance(mm, dict):
-                        continue
-                    if str(mm.get("id") or "").strip() == fixture_id:
-                        home_team = str(mm.get("home") or "").strip()
-                        away_team = str(mm.get("away") or "").strip()
-                        break
-        except Exception:
-            home_team = ""
-            away_team = ""
-
-        loser_team = ""
-        if home_team and away_team:
-            loser_team = away_team if winner_side == "home" else home_team
-
-        def _owners_for_team(team_name: str) -> list[str]:
-            team_name = str(team_name or "").strip()
-            if not team_name:
-                return []
-            players = _json_load(_players_path(base), {})
-            out = set()
-            # players.json is expected to be {uid: {teams:[...]}}
-            if isinstance(players, dict):
-                items = players.items()
-            elif isinstance(players, list):
-                # fallback: list of player dicts with an 'id' or 'discord_id'
-                items = []
-                for p in players:
-                    if isinstance(p, dict):
-                        pid = str(p.get("discord_id") or p.get("id") or p.get("user_id") or "").strip()
-                        items.append((pid, p))
-            else:
-                items = []
-
-            for pid, pdata in items:
-                if not isinstance(pdata, dict):
-                    continue
-                teams = pdata.get("teams")
-                if not isinstance(teams, list):
-                    continue
-                for t in teams:
-                    if not isinstance(t, dict):
-                        continue
-                    tname = str(t.get("team") or "").strip()
-                    if not tname:
-                        continue
-                    if tname.lower() != team_name.lower():
-                        continue
-                    own = t.get("ownership") or {}
-                    main_owner = str(own.get("main_owner") or pid or "").strip()
-                    if main_owner:
-                        out.add(main_owner)
-                    split_with = own.get("split_with")
-                    if isinstance(split_with, list):
-                        for sid in split_with:
-                            ssid = str(sid or "").strip()
-                            if ssid:
-                                out.add(ssid)
-            return list(out)
-
-        # 1) Notify team owners (this is the "permanent" bit - ownership doesn't depend on having voted)
-        owner_notified = 0
-        if home_team and away_team:
-            win_team = home_team if winner_side == "home" else away_team
-            lose_team = away_team if winner_side == "home" else home_team
-
-            win_ids = _owners_for_team(win_team)
-            lose_ids = _owners_for_team(lose_team)
-
-            # Winner owners
-            for ouid in win_ids:
-                eid = f"fz:{fixture_id}:{ouid}:win"
-                if eid in existing_ids:
-                    continue
-                evs.append({
-                    "id": eid,
-                    "discord_id": str(ouid),
-                    "fixture_id": fixture_id,
-                    "result": "win",
-                    "title": "Fan Zone result",
-                    "body": f"✅ {win_team} beat {lose_team} ({home_team} vs {away_team}).",
-                    "ts": ts
-                })
-                existing_ids.add(eid)
-                owner_notified += 1
-
-            # Loser owners
-            for ouid in lose_ids:
-                eid = f"fz:{fixture_id}:{ouid}:lose"
-                if eid in existing_ids:
-                    continue
-                evs.append({
-                    "id": eid,
-                    "discord_id": str(ouid),
-                    "fixture_id": fixture_id,
-                    "result": "lose",
-                    "title": "Fan Zone result",
-                    "body": f"❌ {lose_team} lost to {win_team} ({home_team} vs {away_team}).",
-                    "ts": ts
-                })
-                existing_ids.add(eid)
-                owner_notified += 1
-
-        # 2) Notify logged-in voters (optional)
-        voter_notified = 0
+        # ----------------------------
+        # Notify logged-in voters
+        # ----------------------------
         for voter_uid, choice in dv.items():
             voter_uid = str(voter_uid).strip()
             choice = str(choice or "").strip().lower()
@@ -1806,14 +1756,11 @@ def create_public_routes(ctx):
                 continue
 
             result = "win" if choice == winner_side else "lose"
-            eid = f"fzvote:{fixture_id}:{voter_uid}:{result}"
+            eid = f"fz:{fixture_id}:{voter_uid}:{ts}"
             if eid in existing_ids:
                 continue
 
-            title = "Fan Zone result"
-            if winner_team:
-                title = f"Fan Zone: {winner_team} declared"
-
+            title = f"Fan Zone: {winner_team} declared" if winner_team else "Fan Zone result"
             body_txt = "You won your Fan Zone pick." if result == "win" else "You lost your Fan Zone pick."
 
             evs.append({
@@ -1826,11 +1773,107 @@ def create_public_routes(ctx):
                 "ts": ts
             })
             existing_ids.add(eid)
-            voter_notified += 1
+
+        # ----------------------------
+        # Notify team owners (EVERY TIME)
+        # Reads ownership from players.json -> teams[] -> ownership.main_owner + ownership.split_with
+        # ----------------------------
+        def _team_owner_ids(team_name: str):
+            s = str(team_name or "").strip().lower()
+            if not s:
+                return set()
+
+            owners = set()
+            players_blob = _json_load(_players_path(base), {})
+            if not isinstance(players_blob, dict):
+                return owners
+
+            for _, pdata in players_blob.items():
+                if not isinstance(pdata, dict):
+                    continue
+
+                tlist = pdata.get("teams")
+                if not isinstance(tlist, list):
+                    continue
+
+                for t in tlist:
+                    if not isinstance(t, dict):
+                        continue
+                    if str(t.get("team") or "").strip().lower() != s:
+                        continue
+
+                    own = t.get("ownership") or {}
+                    if isinstance(own, dict):
+                        mo = own.get("main_owner")
+                        if mo is not None and str(mo).strip():
+                            owners.add(str(mo).strip())
+
+                        sw = own.get("split_with")
+                        if isinstance(sw, list):
+                            for oid in sw:
+                                if oid is not None and str(oid).strip():
+                                    owners.add(str(oid).strip())
+
+            return owners
+
+        # Determine winner/loser team names for owner notifications
+        resolved_winner_team = winner_team or (home if winner_side == "home" else away)
+        resolved_loser_team = (away if winner_side == "home" else home)
+
+        win_owners = _team_owner_ids(resolved_winner_team)
+        lose_owners = _team_owner_ids(resolved_loser_team)
+        all_owners = win_owners | lose_owners
+
+        # Even if teams couldn't be resolved from matches.json, still notify owners of winner_team if provided
+        # (loser owners won't be known in that case)
+        if not all_owners and resolved_winner_team:
+            win_owners = _team_owner_ids(resolved_winner_team)
+            all_owners = set(win_owners)
+
+        for owner_uid in all_owners:
+            owner_uid = str(owner_uid).strip()
+            if not owner_uid:
+                continue
+
+            result = "win" if owner_uid in win_owners else "lose"
+            eid = f"fzown:{fixture_id}:{owner_uid}:{result}:{ts}"
+            if eid in existing_ids:
+                continue
+
+            title = f"Match declared: {resolved_winner_team}" if resolved_winner_team else "Match declared"
+
+            if resolved_winner_team and resolved_loser_team:
+                if result == "win":
+                    body_txt = f"✅ Your team won - {resolved_winner_team} beat {resolved_loser_team}."
+                else:
+                    body_txt = f"❌ Your team lost - {resolved_loser_team} lost to {resolved_winner_team}."
+            else:
+                # Fallback if match teams unknown
+                if result == "win":
+                    body_txt = f"✅ Your team won - {resolved_winner_team} was declared the winner."
+                else:
+                    body_txt = f"❌ Your team lost - a match you own was declared."
+
+            evs.append({
+                "id": eid,
+                "discord_id": owner_uid,
+                "fixture_id": fixture_id,
+                "result": result,
+                "title": title,
+                "body": body_txt,
+                "ts": ts
+            })
+            existing_ids.add(eid)
 
         _json_save(ev_path, ev_blob)
 
-        return jsonify({"ok": True, "winner_side": winner_side, "winner_team": winner_team or None, "notified": len(dv)})
+        return jsonify({
+            "ok": True,
+            "winner_side": winner_side,
+            "winner_team": winner_team or resolved_winner_team or None,
+            "notified_voters": len(dv),
+            "notified_owners": len(all_owners)
+        })
 
     @api.get("/fanzone/<fixture_id>")
     def api_fanzone_stats(fixture_id):
