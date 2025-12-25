@@ -405,7 +405,7 @@ function setPage(p) {
       };
 
       await tick();
-      _notifPollTimer = setInterval(tick, 1000);
+      _notifPollTimer = setInterval(tick, 10000);
     }
 
 
@@ -852,30 +852,63 @@ function setPage(p) {
 
 
 
-  function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
-  function ensureSectionCard(id, title, controls){
-    const sec = qs(`#${id}`); sec.innerHTML='';
-    const wrap = document.createElement('div'); wrap.className='table-wrap';
-    const head = document.createElement('div'); head.className='table-head';
-    head.innerHTML = `<div class="table-title">${title}</div><div class="fan-controls"></div>`;
-    const actions = head.querySelector('.fan-refresh');
-    (controls||[]).forEach(([label, meta])=>{
-      if(meta && meta.kind==='input'){
-        const inp = document.createElement('input'); inp.type='text'; inp.id=meta.id; inp.placeholder=meta.placeholder||'';
-        actions.appendChild(inp);
-      }else if(meta && meta.kind==='select'){
-        const sel=document.createElement('select'); sel.id=meta.id;
-        (meta.items||[]).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
-        actions.appendChild(sel);
-      }else{
-        const btn = document.createElement('button'); btn.className='btn'; if(meta?.id) btn.id=meta.id; btn.textContent=label; actions.appendChild(btn);
-      }
-    });
-    const scroll = document.createElement('div'); scroll.className='table-scroll';
-    wrap.appendChild(head); wrap.appendChild(scroll); sec.appendChild(wrap);
-    return wrap;
-  }
+    function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
+    function ensureSectionCard(id, title, controls){
+      const sec = qs(`#${id}`);
+      if (!sec) return null;
+
+      sec.innerHTML = '';
+
+      const wrap = document.createElement('div');
+      wrap.className = 'table-wrap';
+
+      const head = document.createElement('div');
+      head.className = 'table-head';
+      head.innerHTML = `<div class="table-title">${title}</div><div class="table-actions"></div>`;
+
+      // Defensive: if something ever nukes the innerHTML, rebuild the actions container
+      let actions = head.querySelector('.table-actions');
+      if (!actions){
+        actions = document.createElement('div');
+        actions.className = 'table-actions';
+        head.appendChild(actions);
+      }
+
+      (controls || []).forEach(([label, meta]) => {
+        if (meta && meta.kind === 'input'){
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.id = meta.id;
+          inp.placeholder = meta.placeholder || '';
+          actions.appendChild(inp);
+        } else if (meta && meta.kind === 'select'){
+          const sel = document.createElement('select');
+          sel.id = meta.id;
+          (meta.items || []).forEach(v => {
+            const o = document.createElement('option');
+            o.value = v;
+            o.textContent = v;
+            sel.appendChild(o);
+          });
+          actions.appendChild(sel);
+        } else {
+          const btn = document.createElement('button');
+          btn.className = 'btn';
+          if (meta?.id) btn.id = meta.id;
+          btn.textContent = label;
+          actions.appendChild(btn);
+        }
+      });
+
+      const scroll = document.createElement('div');
+      scroll.className = 'table-scroll';
+
+      wrap.appendChild(head);
+      wrap.appendChild(scroll);
+      sec.appendChild(wrap);
+      return wrap;
+    }
     // ===== Verified users loader (from /api/verified) =====
     function parseVerifiedPayload(payload) {
       if (!payload) return [];
