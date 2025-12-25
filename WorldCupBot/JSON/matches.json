@@ -113,7 +113,7 @@
   },
   {
     "id": "2026-06-15-G-IRN-NZL",
-    "home": "IR Iran",
+    "home": "Iran",
     "away": "New Zealand",
     "utc": "2026-06-15T00:00:00Z",
     "stadium": "Los Angeles Stadium",
@@ -315,7 +315,7 @@
   {
     "id": "2026-06-21-G-BEL-IRN",
     "home": "Belgium",
-    "away": "IR Iran",
+    "away": "Iran",
     "utc": "2026-06-21T00:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "G"
@@ -512,7 +512,7 @@
   {
     "id": "2026-06-26-G-EGY-IRN",
     "home": "Egypt",
-    "away": "IR Iran",
+    "away": "Iran",
     "utc": "2026-06-26T00:00:00Z",
     "stadium": "Seattle Stadium",
     "group": "G"
