@@ -4029,23 +4029,36 @@ async function fetchGoalsData(){
     sel.value = wanted;
   }
 
-  function applyFanZoneFilters(){
-    const sel = document.getElementById('fanzone-group');
-    const inp = document.getElementById('fanzone-country');
-    const group = String(sel?.value || 'ALL').toUpperCase();
-    const q = normalize(inp?.value || '');
-
-    const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
-    for (const card of cards) {
-      const g = String(card.dataset.group || '').toUpperCase();
-      const teams = normalize(card.dataset.teams || '');
-
-      const okGroup = (group === 'ALL') || (g && g === group);
-      const okCountry = !q || teams.includes(q);
-
-      card.style.display = (okGroup && okCountry) ? '' : 'none';
+    function getFanFilterEls(){
+      return {
+        sel: document.getElementById('fanzone-group'),
+        inp: document.getElementById('fanzone-country'),
+      };
     }
-  }
+
+    function resetFanZoneFilters(){
+      const { sel, inp } = getFanFilterEls();
+      if (sel) sel.value = 'ALL';
+      if (inp) inp.value = '';
+    }
+
+    function applyFanZoneFilters(){
+      const { sel, inp } = getFanFilterEls();
+
+      const group = String(sel?.value || 'ALL').toUpperCase();
+      const q = normalize(inp?.value || '');
+
+      const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
+      for (const card of cards) {
+        const g = String(card.dataset.group || '').toUpperCase();
+        const teams = normalize(card.dataset.teams || '');
+
+        const okGroup = (group === 'ALL') || (g && g === group);
+        const okCountry = !q || teams.includes(q);
+
+        card.style.display = (okGroup && okCountry) ? '' : 'none';
+      }
+    }
 
   // If you already have isAdminUI() elsewhere, we use it.
   // Fallback: treat body.admin as admin.
@@ -4269,6 +4282,10 @@ async function fetchGoalsData(){
 
     const teamMeta = await loadTeamMetaFast();
     populateFanZoneGroupSelector(teamMeta);
+        if (host.dataset.fanFiltersInit !== '1') {
+        resetFanZoneFilters();
+        host.dataset.fanFiltersInit = '1';
+        }
     const teamToGroup = buildTeamToGroup(teamMeta);
 
     host.innerHTML = `<div class="muted" style="padding:12px">Loading fixtures…</div>`;
@@ -4405,17 +4422,18 @@ async function fetchGoalsData(){
     }, 20000);
   }
 
-  function ensureFanFilterWiring(){
-    const sel = document.getElementById('fanzone-group');
-    const inp = document.getElementById('fanzone-country');
-    if (!sel && !inp) return;
+    function ensureFanFilterWiring(){
+      const { sel, inp } = getFanFilterEls();
+      if (!sel && !inp) return;
 
-    if (sel && sel.dataset.wired === '1') return;
-    if (sel) sel.dataset.wired = '1';
+      // prevent double-wiring
+      const key = sel || inp;
+      if (key && key.dataset.wired === '1') return;
+      if (key) key.dataset.wired = '1';
 
-    sel && sel.addEventListener('change', () => applyFanZoneFilters());
-    inp && inp.addEventListener('input', () => applyFanZoneFilters());
-  }
+      sel && sel.addEventListener('change', applyFanZoneFilters);
+      inp && inp.addEventListener('input', applyFanZoneFilters);
+    }
 
   // When Fan Zone is selected, load + start refresher
   document.addEventListener('click', (e) => {
@@ -4424,10 +4442,13 @@ async function fetchGoalsData(){
     setTimeout(() => { ensureFanFilterWiring(); window.loadFanZone(); ensureFanRefresh(); }, 50);
   });
 
-  // Manual refresh button
-  document.addEventListener('click', (e) => {
-    if (e.target.id === 'fanzone-refresh') { ensureFanFilterWiring(); window.loadFanZone(); }
-  });
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'fanzone-refresh') {
+        ensureFanFilterWiring();
+        resetFanZoneFilters();
+        window.loadFanZone();
+      }
+    });
 
   // If landing directly on Fan Zone
   window.addEventListener('DOMContentLoaded', () => {

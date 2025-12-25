@@ -205,33 +205,21 @@
               <div class="table-wrap">
                   <div class="table-head">
                       <div class="table-title">Fan Zone</div>
-                        <div class="fan-controls">
-                          <button id="fan-refresh" class="btn">Refresh</button>
-
-                          <select id="fan-group-filter" class="fan-filter">
-                            <option value="">All Groups</option>
-                            <option value="A">Group A</option>
-                            <option value="B">Group B</option>
-                            <option value="C">Group C</option>
-                            <option value="D">Group D</option>
-                            <option value="E">Group E</option>
-                            <option value="F">Group F</option>
-                            <option value="G">Group G</option>
-                            <option value="H">Group H</option>
-                            <option value="I">Group I</option>
-                            <option value="J">Group J</option>
-                            <option value="K">Group K</option>
-                            <option value="L">Group L</option>
+                      <div class="table-actions">
+                          <select id="fanzone-group" class="map-group" aria-label="Filter by group">
+                              <option value="ALL" selected>All groups</option>
                           </select>
 
                           <input
-                            type="text"
-                            id="fan-country-filter"
-                            class="fan-filter"
-                            placeholder="Search country"
-                            autocomplete="off"
-                          />
-                        </div>
+                                  id="fanzone-country"
+                                  class="fz-search"
+                                  type="text"
+                                  placeholder="Search country"
+                                  autocomplete="off"
+                                  spellcheck="false"
+                          >
+                          <button id="fanzone-refresh" class="btn sm">Refresh</button>
+                      </div>
                   </div>
                   <div class="table-scroll">
                       <div id="fanzone-list" class="fan-list"></div>

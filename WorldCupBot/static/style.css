@@ -3300,37 +3300,18 @@ body .notify-panel{ right: 90px; }
   border-radius: 12px;
 }
 /* ---------- Fan Zone Filters ---------- */
-
-.fan-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.fan-filter {
-  height: 36px;
-  padding: 6px 10px;
-  background: var(--panel);
+.fz-search {
+  background: #0f1927;
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-  outline: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-right: 8px;
+  width: 180px;
 }
 
-.fan-filter::placeholder {
-  color: var(--muted);
+@media (max-width: 720px) {
+  .fz-search { width: 140px; }
 }
 
-.fan-filter:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent-soft);
-}
-
-/* Keep filters compact on smaller screens */
-@media (max-width: 700px) {
-  .fan-controls {
-    flex-wrap: wrap;
-  }
-}
 
