@@ -4266,10 +4266,14 @@ async function fetchGoalsData(){
     const ap = pct(stats?.away_pct || 0);
     const total = stats?.total || 0;
     const last = stats?.last_choice;
+    const winner = String(stats?.winner || stats?.winner_side || '').toLowerCase();
+    const isLocked = winner === 'home' || winner === 'away';
 
     const votedHome = last === 'home';
     const votedAway = last === 'away';
     const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
+    const lockedClass = isLocked ? 'locked' : '';
+    const winnerClass = isLocked ? `winner-${winner}` : '';
 
     const adminControls = (isAdminUI()) ? `
       <span class="fan-win-wrap" data-admin="true">
@@ -4283,7 +4287,7 @@ async function fetchGoalsData(){
     ` : '';
 
     return `
-      <div class="fan-card ${votedClass}" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}">
+      <div class="fan-card ${votedClass} ${lockedClass} ${winnerClass}" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}" data-winner="${isLocked ? winner : ''}">
         <div class="fan-head">
           <div class="fan-team">
             ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
@@ -4310,10 +4314,10 @@ async function fetchGoalsData(){
         </div>
 
         <div class="fan-actions">
-          <button class="btn fan-vote home ${votedHome ? 'active' : ''}" data-choice="home" ${last ? 'disabled' : ''}>
+          <button class="btn fan-vote home ${votedHome ? 'active' : ''}" data-choice="home" ${isLocked || last ? 'disabled' : ''}>
             Vote ${f.home}
           </button>
-          <button class="btn fan-vote away ${votedAway ? 'active' : ''}" data-choice="away" ${last ? 'disabled' : ''}>
+          <button class="btn fan-vote away ${votedAway ? 'active' : ''}" data-choice="away" ${isLocked || last ? 'disabled' : ''}>
             Vote ${f.away}
           </button>
         </div>
