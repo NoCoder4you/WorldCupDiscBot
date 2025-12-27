@@ -2870,6 +2870,18 @@ body.user-admin-view #ownership .ownership-card {
   font-weight: 800;
 }
 
+.fan-card.voted-home .fan-actions,
+.fan-card.voted-away .fan-actions {
+  pointer-events: none;
+  filter: grayscale(0.6);
+  opacity: 0.6;
+}
+
+.fan-card.voted-home .fan-actions .btn,
+.fan-card.voted-away .fan-actions .btn {
+  cursor: not-allowed;
+}
+
 /* --- Ownership page: custom stage dropdown --- */
 
 /* hide the native select but keep it for JS/value */
@@ -3313,5 +3325,4 @@ body .notify-panel{ right: 90px; }
 @media (max-width: 720px) {
   .fz-search { width: 140px; }
 }
-
 

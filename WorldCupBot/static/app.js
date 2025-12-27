@@ -4200,7 +4200,7 @@ async function fetchGoalsData(){
     ` : '';
 
     return `
-      <div class="fan-card ${votedClass}" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}">
+      <div class="fan-card ${votedClass}" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}">
         <div class="fan-head">
           <div class="fan-team">
             ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
@@ -4237,7 +4237,7 @@ async function fetchGoalsData(){
 
         <div class="fan-foot">
           <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
-          ${last ? `<span class="pill pill-ok">You voted: ${last}</span>` : ''}
+          ${last ? `<span class="pill pill-ok">You voted: ${last === 'home' ? f.home : f.away}</span>` : ''}
           ${adminControls}
         </div>
       </div>
@@ -4272,6 +4272,8 @@ async function fetchGoalsData(){
 
   // "You voted" state (this is what brings the outline back)
   const last = String(stats.last_choice || stats.last || '').toLowerCase(); // "home"|"away"|""
+  const homeLabel = card.dataset.home || 'Home';
+  const awayLabel = card.dataset.away || 'Away';
   if (btnHome) btnHome.classList.toggle('active', last === 'home');
   if (btnAway) btnAway.classList.toggle('active', last === 'away');
   card.classList.toggle('voted-home', last === 'home');
@@ -4308,7 +4310,10 @@ async function fetchGoalsData(){
 
   // Update the little pill if present
   const pill = card.querySelector('.pill.pill-ok');
-  if (pill) pill.textContent = last ? `You voted: ${last}` : '';
+  if (pill) {
+    const votedLabel = last === 'home' ? homeLabel : last === 'away' ? awayLabel : '';
+    pill.textContent = votedLabel ? `You voted: ${votedLabel}` : '';
+  }
 }
 
     async function refreshVisibleCards() {
@@ -4387,7 +4392,7 @@ async function fetchGoalsData(){
     }
 
     host.innerHTML = fixtures.map(f => `
-      <div class="fan-card" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}">
+      <div class="fan-card" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}">
         <div class="muted" style="padding:12px">Loading…</div>
       </div>
     `).join('');
