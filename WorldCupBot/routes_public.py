@@ -716,7 +716,7 @@ def create_public_routes(ctx):
                             main_owner = None
                             split_with = []
 
-                        rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
+                        rec = country_map.setdefault(team, {"main_owner": None, "split_with": [], "percentages": {}})
                         if main_owner is not None:
                             if rec["main_owner"] is None or str(main_owner) == str(uid):
                                 rec["main_owner"] = str(main_owner)
@@ -724,6 +724,13 @@ def create_public_routes(ctx):
                             sid = str(sid).strip()
                             if sid and sid not in rec["split_with"]:
                                 rec["split_with"].append(sid)
+                        percentages = own.get("percentages")
+                        if isinstance(percentages, dict) and percentages:
+                            rec["percentages"] = {
+                                str(owner_id): float(value)
+                                for owner_id, value in percentages.items()
+                                if value is not None
+                            }
 
             team_names = set([str(t) for t in teams if t]) or set(country_map.keys())
             rows = []
@@ -739,7 +746,8 @@ def create_public_routes(ctx):
                         "username": id_to_name.get(str(main_id))
                     },
                     "split_with": [{"id": sid, "username": id_to_name.get(sid)} for sid in split_ids],
-                    "owners_count": (1 if main_id else 0) + len(split_ids)
+                    "owners_count": (1 if main_id else 0) + len(split_ids),
+                    "percentages": rec.get("percentages") or {}
                 })
 
             return jsonify({"rows": rows, "count": len(rows)})
@@ -782,13 +790,20 @@ def create_public_routes(ctx):
                     split_with = [str(x) for x in (own.get("split_with") or [])]
                     if not team:
                         continue
-                    rec = country_map.setdefault(team, {"main_owner": None, "split_with": []})
+                    rec = country_map.setdefault(team, {"main_owner": None, "split_with": [], "percentages": {}})
                     if main_owner is not None:
                         if rec["main_owner"] is None or str(main_owner) == str(uid):
                             rec["main_owner"] = str(main_owner)
                     for sid in split_with:
                         if sid and sid not in rec["split_with"]:
                             rec["split_with"].append(sid)
+                    percentages = own.get("percentages")
+                    if isinstance(percentages, dict) and percentages:
+                        rec["percentages"] = {
+                            str(owner_id): float(value)
+                            for owner_id, value in percentages.items()
+                            if value is not None
+                        }
 
         rows = []
         for team in sorted(country_map.keys(), key=lambda x: x.lower()):
@@ -800,7 +815,8 @@ def create_public_routes(ctx):
                 "main_owner": None if main_id is None else {"id": str(main_id),
                                                             "username": id_to_name.get(str(main_id))},
                 "split_with": [{"id": sid, "username": id_to_name.get(sid)} for sid in split_ids],
-                "owners_count": (1 if main_id else 0) + len(split_ids)
+                "owners_count": (1 if main_id else 0) + len(split_ids),
+                "percentages": rec.get("percentages") or {}
             })
         return jsonify({"rows": rows, "count": len(rows)})
 
