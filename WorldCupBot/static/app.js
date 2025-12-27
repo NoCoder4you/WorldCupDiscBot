@@ -3744,9 +3744,9 @@ async function fetchGoalsData(){
   return []; // nothing available
 }
 
-    async function fetchFanZoneResultsData(){
+    async function fetchFanZoneWinsData(){
       try{
-        const res = await fetch('/api/leaderboards/fanzone_results', { headers:{'Accept':'application/json'} });
+        const res = await fetch('/api/leaderboards/fanzone_wins', { headers:{'Accept':'application/json'} });
         if(!res.ok) return [];
         const data = await res.json();
         if(Array.isArray(data)) return data;
@@ -3788,25 +3788,22 @@ async function fetchGoalsData(){
       return row;
     }
 
-    function voteResultsRowEl(rec){
+    function voteWinsRowEl(rec, iso){
       const row = document.createElement('div');
       row.className = 'lb-row';
 
       const left = document.createElement('div');
       left.className = 'lb-left';
-      left.appendChild(avatarEl({id:rec.id, display_name:rec.name, avatar_url:rec.avatar_url}));
-      const t = document.createElement('div');
-      t.innerHTML = `<div class="lb-name">${rec.name}</div>`;
-      left.appendChild(t);
+      left.appendChild(flagChip(rec.team, iso));
 
       const right = document.createElement('div');
       right.className = 'lb-right';
-      right.appendChild(barEl(rec.count, rec._max || rec.count));
+      right.appendChild(barEl(rec.wins, rec._max || rec.wins));
       const stats = document.createElement('div');
       stats.className = 'lb-stats';
       const chip = document.createElement('span');
       chip.className = 'lb-chip';
-      chip.textContent = rec.label;
+      chip.textContent = `Wins: ${rec.wins}`;
       stats.appendChild(chip);
       right.appendChild(stats);
 
@@ -3938,34 +3935,23 @@ async function fetchGoalsData(){
       scorers.forEach(s => s._max = maxGoals);
 
       // Fan Zone voting wins
-      const rawVoteResults = await fetchFanZoneResultsData();
-      const voteResults = (rawVoteResults || []).map(r => {
-        const id = String(r.id || r.discord_id || '').trim();
-        const prof = vmap[id] || { id, display_name: r.name || r.username || id, username: r.username || '' };
-        return {
-          id,
-          name: prof.display_name || prof.username || id,
-          wins: Number(r.wins || 0),
-          losses: Number(r.losses || 0),
-          avatar_url: prof.avatar_url || null
-        };
-      }).filter(r => r.id);
-      const voteWins = [...voteResults].sort((a, b) => (b.wins - a.wins) || String(a.name).localeCompare(String(b.name)));
-      const voteLosses = [...voteResults].sort((a, b) => (b.losses - a.losses) || String(a.name).localeCompare(String(b.name)));
+      const rawVoteWins = await fetchFanZoneWinsData();
+      let voteWins = (rawVoteWins || []).map(r => ({
+        team: r.team || r.country || r.name || '',
+        wins: Number(r.wins || r.count || 0)
+      })).filter(r => r.team);
+      voteWins.sort((a, b) => (b.wins - a.wins) || String(a.team).localeCompare(String(b.team)));
       const maxVoteWins = voteWins[0]?.wins || 0;
-      const maxVoteLosses = voteLosses[0]?.losses || 0;
       voteWins.forEach(v => v._max = maxVoteWins);
-      voteLosses.forEach(v => v._max = maxVoteLosses);
 
       const state = (window.state = window.state || {}); state.lb = state.lb || {};
       state.lb.ownersAll = owners;
       state.lb.bettorsAll = bettors;
       state.lb.scorersAll = scorers;
       state.lb.voteWinsAll = voteWins;
-      state.lb.voteLossesAll = voteLosses;
       state.lb.iso = iso;
 
-      paintOwners(); paintBettors(); paintScorers(); paintVoteWins(); paintVoteLosses();
+      paintOwners(); paintBettors(); paintScorers(); paintVoteWins();
       wireControls();
     }
 
@@ -3996,50 +3982,24 @@ async function fetchGoalsData(){
 
     function paintVoteWins(page=1){
       const state=(window.state=window.state||{}); state.lb=state.lb||{};
-      const body=qs('#lb-vote-win-body'); if(!body) return;
-      const q=qs('#lb-vote-win-search')?.value||'';
+      const body=qs('#lb-vote-wins-body'); if(!body) return;
+      const q=qs('#lb-vote-wins-search')?.value||'';
       const list=filterByQuery(state.lb.voteWinsAll||[], q);
       const {page:cur,total,slice}=paginate(list,page,50);
       body.innerHTML='';
       if(!slice.length){ body.innerHTML='<div class="lb-empty">No voting wins to show.</div>'; }
-      else {
-        slice.forEach(r=>body.appendChild(voteResultsRowEl({
-          ...r,
-          count: r.wins,
-          label: `Wins: ${r.wins}`
-        })));
-      }
-      qs('#lb-vote-win-page').textContent=`${cur}/${total}`; state.lb.voteWinsPage=cur;
-    }
-
-    function paintVoteLosses(page=1){
-      const state=(window.state=window.state||{}); state.lb=state.lb||{};
-      const body=qs('#lb-vote-loss-body'); if(!body) return;
-      const q=qs('#lb-vote-loss-search')?.value||'';
-      const list=filterByQuery(state.lb.voteLossesAll||[], q);
-      const {page:cur,total,slice}=paginate(list,page,50);
-      body.innerHTML='';
-      if(!slice.length){ body.innerHTML='<div class="lb-empty">No voting losses to show.</div>'; }
-      else {
-        slice.forEach(r=>body.appendChild(voteResultsRowEl({
-          ...r,
-          count: r.losses,
-          label: `Losses: ${r.losses}`
-        })));
-      }
-      qs('#lb-vote-loss-page').textContent=`${cur}/${total}`; state.lb.voteLossesPage=cur;
+      else { slice.forEach(r=>body.appendChild(voteWinsRowEl(r, state.lb.iso||{}))); }
+      qs('#lb-vote-wins-page').textContent=`${cur}/${total}`; state.lb.voteWinsPage=cur;
     }
 
     function wireControls(){
     const state=(window.state=window.state||{}); state.lb=state.lb||{};
     qs('#lb-owners-search')?.addEventListener('input', debounce(()=>paintOwners(1),200));
     qs('#lb-bettors-search')?.addEventListener('input', debounce(()=>paintBettors(1),200));
-    qs('#lb-vote-win-search')?.addEventListener('input', debounce(()=>paintVoteWins(1),200));
-    qs('#lb-vote-loss-search')?.addEventListener('input', debounce(()=>paintVoteLosses(1),200));
+    qs('#lb-vote-wins-search')?.addEventListener('input', debounce(()=>paintVoteWins(1),200));
     qs('#lb-owners-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
     qs('#lb-bettors-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
-    qs('#lb-vote-win-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
-    qs('#lb-vote-loss-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
+    qs('#lb-vote-wins-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
     qs('#lb-owners-toggle-splits')?.addEventListener('click', async (e)=>{
       const on=e.currentTarget.dataset.on==='1'?'0':'1';
       e.currentTarget.dataset.on=on;
@@ -4050,10 +4010,8 @@ async function fetchGoalsData(){
     qs('#lb-owners-next')?.addEventListener('click', ()=>paintOwners((state.lb.ownersPage||1)+1));
     qs('#lb-bettors-prev')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)-1));
     qs('#lb-bettors-next')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)+1));
-    qs('#lb-vote-win-prev')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)-1));
-    qs('#lb-vote-win-next')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)+1));
-    qs('#lb-vote-loss-prev')?.addEventListener('click', ()=>paintVoteLosses((state.lb.voteLossesPage||1)-1));
-    qs('#lb-vote-loss-next')?.addEventListener('click', ()=>paintVoteLosses((state.lb.voteLossesPage||1)+1));
+    qs('#lb-vote-wins-prev')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)-1));
+    qs('#lb-vote-wins-next')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)+1));
     document.querySelector('#lb-scorers-search')?.addEventListener('input', debounce(()=>paintScorers(1),200));
     document.querySelector('#lb-scorers-refresh')?.addEventListener('click', async ()=>{
       const s=(window.state=window.state||{}); s.lb=s.lb||{}; s.lb.loaded=false; await loadLeaderboardsOnce();

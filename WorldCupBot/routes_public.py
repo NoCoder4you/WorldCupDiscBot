@@ -1927,44 +1927,39 @@ def create_public_routes(ctx):
     def api_fanzone_stats_alias(fixture_id):
         return api_fanzone_stats(fixture_id)
 
-    @api.get("/leaderboards/fanzone_results")
-    def api_fanzone_results_leaderboard():
+    @api.get("/leaderboards/fanzone_wins")
+    def api_fanzone_wins_leaderboard():
         base = ctx.get("BASE_DIR", "")
         winners_blob = _json_load(_fz_winners_path(base), {})
-        votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
-
-        winners = winners_blob if isinstance(winners_blob, dict) else {}
-        fixtures = (votes_blob.get("fixtures") or {}) if isinstance(votes_blob, dict) else {}
 
         counts = {}
-        for fixture_id, fx in fixtures.items():
-            if not isinstance(fx, dict):
-                continue
-            rec = winners.get(fixture_id)
-            if not isinstance(rec, dict):
-                continue
-            winner_side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
-            if winner_side not in ("home", "away"):
-                continue
-
-            dv = fx.get("discord_voters")
-            if not isinstance(dv, dict):
-                continue
-
-            for uid, choice in dv.items():
-                uid = str(uid or "").strip()
-                choice = str(choice or "").strip().lower()
-                if not uid or choice not in ("home", "away"):
+        seen = set()
+        if isinstance(winners_blob, dict):
+            for key, rec in winners_blob.items():
+                if not isinstance(rec, dict):
                     continue
-                rec = counts.get(uid) or {"id": uid, "wins": 0, "losses": 0}
-                if choice == winner_side:
-                    rec["wins"] += 1
-                else:
-                    rec["losses"] += 1
-                counts[uid] = rec
+                fixture_id = str(rec.get("fixture_id") or key or "").strip()
+                if fixture_id in seen:
+                    continue
+                seen.add(fixture_id)
 
-        rows = list(counts.values())
-        rows.sort(key=lambda x: (-x.get("wins", 0), -x.get("losses", 0), str(x.get("id") or "")))
+                winner_team = str(rec.get("winner_team") or "").strip()
+                if not winner_team:
+                    home = str(rec.get("home") or "").strip()
+                    away = str(rec.get("away") or "").strip()
+                    winner_side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
+                    if winner_side == "home" and home:
+                        winner_team = home
+                    elif winner_side == "away" and away:
+                        winner_team = away
+
+                if not winner_team:
+                    continue
+
+                counts[winner_team] = counts.get(winner_team, 0) + 1
+
+        rows = [{"team": team, "wins": wins} for team, wins in counts.items()]
+        rows.sort(key=lambda x: (-x.get("wins", 0), str(x.get("team") or "").lower()))
         return jsonify({"ok": True, "rows": rows})
 
     return root, api, auth
