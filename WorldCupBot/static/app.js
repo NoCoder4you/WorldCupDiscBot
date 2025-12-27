@@ -42,6 +42,7 @@ function setAdminView(on){
 
 // admin UI = (admin session unlocked) AND (admin view enabled)
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
+window.isAdminUI = isAdminUI;
 
 function applyAdminView(){
   const enabled = isAdminUI();
