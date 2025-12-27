@@ -2,6 +2,13 @@
   'use strict';
 
   const qs  = (s, el = document) => el.querySelector(s);
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
 
   const section = qs('#verified-log');
   if (!section) return;
@@ -48,10 +55,10 @@
     });
 
     const rows = list.map(v => {
-      const discordName = v.display_name || v.username || '(unknown)';
-      const discordId   = v.discord_id || '';
-      const habbo       = v.habbo_name || '';
-      const ip          = v.ip || '';
+      const discordName = esc(v.display_name || v.username || '(unknown)');
+      const discordId   = esc(v.discord_id || '');
+      const habbo       = esc(v.habbo_name || '');
+      const ip          = esc(v.ip || '');
 
       return `
         <tr>
