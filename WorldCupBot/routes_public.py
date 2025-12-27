@@ -1927,4 +1927,39 @@ def create_public_routes(ctx):
     def api_fanzone_stats_alias(fixture_id):
         return api_fanzone_stats(fixture_id)
 
+    @api.get("/leaderboards/fanzone_wins")
+    def api_fanzone_wins_leaderboard():
+        base = ctx.get("BASE_DIR", "")
+        winners_blob = _json_load(_fz_winners_path(base), {})
+
+        counts = {}
+        seen = set()
+        if isinstance(winners_blob, dict):
+            for key, rec in winners_blob.items():
+                if not isinstance(rec, dict):
+                    continue
+                fixture_id = str(rec.get("fixture_id") or key or "").strip()
+                if fixture_id in seen:
+                    continue
+                seen.add(fixture_id)
+
+                winner_team = str(rec.get("winner_team") or "").strip()
+                if not winner_team:
+                    home = str(rec.get("home") or "").strip()
+                    away = str(rec.get("away") or "").strip()
+                    winner_side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
+                    if winner_side == "home" and home:
+                        winner_team = home
+                    elif winner_side == "away" and away:
+                        winner_team = away
+
+                if not winner_team:
+                    continue
+
+                counts[winner_team] = counts.get(winner_team, 0) + 1
+
+        rows = [{"team": team, "wins": wins} for team, wins in counts.items()]
+        rows.sort(key=lambda x: (-x.get("wins", 0), str(x.get("team") or "").lower()))
+        return jsonify({"ok": True, "rows": rows})
+
     return root, api, auth
