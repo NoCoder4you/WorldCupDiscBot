@@ -2690,8 +2690,8 @@ async function checkUserTOS() {
   try {
     const res = await fetch('/api/me/tos', { credentials: 'include' });
     const data = await res.json();
-    if (data.connected && (!data.accepted || !data.in_players)) {
-      console.log('[WorldCupBot] redirecting first-time user to /terms');
+    if (data.connected && !data.accepted) {
+      console.log('[WorldCupBot] redirecting user to /terms');
       window.location.href = data.url || '/terms';
     }
   } catch (err) {
