@@ -165,8 +165,10 @@ class TeamsDistribution(commands.Cog):
         for pdata in players.values():
             for entry in pdata.get("teams", []):
                 if isinstance(entry, dict):
-                    assigned_teams.add(entry["team"])
-                else:
+                    team = entry.get("team")
+                    if team:
+                        assigned_teams.add(team)
+                elif entry:
                     assigned_teams.add(entry)
 
         unassigned_teams = [team for team in teams if team not in assigned_teams]
