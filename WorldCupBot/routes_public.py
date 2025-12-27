@@ -1927,10 +1927,10 @@ def create_public_routes(ctx):
     def api_fanzone_stats_alias(fixture_id):
         return api_fanzone_stats(fixture_id)
 
-    @api.get("/leaderboards/fanzone_wins")
-    def api_fanzone_wins_leaderboard():
+    def _fanzone_vote_leaderboard(result_kind: str):
         base = ctx.get("BASE_DIR", "")
         winners_blob = _json_load(_fz_winners_path(base), {})
+        votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
 
         counts = {}
         seen = set()
@@ -1939,27 +1939,38 @@ def create_public_routes(ctx):
                 if not isinstance(rec, dict):
                     continue
                 fixture_id = str(rec.get("fixture_id") or key or "").strip()
-                if fixture_id in seen:
+                if not fixture_id or fixture_id in seen:
                     continue
                 seen.add(fixture_id)
 
-                winner_team = str(rec.get("winner_team") or "").strip()
-                if not winner_team:
-                    home = str(rec.get("home") or "").strip()
-                    away = str(rec.get("away") or "").strip()
-                    winner_side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
-                    if winner_side == "home" and home:
-                        winner_team = home
-                    elif winner_side == "away" and away:
-                        winner_team = away
-
-                if not winner_team:
+                winner_side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
+                if winner_side not in ("home", "away"):
                     continue
 
-                counts[winner_team] = counts.get(winner_team, 0) + 1
+                fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
+                dv = fx.get("discord_voters") if isinstance(fx, dict) else None
+                if not isinstance(dv, dict):
+                    continue
 
-        rows = [{"team": team, "wins": wins} for team, wins in counts.items()]
-        rows.sort(key=lambda x: (-x.get("wins", 0), str(x.get("team") or "").lower()))
+                for voter_uid, choice in dv.items():
+                    voter_uid = str(voter_uid).strip()
+                    choice = str(choice or "").strip().lower()
+                    if not voter_uid or choice not in ("home", "away"):
+                        continue
+                    is_win = choice == winner_side
+                    if (result_kind == "wins" and is_win) or (result_kind == "losses" and not is_win):
+                        counts[voter_uid] = counts.get(voter_uid, 0) + 1
+
+        rows = [{"id": uid, result_kind: total} for uid, total in counts.items()]
+        rows.sort(key=lambda x: (-x.get(result_kind, 0), str(x.get("id") or "")))
         return jsonify({"ok": True, "rows": rows})
+
+    @api.get("/leaderboards/fanzone_wins")
+    def api_fanzone_wins_leaderboard():
+        return _fanzone_vote_leaderboard("wins")
+
+    @api.get("/leaderboards/fanzone_losses")
+    def api_fanzone_losses_leaderboard():
+        return _fanzone_vote_leaderboard("losses")
 
     return root, api, auth

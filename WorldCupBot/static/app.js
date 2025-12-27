@@ -3755,6 +3755,17 @@ async function fetchGoalsData(){
       return [];
     }
 
+    async function fetchFanZoneLossesData(){
+      try{
+        const res = await fetch('/api/leaderboards/fanzone_losses', { headers:{'Accept':'application/json'} });
+        if(!res.ok) return [];
+        const data = await res.json();
+        if(Array.isArray(data)) return data;
+        if(Array.isArray(data.rows)) return data.rows;
+      }catch(_) { /* keep silent */ }
+      return [];
+    }
+
     function aggregateScorers(raw, vmap){
       const out = (raw||[]).map(p => {
         const id = String(p.id||p.discord_id||'').trim();
@@ -3788,22 +3799,25 @@ async function fetchGoalsData(){
       return row;
     }
 
-    function voteWinsRowEl(rec, iso){
+    function voteResultsRowEl(rec, label){
       const row = document.createElement('div');
       row.className = 'lb-row';
 
       const left = document.createElement('div');
       left.className = 'lb-left';
-      left.appendChild(flagChip(rec.team, iso));
+      left.appendChild(avatarEl({id:rec.id, display_name:rec.name, avatar_url:rec.avatar_url}));
+      const t = document.createElement('div');
+      t.innerHTML = `<div class="lb-name">${rec.name}</div>`;
+      left.appendChild(t);
 
       const right = document.createElement('div');
       right.className = 'lb-right';
-      right.appendChild(barEl(rec.wins, rec._max || rec.wins));
+      right.appendChild(barEl(rec.count, rec._max || rec.count));
       const stats = document.createElement('div');
       stats.className = 'lb-stats';
       const chip = document.createElement('span');
       chip.className = 'lb-chip';
-      chip.textContent = `Wins: ${rec.wins}`;
+      chip.textContent = `${label}: ${rec.count}`;
       stats.appendChild(chip);
       right.appendChild(stats);
 
@@ -3936,22 +3950,44 @@ async function fetchGoalsData(){
 
       // Fan Zone voting wins
       const rawVoteWins = await fetchFanZoneWinsData();
-      let voteWins = (rawVoteWins || []).map(r => ({
-        team: r.team || r.country || r.name || '',
-        wins: Number(r.wins || r.count || 0)
-      })).filter(r => r.team);
-      voteWins.sort((a, b) => (b.wins - a.wins) || String(a.team).localeCompare(String(b.team)));
-      const maxVoteWins = voteWins[0]?.wins || 0;
+      const rawVoteLosses = await fetchFanZoneLossesData();
+      let voteWins = (rawVoteWins || []).map(r => {
+        const id = String(r.id || r.discord_id || '').trim();
+        const prof = vmap[id] || { id, display_name: r.name || r.username || id, username: r.username || '' };
+        return {
+          id,
+          name: prof.display_name || prof.username || id,
+          count: Number(r.wins || r.count || 0),
+          avatar_url: prof.avatar_url || null
+        };
+      }).filter(r => r.id);
+      voteWins.sort((a, b) => (b.count - a.count) || String(a.name).localeCompare(String(b.name)));
+      const maxVoteWins = voteWins[0]?.count || 0;
       voteWins.forEach(v => v._max = maxVoteWins);
+
+      let voteLosses = (rawVoteLosses || []).map(r => {
+        const id = String(r.id || r.discord_id || '').trim();
+        const prof = vmap[id] || { id, display_name: r.name || r.username || id, username: r.username || '' };
+        return {
+          id,
+          name: prof.display_name || prof.username || id,
+          count: Number(r.losses || r.count || 0),
+          avatar_url: prof.avatar_url || null
+        };
+      }).filter(r => r.id);
+      voteLosses.sort((a, b) => (b.count - a.count) || String(a.name).localeCompare(String(b.name)));
+      const maxVoteLosses = voteLosses[0]?.count || 0;
+      voteLosses.forEach(v => v._max = maxVoteLosses);
 
       const state = (window.state = window.state || {}); state.lb = state.lb || {};
       state.lb.ownersAll = owners;
       state.lb.bettorsAll = bettors;
       state.lb.scorersAll = scorers;
       state.lb.voteWinsAll = voteWins;
+      state.lb.voteLossesAll = voteLosses;
       state.lb.iso = iso;
 
-      paintOwners(); paintBettors(); paintScorers(); paintVoteWins();
+      paintOwners(); paintBettors(); paintScorers(); paintVoteWins(); paintVoteLosses();
       wireControls();
     }
 
@@ -3988,8 +4024,20 @@ async function fetchGoalsData(){
       const {page:cur,total,slice}=paginate(list,page,50);
       body.innerHTML='';
       if(!slice.length){ body.innerHTML='<div class="lb-empty">No voting wins to show.</div>'; }
-      else { slice.forEach(r=>body.appendChild(voteWinsRowEl(r, state.lb.iso||{}))); }
+      else { slice.forEach(r=>body.appendChild(voteResultsRowEl(r, 'Wins'))); }
       qs('#lb-vote-wins-page').textContent=`${cur}/${total}`; state.lb.voteWinsPage=cur;
+    }
+
+    function paintVoteLosses(page=1){
+      const state=(window.state=window.state||{}); state.lb=state.lb||{};
+      const body=qs('#lb-vote-losses-body'); if(!body) return;
+      const q=qs('#lb-vote-losses-search')?.value||'';
+      const list=filterByQuery(state.lb.voteLossesAll||[], q);
+      const {page:cur,total,slice}=paginate(list,page,50);
+      body.innerHTML='';
+      if(!slice.length){ body.innerHTML='<div class="lb-empty">No voting losses to show.</div>'; }
+      else { slice.forEach(r=>body.appendChild(voteResultsRowEl(r, 'Losses'))); }
+      qs('#lb-vote-losses-page').textContent=`${cur}/${total}`; state.lb.voteLossesPage=cur;
     }
 
     function wireControls(){
@@ -3997,9 +4045,11 @@ async function fetchGoalsData(){
     qs('#lb-owners-search')?.addEventListener('input', debounce(()=>paintOwners(1),200));
     qs('#lb-bettors-search')?.addEventListener('input', debounce(()=>paintBettors(1),200));
     qs('#lb-vote-wins-search')?.addEventListener('input', debounce(()=>paintVoteWins(1),200));
+    qs('#lb-vote-losses-search')?.addEventListener('input', debounce(()=>paintVoteLosses(1),200));
     qs('#lb-owners-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
     qs('#lb-bettors-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
     qs('#lb-vote-wins-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
+    qs('#lb-vote-losses-refresh')?.addEventListener('click', async ()=>{state.lb.loaded=false; await loadLeaderboardsOnce();});
     qs('#lb-owners-toggle-splits')?.addEventListener('click', async (e)=>{
       const on=e.currentTarget.dataset.on==='1'?'0':'1';
       e.currentTarget.dataset.on=on;
@@ -4012,6 +4062,8 @@ async function fetchGoalsData(){
     qs('#lb-bettors-next')?.addEventListener('click', ()=>paintBettors((state.lb.bettorsPage||1)+1));
     qs('#lb-vote-wins-prev')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)-1));
     qs('#lb-vote-wins-next')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)+1));
+    qs('#lb-vote-losses-prev')?.addEventListener('click', ()=>paintVoteLosses((state.lb.voteLossesPage||1)-1));
+    qs('#lb-vote-losses-next')?.addEventListener('click', ()=>paintVoteLosses((state.lb.voteLossesPage||1)+1));
     document.querySelector('#lb-scorers-search')?.addEventListener('input', debounce(()=>paintScorers(1),200));
     document.querySelector('#lb-scorers-refresh')?.addEventListener('click', async ()=>{
       const s=(window.state=window.state||{}); s.lb=s.lb||{}; s.lb.loaded=false; await loadLeaderboardsOnce();
