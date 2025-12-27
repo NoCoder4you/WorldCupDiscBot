@@ -65,7 +65,7 @@ class TeamsDistribution(commands.Cog):
 
     @app_commands.command(
         name="addplayer",
-        description="Add a user to the World Cup pool and assign a random team."
+        description="Add a user to the World Cup pool."
     )
     async def addplayer(self, interaction: discord.Interaction, user: discord.User):
         if not await check_root_interaction(interaction):
@@ -75,49 +75,34 @@ class TeamsDistribution(commands.Cog):
 
         players = load_json(PLAYERS_FILE)
         teams = load_json(TEAMS_FILE)
-
-        assigned_teams = set()
-        for pdata in players.values():
-            if "teams" in pdata:
-                for entry in pdata["teams"]:
-                    if isinstance(entry, dict):
-                        assigned_teams.add(entry["team"])
-                    else:
-                        assigned_teams.add(entry)
-
-        unassigned_teams = [t for t in teams if t not in assigned_teams]
-        teams_left = len(unassigned_teams) - 1
-
-        if not unassigned_teams:
-            await interaction.followup.send("All teams have been assigned! No more available.", ephemeral=True)
-            return
-
-        team = random.choice(unassigned_teams)
-        main_owner_entry = {
-            "team": team,
-            "ownership": {
-                "main_owner": user.id,
-                "split_with": []
-            }
-        }
-
         if str(user.id) not in players:
-            players[str(user.id)] = {"username": user.name, "teams": [main_owner_entry]}
-        else:
-            if "teams" not in players[str(user.id)]:
-                players[str(user.id)]["teams"] = []
-            players[str(user.id)]["teams"].append(main_owner_entry)
+            players[str(user.id)] = {"username": user.name, "teams": []}
+
+        players[str(user.id)]["teams"].append({"pending": True})
 
         save_json(PLAYERS_FILE, players)
 
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
-        num_entries = len(players[str(user.id)]["teams"])
+        pending_entries = sum(
+            1 for entry in players[str(user.id)]["teams"]
+            if isinstance(entry, dict) and entry.get("pending")
+        )
+        assigned_teams = set()
+        for pdata in players.values():
+            for entry in pdata.get("teams", []):
+                if isinstance(entry, dict):
+                    if entry.get("team"):
+                        assigned_teams.add(entry["team"])
+                elif entry:
+                    assigned_teams.add(entry)
+        teams_left = max(len(teams) - len(assigned_teams), 0)
+
         confirm_embed = discord.Embed(
             title="New Player Added",
             description=(
                 f"# {user.mention}\n"
-                "- Team Successfully Assigned\n"
-                f"- This user has {num_entries} Entries\n"
+                "- Player added to the pool\n"
+                f"- Pending team assignments: {pending_entries}\n"
                 f"- There are {teams_left} Teams Left"
             ),
             colour=discord.Colour.gold()
@@ -145,7 +130,7 @@ class TeamsDistribution(commands.Cog):
             title="World Cup 2026",
             description=(
                 "Thank You for joining Noah's FIFA 2026 World Cup Tournament!\n"
-                "- Your team has randomly been assigned!\n"
+                "- Your team will be randomly assigned before the tournament starts!\n"
                 "- Your team will be revealed before the tournament starts!\n"
                 "- You are more than welcome to purchase more than one team!"
             ),
@@ -160,10 +145,69 @@ class TeamsDistribution(commands.Cog):
             pass
 
         await interaction.followup.send(
-            f"{user.mention} has been assigned a new team.", ephemeral=True
+            f"{user.mention} has been added to the pool.", ephemeral=True
         )
 
-        # Owner notification if all teams assigned
+    @app_commands.command(
+        name="randomiseteams",
+        description="Randomly assign teams to unassigned players."
+    )
+    async def randomiseteams(self, interaction: discord.Interaction):
+        if not await check_root_interaction(interaction):
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        players = load_json(PLAYERS_FILE)
+        teams = load_json(TEAMS_FILE)
+
+        assigned_teams = set()
+        for pdata in players.values():
+            for entry in pdata.get("teams", []):
+                if isinstance(entry, dict):
+                    team = entry.get("team")
+                    if team:
+                        assigned_teams.add(team)
+                elif entry:
+                    assigned_teams.add(entry)
+
+        unassigned_teams = [team for team in teams if team not in assigned_teams]
+        pending_entries = []
+        for pid, pdata in players.items():
+            for entry in pdata.get("teams", []):
+                if isinstance(entry, dict) and entry.get("pending"):
+                    pending_entries.append((pid, pdata, entry))
+
+        if not pending_entries:
+            await interaction.followup.send(
+                "No players are waiting for assignments.", ephemeral=True
+            )
+            return
+
+        if len(unassigned_teams) < len(pending_entries):
+            await interaction.followup.send(
+                "Not enough unassigned teams to cover all pending players.",
+                ephemeral=True
+            )
+            return
+
+        random.shuffle(unassigned_teams)
+        for (pid, _pdata, entry), team in zip(pending_entries, unassigned_teams):
+            entry.clear()
+            entry.update({
+                "team": team,
+                "ownership": {
+                    "main_owner": int(pid),
+                    "split_with": []
+                }
+            })
+
+        save_json(PLAYERS_FILE, players)
+
+        await interaction.followup.send(
+            f"Assigned teams to {len(pending_entries)} pending entry(ies).", ephemeral=True
+        )
+
         if sum(
             1 for pdata in players.values() for entry in pdata.get("teams", [])
             if isinstance(entry, dict) and entry["team"] or isinstance(entry, str)
