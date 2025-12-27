@@ -493,6 +493,9 @@ class SplitOwnership(commands.Cog):
             if requested_share is None:
                 remaining = calculate_remaining_percentage(len(existing_split_with))
                 requested_share = remaining / 2
+            remaining = calculate_remaining_percentage(len(existing_split_with))
+            if requested_share > remaining:
+                requested_share = remaining
             requested_share = float(requested_share)
             existing_owner_ids = [main_owner_id] + [oid for oid in existing_split_with if oid != main_owner_id]
             percentages = calculate_split_percentages(existing_owner_ids, requester.id, requested_share)
