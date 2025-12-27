@@ -303,7 +303,7 @@ async def cmd_sync(ctx: commands.Context):
         return
 
     try:
-        synced = await bot.tree.sync(guild=ctx.guild)
+        synced = await bot.tree.sync()
         await ctx.reply(f"Synced {len(synced)} commands.")
         await send_discord_log(ctx.guild, f"Slash commands synced by {ctx.author}")
     except Exception as e:
