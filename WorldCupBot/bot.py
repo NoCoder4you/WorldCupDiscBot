@@ -295,6 +295,21 @@ async def cmd_reload(ctx: commands.Context, name: str):
         await ctx.reply(f"Reload failed: {e}")
         await send_discord_log(ctx.guild, f"Cog reload FAILED by {ctx.author}: {name} -> {e}")
 
+@bot.command(name="sync", help="Sync application (slash) commands")
+@admin_only_context()
+async def cmd_sync(ctx: commands.Context):
+    if not in_webhook_helpers(ctx):
+        await ctx.reply(f"Use this command inside the '{WorldCupAdminCategory}' category.", delete_after=6)
+        return
+
+    try:
+        synced = await bot.tree.sync(guild=ctx.guild)
+        await ctx.reply(f"Synced {len(synced)} commands.")
+        await send_discord_log(ctx.guild, f"Slash commands synced by {ctx.author}")
+    except Exception as e:
+        await ctx.reply(f"Sync failed: {e}")
+        await send_discord_log(ctx.guild, f"Slash sync FAILED by {ctx.author}: {e}")
+
 # -------------------- Errors --------------------
 @bot.event
 async def on_command_error(ctx: commands.Context, error: Exception):
