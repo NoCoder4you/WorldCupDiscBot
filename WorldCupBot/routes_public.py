@@ -1199,13 +1199,22 @@ def create_public_routes(ctx):
                 team = str(r.get("team") or "Team")
                 rid = str(r.get("id") or r.get("request_id") or r.get("requester_id") or f"{uid}:{team}").strip()
 
+                client_id, _, _ = _discord_client_info(ctx)
+                action = {"kind": "page", "page": "splits"}
+                if client_id:
+                    action = {
+                        "kind": "dm",
+                        "app_url": f"discord://-/channels/@me/{client_id}",
+                        "web_url": f"https://discord.com/channels/@me/{client_id}",
+                    }
+
                 items.append({
                     "id": f"split:{rid}",
                     "type": "split",
                     "severity": "info",
                     "title": "Split request",
                     "body": f"Split request pending for {team}.",
-                    "action": {"kind": "page", "page": "splits"},
+                    "action": action,
                     "ts": int(r.get("created_at") or now)
                 })
 

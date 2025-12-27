@@ -268,6 +268,10 @@ function setPage(p) {
           actionHtml = `<a class="btn small" href="${esc(action.url)}">Open</a>`;
         } else if (action.kind === 'page' && action.page){
           actionHtml = `<button class="btn small" data-open-page="${esc(action.page)}">Open</button>`;
+        } else if (action.kind === 'dm' && (action.app_url || action.web_url)) {
+          const appUrl = action.app_url ? esc(action.app_url) : '';
+          const webUrl = action.web_url ? esc(action.web_url) : '';
+          actionHtml = `<button class="btn small" data-open-dm data-app-url="${appUrl}" data-web-url="${webUrl}">Open DM</button>`;
         }
 
         return `
@@ -335,6 +339,41 @@ function setPage(p) {
           // navigate
           setPage(page);
           await routePage();
+        });
+      });
+
+      body.querySelectorAll('button[data-open-dm]').forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const appUrl = btn.getAttribute('data-app-url') || '';
+          const webUrl = btn.getAttribute('data-web-url') || '';
+
+          try{
+            const item = btn.closest('.notify-item');
+            const id = item?.getAttribute('data-id');
+            if (id){
+              await fetch('/api/me/notifications/read', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({ id })
+              });
+              dismissNotif(id);
+            }
+          }catch{}
+
+          // close panel
+          panel.classList.remove('open');
+          panel.setAttribute('aria-hidden', 'true');
+          fab.setAttribute('aria-expanded', 'false');
+
+          if (appUrl) {
+            window.location.href = appUrl;
+            if (webUrl) {
+              setTimeout(() => { window.location.href = webUrl; }, 1200);
+            }
+          } else if (webUrl) {
+            window.location.href = webUrl;
+          }
         });
       });
     }
