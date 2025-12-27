@@ -33,7 +33,7 @@ def _players_path(ctx):
     return _path(ctx, "players.json")
 
 def _owners_for_team(ctx, team_name: str):
-    team_name = (team_name or "").strip()
+    team_name = (team_name or "").strip().lower()
     if not team_name:
         return []
 
@@ -47,7 +47,8 @@ def _owners_for_team(ctx, team_name: str):
             for entry in (pdata.get("teams") or []):
                 if not isinstance(entry, dict):
                     continue
-                if (entry.get("team") or "").strip() != team_name:
+                entry_team = (entry.get("team") or "").strip().lower()
+                if entry_team != team_name:
                     continue
 
                 own = entry.get("ownership") or {}
