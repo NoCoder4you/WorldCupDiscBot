@@ -689,13 +689,28 @@ def create_public_routes(ctx):
                 teams = []
 
             players = _json_load(_players_path(base), {})
+            verified_blob = _json_load(_verified_path(base), {})
             id_to_name = {}
+
+            vlist = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
+            if isinstance(vlist, list):
+                for v in vlist:
+                    if not isinstance(v, dict):
+                        continue
+                    did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                    dnm = (v.get("display_name") or v.get("username") or v.get("name") or "").strip()
+                    if did:
+                        id_to_name[did] = dnm or did
+
             if isinstance(players, dict):
                 for uid, pdata in players.items():
+                    did = str(uid).strip()
+                    if not did or did in id_to_name:
+                        continue
                     nm = None
                     if isinstance(pdata, dict):
                         nm = (pdata.get("display_name") or pdata.get("username") or pdata.get("name"))
-                    id_to_name[str(uid)] = str(nm or uid)
+                    id_to_name[did] = str(nm or did)
 
             country_map = {}
             if isinstance(players, dict):
