@@ -79,6 +79,10 @@ def format_percent_value(value):
         return f"{int(value)}%"
     return f"{value:.1f}%"
 
+def format_owner_count(count):
+    label = "owner" if count == 1 else "owners"
+    return f"{count} {label}"
+
 def calculate_remaining_percentage(split_count):
     if split_count < 0:
         split_count = 0
@@ -91,6 +95,22 @@ def requested_share_for_team(team, players, request=None):
     if request and request.get("requested_percentage") is not None:
         return float(request["requested_percentage"])
     return remaining / 2
+
+def format_remaining_share_message(requested_share, existing_owner_count):
+    remaining_total = max(0, 100 - requested_share)
+    remaining_each = remaining_total / existing_owner_count if existing_owner_count else 0
+    return (
+        f"**If accepted, remaining owners would split {format_percent_value(remaining_total)} total "
+        f"({format_percent_value(remaining_each)} each across {format_owner_count(existing_owner_count)}).**"
+    )
+
+def calculate_split_percentages(existing_owner_ids, requester_id, requested_share):
+    remaining_total = max(0, 100 - requested_share)
+    existing_owner_count = len(existing_owner_ids)
+    existing_share = remaining_total / existing_owner_count if existing_owner_count else 0
+    percentages = {str(owner_id): existing_share for owner_id in existing_owner_ids}
+    percentages[str(requester_id)] = requested_share
+    return percentages
 
 async def update_public_embed(bot, guild, team, players):
     main_owner_id, main_team_obj = find_team_main_owner(players, team)
@@ -228,12 +248,11 @@ class ConfirmChoiceView(discord.ui.View):
         players = load_json(PLAYERS_FILE)
         _, main_team_obj = find_team_main_owner(players, self.team)
         split_with = main_team_obj["ownership"].get("split_with", []) if main_team_obj else []
-        total_owners = 2 + len(split_with)
         remaining = calculate_remaining_percentage(len(split_with))
-        share = format_share_percent(total_owners)
         requests = load_json(REQUESTS_FILE)
         request = requests.get(self.request_id)
         requested_share = requested_share_for_team(self.team, players, request)
+        existing_owner_count = 1 + len(split_with)
         embed = discord.Embed(
             title=f"Split Request - {self.team}",
             description=(
@@ -242,7 +261,7 @@ class ConfirmChoiceView(discord.ui.View):
                 "**This action cannot be undone and your decision is final.**\n\n"
                 f"Requested share: **{format_percent_value(requested_share)}** "
                 f"(default is {format_percent_value(remaining / 2)}).\n"
-                f"**If accepted, each owner will have {share} ownership.**"
+                f"{format_remaining_share_message(requested_share, existing_owner_count)}"
             ),
             color=discord.Color.blue(),
         )
@@ -281,12 +300,11 @@ class SplitRequestView(discord.ui.View):
         players = load_json(PLAYERS_FILE)
         _, main_team_obj = find_team_main_owner(players, self.team)
         split_with = main_team_obj["ownership"].get("split_with", []) if main_team_obj else []
-        total_owners = 2 + len(split_with)
         remaining = calculate_remaining_percentage(len(split_with))
-        share = format_share_percent(total_owners)
         requests = load_json(REQUESTS_FILE)
         request = requests.get(self.request_id)
         requested_share = requested_share_for_team(self.team, players, request)
+        existing_owner_count = 1 + len(split_with)
         embed = discord.Embed(
             title="Split Request",
             description=(
@@ -294,7 +312,7 @@ class SplitRequestView(discord.ui.View):
                 "**This action cannot be undone and your decision is final.**\n\n"
                 f"Requested share: **{format_percent_value(requested_share)}** "
                 f"(default is {format_percent_value(remaining / 2)}).\n"
-                f"**If accepted, each owner will have {share} ownership.**"
+                f"{format_remaining_share_message(requested_share, existing_owner_count)}"
             ),
             colour=discord.Colour.green()
         )
@@ -321,12 +339,11 @@ class SplitRequestView(discord.ui.View):
         players = load_json(PLAYERS_FILE)
         _, main_team_obj = find_team_main_owner(players, self.team)
         split_with = main_team_obj["ownership"].get("split_with", []) if main_team_obj else []
-        total_owners = 2 + len(split_with)
         remaining = calculate_remaining_percentage(len(split_with))
-        share = format_share_percent(total_owners)
         requests = load_json(REQUESTS_FILE)
         request = requests.get(self.request_id)
         requested_share = requested_share_for_team(self.team, players, request)
+        existing_owner_count = 1 + len(split_with)
         embed = discord.Embed(
             title="Split Request",
             description=(
@@ -334,7 +351,7 @@ class SplitRequestView(discord.ui.View):
                 "**This action cannot be undone and your decision is final.**\n\n"
                 f"Requested share: **{format_percent_value(requested_share)}** "
                 f"(default is {format_percent_value(remaining / 2)}).\n"
-                f"**If accepted, each owner will have {share} ownership.**"
+                f"{format_remaining_share_message(requested_share, existing_owner_count)}"
             ),
             colour=discord.Colour.orange()
         )
@@ -452,8 +469,10 @@ class SplitOwnership(commands.Cog):
             return
 
         if accepted and main_team_obj:
-            if requester.id not in main_team_obj["ownership"]["split_with"]:
-                main_team_obj["ownership"]["split_with"].append(requester.id)
+            split_with = main_team_obj["ownership"].setdefault("split_with", [])
+            existing_split_with = list(split_with)
+            if requester.id not in split_with:
+                split_with.append(requester.id)
 
             requester_teams = players.setdefault(uid, {}).setdefault("teams", [])
             found = False
@@ -470,6 +489,18 @@ class SplitOwnership(commands.Cog):
                     },
                     "public_message_id": main_team_obj.get("public_message_id")
                 })
+            requested_share = req.get("requested_percentage")
+            if requested_share is None:
+                remaining = calculate_remaining_percentage(len(existing_split_with))
+                requested_share = remaining / 2
+            requested_share = float(requested_share)
+            existing_owner_ids = [main_owner_id] + [oid for oid in existing_split_with if oid != main_owner_id]
+            percentages = calculate_split_percentages(existing_owner_ids, requester.id, requested_share)
+            for pdata in players.values():
+                for entry in pdata.get("teams", []):
+                    if entry.get("team") == team:
+                        entry.setdefault("ownership", {})
+                        entry["ownership"]["percentages"] = percentages
             save_json(PLAYERS_FILE, players)
 
             for guild in self.bot.guilds:
@@ -579,11 +610,10 @@ class SplitOwnership(commands.Cog):
         request_id = f"{requester_id}_{team}_{int(datetime.now().timestamp())}"
         now = datetime.now(timezone.utc)
         expires_at = (now + timedelta(hours=48)).timestamp()
-        total_owners = 2 + len(main_team_obj["ownership"]["split_with"])
-        share = format_share_percent(total_owners)
         split_count = len(main_team_obj["ownership"].get("split_with", []))
         remaining = calculate_remaining_percentage(split_count)
         requested_percentage = percentage if percentage is not None else remaining / 2
+        existing_owner_count = 1 + split_count
         if requested_percentage <= 0 or requested_percentage > remaining:
             embed = discord.Embed(
                 title="Invalid Percentage",
@@ -616,7 +646,7 @@ class SplitOwnership(commands.Cog):
                 "**This action cannot be undone and your decision is final.**\n\n"
                 f"Requested share: **{format_percent_value(requested_percentage)}** "
                 f"(default is {format_percent_value(remaining / 2)}).\n"
-                f"**If accepted, each owner will have {share} ownership.**"
+                f"{format_remaining_share_message(requested_percentage, existing_owner_count)}"
             ),
             color=discord.Color.blue(),
         )

@@ -1059,6 +1059,12 @@ function flagHTML(country) {
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
 var playerNames = {}; // id -> username
 
+function formatOwnershipPercent(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
+  const num = Number(value);
+  return Number.isInteger(num) ? `${num}%` : `${num.toFixed(1)}%`;
+}
+
     function renderOwnershipTable(list) {
       const tbody = document.querySelector('#ownership-tbody');
       if (!tbody) return;
@@ -1070,20 +1076,33 @@ var playerNames = {}; // id -> username
 
         const ownersCount = row.owners_count || ((row.main_owner ? 1 : 0) + ((row.split_with && row.split_with.length) || 0));
         const shareValue = ownersCount > 0 ? (100 / ownersCount) : 0;
-        const shareLabel = shareValue % 1 === 0 ? `${shareValue}%` : `${shareValue.toFixed(1)}%`;
+        const shareLabel = formatOwnershipPercent(shareValue);
+        const percentages = row.percentages || {};
+        const hasPercentages = Object.keys(percentages).length > 0;
+        const getShareLabel = (ownerId) => {
+          if (hasPercentages) {
+            const val = percentages[String(ownerId)];
+            return val === undefined ? '' : formatOwnershipPercent(val);
+          }
+          return ownersCount > 1 ? shareLabel : '';
+        };
 
         // Owner cell
         const idVal = row.main_owner ? row.main_owner.id : '';
         const label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
         const showId = !!(window.adminUnlocked && idVal && label !== idVal);
-        const ownerShare = ownersCount > 1 ? ` <span class="muted">(${shareLabel})</span>` : '';
+        const ownerShareLabel = getShareLabel(idVal);
+        const ownerShare = ownerShareLabel ? ` <span class="muted">(${ownerShareLabel})</span>` : '';
         const ownerCell = row.main_owner
           ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? ' <span class="muted">(' + idVal + ')</span>' : ''}${ownerShare}`
           : 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
 
         // Split cell
         const splitStr = (row.split_with && row.split_with.length)
-          ? row.split_with.map(s => `${s.username || s.id} (${shareLabel})`).join(', ')
+          ? row.split_with.map(s => {
+              const splitShare = getShareLabel(s.id);
+              return splitShare ? `${s.username || s.id} (${splitShare})` : `${s.username || s.id}`;
+            }).join(', ')
           : '—';
 
         // Stage cell
