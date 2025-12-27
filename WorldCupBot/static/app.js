@@ -1068,17 +1068,22 @@ var playerNames = {}; // id -> username
         const tr = document.createElement('tr');
         tr.className = row.main_owner ? 'row-assigned' : 'row-unassigned';
 
+        const ownersCount = row.owners_count || ((row.main_owner ? 1 : 0) + ((row.split_with && row.split_with.length) || 0));
+        const shareValue = ownersCount > 0 ? (100 / ownersCount) : 0;
+        const shareLabel = shareValue % 1 === 0 ? `${shareValue}%` : `${shareValue.toFixed(1)}%`;
+
         // Owner cell
         const idVal = row.main_owner ? row.main_owner.id : '';
         const label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
         const showId = !!(window.adminUnlocked && idVal && label !== idVal);
+        const ownerShare = ownersCount > 1 ? ` <span class="muted">(${shareLabel})</span>` : '';
         const ownerCell = row.main_owner
-          ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? ' <span class="muted">(' + idVal + ')</span>' : ''}`
+          ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? ' <span class="muted">(' + idVal + ')</span>' : ''}${ownerShare}`
           : 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
 
         // Split cell
         const splitStr = (row.split_with && row.split_with.length)
-          ? row.split_with.map(s => s.username || s.id).join(', ')
+          ? row.split_with.map(s => `${s.username || s.id} (${shareLabel})`).join(', ')
           : '—';
 
         // Stage cell

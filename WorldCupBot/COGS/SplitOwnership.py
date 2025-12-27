@@ -4,6 +4,7 @@ from discord import app_commands
 import json
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 JSON_DIR = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON")
 TEAMS_LIST_FILE = JSON_DIR / "teams.json"
@@ -58,13 +59,48 @@ def find_team_main_owner(players, team):
 def user_has_any_team(players, user_id):
     return any(players.get(str(user_id), {}).get("teams", []))
 
+def format_share_percent(total_owners):
+    if total_owners <= 0:
+        return ""
+    share = 100 / total_owners
+    if share.is_integer():
+        return f"{int(share)}%"
+    return f"{share:.1f}%"
+
+def format_owner_mentions(owner_ids, share):
+    if not owner_ids:
+        return "N/A"
+    return ", ".join(f"<@{oid}> ({share})" for oid in owner_ids)
+
+def format_percent_value(value):
+    if value is None:
+        return "N/A"
+    if float(value).is_integer():
+        return f"{int(value)}%"
+    return f"{value:.1f}%"
+
+def calculate_remaining_percentage(split_count):
+    if split_count < 0:
+        split_count = 0
+    return 100 / (1 + split_count)
+
+def requested_share_for_team(team, players, request=None):
+    main_owner_id, main_team_obj = find_team_main_owner(players, team)
+    split_count = len(main_team_obj["ownership"].get("split_with", [])) if main_team_obj else 0
+    remaining = calculate_remaining_percentage(split_count)
+    if request and request.get("requested_percentage") is not None:
+        return float(request["requested_percentage"])
+    return remaining / 2
+
 async def update_public_embed(bot, guild, team, players):
     main_owner_id, main_team_obj = find_team_main_owner(players, team)
     if not main_team_obj or "public_message_id" not in main_team_obj:
         return
 
     split_owners = main_team_obj["ownership"].get("split_with", [])
-    split_mentions = [f"<@{oid}>" for oid in split_owners] if split_owners else []
+    total_owners = 1 + len(split_owners)
+    share = format_share_percent(total_owners)
+    split_mentions = format_owner_mentions(split_owners, share) if split_owners else "N/A"
 
     public_channel = None
     for category in guild.categories:
@@ -87,8 +123,11 @@ async def update_public_embed(bot, guild, team, players):
             title=team,
             colour=discord.Colour.blue()
         )
-        embed.add_field(name="Main User", value=main_owner_user.mention if main_owner_user else str(main_owner_id), inline=False)
-        embed.add_field(name="Split With", value=", ".join(split_mentions) if split_mentions else "N/A", inline=False)
+        main_value = main_owner_user.mention if main_owner_user else str(main_owner_id)
+        if split_owners:
+            main_value = f"{main_value} ({share})"
+        embed.add_field(name="Main User", value=main_value, inline=False)
+        embed.add_field(name="Split With", value=split_mentions, inline=False)
         if main_owner_user and main_owner_user.display_avatar:
             embed.set_thumbnail(url=main_owner_user.display_avatar.url)
         if flag:
@@ -127,17 +166,20 @@ class ConfirmChoiceView(discord.ui.View):
         if self.accepted:
             players = load_json(PLAYERS_FILE)
             main_owner_id, _ = find_team_main_owner(players, self.team)
-            split_mentions = []
+            split_owner_ids = []
             for uid, pdata in players.items():
                 for t in pdata.get("teams", []):
                     if t["team"] == self.team:
-                        split_mentions += [f"<@{oid}>" for oid in t["ownership"].get("split_with", []) if oid != main_owner_id]
-            split_mentions = list(set(split_mentions))
+                        split_owner_ids += [oid for oid in t["ownership"].get("split_with", []) if oid != main_owner_id]
+            split_owner_ids = list(set(split_owner_ids))
+            total_owners = 1 + len(split_owner_ids)
+            share = format_share_percent(total_owners)
+            split_with = format_owner_mentions(split_owner_ids, share) if split_owner_ids else "N/A"
             msg = (
                 f"✅ The split for **{self.team}** has been **accepted**.\n"
                 f"Main owner: <@{main_owner_id}>\n"
-                f"Split with: {', '.join(split_mentions) if split_mentions else 'N/A'}\n"
-                f"Any winnings will be divided equally between all owners."
+                f"Split with: {split_with}\n"
+                f"Ownership share: {share} each."
             )
             embed = discord.Embed(
                 title=f"Choice Confirmed - {self.team}",
@@ -183,13 +225,24 @@ class ConfirmChoiceView(discord.ui.View):
             return
 
         flag_url = get_flag_url(self.team)
+        players = load_json(PLAYERS_FILE)
+        _, main_team_obj = find_team_main_owner(players, self.team)
+        split_with = main_team_obj["ownership"].get("split_with", []) if main_team_obj else []
+        total_owners = 2 + len(split_with)
+        remaining = calculate_remaining_percentage(len(split_with))
+        share = format_share_percent(total_owners)
+        requests = load_json(REQUESTS_FILE)
+        request = requests.get(self.request_id)
+        requested_share = requested_share_for_team(self.team, players, request)
         embed = discord.Embed(
             title=f"Split Request - {self.team}",
             description=(
                 f"{interaction.user.mention} has requested to split ownership of **{self.team}** with you.\n"
                 f"*You have 48 hours to accept or decline this request before it expires.*\n"
                 "**This action cannot be undone and your decision is final.**\n\n"
-                "**Any winnings will be divided equally between all owners of the team.**"
+                f"Requested share: **{format_percent_value(requested_share)}** "
+                f"(default is {format_percent_value(remaining / 2)}).\n"
+                f"**If accepted, each owner will have {share} ownership.**"
             ),
             color=discord.Color.blue(),
         )
@@ -225,12 +278,23 @@ class SplitRequestView(discord.ui.View):
             embed.set_thumbnail(url=self.bot.user.display_avatar.url)
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
+        players = load_json(PLAYERS_FILE)
+        _, main_team_obj = find_team_main_owner(players, self.team)
+        split_with = main_team_obj["ownership"].get("split_with", []) if main_team_obj else []
+        total_owners = 2 + len(split_with)
+        remaining = calculate_remaining_percentage(len(split_with))
+        share = format_share_percent(total_owners)
+        requests = load_json(REQUESTS_FILE)
+        request = requests.get(self.request_id)
+        requested_share = requested_share_for_team(self.team, players, request)
         embed = discord.Embed(
             title="Split Request",
             description=(
                 f"Are you sure you want to **accept** this split?\n"
                 "**This action cannot be undone and your decision is final.**\n\n"
-                "**Any winnings will be divided equally between all owners of the team.**"
+                f"Requested share: **{format_percent_value(requested_share)}** "
+                f"(default is {format_percent_value(remaining / 2)}).\n"
+                f"**If accepted, each owner will have {share} ownership.**"
             ),
             colour=discord.Colour.green()
         )
@@ -254,12 +318,23 @@ class SplitRequestView(discord.ui.View):
             embed.set_thumbnail(url=self.bot.user.display_avatar.url)
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
+        players = load_json(PLAYERS_FILE)
+        _, main_team_obj = find_team_main_owner(players, self.team)
+        split_with = main_team_obj["ownership"].get("split_with", []) if main_team_obj else []
+        total_owners = 2 + len(split_with)
+        remaining = calculate_remaining_percentage(len(split_with))
+        share = format_share_percent(total_owners)
+        requests = load_json(REQUESTS_FILE)
+        request = requests.get(self.request_id)
+        requested_share = requested_share_for_team(self.team, players, request)
         embed = discord.Embed(
             title="Split Request",
             description=(
                 f"Are you sure you want to **decline** this split?\n"
                 "**This action cannot be undone and your decision is final.**\n\n"
-                "**Any winnings will be divided equally between all owners of the team.**"
+                f"Requested share: **{format_percent_value(requested_share)}** "
+                f"(default is {format_percent_value(remaining / 2)}).\n"
+                f"**If accepted, each owner will have {share} ownership.**"
             ),
             colour=discord.Colour.orange()
         )
@@ -400,11 +475,13 @@ class SplitOwnership(commands.Cog):
             for guild in self.bot.guilds:
                 await update_public_embed(self.bot, guild, team, players)
 
+            total_owners = 1 + len(main_team_obj["ownership"]["split_with"])
+            share = format_share_percent(total_owners)
             embed = discord.Embed(
                 title=f"Split Accepted - {team}",
                 description=(
                     f"You are now a co-owner of **{team}** with <@{main_owner_id}> as the main owner.\n"
-                    "Any winnings will be divided equally between all owners."
+                    f"Ownership share: {share} each."
                 ),
                 colour=discord.Colour.green()
             )
@@ -420,8 +497,16 @@ class SplitOwnership(commands.Cog):
 
 
     @app_commands.command(name="split", description="Request to split ownership of a team")
-    @app_commands.describe(team="The team to split ownership of")
-    async def split(self, interaction: discord.Interaction, team: str):
+    @app_commands.describe(
+        team="The team to split ownership of",
+        percentage="Optional requested ownership percentage (defaults to remaining/2)"
+    )
+    async def split(
+        self,
+        interaction: discord.Interaction,
+        team: str,
+        percentage: Optional[app_commands.Range[float, 1, 99]] = None
+    ):
         
         await interaction.response.defer(ephemeral=True)
         
@@ -494,12 +579,31 @@ class SplitOwnership(commands.Cog):
         request_id = f"{requester_id}_{team}_{int(datetime.now().timestamp())}"
         now = datetime.now(timezone.utc)
         expires_at = (now + timedelta(hours=48)).timestamp()
+        total_owners = 2 + len(main_team_obj["ownership"]["split_with"])
+        share = format_share_percent(total_owners)
+        split_count = len(main_team_obj["ownership"].get("split_with", []))
+        remaining = calculate_remaining_percentage(split_count)
+        requested_percentage = percentage if percentage is not None else remaining / 2
+        if requested_percentage <= 0 or requested_percentage > remaining:
+            embed = discord.Embed(
+                title="Invalid Percentage",
+                description=(
+                    "Requested ownership percentage must be greater than 0 and "
+                    f"no more than the remaining {format_percent_value(remaining)}."
+                ),
+                colour=discord.Colour.red()
+            )
+            embed.set_footer(text="World Cup 2026 · Invalid request")
+            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
 
         requests[request_id] = {
             "requester_id": requester_id,
             "main_owner_id": main_owner_id,
             "team": team,
-            "expires_at": expires_at
+            "expires_at": expires_at,
+            "requested_percentage": requested_percentage
         }
         save_json(REQUESTS_FILE, requests)
 
@@ -510,7 +614,9 @@ class SplitOwnership(commands.Cog):
                 f"{interaction.user.mention} has requested to split ownership of **{team}** with you.\n"
                 f"*You have 48 hours to accept or decline this request before it expires.*\n"
                 "**This action cannot be undone and your decision is final.**\n\n"
-                "**Any winnings will be divided equally between all owners of the team.**"
+                f"Requested share: **{format_percent_value(requested_percentage)}** "
+                f"(default is {format_percent_value(remaining / 2)}).\n"
+                f"**If accepted, each owner will have {share} ownership.**"
             ),
             color=discord.Color.blue(),
         )
@@ -538,7 +644,11 @@ class SplitOwnership(commands.Cog):
 
         embed = discord.Embed(
             title="Request Sent",
-            description=f"Request sent to the main owner of **{team}**. \nYou will be notified once they respond.",
+            description=(
+                f"Request sent to the main owner of **{team}**.\n"
+                f"Requested share: {format_percent_value(requested_percentage)}.\n"
+                "You will be notified once they respond."
+            ),
             colour=discord.Colour.green()
         )
         embed.set_footer(text="World Cup 2026 · Split request sent")

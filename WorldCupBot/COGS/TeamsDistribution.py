@@ -30,6 +30,19 @@ def flag_url(team, iso_mapping):
         return None
     return f"https://flagcdn.com/w320/{iso.lower()}.png"
 
+def format_share_percent(total_owners):
+    if total_owners <= 0:
+        return ""
+    share = 100 / total_owners
+    if share.is_integer():
+        return f"{int(share)}%"
+    return f"{share:.1f}%"
+
+def format_owner_mentions(owner_mentions, share):
+    if not owner_mentions:
+        return "N/A"
+    return ", ".join(f"{mention} ({share})" for mention in owner_mentions)
+
 class TeamsDistribution(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -232,13 +245,18 @@ class TeamsDistribution(commands.Cog):
             for split_uid in country_to_split_with.get(country, []):
                 split_user_obj = guild.get_member(split_uid) or self.bot.get_user(split_uid)
                 split_with_users.append(split_user_obj.mention if split_user_obj else str(split_uid))
-            split_with_value = ", ".join(split_with_users) if split_with_users else "N/A"
+            total_owners = 1 + len(split_with_users)
+            share = format_share_percent(total_owners)
+            split_with_value = format_owner_mentions(split_with_users, share)
+            main_value = user.mention if user else pid
+            if split_with_users:
+                main_value = f"{main_value} ({share})"
 
             public_embed = discord.Embed(
                 title=country,
                 colour=discord.Colour.blue()
             )
-            public_embed.add_field(name="Main User", value=user.mention if user else pid, inline=False)
+            public_embed.add_field(name="Main User", value=main_value, inline=False)
             public_embed.add_field(name="Split With", value=split_with_value, inline=False)
             if user_avatar:
                 public_embed.set_thumbnail(url=user_avatar)
