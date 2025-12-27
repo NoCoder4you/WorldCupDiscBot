@@ -12,6 +12,7 @@
     pollingId: null,
     logsKind: 'bot',
     logsInit: false,
+    userId: null,
   };
 
   const $menu = qs('#main-menu');
@@ -220,7 +221,10 @@ function setPage(p) {
       }[c]));
     }
 
-    function notifDismissKey(id){ return `wc:notif:dismiss:${id}`; }
+    function notifDismissKey(id){
+      const uid = state.userId ? String(state.userId) : 'anon';
+      return `wc:notif:dismiss:${uid}:${id}`;
+    }
     function isDismissed(id){ return localStorage.getItem(notifDismissKey(id)) === '1'; }
     function dismissNotif(id){ localStorage.setItem(notifDismissKey(id), '1'); }
 
@@ -507,12 +511,18 @@ function setPage(p) {
 
     function setUserUI(user){
       const loggedIn = !!(user && (user.discord_id || user.id));
+      const nextUserId = loggedIn ? String(user.discord_id || user.id) : null;
+      const userChanged = nextUserId !== state.userId;
+      state.userId = nextUserId;
       const fabIcon = document.getElementById('fab-icon');
       const btnLogin = document.getElementById('btn-discord-login');
       const btnLogout = document.getElementById('btn-discord-logout');
 
       if (btnLogin)  btnLogin.style.display  = loggedIn ? 'none' : '';
       if (btnLogout) btnLogout.style.display = loggedIn ? '' : 'none';
+      if (userChanged) {
+        _lastNotifSig = '';
+      }
     }
 
     async function refreshAuth(){
