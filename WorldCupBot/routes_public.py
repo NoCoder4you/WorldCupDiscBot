@@ -1205,7 +1205,6 @@ def create_public_routes(ctx):
                     action = {
                         "kind": "dm",
                         "app_url": f"discord://-/channels/@me/{client_id}",
-                        "web_url": f"https://discord.com/channels/@me/{client_id}",
                     }
 
                 items.append({
