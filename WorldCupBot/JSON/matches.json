@@ -106,7 +106,7 @@
   {
     "id": "2026-06-15-H-ESP-CPV",
     "home": "Spain",
-    "away": "Cabo Verde",
+    "away": "Cape Verde",
     "utc": "2026-06-15T00:00:00Z",
     "stadium": "Atlanta Stadium",
     "group": "H"
@@ -299,7 +299,7 @@
   {
     "id": "2026-06-21-H-URU-CPV",
     "home": "Uruguay",
-    "away": "Cabo Verde",
+    "away": "Cape Verde",
     "utc": "2026-06-21T00:00:00Z",
     "stadium": "Miami Stadium",
     "group": "H"
@@ -527,7 +527,7 @@
   },
   {
     "id": "2026-06-26-H-CPV-KSA",
-    "home": "Cabo Verde",
+    "home": "Cape Verde",
     "away": "Saudi Arabia",
     "utc": "2026-06-26T00:00:00Z",
     "stadium": "Houston Stadium",
