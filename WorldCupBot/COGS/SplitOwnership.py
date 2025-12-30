@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 JSON_DIR = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON")
-TEAMS_LIST_FILE = JSON_DIR / "teams.json"
 ISO_FILE = JSON_DIR / "team_iso.json"
 PLAYERS_FILE = JSON_DIR / "players.json"
 REQUESTS_FILE = JSON_DIR / "split_requests.json"
@@ -43,11 +42,17 @@ def get_flag_url(team_name):
         return None
     return f"https://flagcdn.com/w320/{iso.lower()}.png"
 
-def load_teams():
-    return load_json(TEAMS_LIST_FILE)
-
-def build_team_case_map(teams):
-    return {t.lower(): t for t in teams}
+def build_team_case_map_from_players(players):
+    team_map = {}
+    for pdata in players.values():
+        for entry in pdata.get("teams", []):
+            if isinstance(entry, dict):
+                team_name = entry.get("team")
+            else:
+                team_name = entry
+            if team_name:
+                team_map.setdefault(team_name.lower(), team_name)
+    return team_map
 
 def find_team_main_owner(players, team):
     for uid, pdata in players.items():
@@ -545,8 +550,7 @@ class SplitOwnership(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         
         players = load_json(PLAYERS_FILE)
-        teams = load_teams()
-        team_case_map = build_team_case_map(teams)
+        team_case_map = build_team_case_map_from_players(players)
         team_input = team.strip().lower()
         requester_id = str(interaction.user.id)
 
