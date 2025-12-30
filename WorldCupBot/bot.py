@@ -10,22 +10,25 @@ from discord.ext import commands
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 COGS_DIR = os.path.join(BASE_DIR, "COGS")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
-LOG_PATH = os.path.join(BASE_DIR, "WC.log")
+LOG_DIR = os.path.join(BASE_DIR, "LOGS")
+LOG_PATH = os.path.join(LOG_DIR, "bot.log")
 
 JSON_DIR = os.path.join(BASE_DIR, "JSON")
 COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
 
 os.makedirs(JSON_DIR, exist_ok=True)
 os.makedirs(COGS_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
+_handlers = [logging.StreamHandler()]
+if os.getenv("BOT_LOG_STDOUT_ONLY") != "1":
+    _handlers.insert(0, logging.FileHandler(LOG_PATH, encoding="utf-8"))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_PATH, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+    handlers=_handlers
 )
 log = logging.getLogger("WorldCupBot")
 

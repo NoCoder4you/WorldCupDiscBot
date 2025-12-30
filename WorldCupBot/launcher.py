@@ -2,7 +2,7 @@
 import os, sys, time, json, signal, subprocess, logging, threading, collections
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional, Deque
+from typing import Optional, Deque, TextIO
 import psutil
 from flask import Flask
 
@@ -50,6 +50,7 @@ log_health = _mk_logger("health", "health.log")
 
 # ---------- Bot process management ----------
 bot_process: Optional[subprocess.Popen] = None
+bot_log_fp: Optional[TextIO] = None
 bot_last_start_ref = {"value": None}
 bot_last_stop_ref = {"value": None}
 _manual_stop_flag = False  # True when stop_bot() intentionally stops the process
@@ -75,6 +76,8 @@ def _record_crash(ts=None):
 
 def _spawn_env():
     env = os.environ.copy()
+    env["BOT_LOG_STDOUT_ONLY"] = "1"
+    env["PYTHONUNBUFFERED"] = "1"
     return env
 
 def is_bot_running() -> bool:
@@ -93,7 +96,7 @@ def is_bot_running() -> bool:
     return False
 
 def start_bot() -> bool:
-    global bot_process, _manual_stop_flag
+    global bot_process, bot_log_fp, _manual_stop_flag
     if is_bot_running():
         log_bot.info("start_bot requested but bot already running")
         return True
@@ -103,11 +106,12 @@ def start_bot() -> bool:
     py = sys.executable or "python3"
     bot_py = str(BASE_DIR / "bot.py")
     try:
+        bot_log_fp = open(LOG_DIR / "bot.log", "a", encoding="utf-8")
         bot_process = subprocess.Popen(
             [py, bot_py],
             cwd=str(BASE_DIR),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=bot_log_fp,
+            stderr=bot_log_fp,
             env=_spawn_env()
         )
         _manual_stop_flag = False
@@ -116,11 +120,14 @@ def start_bot() -> bool:
         log_bot.info(f"Started bot.py with PID {bot_process.pid}")
         return True
     except Exception as e:
+        if bot_log_fp:
+            bot_log_fp.close()
+            bot_log_fp = None
         log_bot.error(f"Failed to start bot: {e}")
         return False
 
 def stop_bot() -> bool:
-    global bot_process, _manual_stop_flag
+    global bot_process, bot_log_fp, _manual_stop_flag
     _manual_stop_flag = True
     try:
         if bot_process and bot_process.poll() is None:
@@ -144,6 +151,9 @@ def stop_bot() -> bool:
                     pass
         bot_last_stop_ref["value"] = time.time()
         bot_process = None
+        if bot_log_fp:
+            bot_log_fp.close()
+            bot_log_fp = None
         CTX["bot_process"] = None
         log_bot.info("Stopped bot.py")
         return True
