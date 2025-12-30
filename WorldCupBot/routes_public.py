@@ -61,6 +61,8 @@ def _guilds_path(base_dir):
     return os.path.join(_json_dir(base_dir), "guilds.json")
 def _split_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "split_requests.json")
+def _split_requests_log_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "split_requests_log.json")
 def _players_path(base_dir):
     return os.path.join(_json_dir(base_dir), "players.json")
 def _teams_path(base_dir):
@@ -1157,6 +1159,22 @@ def create_public_routes(ctx):
         now = int(time.time())
         items = []
 
+        def coerce_ts(value, fallback):
+            if value is None:
+                return fallback
+            if isinstance(value, (int, float)):
+                return int(value)
+            if isinstance(value, str):
+                try:
+                    return int(value)
+                except Exception:
+                    pass
+                try:
+                    return int(datetime.datetime.fromisoformat(value).timestamp())
+                except Exception:
+                    return fallback
+            return fallback
+
         # Read-state store: { "<uid>": { "read": ["id1","id2",...], "updated_at": 123 } }
         read_store = _load_notifications_read(base)
         read_ids = set()
@@ -1246,6 +1264,41 @@ def create_public_routes(ctx):
                     "body": f"Split request pending for {team}.",
                     "action": action,
                     "ts": int(r.get("created_at") or now)
+                })
+
+        # ----------------------------
+        # Split results (accept/decline) for requester
+        # ----------------------------
+        split_log = _json_load(_split_requests_log_path(base), [])
+        split_events = split_log.get("events") if isinstance(split_log, dict) else split_log
+        if isinstance(split_events, list):
+            for ev in split_events:
+                if not isinstance(ev, dict):
+                    continue
+                req_id = str(ev.get("requester_id") or ev.get("from_id") or ev.get("from") or "").strip()
+                if req_id != uid:
+                    continue
+
+                action = str(ev.get("action") or ev.get("status") or "").lower().strip()
+                if action in ("approved",):
+                    action = "accepted"
+                if action not in ("accepted", "declined", "denied", "rejected"):
+                    continue
+
+                team = str(ev.get("team") or "Team")
+                rid = str(ev.get("id") or ev.get("request_id") or f"{req_id}:{team}").strip()
+                ts = coerce_ts(ev.get("timestamp") or ev.get("ts"), now)
+                result = "accepted" if action == "accepted" else "declined"
+                severity = "ok" if result == "accepted" else "warn"
+
+                items.append({
+                    "id": f"split-result:{rid}:{result}",
+                    "type": "split-result",
+                    "severity": severity,
+                    "title": "Split request update",
+                    "body": f"Your split request for {team} was {result}.",
+                    "action": {"kind": "page", "page": "splits"},
+                    "ts": ts
                 })
 
         # ----------------------------
