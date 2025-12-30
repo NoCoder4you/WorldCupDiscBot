@@ -46,10 +46,7 @@ def build_team_case_map_from_players(players):
     team_map = {}
     for pdata in players.values():
         for entry in pdata.get("teams", []):
-            if isinstance(entry, dict):
-                team_name = entry.get("team")
-            else:
-                team_name = entry
+            team_name = entry.get("team")
             if team_name:
                 team_map.setdefault(team_name.lower(), team_name)
     return team_map
