@@ -51,11 +51,24 @@ def build_team_case_map_from_players(players):
                 team_map.setdefault(team_name.lower(), team_name)
     return team_map
 
+def normalize_user_id(raw_id):
+    if raw_id is None:
+        return None
+    try:
+        return int(raw_id)
+    except (TypeError, ValueError):
+        return None
+
 def find_team_main_owner(players, team):
     for uid, pdata in players.items():
         for t in pdata.get("teams", []):
-            if t["team"] == team and t["ownership"]["main_owner"] == int(uid):
-                return int(uid), t
+            if t.get("team") != team:
+                continue
+            owner_id = t.get("ownership", {}).get("main_owner")
+            if owner_id is None:
+                continue
+            if str(owner_id) == str(uid):
+                return normalize_user_id(owner_id) or normalize_user_id(uid), t
     return None, None
 
 def user_has_any_team(players, user_id):
@@ -586,7 +599,8 @@ class SplitOwnership(commands.Cog):
             await interaction.followup.send(embed=embed, ephemeral=True)
             return
 
-        if int(requester_id) == main_owner_id or int(requester_id) in main_team_obj["ownership"]["split_with"]:
+        split_with_ids = {str(x) for x in main_team_obj.get("ownership", {}).get("split_with", [])}
+        if str(requester_id) == str(main_owner_id) or requester_id in split_with_ids:
             embed = discord.Embed(
                 title="Already Co-Owner",
                 description="You are already an owner of this team.",
