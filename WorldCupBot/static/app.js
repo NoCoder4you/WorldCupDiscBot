@@ -258,7 +258,7 @@ function setPage(p) {
 
       body.innerHTML = items.map(it => {
         const title = esc(it.title || 'Notification');
-        const text  = esc(it.body || '');
+        const text  = esc(it.body || '').replace(/\n/g, '<br>');
         const id    = esc(it.id);
 
         let actionHtml = '';
