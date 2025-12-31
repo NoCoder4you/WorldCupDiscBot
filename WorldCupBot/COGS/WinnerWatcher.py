@@ -96,21 +96,27 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     emb.set_footer(text="World Cup 2026 • Winner declared")
     return emb
 
-def _build_bet_result_embed(bet: Dict[str, Any]) -> discord.Embed:
-    bet_title = bet.get("bet_title", "Bet")
+def _build_bet_result_embed(bet: Dict[str, Any], won: bool) -> discord.Embed:
+    bet_title = bet.get("bet_title", "Bet result")
+    wager = bet.get("wager") or "-"
     option1 = bet.get("option1") or "Option 1"
     option2 = bet.get("option2") or "Option 2"
-    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
-    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
+    winner = bet.get("winner")
+    winner_option = option1 if winner == "option1" else option2
+    loser_option = option2 if winner == "option1" else option1
 
-    embed = discord.Embed(title=f"Bet participants • {bet_title}", color=discord.Color.blurple())
-    embed.add_field(name=option1, value=opt1_user, inline=False)
-    embed.add_field(name=option2, value=opt2_user, inline=False)
+    title = "🏆 Bet won!" if won else "❌ Bet lost"
+    desc = f"**Bet:** {bet_title}\n**Wager:** {wager}"
+    if winner in ("option1", "option2"):
+        desc += f"\n**Winner:** {winner_option}\n**Loser:** {loser_option}"
+
+    color = discord.Color.green() if won else discord.Color.red()
+    embed = discord.Embed(title=title, description=desc, color=color)
     embed.set_footer(text="World Cup 2026 • Bets")
     embed.timestamp = discord.utils.utcnow()
     return embed
 
-async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any]):
+async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any], won: bool):
     try:
         uid = int(str(user_id))
     except Exception:
@@ -119,7 +125,7 @@ async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any]):
         user = bot.get_user(uid) or await bot.fetch_user(uid)
         if not user:
             return
-        await user.send(embed=_build_bet_result_embed(bet))
+        await user.send(embed=_build_bet_result_embed(bet, won))
     except Exception:
         return
 
@@ -206,8 +212,12 @@ class WinnerWatcher(commands.Cog):
 
                 opt1_id = str(bet.get("option1_user_id") or "").strip()
                 opt2_id = str(bet.get("option2_user_id") or "").strip()
-                await _dm_bet_result(self.bot, opt1_id, bet)
-                await _dm_bet_result(self.bot, opt2_id, bet)
+                if winner == "option1":
+                    await _dm_bet_result(self.bot, opt1_id, bet, True)
+                    await _dm_bet_result(self.bot, opt2_id, bet, False)
+                elif winner == "option2":
+                    await _dm_bet_result(self.bot, opt1_id, bet, False)
+                    await _dm_bet_result(self.bot, opt2_id, bet, True)
 
             self._last_winner[bet_id] = winner
 
