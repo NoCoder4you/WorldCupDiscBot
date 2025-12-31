@@ -1,6 +1,7 @@
 import os, json, time, glob, sys, re
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
+from stage_constants import STAGE_ALLOWED, STAGE_ORDER
 
 from stage_constants import (
     STAGE_ALLOWED,
@@ -11,6 +12,27 @@ from stage_constants import (
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
+
+STAGE_ALIASES = {
+    "Quarter Final": "Quarter-finals",
+    "Quarter Finals": "Quarter-finals",
+    "Semi Final": "Semi-finals",
+    "Semi Finals": "Semi-finals",
+    "Third Place Play": "Third Place Play-off",
+    "Third Place Playoff": "Third Place Play-off",
+    "Third Place": "Third Place Play-off",
+    "3rd Place Play-off": "Third Place Play-off",
+}
+
+STAGE_CHANNEL_MAP = {
+    "Round of 32": "round-of-32",
+    "Round of 16": "round-of-16",
+    "Quarter-finals": "quarter-finals",
+    "Semi-finals": "semi-finals",
+    "Third Place Play-off": "third-place-play",
+    "Final": "final",
+    "Winner": "final",
+}
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
