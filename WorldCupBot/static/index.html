@@ -127,9 +127,15 @@
                   <p class="muted">Manage channel routing for automated announcements.</p>
                   <div class="settings-grid">
                       <label class="settings-field">
-                          <span class="settings-label">Stage announcement channel</span>
-                          <input id="settings-stage-channel" type="text" placeholder="announcements" autocomplete="off">
-                          <span class="settings-help">Use the channel name without # (e.g. announcements).</span>
+                          <span class="settings-label">Stage announcement target</span>
+                          <span class="settings-help">Select a guild, category, and channel (voice channels ignored).</span>
+                          <div class="settings-select-row">
+                              <select id="settings-guild" class="settings-select"></select>
+                          </div>
+                          <div class="settings-select-row">
+                              <select id="settings-channel-category" class="settings-select"></select>
+                              <select id="settings-stage-channel" class="settings-select"></select>
+                          </div>
                       </label>
                   </div>
                   <div class="settings-channels">
