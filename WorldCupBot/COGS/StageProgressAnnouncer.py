@@ -41,6 +41,34 @@ class StageProgressAnnouncer(commands.Cog):
             pass
         return {}
 
+    def _load_settings(self) -> dict:
+        path = os.path.join(self.base_dir, "JSON", "admin_settings.json")
+        try:
+            if os.path.isfile(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f) or {}
+        except Exception:
+            pass
+        return {}
+
+    def _selected_guild_id(self) -> str:
+        settings = self._load_settings()
+        return str(settings.get("SELECTED_GUILD_ID") or "").strip()
+
+    def _config_guild_id(self) -> str:
+        try:
+            cfg_path = os.path.join(self.base_dir, "config.json")
+            if os.path.isfile(cfg_path):
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f) or {}
+                for key in ("DISCORD_GUILD_ID", "GUILD_ID", "PRIMARY_GUILD_ID", "ADMIN_GUILD_ID", "GUILD", "GUILDID"):
+                    gid = str(cfg.get(key) or "").strip()
+                    if gid:
+                        return gid
+        except Exception:
+            pass
+        return ""
+
     def _iso_for_team(self, team_name: str, provided_iso: str | None = None) -> str:
         if provided_iso:
             return str(provided_iso).strip().lower()
@@ -69,21 +97,12 @@ class StageProgressAnnouncer(commands.Cog):
             pass
 
     def _get_guild(self) -> discord.Guild | None:
-        gid = None
-        try:
-            cfg_path = os.path.join(self.base_dir, "config.json")
-            if os.path.isfile(cfg_path):
-                with open(cfg_path, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-                gid = cfg.get("GUILD_ID") or cfg.get("GUILD") or cfg.get("GUILDID")
-        except Exception:
-            gid = None
-
-        if gid:
-            try:
-                return self.bot.get_guild(int(gid))
-            except Exception:
-                pass
+        for gid in (self._selected_guild_id(), self._config_guild_id()):
+            if gid:
+                try:
+                    return self.bot.get_guild(int(gid))
+                except Exception:
+                    pass
 
         return self.bot.guilds[0] if self.bot.guilds else None
 
