@@ -3316,14 +3316,15 @@ body .notify-panel{ right: 90px; }
 
 /* Settings */
 .settings-card {
-  max-width: 720px;
-  margin: 0 auto;
+  max-width: 1200px;
+  margin: 16px auto;
 }
 
 .settings-grid {
   display: grid;
   gap: 16px;
   margin-top: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .settings-field {
