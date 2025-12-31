@@ -721,7 +721,7 @@ def create_admin_routes(ctx):
                 "discord_id": uid,
                 "result": result,
                 "title": "Bet settled",
-                "body": f"Bet: {bet_title}\nWager: {wager}\n{outcome}",
+                "body": f"Bet: {bet_title}\nWager: {wager}\nStatus: {outcome}",
                 "bet_id": bet_id,
                 "bet_title": bet_title,
                 "wager": wager,
