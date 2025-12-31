@@ -1079,7 +1079,6 @@ def create_admin_routes(ctx):
             category_name = categories.get(parent_id, "")
             rows.append({
                 "category": category_name,
-                "category_id": parent_id,
                 "channel": name,
                 "category_position": category_positions.get(parent_id, 1_000_000),
                 "channel_position": int(ch.get("position") or 0),
@@ -1091,11 +1090,7 @@ def create_admin_routes(ctx):
             (item.get("category") or "").lower(),
             (item.get("channel") or "").lower(),
         ))
-        cleaned = [{
-            "category": r["category"],
-            "category_id": r.get("category_id") or "",
-            "channel": r["channel"]
-        } for r in rows]
+        cleaned = [{"category": r["category"], "channel": r["channel"]} for r in rows]
         return jsonify({"ok": True, "channels": cleaned})
 
     @bp.get("/discord/guilds")
