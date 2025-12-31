@@ -64,7 +64,6 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     title = f"📝 Bet: {bet.get('bet_title', 'Unknown')}"
     option1 = bet.get("option1") or "Option 1"
     option2 = bet.get("option2") or "Option 2"
-    winner = bet.get("winner")
 
     opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
     opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
@@ -89,7 +88,7 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     if bot_user:
         avatar = bot_user.avatar.url if bot_user.avatar else bot_user.default_avatar.url
         embed.set_thumbnail(url=avatar)
-        embed.set_footer(text=f"{bot_user.display_name} • All bets claimed are final.")
+        embed.set_footer(text=f"{bot_user.display_name}")
     return embed
 
 # ---------- Admin embed ----------
@@ -313,6 +312,8 @@ class WinnerWatcher(commands.Cog):
                 elif winner == "option2":
                     await _dm_bet_result(self.bot, opt1_id, bet, msg_url)
                     await _dm_bet_result(self.bot, opt2_id, bet, msg_url)
+
+                _append_bet_results(bet)
 
                 _append_bet_results(bet)
 
