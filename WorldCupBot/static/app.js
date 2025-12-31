@@ -2384,10 +2384,36 @@ function shortId(id) {
         const status = document.getElementById('settings-status');
         const channelList = document.getElementById('settings-channel-list');
         const channelStatus = document.getElementById('settings-channels-status');
+        const guildSelect = document.getElementById('settings-guild-select');
         if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
         if (input) input.value = data?.stage_announce_channel || '';
+        if (guildSelect) guildSelect.value = data?.selected_guild_id || '';
+        if (guildSelect) {
+          try{
+            const guildData = await fetchJSON('/api/guilds');
+            const guilds = Array.isArray(guildData?.guilds) ? guildData.guilds : [];
+            const selectedId = data?.selected_guild_id || '';
+            const frag = document.createDocumentFragment();
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = 'Default';
+            frag.appendChild(defaultOpt);
+            guilds.forEach((g) => {
+              if (!g?.id) return;
+              const opt = document.createElement('option');
+              opt.value = String(g.id);
+              opt.textContent = g?.name ? `${g.name} (${g.id})` : String(g.id);
+              frag.appendChild(opt);
+            });
+            guildSelect.innerHTML = '';
+            guildSelect.appendChild(frag);
+            guildSelect.value = selectedId;
+          }catch(e){
+            guildSelect.innerHTML = '<option value="">Default (failed to load)</option>';
+          }
+        }
         if (channelList) channelList.innerHTML = '';
         if (channelStatus) channelStatus.textContent = 'Loading channels...';
         if (channelList) {
@@ -2433,9 +2459,13 @@ function shortId(id) {
           saveBtn.addEventListener('click', async () => {
             try {
               const channel = (input?.value || '').trim();
+              const selectedGuildId = (guildSelect?.value || '').trim();
               const res = await fetchJSON('/admin/settings', {
                 method: 'POST',
-                body: JSON.stringify({ stage_announce_channel: channel })
+                body: JSON.stringify({
+                  stage_announce_channel: channel,
+                  selected_guild_id: selectedGuildId
+                })
               });
               if (status) {
                 status.textContent = res?.stage_announce_channel
@@ -2443,6 +2473,7 @@ function shortId(id) {
                   : 'Saved. Announcements channel cleared (will use default).';
               }
               notify('Settings saved');
+              await loadSettings();
             } catch (e) {
               notify(`Failed to save settings: ${e.message}`, false);
             }
