@@ -87,14 +87,6 @@ class StageProgressAnnouncer(commands.Cog):
 
         return self.bot.guilds[0] if self.bot.guilds else None
 
-    def _get_guild_by_id(self, guild_id: str | None) -> discord.Guild | None:
-        if guild_id:
-            try:
-                return self.bot.get_guild(int(str(guild_id)))
-            except Exception:
-                pass
-        return None
-
     async def _find_text_channel(self, guild: discord.Guild, name: str) -> discord.TextChannel | None:
         if not guild:
             return None
@@ -174,6 +166,10 @@ class StageProgressAnnouncer(commands.Cog):
         if not lines:
             return
 
+        guild = self._get_guild()
+        if not guild:
+            return
+
         for ln in lines:
             try:
                 cmd = json.loads(ln)
@@ -187,10 +183,6 @@ class StageProgressAnnouncer(commands.Cog):
             team = str(data.get("team") or "")
             stage = str(data.get("stage") or "")
             channel_name = str(data.get("channel") or "announcements")
-            guild_id = str(data.get("guild_id") or "").strip()
-            guild = self._get_guild_by_id(guild_id) or self._get_guild()
-            if not guild:
-                continue
 
             thumb_iso = self._iso_for_team(team, data.get("team_iso"))
 
