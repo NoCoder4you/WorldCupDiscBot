@@ -198,14 +198,27 @@ def _load_config(ctx):
         pass
     return {}
 
-def _save_config(ctx, data: dict) -> bool:
-    cfg_path = os.path.join(_base_dir(ctx), "config.json")
+def _settings_path(ctx):
+    return os.path.join(_json_dir(ctx), "admin_settings.json")
+
+def _load_settings(ctx):
     try:
-        os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
-        tmp = cfg_path + ".tmp"
+        path = _settings_path(ctx)
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f) or {}
+    except Exception:
+        pass
+    return {}
+
+def _save_settings(ctx, data: dict) -> bool:
+    path = _settings_path(ctx)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        os.replace(tmp, cfg_path)
+        os.replace(tmp, path)
         return True
     except Exception:
         return False
@@ -905,13 +918,8 @@ def create_admin_routes(ctx):
             now = int(time.time())
             _append_stage_notifications(owner_ids, team, next_stage_norm, now)
 
-            cfg = _read_json(_path(ctx, "config.json"), {})
-            channel_name = str(
-                cfg.get("STAGE_ANNOUNCE_CHANNEL")
-                or cfg.get("STAGE_ANNOUNCE_CHANNEL_NAME")
-                or cfg.get("ANNOUNCEMENTS_CHANNEL")
-                or "announcements"
-            )
+            settings = _load_settings(ctx)
+            channel_name = str(settings.get("STAGE_ANNOUNCE_CHANNEL") or "announcements")
 
             _enqueue_command(ctx, "team_stage_progress", {
                 "team": team,
@@ -952,7 +960,7 @@ def create_admin_routes(ctx):
         resp = require_admin()
         if resp is not None:
             return resp
-        cfg = _load_config(ctx)
+        cfg = _load_settings(ctx)
         return jsonify({
             "ok": True,
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip()
@@ -966,9 +974,9 @@ def create_admin_routes(ctx):
         body = request.get_json(silent=True) or {}
         channel = str(body.get("stage_announce_channel") or "").strip()
 
-        cfg = _load_config(ctx)
+        cfg = _load_settings(ctx)
         cfg["STAGE_ANNOUNCE_CHANNEL"] = channel
-        if not _save_config(ctx, cfg):
+        if not _save_settings(ctx, cfg):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
         return jsonify({"ok": True, "stage_announce_channel": channel})
 
