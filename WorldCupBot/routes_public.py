@@ -75,6 +75,8 @@ def _tos_path(base_dir):
     return os.path.join(_json_dir(base_dir), "terms_accept.json")
 def _team_stage_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage.json")
+def _team_stage_notifications_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "team_stage_notifications.json")
 def _fanzone_votes_path(base):
     return os.path.join(_json_dir(base), "fan_votes.json")
 def _fan_zone_results_path(base_dir):
@@ -1331,6 +1333,33 @@ def create_public_routes(ctx):
                         else "You lost a Fan Zone pick."
                     ),
                     "action": {"kind": "page", "page": "fanzone"},
+                    "ts": int(ev.get("ts") or now)
+                })
+
+        # ----------------------------
+        # Team stage progress
+        # JSON/ team_stage_notifications.json:
+        # { "events":[ { "id":".", "discord_id":".", "team":".", "stage":".", "title":".", "body":".", "ts":123 } ] }
+        # ----------------------------
+        tsn = _json_load(_team_stage_notifications_path(base), {})
+        stage_events = tsn.get("events") if isinstance(tsn, dict) else []
+        if isinstance(stage_events, list):
+            for ev in stage_events:
+                if not isinstance(ev, dict):
+                    continue
+                if str(ev.get("discord_id") or "") != uid:
+                    continue
+
+                rid = str(ev.get("id") or ev.get("ts") or now)
+                team = ev.get("team") or "Team"
+                stage = ev.get("stage") or "a new stage"
+                items.append({
+                    "id": f"stage:{rid}",
+                    "type": "stage",
+                    "severity": "info",
+                    "title": ev.get("title") or "Stage update",
+                    "body": ev.get("body") or f"{team} advanced to {stage}.",
+                    "action": {"kind": "page", "page": "user"},
                     "ts": int(ev.get("ts") or now)
                 })
 

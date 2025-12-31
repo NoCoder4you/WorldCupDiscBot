@@ -29,8 +29,9 @@
     "Group Stage": 15,
     "Round of 32": 25,
     "Round of 16": 35,
-    "Quarter Final": 55,
-    "Semi Final": 70,
+    "Quarter-finals": 55,
+    "Semi-finals": 70,
+    "Third Place Play-off": 80,
     "Final": 90,
     "Winner": 100
   };
@@ -41,9 +42,16 @@
       "Group": "Group Stage",
       "R32": "Round of 32",
       "R16": "Round of 16",
-      "QF": "Quarter Final",
-      "SF": "Semi Final",
+      "QF": "Quarter-finals",
+      "SF": "Semi-finals",
       "F": "Final",
+      "Quarter Final": "Quarter-finals",
+      "Quarter Finals": "Quarter-finals",
+      "Semi Final": "Semi-finals",
+      "Semi Finals": "Semi-finals",
+      "Third Place": "Third Place Play-off",
+      "Third Place Play": "Third Place Play-off",
+      "Third Place Playoff": "Third Place Play-off",
       "Second Place": "Final" // or remove if you bring it back later
     };
     return map[s] || s || "Group Stage";
