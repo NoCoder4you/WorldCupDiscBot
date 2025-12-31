@@ -15,22 +15,16 @@
     userId: null,
   };
 
+  const {
+    STAGE_ORDER = [],
+    normalizeStage = (label) => String(label || '').trim()
+  } = window.WorldCupStages || {};
+
   const $menu = qs('#main-menu');
   const $notify = qs('#notify');
   const $backdrop = qs('#auth-backdrop');
   const $btnCancel = qs('#auth-cancel');
   const $btnSubmit = qs('#auth-submit');
-  const STAGE_OPTIONS = [
-  "Eliminated",
-  "Group Stage",
-  "Round of 32",
-  "Round of 16",
-  "Quarter-finals",
-  "Semi-finals",
-  "Third Place Play-off",
-  "Final",
-  "Winner"
-];
 
 // === Global Admin View toggle (persists) ===
 const ADMIN_VIEW_KEY = 'wc:adminView';
@@ -94,26 +88,6 @@ window.addEventListener('storage', (e)=>{
 });
 
 
-
-function normalizeStage(label){
-  const s = String(label || '').trim();
-  const map = {
-    "Group":"Group Stage",
-    "R32":"Round of 32",
-    "R16":"Round of 16",
-    "QF":"Quarter-finals",
-    "SF":"Semi-finals",
-    "F":"Final",
-    "Quarter Final":"Quarter-finals",
-    "Quarter Finals":"Quarter-finals",
-    "Semi Final":"Semi-finals",
-    "Semi Finals":"Semi-finals",
-    "Third Place":"Third Place Play-off",
-    "Third Place Play":"Third Place Play-off",
-    "Third Place Playoff":"Third Place Play-off"
-  };
-  return map[s] || s;
-}
 
 function stagePill(stage){
   const s = normalizeStage(stage) || 'Group Stage';
@@ -1121,7 +1095,7 @@ function formatOwnershipPercent(value) {
         let stageCell = '';
         if (isAdminUI()) {
           // editable select for admins (this is what gets enhanced into the custom dropdown)
-          const opts = STAGE_OPTIONS.map(v =>
+          const opts = STAGE_ORDER.map(v =>
             `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`
           ).join('');
           stageCell = `
