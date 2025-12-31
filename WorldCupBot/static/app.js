@@ -2462,19 +2462,18 @@ function shortId(id) {
             const seen = new Set();
             let hasUncategorized = false;
             channels.forEach((row) => {
-              const id = String(row?.category_id || '').trim();
               const name = String(row?.category || '').trim();
-              if (!id) {
+              if (!name) {
                 hasUncategorized = true;
                 return;
               }
-              if (!seen.has(id)) {
-                seen.add(id);
-                categories.push({ id, name });
+              if (!seen.has(name)) {
+                seen.add(name);
+                categories.push(name);
               }
             });
 
-            const categoryOptions = categories.map(({ id, name }) => ({ value: id, label: name || id }));
+            const categoryOptions = categories.map((name) => ({ value: name, label: name }));
             if (hasUncategorized) {
               categoryOptions.unshift({ value: '', label: 'No category' });
             }
@@ -2484,7 +2483,7 @@ function shortId(id) {
             let selectedCategory = '';
             if (preferredChannel) {
               const match = channels.find((row) => (row?.channel || '') === preferredChannel);
-              if (match) selectedCategory = match?.category_id || '';
+              if (match) selectedCategory = match?.category || '';
             }
             if (!selectedCategory && categoryOptions.length) {
               selectedCategory = categoryOptions[0].value;
@@ -2494,7 +2493,7 @@ function shortId(id) {
             const updateChannelOptions = () => {
               const activeCategory = categorySelect?.value || '';
               const channelOptions = channels
-                .filter((row) => (row?.category_id || '') === activeCategory)
+                .filter((row) => (row?.category || '') === activeCategory)
                 .map((row) => ({
                   value: row?.channel || '',
                   label: row?.channel || ''
