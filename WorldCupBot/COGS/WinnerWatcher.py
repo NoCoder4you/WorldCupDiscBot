@@ -80,16 +80,19 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     if winner not in ("option1", "option2"):
         return None
     bet_id = bet.get("bet_id") or "Unknown"
-    winner_option = bet.get("option1") if winner == "option1" else bet.get("option2")
-    desc = f"## Winner\n{winner_option}"
-    if msg_url:
-        desc += f"\n-# [Jump to bet]({msg_url})"
+    option1 = bet.get("option1") or "Option 1"
+    option2 = bet.get("option2") or "Option 2"
+    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
+    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
     emb = discord.Embed(
         title=f"Bet {bet_id}",
-        description=desc,
         color=discord.Color.gold(),
         timestamp=discord.utils.utcnow()
     )
+    emb.add_field(name=option1, value=opt1_user, inline=False)
+    emb.add_field(name=option2, value=opt2_user, inline=False)
+    if msg_url:
+        emb.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
     emb.set_footer(text="World Cup 2026 • Winner declared")
     return emb
 
