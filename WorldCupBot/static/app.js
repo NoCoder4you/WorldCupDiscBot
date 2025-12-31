@@ -3462,8 +3462,8 @@ document.addEventListener('DOMContentLoaded', () => {
         (ownersCount && parseInt(ownersCount, 10) > 1);
 
       const status =
-        el.classList.contains('self')  ? 'Owned (Self)'   :
-        el.classList.contains('owned') ? 'Owned (Other)'  :
+        el.classList.contains('self')  ? 'Self'   :
+        el.classList.contains('owned') ? 'Other'  :
         el.classList.contains('split') ? 'Split'          :
         el.classList.contains('nq')    ? 'Not Qualified'  :
                                          'Unassigned';
