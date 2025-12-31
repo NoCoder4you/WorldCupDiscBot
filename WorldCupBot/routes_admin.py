@@ -2,52 +2,15 @@ import os, json, time, glob, sys, re
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
 
+from stage_constants import (
+    STAGE_ALLOWED,
+    STAGE_ALIASES,
+    STAGE_CHANNEL_SLUGS,
+    STAGE_ORDER,
+)
+
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
-STAGE_ALLOWED = {
-    "Eliminated",
-    "Group Stage",
-    "Round of 32",
-    "Round of 16",
-    "Quarter-finals",
-    "Semi-finals",
-    "Third Place Play-off",
-    "Final",
-    "Winner",
-}
-
-STAGE_ORDER = [
-    "Eliminated",
-    "Group Stage",
-    "Round of 32",
-    "Round of 16",
-    "Quarter-finals",
-    "Semi-finals",
-    "Third Place Play-off",
-    "Final",
-    "Winner",
-]
-
-STAGE_ALIASES = {
-    "Quarter Final": "Quarter-finals",
-    "Quarter Finals": "Quarter-finals",
-    "Semi Final": "Semi-finals",
-    "Semi Finals": "Semi-finals",
-    "Third Place Play": "Third Place Play-off",
-    "Third Place Playoff": "Third Place Play-off",
-    "Third Place": "Third Place Play-off",
-    "3rd Place Play-off": "Third Place Play-off",
-}
-
-STAGE_CHANNEL_MAP = {
-    "Round of 32": "round-of-32",
-    "Round of 16": "round-of-16",
-    "Quarter-finals": "quarter-finals",
-    "Semi-finals": "semi-finals",
-    "Third Place Play-off": "third-place-play",
-    "Final": "final",
-    "Winner": "final",
-}
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -1195,7 +1158,7 @@ def create_admin_routes(ctx):
         ).strip()
         stage_norm = _normalize_stage(stage_raw) or stage_raw
         if stage_norm and stage_norm not in ("Group Stage", "Groups"):
-            channel = STAGE_CHANNEL_MAP.get(stage_norm)
+            channel = STAGE_CHANNEL_SLUGS.get(stage_norm)
             if channel:
                 return channel
 
