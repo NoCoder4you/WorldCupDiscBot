@@ -46,6 +46,19 @@ async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) ->
     except Exception:
         return None
 
+async def _message_url(bot: commands.Bot, channel_id: int, message_id: int) -> Optional[str]:
+    if not channel_id or not message_id:
+        return None
+    channel = bot.get_channel(channel_id)
+    if channel is None:
+        try:
+            channel = await bot.fetch_channel(channel_id)
+        except Exception:
+            return None
+    if getattr(channel, "guild", None):
+        return f"https://discord.com/channels/{channel.guild.id}/{channel_id}/{message_id}"
+    return None
+
 # ---------- Betting.py layout ----------
 def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) -> discord.Embed:
     title = f"📝 Bet: {bet.get('bet_title', 'Unknown')}"
@@ -60,8 +73,17 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
         color=discord.Color.gold()
     )
 
-    embed.add_field(name=option1, value=opt1_user, inline=False)
-    embed.add_field(name=option2, value=opt2_user, inline=False)
+    opt1_name = option1
+    opt2_name = option2
+    if winner == "option1":
+        opt1_name = f"🏆 {option1}"
+        opt2_name = f"~~{option2}~~"
+    elif winner == "option2":
+        opt1_name = f"~~{option1}~~"
+        opt2_name = f"🏆 {option2}"
+
+    embed.add_field(name=opt1_name, value=f"Claimed By: {opt1_user}", inline=False)
+    embed.add_field(name=opt2_name, value=f"Claimed By: {opt2_user}", inline=False)
 
     if bot_user:
         avatar = bot_user.avatar.url if bot_user.avatar else bot_user.default_avatar.url
@@ -85,21 +107,22 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
         color=discord.Color.gold(),
         timestamp=discord.utils.utcnow()
     )
-    emb.add_field(name=option1, value=opt1_user, inline=False)
-    emb.add_field(name=option2, value=opt2_user, inline=False)
+    emb.add_field(name=option1, value=f"Claimed By: {opt1_user}", inline=False)
+    emb.add_field(name=option2, value=f"Claimed By: {opt2_user}", inline=False)
     if msg_url:
         emb.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
     emb.set_footer(text="World Cup 2026")
     return emb
 
-def _build_bet_result_embed(bet: Dict[str, Any], won: bool) -> discord.Embed:
+def _build_bet_result_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> discord.Embed:
     option1 = bet.get("option1") or "Option 1"
     option2 = bet.get("option2") or "Option 2"
     opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
     opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
     bet_title = bet.get("bet_title", "Bet update")
 
-    embed = discord.Embed(title=f"Bet update: {bet_title}", color=discord.Color.gold())
+    desc = f"[Open bet message]({msg_url})" if msg_url else "Bet result available."
+    embed = discord.Embed(title=f"Bet update: {bet_title}", description=desc, color=discord.Color.gold())
     embed.add_field(name=option1, value=opt1_user, inline=False)
     embed.add_field(name=option2, value=opt2_user, inline=False)
     embed.set_footer(text="World Cup 2026")
@@ -143,8 +166,8 @@ def _append_bet_results(bet: Dict[str, Any]):
             "id": eid,
             "discord_id": uid,
             "result": result,
-            "title": "Bet Settled",
-            "body": f"Bet: {bet_title}\nWager: {wager}\nStatus: {outcome}",
+            "title": "Bet settled",
+            "body": f"Bet: {bet_title}\nWager: {wager}\n{outcome}",
             "bet_id": bet_id,
             "bet_title": bet_title,
             "wager": wager,
@@ -185,7 +208,7 @@ def _append_bet_results(bet: Dict[str, Any]):
     except Exception:
         return
 
-async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any], won: bool):
+async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any], msg_url: Optional[str]):
     try:
         uid = int(str(user_id))
     except Exception:
@@ -194,7 +217,7 @@ async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any], w
         user = bot.get_user(uid) or await bot.fetch_user(uid)
         if not user:
             return
-        await user.send(embed=_build_bet_result_embed(bet, won))
+        await user.send(embed=_build_bet_result_embed(bet, msg_url))
     except Exception:
         return
 
@@ -265,6 +288,8 @@ class WinnerWatcher(commands.Cog):
                         msg_url = msg.jump_url
                     except Exception as e:
                         print(f"[WinnerWatcher] edit failed for bet {bet_id}: {e}")
+                elif not msg_url:
+                    msg_url = await _message_url(self.bot, chan_id, msg_id)
 
             if changed_now and winner in ("option1", "option2"):
                 admin_embed = _build_admin_embed(bet, msg_url)
@@ -282,11 +307,13 @@ class WinnerWatcher(commands.Cog):
                 opt1_id = str(bet.get("option1_user_id") or "").strip()
                 opt2_id = str(bet.get("option2_user_id") or "").strip()
                 if winner == "option1":
-                    await _dm_bet_result(self.bot, opt1_id, bet, True)
-                    await _dm_bet_result(self.bot, opt2_id, bet, False)
+                    await _dm_bet_result(self.bot, opt1_id, bet, msg_url)
+                    await _dm_bet_result(self.bot, opt2_id, bet, msg_url)
                 elif winner == "option2":
-                    await _dm_bet_result(self.bot, opt1_id, bet, False)
-                    await _dm_bet_result(self.bot, opt2_id, bet, True)
+                    await _dm_bet_result(self.bot, opt1_id, bet, msg_url)
+                    await _dm_bet_result(self.bot, opt2_id, bet, msg_url)
+
+                _append_bet_results(bet)
 
                 _append_bet_results(bet)
 
