@@ -2507,9 +2507,8 @@ function shortId(id) {
               }
             };
 
-            if (categorySelect && !categorySelect.dataset.bound) {
-              categorySelect.dataset.bound = '1';
-              categorySelect.addEventListener('change', updateChannelOptions);
+            if (categorySelect) {
+              categorySelect.onchange = updateChannelOptions;
             }
             updateChannelOptions();
             if (channelStatus) channelStatus.textContent = '';
