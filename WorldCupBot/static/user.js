@@ -155,10 +155,17 @@
       const flag  = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
       const badge = isMain ? '<span class="owner-pill owner-pill--main">Main</span>'
                            : '<span class="owner-pill owner-pill--split">Co-owner</span>';
+      const nameLength = name.length;
+      let nameClass = 'team-name';
+      if (nameLength > 18) {
+        nameClass += ' team-name--xlong';
+      } else if (nameLength > 14) {
+        nameClass += ' team-name--long';
+      }
       return `
         <div class="team-tile ${isMain ? 'is-main' : 'is-split'}" title="${name} - ${stage}">
           <div class="ring-wrap">${ring}</div>
-          <div class="team-caption">${flag}<span>${name}</span>${badge}</div>
+          <div class="team-caption">${flag}<span class="${nameClass}">${name}</span>${badge}</div>
         </div>
       `;
     };
