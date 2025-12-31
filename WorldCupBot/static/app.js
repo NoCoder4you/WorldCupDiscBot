@@ -417,8 +417,8 @@ function setPage(p) {
 
           if (sig && sig != _lastNotifSig) {
             // ring only when something changed
-            fab.classList.add('ring');
-            setTimeout(() => fab.classList.remove('ring'), 1400);
+            fab.classList.add('bell-ring');
+            setTimeout(() => fab.classList.remove('bell-ring'), 1400);
           }
           _lastNotifSig = sig;
 
@@ -448,8 +448,8 @@ function setPage(p) {
 
           const changed = sig && sig !== _lastNotifSig;
           if (forceRing || changed){
-            fab.classList.add('ring');
-            setTimeout(() => fab.classList.remove('ring'), 1400);
+            fab.classList.add('bell-ring');
+            setTimeout(() => fab.classList.remove('bell-ring'), 1400);
           }
           _lastNotifSig = sig;
         }

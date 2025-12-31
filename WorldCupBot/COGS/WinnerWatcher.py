@@ -80,18 +80,48 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     if winner not in ("option1", "option2"):
         return None
     bet_id = bet.get("bet_id") or "Unknown"
-    winner_option = bet.get("option1") if winner == "option1" else bet.get("option2")
-    desc = f"## Winner\n{winner_option}"
-    if msg_url:
-        desc += f"\n-# [Jump to bet]({msg_url})"
+    option1 = bet.get("option1") or "Option 1"
+    option2 = bet.get("option2") or "Option 2"
+    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
+    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
     emb = discord.Embed(
         title=f"Bet {bet_id}",
-        description=desc,
         color=discord.Color.gold(),
         timestamp=discord.utils.utcnow()
     )
+    emb.add_field(name=option1, value=opt1_user, inline=False)
+    emb.add_field(name=option2, value=opt2_user, inline=False)
+    if msg_url:
+        emb.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
     emb.set_footer(text="World Cup 2026 • Winner declared")
     return emb
+
+def _build_bet_result_embed(bet: Dict[str, Any]) -> discord.Embed:
+    bet_title = bet.get("bet_title", "Bet")
+    option1 = bet.get("option1") or "Option 1"
+    option2 = bet.get("option2") or "Option 2"
+    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
+    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
+
+    embed = discord.Embed(title=f"Bet participants • {bet_title}", color=discord.Color.blurple())
+    embed.add_field(name=option1, value=opt1_user, inline=False)
+    embed.add_field(name=option2, value=opt2_user, inline=False)
+    embed.set_footer(text="World Cup 2026 • Bets")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any]):
+    try:
+        uid = int(str(user_id))
+    except Exception:
+        return
+    try:
+        user = bot.get_user(uid) or await bot.fetch_user(uid)
+        if not user:
+            return
+        await user.send(embed=_build_bet_result_embed(bet))
+    except Exception:
+        return
 
 # ---------- Channel resolver ----------
 async def _resolve_admin_channel(bot: commands.Bot, pref: Any, admin_category: str) -> Optional[discord.TextChannel]:
@@ -173,6 +203,11 @@ class WinnerWatcher(commands.Cog):
                             print(f"[WinnerWatcher] failed to send admin embed for bet {bet_id}: {e}")
                     else:
                         print("[WinnerWatcher] admin channel not found — check ADMIN_BET_CHANNEL in config.json")
+
+                opt1_id = str(bet.get("option1_user_id") or "").strip()
+                opt2_id = str(bet.get("option2_user_id") or "").strip()
+                await _dm_bet_result(self.bot, opt1_id, bet)
+                await _dm_bet_result(self.bot, opt2_id, bet)
 
             self._last_winner[bet_id] = winner
 
