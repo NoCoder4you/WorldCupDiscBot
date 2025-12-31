@@ -3316,14 +3316,15 @@ body .notify-panel{ right: 90px; }
 
 /* Settings */
 .settings-card {
-  max-width: 720px;
-  margin: 0 auto;
+  max-width: 1200px;
+  margin: 16px auto;
 }
 
 .settings-grid {
   display: grid;
   gap: 16px;
   margin-top: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .settings-field {
@@ -3335,7 +3336,8 @@ body .notify-panel{ right: 90px; }
   font-weight: 600;
 }
 
-.settings-field input {
+.settings-field input,
+.settings-field select {
   width: 100%;
   background: rgba(14, 18, 30, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.12);
