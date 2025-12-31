@@ -1093,6 +1093,45 @@ def create_admin_routes(ctx):
         cleaned = [{"category": r["category"], "channel": r["channel"]} for r in rows]
         return jsonify({"ok": True, "channels": cleaned})
 
+    @bp.get("/discord/guilds")
+    def admin_discord_guilds():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        cfg = _load_config(ctx)
+        token = str(cfg.get("DISCORD_BOT_TOKEN") or cfg.get("BOT_TOKEN") or "").strip()
+        if not token:
+            return jsonify({"ok": False, "error": "missing_bot_token"}), 500
+
+        url = "https://discord.com/api/v10/users/@me/guilds"
+        try:
+            resp = requests.get(url, headers={"Authorization": f"Bot {token}"}, timeout=10)
+        except requests.RequestException as exc:
+            return jsonify({"ok": False, "error": "discord_request_failed", "detail": str(exc)}), 502
+        if resp.status_code >= 300:
+            detail = resp.text.strip() if resp.text else ""
+            return jsonify({
+                "ok": False,
+                "error": f"discord_error ({resp.status_code})",
+                "status": resp.status_code,
+                "detail": detail[:200],
+            }), 502
+        payload = resp.json() if resp.content else []
+        if not isinstance(payload, list):
+            payload = []
+        guilds = []
+        for g in payload:
+            if not isinstance(g, dict):
+                continue
+            gid = str(g.get("id") or "").strip()
+            if not gid:
+                continue
+            guilds.append({
+                "id": gid,
+                "name": str(g.get("name") or "").strip()
+            })
+        return jsonify({"ok": True, "guilds": guilds})
+
 
     # ---------- FAN ZONE ----------
 
