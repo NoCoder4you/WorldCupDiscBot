@@ -79,6 +79,8 @@ def _fanzone_votes_path(base):
     return os.path.join(_json_dir(base), "fan_votes.json")
 def _fan_zone_results_path(base_dir):
     return os.path.join(_json_dir(base_dir), "fan_zone_results.json")
+def _bet_results_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "bet_results.json")
 def _swap_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "swap_requests.json")
 def _notifications_read_path(base_dir):
@@ -1329,6 +1331,38 @@ def create_public_routes(ctx):
                         else "You lost a Fan Zone pick."
                     ),
                     "action": {"kind": "page", "page": "fanzone"},
+                    "ts": int(ev.get("ts") or now)
+                })
+
+        # ----------------------------
+        # Bet results
+        # JSON/ bet_results.json:
+        # { "events":[ { "id":".", "discord_id":".", "result":"win|lose", "title":".", "body":".", "ts":123 } ] }
+        # ----------------------------
+        br = _json_load(_bet_results_path(base), {})
+        bet_events = br.get("events") if isinstance(br, dict) else []
+        if isinstance(bet_events, list):
+            for ev in bet_events:
+                if not isinstance(ev, dict):
+                    continue
+                if str(ev.get("discord_id") or "") != uid:
+                    continue
+
+                rid = str(ev.get("id") or ev.get("ts") or now)
+                res = str(ev.get("result") or "info").lower()
+                sev = "ok" if res == "win" else ("warn" if res == "lose" else "info")
+                bet_title = ev.get("bet_title") or "Bet"
+                wager = ev.get("wager") or "-"
+                outcome = "🏆 Won" if res == "win" else ("Lost" if res == "lose" else "Result")
+                item_id = rid if rid.startswith("bet:") else f"bet:{rid}"
+
+                items.append({
+                    "id": item_id,
+                    "type": "bet",
+                    "severity": sev,
+                    "title": ev.get("title") or "Bet result",
+                    "body": ev.get("body") or f"Bet: {bet_title}\nWager: {wager}\n{outcome}",
+                    "action": {"kind": "page", "page": "bets"},
                     "ts": int(ev.get("ts") or now)
                 })
 
