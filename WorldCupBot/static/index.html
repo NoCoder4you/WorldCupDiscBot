@@ -25,6 +25,7 @@
               <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
               <li class="admin-only"><a href="#" data-page="log">Logs</a></li>
               <li class="admin-only"><a href="#" data-page="cogs">Cogs</a></li>
+              <li class="admin-only"><a href="#" data-page="settings">Settings</a></li>
               <li><a href="#" data-page="user">User</a></li>
               <li class="admin-only"><a href="#" data-page="verified-log">Verified</a></li>
           </ul>
@@ -118,6 +119,26 @@
 
           <!-- LOGS -->
           <section id="log" class="page-section admin-only"></section>
+
+          <!-- SETTINGS -->
+          <section id="settings" class="page-section admin-only">
+              <div class="card settings-card">
+                  <div class="card-title">Settings</div>
+                  <p class="muted">Manage channel routing for automated announcements.</p>
+                  <div class="settings-grid">
+                      <label class="settings-field">
+                          <span class="settings-label">Stage announcement channel</span>
+                          <input id="settings-stage-channel" type="text" placeholder="announcements" autocomplete="off">
+                          <span class="settings-help">Use the channel name without # (e.g. announcements).</span>
+                      </label>
+                  </div>
+                  <div class="settings-actions">
+                      <button id="settings-save" class="btn">Save settings</button>
+                      <button id="settings-refresh" class="btn btn-outline">Refresh</button>
+                  </div>
+                  <div class="settings-status muted" id="settings-status"></div>
+              </div>
+          </section>
 
           <!-- OWNERSHIP -->
           <section id="ownership" class="page-section">

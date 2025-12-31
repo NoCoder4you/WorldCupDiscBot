@@ -8,10 +8,34 @@ STAGE_ALLOWED = {
     "Group Stage",
     "Round of 32",
     "Round of 16",
-    "Quarter Final",
-    "Semi Final",
+    "Quarter-finals",
+    "Semi-finals",
+    "Third Place Play-off",
     "Final",
     "Winner",
+}
+
+STAGE_ORDER = [
+    "Eliminated",
+    "Group Stage",
+    "Round of 32",
+    "Round of 16",
+    "Quarter-finals",
+    "Semi-finals",
+    "Third Place Play-off",
+    "Final",
+    "Winner",
+]
+
+STAGE_ALIASES = {
+    "Quarter Final": "Quarter-finals",
+    "Quarter Finals": "Quarter-finals",
+    "Semi Final": "Semi-finals",
+    "Semi Finals": "Semi-finals",
+    "Third Place Play": "Third Place Play-off",
+    "Third Place Playoff": "Third Place Play-off",
+    "Third Place": "Third Place Play-off",
+    "3rd Place Play-off": "Third Place Play-off",
 }
 
 # ---- PATH / IO HELPERS ----
@@ -104,6 +128,19 @@ def _now_iso():
     import datetime as _dt
     return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
+def _normalize_stage(stage: str) -> str:
+    raw = str(stage or "").strip()
+    if not raw:
+        return ""
+    return STAGE_ALIASES.get(raw, raw)
+
+def _stage_rank(stage: str) -> int:
+    stage = _normalize_stage(stage)
+    try:
+        return STAGE_ORDER.index(stage)
+    except ValueError:
+        return -1
+
 def _commands_path(ctx):
     rd = os.path.join(_base_dir(ctx), "runtime")
     os.makedirs(rd, exist_ok=True)
@@ -160,6 +197,18 @@ def _load_config(ctx):
     except Exception:
         pass
     return {}
+
+def _save_config(ctx, data: dict) -> bool:
+    cfg_path = os.path.join(_base_dir(ctx), "config.json")
+    try:
+        os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+        tmp = cfg_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, cfg_path)
+        return True
+    except Exception:
+        return False
 
 def _current_user():
     u = session.get(USER_SESSION_KEY) or None
@@ -774,6 +823,49 @@ def create_admin_routes(ctx):
     def _team_stage_path(ctx):
         return os.path.join(_json_dir(ctx), "team_stage.json")
 
+    def _team_stage_notifications_path(ctx):
+        return os.path.join(_json_dir(ctx), "team_stage_notifications.json")
+
+    def _append_stage_notifications(discord_ids: list[str], team: str, stage: str, ts: int):
+        if not discord_ids:
+            return
+        team = str(team or "").strip()
+        stage = str(stage or "").strip()
+        if not team or not stage:
+            return
+
+        path = _team_stage_notifications_path(ctx)
+        data = _read_json(path, {})
+        if not isinstance(data, dict):
+            data = {}
+        events = data.get("events")
+        if not isinstance(events, list):
+            events = []
+
+        existing = {str(e.get("id")) for e in events if isinstance(e, dict) and e.get("id")}
+
+        for uid in discord_ids:
+            suid = str(uid or "").strip()
+            if not suid:
+                continue
+            eid = f"stage:{team}:{stage}:{suid}"
+            if eid in existing:
+                continue
+            events.append({
+                "id": eid,
+                "discord_id": suid,
+                "team": team,
+                "stage": stage,
+                "title": "Stage update",
+                "body": f"{team} advanced to {stage}.",
+                "ts": ts
+            })
+            existing.add(eid)
+
+        events.sort(key=lambda x: int((x or {}).get("ts") or 0), reverse=True)
+        data["events"] = events[:500]
+        _write_json_atomic(path, data)
+
     @bp.get("/teams/stage")
     def admin_team_stage_get():
         resp = require_admin()
@@ -798,8 +890,36 @@ def create_admin_routes(ctx):
         path = _team_stage_path(ctx)
         data = _read_json(path, {})
         if not isinstance(data, dict): data = {}
+        prev_stage = data.get(team) or ""
+        prev_stage_norm = _normalize_stage(prev_stage) or "Group Stage"
+        next_stage_norm = _normalize_stage(stage)
         data[team] = stage
         _write_json_atomic(path, data)
+
+        prev_rank = _stage_rank(prev_stage_norm)
+        next_rank = _stage_rank(next_stage_norm)
+        progressed = next_rank > prev_rank >= 0
+
+        if progressed:
+            owner_ids = _owners_for_team(ctx, team)
+            now = int(time.time())
+            _append_stage_notifications(owner_ids, team, next_stage_norm, now)
+
+            cfg = _read_json(_path(ctx, "config.json"), {})
+            channel_name = str(
+                cfg.get("STAGE_ANNOUNCE_CHANNEL")
+                or cfg.get("STAGE_ANNOUNCE_CHANNEL_NAME")
+                or cfg.get("ANNOUNCEMENTS_CHANNEL")
+                or "announcements"
+            )
+
+            _enqueue_command(ctx, "team_stage_progress", {
+                "team": team,
+                "stage": next_stage_norm,
+                "previous_stage": prev_stage_norm,
+                "owner_ids": owner_ids,
+                "channel": channel_name,
+            })
         return jsonify({"ok": True, "team": team, "stage": stage})
 
     # ---------- Masquerade Mode ----------
@@ -825,6 +945,32 @@ def create_admin_routes(ctx):
 
         session.pop("wc_masquerade_id", None)
         return jsonify({"ok": True, "masquerading_as": None})
+
+    # ---------- Settings ----------
+    @bp.get("/settings")
+    def admin_settings_get():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        cfg = _load_config(ctx)
+        return jsonify({
+            "ok": True,
+            "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip()
+        })
+
+    @bp.post("/settings")
+    def admin_settings_set():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        body = request.get_json(silent=True) or {}
+        channel = str(body.get("stage_announce_channel") or "").strip()
+
+        cfg = _load_config(ctx)
+        cfg["STAGE_ANNOUNCE_CHANNEL"] = channel
+        if not _save_config(ctx, cfg):
+            return jsonify({"ok": False, "error": "failed_to_save"}), 500
+        return jsonify({"ok": True, "stage_announce_channel": channel})
 
 
     # ---------- FAN ZONE ----------

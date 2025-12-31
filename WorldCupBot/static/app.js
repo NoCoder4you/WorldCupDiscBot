@@ -25,8 +25,9 @@
   "Group Stage",
   "Round of 32",
   "Round of 16",
-  "Quarter Final",
-  "Semi Final",
+  "Quarter-finals",
+  "Semi-finals",
+  "Third Place Play-off",
   "Final",
   "Winner"
 ];
@@ -100,15 +101,22 @@ function normalizeStage(label){
     "Group":"Group Stage",
     "R32":"Round of 32",
     "R16":"Round of 16",
-    "QF":"Quarter Final",
-    "SF":"Semi Final",
-    "F":"Final"
+    "QF":"Quarter-finals",
+    "SF":"Semi-finals",
+    "F":"Final",
+    "Quarter Final":"Quarter-finals",
+    "Quarter Finals":"Quarter-finals",
+    "Semi Final":"Semi-finals",
+    "Semi Finals":"Semi-finals",
+    "Third Place":"Third Place Play-off",
+    "Third Place Play":"Third Place Play-off",
+    "Third Place Playoff":"Third Place Play-off"
   };
   return map[s] || s;
 }
 
 function stagePill(stage){
-  const s = stage || 'Group';
+  const s = normalizeStage(stage) || 'Group Stage';
   const cls = (s === 'Winner') ? 'pill-ok'
             : (s === 'Eliminated') ? 'pill-off'
             : 'pill';
@@ -171,7 +179,7 @@ function stagePill(stage){
   // === PAGE SWITCHER ===
     function showPage(page) {
       // admin-only pages
-      const adminPages = new Set(['splits','backups','log','cogs']);
+      const adminPages = new Set(['splits','backups','log','cogs','settings']);
 
       // block admin pages when not logged in
       if (adminPages.has(page) && !isAdminUI()) {
@@ -192,10 +200,11 @@ function stagePill(stage){
       if (page === 'cogs' && state.admin) loadCogs().catch(()=>{});
       if (page === 'backups' && state.admin) loadBackups().catch(()=>{});
       if (page === 'splits' && state.admin) loadSplits().catch(()=>{});
+      if (page === 'settings' && state.admin) loadSettings().catch(()=>{});
     }
 
 function setPage(p) {
-  const adminPages = new Set(['splits','backups','log','cogs']);
+  const adminPages = new Set(['splits','backups','log','cogs','settings']);
   if (adminPages.has(p) && !isAdminUI()) {
     notify('That page requires admin login.', false);
     p = 'dashboard';
@@ -1106,7 +1115,9 @@ function formatOwnershipPercent(value) {
           : '—';
 
         // Stage cell
-        const current = (ownershipState.stages && ownershipState.stages[row.country]) || '';
+        const current = normalizeStage(
+          (ownershipState.stages && ownershipState.stages[row.country]) || ''
+        );
         let stageCell = '';
         if (isAdminUI()) {
           // editable select for admins (this is what gets enhanced into the custom dropdown)
@@ -2365,6 +2376,50 @@ function shortId(id) {
       }
     }
 
+    async function loadSettings(){
+      try{
+        const sec = document.getElementById('settings');
+        if (!sec) return;
+        const input = document.getElementById('settings-stage-channel');
+        const status = document.getElementById('settings-status');
+        if (status) status.textContent = '';
+
+        const data = await fetchJSON('/admin/settings');
+        if (input) input.value = data?.stage_announce_channel || '';
+
+        const saveBtn = document.getElementById('settings-save');
+        const refreshBtn = document.getElementById('settings-refresh');
+
+        if (saveBtn && !saveBtn.dataset.bound) {
+          saveBtn.dataset.bound = '1';
+          saveBtn.addEventListener('click', async () => {
+            try {
+              const channel = (input?.value || '').trim();
+              const res = await fetchJSON('/admin/settings', {
+                method: 'POST',
+                body: JSON.stringify({ stage_announce_channel: channel })
+              });
+              if (status) {
+                status.textContent = res?.stage_announce_channel
+                  ? `Saved. Announcements will post to #${res.stage_announce_channel}.`
+                  : 'Saved. Announcements channel cleared (will use default).';
+              }
+              notify('Settings saved');
+            } catch (e) {
+              notify(`Failed to save settings: ${e.message}`, false);
+            }
+          });
+        }
+
+        if (refreshBtn && !refreshBtn.dataset.bound) {
+          refreshBtn.dataset.bound = '1';
+          refreshBtn.addEventListener('click', loadSettings);
+        }
+      }catch(e){
+        notify(`Settings error: ${e.message}`, false);
+      }
+    }
+
 /* ======= BEGIN LOGS MODULE ======= */
     async function loadLogs(){
       // Build the card once
@@ -2678,6 +2733,7 @@ async function getCogStatus(name){
       case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
       case 'log': if(isAdminUI()) await loadLogs('bot'); else setPage('dashboard'); break;
       case 'cogs': if(isAdminUI()) await loadCogs(); else setPage('dashboard'); break;
+      case 'settings': if(isAdminUI()) await loadSettings(); else setPage('dashboard'); break;
     }
   }
 
