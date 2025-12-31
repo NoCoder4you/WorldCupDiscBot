@@ -1028,7 +1028,8 @@ def create_admin_routes(ctx):
             return resp
         cfg = _load_config(ctx)
         token = str(cfg.get("DISCORD_BOT_TOKEN") or cfg.get("BOT_TOKEN") or "").strip()
-        guild_id = _load_primary_guild_id(ctx)
+        requested_guild_id = str(request.args.get("guild_id") or "").strip()
+        guild_id = requested_guild_id or _load_primary_guild_id(ctx)
         if not token:
             return jsonify({"ok": False, "error": "missing_bot_token"}), 500
         if not guild_id:
