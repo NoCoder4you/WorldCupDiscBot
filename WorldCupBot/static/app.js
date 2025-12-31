@@ -2382,10 +2382,48 @@ function shortId(id) {
         if (!sec) return;
         const input = document.getElementById('settings-stage-channel');
         const status = document.getElementById('settings-status');
+        const channelList = document.getElementById('settings-channel-list');
+        const channelStatus = document.getElementById('settings-channels-status');
         if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
         if (input) input.value = data?.stage_announce_channel || '';
+        if (channelList) channelList.innerHTML = '';
+        if (channelStatus) channelStatus.textContent = 'Loading channels...';
+        if (channelList) {
+          try{
+            const channelData = await fetchJSON('/admin/discord/channels');
+            const channels = Array.isArray(channelData?.channels) ? channelData.channels : [];
+            if (!channels.length) {
+              channelList.innerHTML = '<div class="settings-channel-empty">No channels found.</div>';
+              if (channelStatus) channelStatus.textContent = '';
+            } else {
+              const frag = document.createDocumentFragment();
+              channels.forEach((row) => {
+                const rowEl = document.createElement('div');
+                rowEl.className = 'settings-channel-row';
+                const catCell = document.createElement('div');
+                catCell.className = 'settings-channel-cell';
+                if (!row?.category) {
+                  catCell.classList.add('empty');
+                  catCell.textContent = '';
+                } else {
+                  catCell.textContent = row.category;
+                }
+                const chanCell = document.createElement('div');
+                chanCell.className = 'settings-channel-cell';
+                chanCell.textContent = row?.channel || '';
+                rowEl.appendChild(catCell);
+                rowEl.appendChild(chanCell);
+                frag.appendChild(rowEl);
+              });
+              channelList.appendChild(frag);
+              if (channelStatus) channelStatus.textContent = '';
+            }
+          }catch(e){
+            if (channelStatus) channelStatus.textContent = `Failed to load channels: ${e.message}`;
+          }
+        }
 
         const saveBtn = document.getElementById('settings-save');
         const refreshBtn = document.getElementById('settings-refresh');

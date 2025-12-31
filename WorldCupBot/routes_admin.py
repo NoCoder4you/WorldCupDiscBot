@@ -1,4 +1,5 @@
 import os, json, time, glob, sys
+import requests
 from flask import Blueprint, jsonify, request, session, send_file
 
 USER_SESSION_KEY = "wc_user"
@@ -210,6 +211,32 @@ def _load_settings(ctx):
     except Exception:
         pass
     return {}
+
+def _guilds_path(ctx):
+    return _path(ctx, "guilds.json")
+
+def _load_primary_guild_id(ctx) -> str:
+    cfg = _load_config(ctx)
+    for key in ("DISCORD_GUILD_ID", "GUILD_ID", "PRIMARY_GUILD_ID", "ADMIN_GUILD_ID"):
+        raw = str(cfg.get(key) or "").strip()
+        if raw:
+            return raw
+    data = _read_json(_guilds_path(ctx), {})
+    if isinstance(data, dict):
+        guilds = data.get("guilds") or []
+        if isinstance(guilds, list):
+            for g in guilds:
+                if isinstance(g, dict):
+                    gid = str(g.get("id") or "").strip()
+                    if gid:
+                        return gid
+    return ""
+
+def _is_divider_channel(name: str) -> bool:
+    raw = str(name or "").strip()
+    if not raw:
+        return False
+    return all(ch == "_" for ch in raw)
 
 def _save_settings(ctx, data: dict) -> bool:
     path = _settings_path(ctx)
@@ -979,6 +1006,70 @@ def create_admin_routes(ctx):
         if not _save_settings(ctx, cfg):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
         return jsonify({"ok": True, "stage_announce_channel": channel})
+
+    @bp.get("/discord/channels")
+    def admin_discord_channels():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        cfg = _load_config(ctx)
+        token = str(cfg.get("DISCORD_BOT_TOKEN") or cfg.get("BOT_TOKEN") or "").strip()
+        guild_id = _load_primary_guild_id(ctx)
+        if not token:
+            return jsonify({"ok": False, "error": "missing_bot_token"}), 500
+        if not guild_id:
+            return jsonify({"ok": False, "error": "missing_guild_id"}), 500
+
+        url = f"https://discord.com/api/v10/guilds/{guild_id}/channels"
+        try:
+            resp = requests.get(url, headers={"Authorization": f"Bot {token}"}, timeout=10)
+        except requests.RequestException as exc:
+            return jsonify({"ok": False, "error": "discord_request_failed", "detail": str(exc)}), 502
+        if resp.status_code >= 300:
+            return jsonify({"ok": False, "error": "discord_error", "status": resp.status_code}), 502
+        payload = resp.json() if resp.content else []
+        if not isinstance(payload, list):
+            payload = []
+
+        categories = {}
+        category_positions = {}
+        for ch in payload:
+            if not isinstance(ch, dict):
+                continue
+            if ch.get("type") == 4:
+                cid = str(ch.get("id") or "")
+                categories[cid] = str(ch.get("name") or "")
+                category_positions[cid] = int(ch.get("position") or 0)
+
+        rows = []
+        for ch in payload:
+            if not isinstance(ch, dict):
+                continue
+            ctype = ch.get("type")
+            if ctype == 4:
+                continue
+            if ctype in (2, 13):
+                continue
+            name = str(ch.get("name") or "").strip()
+            if not name or _is_divider_channel(name):
+                continue
+            parent_id = str(ch.get("parent_id") or "").strip()
+            category_name = categories.get(parent_id, "")
+            rows.append({
+                "category": category_name,
+                "channel": name,
+                "category_position": category_positions.get(parent_id, 1_000_000),
+                "channel_position": int(ch.get("position") or 0),
+            })
+
+        rows.sort(key=lambda item: (
+            item.get("category_position", 1_000_000),
+            item.get("channel_position", 0),
+            (item.get("category") or "").lower(),
+            (item.get("channel") or "").lower(),
+        ))
+        cleaned = [{"category": r["category"], "channel": r["channel"]} for r in rows]
+        return jsonify({"ok": True, "channels": cleaned})
 
 
     # ---------- FAN ZONE ----------
