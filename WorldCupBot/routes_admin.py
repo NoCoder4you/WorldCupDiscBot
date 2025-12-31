@@ -1,4 +1,4 @@
-import os, json, time, glob, sys
+import os, json, time, glob, sys, re
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
 
@@ -37,6 +37,16 @@ STAGE_ALIASES = {
     "Third Place Playoff": "Third Place Play-off",
     "Third Place": "Third Place Play-off",
     "3rd Place Play-off": "Third Place Play-off",
+}
+
+STAGE_CHANNEL_MAP = {
+    "Round of 32": "round-of-32",
+    "Round of 16": "round-of-16",
+    "Quarter-finals": "quarter-finals",
+    "Semi-finals": "semi-finals",
+    "Third Place Play-off": "third-place-play",
+    "Final": "final",
+    "Winner": "final",
 }
 
 # ---- PATH / IO HELPERS ----
@@ -1147,6 +1157,57 @@ def create_admin_routes(ctx):
             raw = raw.get('fixtures') or raw.get('matches') or []
         return raw if isinstance(raw, list) else []
 
+    def _group_from_team_meta(home: str, away: str) -> str:
+        meta = _read_json(_path(ctx, "team_meta.json"), {})
+        groups = meta.get("groups") if isinstance(meta, dict) else None
+        if not isinstance(groups, dict):
+            return ""
+
+        lookup = {}
+        for group, teams in groups.items():
+            if not group or not isinstance(teams, list):
+                continue
+            for team in teams:
+                if isinstance(team, str) and team.strip():
+                    lookup[team.strip().lower()] = str(group).strip().upper()
+
+        home_key = (home or "").strip().lower()
+        away_key = (away or "").strip().lower()
+        home_group = lookup.get(home_key, "")
+        away_group = lookup.get(away_key, "")
+        if home_group and away_group and home_group == away_group:
+            return home_group
+        return home_group or away_group or ""
+
+    def _extract_group_from_stage(stage: str) -> str:
+        if not stage:
+            return ""
+        match = re.search(r"group\\s*([a-l])", stage, re.IGNORECASE)
+        return match.group(1).upper() if match else ""
+
+    def _resolve_fanzone_channel(fixture: dict, home: str, away: str) -> str:
+        stage_raw = str(
+            fixture.get("stage")
+            or fixture.get("round")
+            or fixture.get("phase")
+            or fixture.get("tournament_stage")
+            or ""
+        ).strip()
+        stage_norm = _normalize_stage(stage_raw) or stage_raw
+        if stage_norm and stage_norm not in ("Group Stage", "Groups"):
+            channel = STAGE_CHANNEL_MAP.get(stage_norm)
+            if channel:
+                return channel
+
+        group = str(fixture.get("group") or "").strip().upper()
+        if not group:
+            group = _extract_group_from_stage(stage_raw)
+        if not group:
+            group = _group_from_team_meta(home, away)
+        if group:
+            return f"group-{group.lower()}"
+        return ""
+
     def _find_fixture_any(match_id: str) -> dict | None:
         mid = str(match_id or '').strip()
         if not mid:
@@ -1405,13 +1466,17 @@ def create_admin_routes(ctx):
 
         # Queue bot announcement + DMs
         cfg = _read_json(_path(ctx, 'config.json'), {})
-        channel_name = str(cfg.get('FANZONE_CHANNEL_NAME') or cfg.get('FANZONE_CHANNEL') or 'fanzone')
+        channel_name = _resolve_fanzone_channel(f, home, away)
+        if not channel_name:
+            channel_name = str(cfg.get('FANZONE_CHANNEL_NAME') or cfg.get('FANZONE_CHANNEL') or 'fanzone')
 
         _enqueue_command(ctx, 'fanzone_winner', {
             'fixture_id': fixture_id,
             'home': home,
             'away': away,
             'utc': utc,
+            'group': str(f.get('group') or ''),
+            'stage': str(f.get('stage') or f.get('round') or f.get('phase') or ''),
             'winner_team': winner_team,
             'loser_team': loser_team,
             'winner_iso': winner_iso_in,

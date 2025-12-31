@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for, make_response
-import os, time, json, shutil, zipfile, datetime, glob
+import os, time, json, shutil, zipfile, datetime, glob, re
 import psutil
 import secrets
 import urllib.parse
@@ -1690,6 +1690,84 @@ def create_public_routes(ctx):
                 out[str(k).strip().lower()] = str(v).strip().lower()
         return out
 
+    STAGE_CHANNEL_MAP = {
+        "Round of 32": "round-of-32",
+        "Round of 16": "round-of-16",
+        "Quarter-finals": "quarter-finals",
+        "Semi-finals": "semi-finals",
+        "Third Place Play-off": "third-place-play",
+        "Final": "final",
+        "Winner": "final",
+    }
+
+    STAGE_ALIASES = {
+        "Quarter Final": "Quarter-finals",
+        "Quarter Finals": "Quarter-finals",
+        "Semi Final": "Semi-finals",
+        "Semi Finals": "Semi-finals",
+        "Third Place Play": "Third Place Play-off",
+        "Third Place Playoff": "Third Place Play-off",
+        "Third Place": "Third Place Play-off",
+        "3rd Place Play-off": "Third Place Play-off",
+    }
+
+    def _normalize_stage(stage: str) -> str:
+        raw = str(stage or "").strip()
+        if not raw:
+            return ""
+        return STAGE_ALIASES.get(raw, raw)
+
+    def _group_from_team_meta(base_dir, home: str, away: str) -> str:
+        meta = _json_load(os.path.join(_json_dir(base_dir), "team_meta.json"), {})
+        groups = meta.get("groups") if isinstance(meta, dict) else None
+        if not isinstance(groups, dict):
+            return ""
+
+        lookup = {}
+        for group, teams in groups.items():
+            if not group or not isinstance(teams, list):
+                continue
+            for team in teams:
+                if isinstance(team, str) and team.strip():
+                    lookup[team.strip().lower()] = str(group).strip().upper()
+
+        home_key = (home or "").strip().lower()
+        away_key = (away or "").strip().lower()
+        home_group = lookup.get(home_key, "")
+        away_group = lookup.get(away_key, "")
+        if home_group and away_group and home_group == away_group:
+            return home_group
+        return home_group or away_group or ""
+
+    def _extract_group_from_stage(stage: str) -> str:
+        if not stage:
+            return ""
+        match = re.search(r"group\\s*([a-l])", stage, re.IGNORECASE)
+        return match.group(1).upper() if match else ""
+
+    def _resolve_fanzone_channel(base_dir, fixture: dict, home: str, away: str) -> str:
+        stage_raw = str(
+            fixture.get("stage")
+            or fixture.get("round")
+            or fixture.get("phase")
+            or fixture.get("tournament_stage")
+            or ""
+        ).strip()
+        stage_norm = _normalize_stage(stage_raw) or stage_raw
+        if stage_norm and stage_norm not in ("Group Stage", "Groups"):
+            channel = STAGE_CHANNEL_MAP.get(stage_norm)
+            if channel:
+                return channel
+
+        group = str(fixture.get("group") or "").strip().upper()
+        if not group:
+            group = _extract_group_from_stage(stage_raw)
+        if not group:
+            group = _group_from_team_meta(base_dir, home, away)
+        if group:
+            return f"group-{group.lower()}"
+        return ""
+
     @api.get("/fixtures")
     def api_fixtures():
         base = ctx.get("BASE_DIR", "")
@@ -1810,6 +1888,7 @@ def create_public_routes(ctx):
             matches = _json_load(_matches_path(base), [])
             home = ""
             away = ""
+            fixture = {}
 
             def pick(d, *keys):
                 for k in keys:
@@ -1847,11 +1926,12 @@ def create_public_routes(ctx):
                         if not away and isinstance(a, dict):
                             away = pick(a, "name", "team", "title")
 
+                    fixture = m
                     break
 
-            return home, away
+            return home, away, fixture
 
-        home, away = _resolve_fixture_teams(fixture_id)
+        home, away, fixture = _resolve_fixture_teams(fixture_id)
 
         # ----------------------------
         # Lock voting by writing winners record
@@ -2021,6 +2101,34 @@ def create_public_routes(ctx):
             existing_ids.add(eid)
 
         _json_save(ev_path, ev_blob)
+
+        iso_map = _load_team_iso_map(base)
+        winner_iso = iso_map.get(resolved_winner_team.lower(), "") if resolved_winner_team else ""
+        loser_iso = iso_map.get(resolved_loser_team.lower(), "") if resolved_loser_team else ""
+
+        channel_name = _resolve_fanzone_channel(base, fixture or {}, home, away)
+        if not channel_name:
+            cfg = _load_config(base)
+            channel_name = str(cfg.get("FANZONE_CHANNEL_NAME") or cfg.get("FANZONE_CHANNEL") or "fanzone")
+
+        _enqueue_command(base, {
+            "kind": "fanzone_winner",
+            "data": {
+                "fixture_id": fixture_id,
+                "home": home,
+                "away": away,
+                "utc": str((fixture or {}).get("utc") or (fixture or {}).get("time") or ""),
+                "group": str((fixture or {}).get("group") or ""),
+                "stage": str((fixture or {}).get("stage") or (fixture or {}).get("round") or (fixture or {}).get("phase") or ""),
+                "winner_team": resolved_winner_team,
+                "loser_team": resolved_loser_team,
+                "winner_iso": winner_iso,
+                "loser_iso": loser_iso,
+                "winner_owner_ids": sorted(win_owners),
+                "loser_owner_ids": sorted(lose_owners),
+                "channel": channel_name,
+            }
+        })
 
         return jsonify({
             "ok": True,
