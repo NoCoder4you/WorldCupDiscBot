@@ -659,13 +659,13 @@ def create_admin_routes(ctx):
             eid = f"{bet_id}:{uid}:{result}"
             if eid in existing:
                 return
-            outcome = "Won" if result == "win" else "Lost"
+            outcome = "🏆 Won" if result == "win" else "Lost"
             events.append({
                 "id": eid,
                 "discord_id": uid,
                 "result": result,
                 "title": "Bet settled",
-                "body": f"Bet: {bet_title} • Wager: {wager} • {outcome}",
+                "body": f"Bet: {bet_title}\nWager: {wager}\n{outcome}",
                 "bet_id": bet_id,
                 "bet_title": bet_title,
                 "wager": wager,
