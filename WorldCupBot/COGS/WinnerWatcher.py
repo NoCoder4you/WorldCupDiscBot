@@ -118,10 +118,10 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     return emb
 
 def _build_bet_result_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> discord.Embed:
-    bet_title = bet.get("bet_title", "Bet update")
+    bet_title = bet.get("bet_title", "Bet Update")
 
     desc = f"[Open bet message]({msg_url})" if msg_url else "Bet result available."
-    embed = discord.Embed(title=f"Bet update: {bet_title}", description=desc, color=discord.Color.gold())
+    embed = discord.Embed(title=f"Bet Update: {bet_title}", description=desc, color=discord.Color.gold())
     embed.set_footer(text="World Cup 2026")
     embed.timestamp = discord.utils.utcnow()
     return embed

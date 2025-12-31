@@ -1384,7 +1384,7 @@ def create_public_routes(ctx):
                 sev = "ok" if res == "win" else ("warn" if res == "lose" else "info")
                 bet_title = ev.get("bet_title") or "Bet"
                 wager = ev.get("wager") or "-"
-                outcome = "🏆 Won 🏆" if res == "win" else ("Lost" if res == "lose" else "Result")
+                outcome = "Status: 🏆 Won 🏆" if res == "win" else ("Status: Lost" if res == "lose" else "Result")
                 item_id = rid if rid.startswith("bet:") else f"bet:{rid}"
 
                 items.append({

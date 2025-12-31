@@ -134,7 +134,7 @@ class ClaimBetButton(discord.ui.View):
         button.disabled = True
         embed = interaction.message.embeds[0]
         embed.color = discord.Color.green()
-        embed.set_field_at(1, name=bet['option2'], value=f"Claimed by: {interaction.user.mention}", inline=False)
+        embed.set_field_at(1, name=bet['option2'], value=f"Claimed By: {interaction.user.mention}", inline=False)
         embed.set_footer(text=f"{interaction.client.user.display_name} • All bets claimed are final.")
         await interaction.message.edit(embed=embed, view=None)
         await interaction.followup.send(f'You have claimed: **{bet["option2"]}**', ephemeral=True)
@@ -163,12 +163,12 @@ class BettingCog(commands.Cog):
         )
         embed.add_field(
             name=modal.option1.value, 
-            value=f"Claimed by: {interaction.user.mention}",
+            value=f"Claimed By: {interaction.user.mention}",
             inline=False
         )
         embed.add_field(
             name=modal.option2.value, 
-            value="Claimed by: Unclaimed",
+            value="Claimed By: Unclaimed",
             inline=False
         )
         embed.set_footer(text=f"{interaction.client.user.display_name} • All bets claimed are final.")
