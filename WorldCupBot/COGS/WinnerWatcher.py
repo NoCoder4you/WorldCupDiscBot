@@ -93,6 +93,39 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     emb.set_footer(text="World Cup 2026 • Winner declared")
     return emb
 
+def _build_bet_result_embed(bet: Dict[str, Any], won: bool) -> discord.Embed:
+    bet_title = bet.get("bet_title", "Bet result")
+    wager = bet.get("wager") or "-"
+    option1 = bet.get("option1") or "Option 1"
+    option2 = bet.get("option2") or "Option 2"
+    winner = bet.get("winner")
+    winner_option = option1 if winner == "option1" else option2
+    loser_option = option2 if winner == "option1" else option1
+
+    title = "🏆 Bet won!" if won else "❌ Bet lost"
+    desc = f"**Bet:** {bet_title}\n**Wager:** {wager}"
+    if winner in ("option1", "option2"):
+        desc += f"\n**Winner:** {winner_option}\n**Loser:** {loser_option}"
+
+    color = discord.Color.green() if won else discord.Color.red()
+    embed = discord.Embed(title=title, description=desc, color=color)
+    embed.set_footer(text="World Cup 2026 • Bets")
+    embed.timestamp = discord.utils.utcnow()
+    return embed
+
+async def _dm_bet_result(bot: commands.Bot, user_id: str, bet: Dict[str, Any], won: bool):
+    try:
+        uid = int(str(user_id))
+    except Exception:
+        return
+    try:
+        user = bot.get_user(uid) or await bot.fetch_user(uid)
+        if not user:
+            return
+        await user.send(embed=_build_bet_result_embed(bet, won))
+    except Exception:
+        return
+
 # ---------- Channel resolver ----------
 async def _resolve_admin_channel(bot: commands.Bot, pref: Any, admin_category: str) -> Optional[discord.TextChannel]:
     if isinstance(pref, (int, float, str)) and str(pref).isdigit():
@@ -173,6 +206,15 @@ class WinnerWatcher(commands.Cog):
                             print(f"[WinnerWatcher] failed to send admin embed for bet {bet_id}: {e}")
                     else:
                         print("[WinnerWatcher] admin channel not found — check ADMIN_BET_CHANNEL in config.json")
+
+                opt1_id = str(bet.get("option1_user_id") or "").strip()
+                opt2_id = str(bet.get("option2_user_id") or "").strip()
+                if winner == "option1":
+                    await _dm_bet_result(self.bot, opt1_id, bet, True)
+                    await _dm_bet_result(self.bot, opt2_id, bet, False)
+                elif winner == "option2":
+                    await _dm_bet_result(self.bot, opt1_id, bet, False)
+                    await _dm_bet_result(self.bot, opt2_id, bet, True)
 
             self._last_winner[bet_id] = winner
 
