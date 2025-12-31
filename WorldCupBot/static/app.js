@@ -2380,76 +2380,137 @@ function shortId(id) {
       try{
         const sec = document.getElementById('settings');
         if (!sec) return;
-        const input = document.getElementById('settings-stage-channel');
         const status = document.getElementById('settings-status');
-        const channelList = document.getElementById('settings-channel-list');
         const channelStatus = document.getElementById('settings-channels-status');
         const guildSelect = document.getElementById('settings-guild-select');
+        const categorySelect = document.getElementById('settings-category-select');
+        const channelSelect = document.getElementById('settings-channel-select');
         if (status) status.textContent = '';
 
+        const setSelectOptions = (select, options, placeholder) => {
+          if (!select) return;
+          const frag = document.createDocumentFragment();
+          if (placeholder) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = placeholder;
+            opt.disabled = true;
+            frag.appendChild(opt);
+          }
+          options.forEach(({ value, label }) => {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            frag.appendChild(opt);
+          });
+          select.innerHTML = '';
+          select.appendChild(frag);
+        };
+
         const data = await fetchJSON('/admin/settings');
-        if (input) input.value = data?.stage_announce_channel || '';
+        const savedChannel = data?.stage_announce_channel || '';
+        const primaryGuildId = data?.primary_guild_id || '';
         if (guildSelect) guildSelect.value = data?.selected_guild_id || '';
         if (guildSelect) {
           try{
             const guildData = await fetchJSON('/api/guilds');
             const guilds = Array.isArray(guildData?.guilds) ? guildData.guilds : [];
-            const selectedId = data?.selected_guild_id || '';
-            const frag = document.createDocumentFragment();
-            const defaultOpt = document.createElement('option');
-            defaultOpt.value = '';
-            defaultOpt.textContent = 'Default';
-            frag.appendChild(defaultOpt);
-            guilds.forEach((g) => {
-              if (!g?.id) return;
-              const opt = document.createElement('option');
-              opt.value = String(g.id);
-              opt.textContent = g?.name ? `${g.name} (${g.id})` : String(g.id);
-              frag.appendChild(opt);
-            });
-            guildSelect.innerHTML = '';
-            guildSelect.appendChild(frag);
-            guildSelect.value = selectedId;
+            const options = guilds
+              .filter((g) => g?.id)
+              .map((g) => ({
+                value: String(g.id),
+                label: g?.name ? `${g.name} (${g.id})` : String(g.id)
+              }));
+            setSelectOptions(guildSelect, options, 'Select a guild');
+            const selectedId = data?.selected_guild_id || primaryGuildId || '';
+            const match = options.find((opt) => opt.value === selectedId);
+            guildSelect.value = match ? selectedId : '';
           }catch(e){
-            guildSelect.innerHTML = '<option value="">Default (failed to load)</option>';
+            guildSelect.innerHTML = '<option value="" disabled>Failed to load guilds</option>';
           }
         }
-        if (channelList) channelList.innerHTML = '';
-        if (channelStatus) channelStatus.textContent = 'Loading channels...';
-        if (channelList) {
+        const loadChannelsForGuild = async (guildId, preferredChannel) => {
+          if (!guildId) {
+            setSelectOptions(categorySelect, [], 'Select a guild first');
+            setSelectOptions(channelSelect, [], 'Select a guild first');
+            if (channelStatus) channelStatus.textContent = 'Select a guild to load channels.';
+            return;
+          }
+          if (channelStatus) channelStatus.textContent = 'Loading channels...';
+          if (categorySelect) categorySelect.innerHTML = '';
+          if (channelSelect) channelSelect.innerHTML = '';
           try{
-            const channelData = await fetchJSON('/admin/discord/channels');
+            const url = guildId
+              ? `/admin/discord/channels?guild_id=${encodeURIComponent(guildId)}`
+              : '/admin/discord/channels';
+            const channelData = await fetchJSON(url);
             const channels = Array.isArray(channelData?.channels) ? channelData.channels : [];
             if (!channels.length) {
-              channelList.innerHTML = '<div class="settings-channel-empty">No channels found.</div>';
+              setSelectOptions(categorySelect, [], 'No categories found');
+              setSelectOptions(channelSelect, [], 'No channels found');
               if (channelStatus) channelStatus.textContent = '';
-            } else {
-              const frag = document.createDocumentFragment();
-              channels.forEach((row) => {
-                const rowEl = document.createElement('div');
-                rowEl.className = 'settings-channel-row';
-                const catCell = document.createElement('div');
-                catCell.className = 'settings-channel-cell';
-                if (!row?.category) {
-                  catCell.classList.add('empty');
-                  catCell.textContent = '';
-                } else {
-                  catCell.textContent = row.category;
-                }
-                const chanCell = document.createElement('div');
-                chanCell.className = 'settings-channel-cell';
-                chanCell.textContent = row?.channel || '';
-                rowEl.appendChild(catCell);
-                rowEl.appendChild(chanCell);
-                frag.appendChild(rowEl);
-              });
-              channelList.appendChild(frag);
-              if (channelStatus) channelStatus.textContent = '';
+              return;
             }
+
+            const categories = [];
+            const seen = new Set();
+            let hasUncategorized = false;
+            channels.forEach((row) => {
+              const name = String(row?.category || '').trim();
+              if (!name) {
+                hasUncategorized = true;
+                return;
+              }
+              if (!seen.has(name)) {
+                seen.add(name);
+                categories.push(name);
+              }
+            });
+
+            const categoryOptions = categories.map((name) => ({ value: name, label: name }));
+            if (hasUncategorized) {
+              categoryOptions.unshift({ value: '', label: 'No category' });
+            }
+            const categoryPlaceholder = hasUncategorized ? '' : 'Select a category';
+            setSelectOptions(categorySelect, categoryOptions, categoryPlaceholder);
+
+            let selectedCategory = '';
+            if (preferredChannel) {
+              const match = channels.find((row) => (row?.channel || '') === preferredChannel);
+              if (match) selectedCategory = match?.category || '';
+            }
+            if (!selectedCategory && categoryOptions.length) {
+              selectedCategory = categoryOptions[0].value;
+            }
+            if (categorySelect) categorySelect.value = selectedCategory;
+
+            const updateChannelOptions = () => {
+              const activeCategory = categorySelect?.value || '';
+              const channelOptions = channels
+                .filter((row) => (row?.category || '') === activeCategory)
+                .map((row) => ({
+                  value: row?.channel || '',
+                  label: row?.channel || ''
+                }))
+                .filter((opt) => opt.value);
+              setSelectOptions(channelSelect, channelOptions, 'Select a channel');
+              if (preferredChannel && channelOptions.some((opt) => opt.value === preferredChannel)) {
+                channelSelect.value = preferredChannel;
+              } else if (channelOptions.length) {
+                channelSelect.value = channelOptions[0].value;
+              }
+            };
+
+            if (categorySelect && !categorySelect.dataset.bound) {
+              categorySelect.dataset.bound = '1';
+              categorySelect.addEventListener('change', updateChannelOptions);
+            }
+            updateChannelOptions();
+            if (channelStatus) channelStatus.textContent = '';
           }catch(e){
             if (channelStatus) channelStatus.textContent = `Failed to load channels: ${e.message}`;
           }
-        }
+        };
 
         const saveBtn = document.getElementById('settings-save');
         const refreshBtn = document.getElementById('settings-refresh');
@@ -2458,7 +2519,7 @@ function shortId(id) {
           saveBtn.dataset.bound = '1';
           saveBtn.addEventListener('click', async () => {
             try {
-              const channel = (input?.value || '').trim();
+              const channel = (channelSelect?.value || '').trim();
               const selectedGuildId = (guildSelect?.value || '').trim();
               const res = await fetchJSON('/admin/settings', {
                 method: 'POST',
@@ -2484,6 +2545,15 @@ function shortId(id) {
           refreshBtn.dataset.bound = '1';
           refreshBtn.addEventListener('click', loadSettings);
         }
+
+        if (guildSelect && !guildSelect.dataset.bound) {
+          guildSelect.dataset.bound = '1';
+          guildSelect.addEventListener('change', () => {
+            loadChannelsForGuild(guildSelect.value, channelSelect?.value || savedChannel);
+          });
+        }
+
+        await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
       }catch(e){
         notify(`Settings error: ${e.message}`, false);
       }

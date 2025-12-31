@@ -995,7 +995,8 @@ def create_admin_routes(ctx):
         return jsonify({
             "ok": True,
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),
-            "selected_guild_id": str(cfg.get("SELECTED_GUILD_ID") or "").strip()
+            "selected_guild_id": str(cfg.get("SELECTED_GUILD_ID") or "").strip(),
+            "primary_guild_id": _load_primary_guild_id(ctx),
         })
 
     @bp.post("/settings")
@@ -1028,7 +1029,8 @@ def create_admin_routes(ctx):
             return resp
         cfg = _load_config(ctx)
         token = str(cfg.get("DISCORD_BOT_TOKEN") or cfg.get("BOT_TOKEN") or "").strip()
-        guild_id = _load_primary_guild_id(ctx)
+        requested_guild_id = str(request.args.get("guild_id") or "").strip()
+        guild_id = requested_guild_id or _load_primary_guild_id(ctx)
         if not token:
             return jsonify({"ok": False, "error": "missing_bot_token"}), 500
         if not guild_id:
@@ -1040,7 +1042,13 @@ def create_admin_routes(ctx):
         except requests.RequestException as exc:
             return jsonify({"ok": False, "error": "discord_request_failed", "detail": str(exc)}), 502
         if resp.status_code >= 300:
-            return jsonify({"ok": False, "error": "discord_error", "status": resp.status_code}), 502
+            detail = resp.text.strip() if resp.text else ""
+            return jsonify({
+                "ok": False,
+                "error": f"discord_error ({resp.status_code})",
+                "status": resp.status_code,
+                "detail": detail[:200],
+            }), 502
         payload = resp.json() if resp.content else []
         if not isinstance(payload, list):
             payload = []
