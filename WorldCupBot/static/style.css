@@ -2194,8 +2194,31 @@ body.user-admin-view #ownership .ownership-card {
 .ring-wrap {
   width: 120px;
   height: 120px;
+  position: relative;
   display: grid;
   place-items: center;
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  gap: 6px;
+}
+
+.stage-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stage-label--sm {
+  font-size: 10px;
 }
 
 .stage-ring--lg text {
@@ -2236,6 +2259,10 @@ body.user-admin-view #ownership .ownership-card {
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.06);
+}
+
+.owner-pill--center {
+  margin-left: 0;
 }
 
 .owner-pill--main  {

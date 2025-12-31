@@ -123,17 +123,14 @@
     const r = 52;
     const C = 2 * Math.PI * r;
     const off = C * (1 - p / 100);
-    const label = String(stage || 'Group');
-    const fontSize = (label.length > 10) ? 10 : 12;
     const track = 'rgba(255,255,255,.08)';
 
     return `
-      <svg class="stage-ring stage-ring--lg" width="120" height="120" viewBox="0 0 120 120" aria-label="Stage ${label}">
+      <svg class="stage-ring stage-ring--lg" width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
         <circle cx="60" cy="60" r="${r}" stroke="${track}" stroke-width="10" fill="none"></circle>
         <circle cx="60" cy="60" r="${r}" stroke="${color}" stroke-width="10"
           stroke-dasharray="${C}" stroke-dashoffset="${off}" stroke-linecap="round" fill="none"
           transform="rotate(-90 60 60)"></circle>
-        <text x="60" y="64" text-anchor="middle" fill="#fff" font-size="${fontSize}" font-weight="700">${label}</text>
       </svg>
     `;
   }
@@ -153,8 +150,10 @@
       const stage = normalizeStage(raw) || 'Group Stage';
       const ring  = makeStageRing(stage, color);
       const flag  = t.flag ? `<img class="flag-img" src="${t.flag}" alt="" />` : '';
-      const badge = isMain ? '<span class="owner-pill owner-pill--main">Main</span>'
-                           : '<span class="owner-pill owner-pill--split">Co-owner</span>';
+      const badgeClass = isMain ? 'owner-pill owner-pill--main' : 'owner-pill owner-pill--split';
+      const badge = isMain ? `<span class="${badgeClass} owner-pill--center">Main</span>`
+                           : `<span class="${badgeClass} owner-pill--center">Co-owner</span>`;
+      const stageClass = stage.length > 10 ? 'stage-label stage-label--sm' : 'stage-label';
       const nameLength = name.length;
       let nameClass = 'team-name';
       if (nameLength > 18) {
@@ -164,8 +163,14 @@
       }
       return `
         <div class="team-tile ${isMain ? 'is-main' : 'is-split'}" title="${name} - ${stage}">
-          <div class="ring-wrap">${ring}</div>
-          <div class="team-caption">${flag}<span class="${nameClass}">${name}</span>${badge}</div>
+          <div class="ring-wrap">
+            ${ring}
+            <div class="ring-center">
+              <div class="${stageClass}">${stage}</div>
+              ${badge}
+            </div>
+          </div>
+          <div class="team-caption">${flag}<span class="${nameClass}">${name}</span></div>
         </div>
       `;
     };
