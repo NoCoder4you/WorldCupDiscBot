@@ -172,6 +172,16 @@ section.page-section.active-section {
     display: block;
 }
 
+#dashboard.active-section {
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+#dashboard.active-section .dashboard-grid {
+    margin: 0 auto;
+}
+
 /* Admin gating */
 body:not(.admin) section.page-section.admin-only {
     display: none;
