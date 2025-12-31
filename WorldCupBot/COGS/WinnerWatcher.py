@@ -79,11 +79,11 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     opt1_name = option1
     opt2_name = option2
     if winner == "option1":
-        opt1_name = f"🏆 {option1}"
+        opt1_name = f"🏆 {option1} 🏆"
         opt2_name = f"~~{option2}~~"
     elif winner == "option2":
         opt1_name = f"~~{option1}~~"
-        opt2_name = f"🏆 {option2}"
+        opt2_name = f"🏆 {option2} 🏆"
 
     embed.add_field(name=opt1_name, value=f"Claimed by: {opt1_user}", inline=False)
     embed.add_field(name=opt2_name, value=f"Claimed by: {opt2_user}", inline=False)
@@ -118,20 +118,10 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
     return emb
 
 def _build_bet_result_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> discord.Embed:
-    option1 = bet.get("option1") or "Option 1"
-    option2 = bet.get("option2") or "Option 2"
-    wager = bet.get("wager") or "-"
-    opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
-    opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
     bet_title = bet.get("bet_title", "Bet update")
 
     desc = f"[Open bet message]({msg_url})" if msg_url else "Bet result available."
     embed = discord.Embed(title=f"Bet update: {bet_title}", description=desc, color=discord.Color.gold())
-    embed.add_field(name="Wager", value=wager, inline=False)
-    embed.add_field(name=option1, value=opt1_user, inline=False)
-    embed.add_field(name=option2, value=opt2_user, inline=False)
-    if msg_url:
-        embed.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
     embed.set_footer(text="World Cup 2026")
     embed.timestamp = discord.utils.utcnow()
     return embed
@@ -168,7 +158,7 @@ def _append_bet_results(bet: Dict[str, Any]):
         eid = f"bet:{bet_id}:{uid}"
         if eid in existing:
             return
-        outcome = "🏆 Won" if result == "win" else "Lost"
+        outcome = "🏆 Won 🏆" if result == "win" else "Lost"
         events.append({
             "id": eid,
             "discord_id": uid,
