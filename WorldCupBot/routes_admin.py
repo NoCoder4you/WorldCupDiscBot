@@ -627,6 +627,63 @@ def create_admin_routes(ctx):
             item["option2_user_name"] = resolve(item.get("option2_user_id"), item.get("option2_user_name"))
         return item
 
+    def _append_bet_results(bet: dict):
+        winner = str((bet or {}).get("winner") or "").strip().lower()
+        if winner not in ("option1", "option2"):
+            return
+        bet_id = str((bet or {}).get("bet_id") or "").strip()
+        if not bet_id:
+            return
+        opt1_id = str((bet or {}).get("option1_user_id") or "").strip()
+        opt2_id = str((bet or {}).get("option2_user_id") or "").strip()
+        if not (opt1_id or opt2_id):
+            return
+
+        path = _path(ctx, "bet_results.json")
+        data = _read_json(path, {})
+        if not isinstance(data, dict):
+            data = {}
+        events = data.get("events")
+        if not isinstance(events, list):
+            events = []
+
+        existing = {str(e.get("id")) for e in events if isinstance(e, dict) and e.get("id")}
+        now = int(time.time())
+
+        bet_title = str((bet or {}).get("bet_title") or f"Bet {bet_id}")
+        wager = str((bet or {}).get("wager") or "-")
+
+        def add_event(uid: str, result: str):
+            if not uid:
+                return
+            eid = f"{bet_id}:{uid}:{result}"
+            if eid in existing:
+                return
+            outcome = "Won" if result == "win" else "Lost"
+            events.append({
+                "id": eid,
+                "discord_id": uid,
+                "result": result,
+                "title": "Bet settled",
+                "body": f"Bet: {bet_title} • Wager: {wager} • {outcome}",
+                "bet_id": bet_id,
+                "bet_title": bet_title,
+                "wager": wager,
+                "ts": now
+            })
+            existing.add(eid)
+
+        if winner == "option1":
+            add_event(opt1_id, "win")
+            add_event(opt2_id, "lose")
+        elif winner == "option2":
+            add_event(opt1_id, "lose")
+            add_event(opt2_id, "win")
+
+        events.sort(key=lambda x: int((x or {}).get("ts") or 0), reverse=True)
+        data["events"] = events[:500]
+        _write_json_atomic(path, data)
+
     @bp.post("/bets/<bet_id>/winner")
     def bets_declare_winner(bet_id):
         resp = require_admin()
@@ -648,6 +705,7 @@ def create_admin_routes(ctx):
         found["winner"] = winner or None
         _write_json_atomic(_bets_path(), bets)
         _enqueue_command(ctx, "bet_winner_declared", {"bet_id": bet_id, "winner": found["winner"]})
+        _append_bet_results(found)
         return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
 
     # ---------- LOGS ----------
