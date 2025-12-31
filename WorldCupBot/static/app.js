@@ -3481,7 +3481,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (nameEl)   nameEl.textContent   = name;
       if (flagEl)   flagEl.innerHTML     = flag;
       if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
-      if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
+      if (stageEl)  stageEl.textContent  = 'Ownership: ' + (stage || '—');
       if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
       if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
       if (statusEl) statusEl.textContent = 'Status: ' + status;
