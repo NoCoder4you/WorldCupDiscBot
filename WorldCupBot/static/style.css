@@ -3320,6 +3320,19 @@ body .notify-panel{ right: 90px; }
   margin: 16px auto;
 }
 
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .settings-grid {
   display: grid;
   gap: 16px;
