@@ -2216,7 +2216,6 @@ body.user-admin-view #ownership .ownership-card {
 .team-caption .team-name {
   min-width: 0;
   max-width: 100%;
-  white-space: nowrap;
   overflow: visible;
 }
 

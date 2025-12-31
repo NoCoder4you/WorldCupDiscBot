@@ -159,7 +159,7 @@
       let nameClass = 'team-name';
       if (nameLength > 18) {
         nameClass += ' team-name--xlong';
-      } else if (nameLength > 14) {
+      } else if (nameLength > 10) {
         nameClass += ' team-name--long';
       }
       return `
