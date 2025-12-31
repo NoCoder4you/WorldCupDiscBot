@@ -2409,7 +2409,6 @@ function shortId(id) {
 
         const data = await fetchJSON('/admin/settings');
         const savedChannel = data?.stage_announce_channel || '';
-        const primaryGuildId = data?.primary_guild_id || '';
         if (guildSelect) guildSelect.value = data?.selected_guild_id || '';
         if (guildSelect) {
           try{
@@ -2422,20 +2421,13 @@ function shortId(id) {
                 label: g?.name ? `${g.name} (${g.id})` : String(g.id)
               }));
             setSelectOptions(guildSelect, options, 'Select a guild');
-            const selectedId = data?.selected_guild_id || primaryGuildId || '';
-            const match = options.find((opt) => opt.value === selectedId);
-            guildSelect.value = match ? selectedId : '';
+            const selectedId = data?.selected_guild_id || options?.[0]?.value || '';
+            guildSelect.value = selectedId || '';
           }catch(e){
             guildSelect.innerHTML = '<option value="" disabled>Failed to load guilds</option>';
           }
         }
         const loadChannelsForGuild = async (guildId, preferredChannel) => {
-          if (!guildId) {
-            setSelectOptions(categorySelect, [], 'Select a guild first');
-            setSelectOptions(channelSelect, [], 'Select a guild first');
-            if (channelStatus) channelStatus.textContent = 'Select a guild to load channels.';
-            return;
-          }
           if (channelStatus) channelStatus.textContent = 'Loading channels...';
           if (categorySelect) categorySelect.innerHTML = '';
           if (channelSelect) channelSelect.innerHTML = '';
