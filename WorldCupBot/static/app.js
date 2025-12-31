@@ -4682,6 +4682,53 @@ async function fetchGoalsData(){
       }
     });
 
+  function initFooterRotator(){
+    const el = document.getElementById('footer-rotator');
+    if (!el) return;
+
+    const messages = [
+      { type: 'text', value: 'World Cup 2026 • Live updates roll in every few minutes.' },
+      { type: 'text', value: 'Need help? DM a Referee for gameplay questions.' },
+      { type: 'text', value: 'Use the dashboard to track ownership and bets.' },
+      { type: 'text', value: 'Admin updates sync across tabs automatically.' },
+      { type: 'link', value: 'Terms', href: '/terms', className: 'btn btn-outline sm footer-terms' }
+    ];
+    let idx = 0;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const renderMessage = (message) => {
+      el.textContent = '';
+      if (message.type === 'link') {
+        const link = document.createElement('a');
+        link.href = message.href;
+        link.textContent = message.value;
+        link.className = message.className || '';
+        el.appendChild(link);
+        return;
+      }
+      const span = document.createElement('span');
+      span.textContent = message.value;
+      el.appendChild(span);
+    };
+
+    const setMessage = (nextIdx) => {
+      idx = nextIdx % messages.length;
+      if (reduceMotion) {
+        renderMessage(messages[idx]);
+        return;
+      }
+      el.classList.add('is-fading');
+      setTimeout(() => {
+        renderMessage(messages[idx]);
+        el.classList.remove('is-fading');
+      }, 200);
+    };
+
+    setMessage(idx);
+    if (reduceMotion) return;
+    setInterval(() => setMessage(idx + 1), 5000);
+  }
+
   // If landing directly on Fan Zone
   window.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('#fanzone.page-section.active-section')) {
@@ -4690,4 +4737,6 @@ async function fetchGoalsData(){
       ensureFanRefresh();
     }
   });
+
+  window.addEventListener('DOMContentLoaded', initFooterRotator);
 })();
