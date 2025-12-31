@@ -1354,9 +1354,10 @@ def create_public_routes(ctx):
                 bet_title = ev.get("bet_title") or "Bet"
                 wager = ev.get("wager") or "-"
                 outcome = "🏆 Won" if res == "win" else ("Lost" if res == "lose" else "Result")
+                item_id = rid if rid.startswith("bet:") else f"bet:{rid}"
 
                 items.append({
-                    "id": f"bet:{rid}",
+                    "id": item_id,
                     "type": "bet",
                     "severity": sev,
                     "title": ev.get("title") or "Bet result",

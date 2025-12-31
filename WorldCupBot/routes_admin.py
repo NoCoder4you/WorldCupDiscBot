@@ -656,7 +656,7 @@ def create_admin_routes(ctx):
         def add_event(uid: str, result: str):
             if not uid:
                 return
-            eid = f"{bet_id}:{uid}:{result}"
+            eid = f"bet:{bet_id}:{uid}"
             if eid in existing:
                 return
             outcome = "🏆 Won" if result == "win" else "Lost"
@@ -673,10 +673,28 @@ def create_admin_routes(ctx):
             })
             existing.add(eid)
 
+        def purge_existing(uid: str):
+            if not uid:
+                return
+            prefix = f"bet:{bet_id}:{uid}"
+            kept = []
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+                if str(ev.get("id") or "") == prefix:
+                    continue
+                kept.append(ev)
+            events[:] = kept
+            existing.discard(prefix)
+
         if winner == "option1":
+            purge_existing(opt1_id)
+            purge_existing(opt2_id)
             add_event(opt1_id, "win")
             add_event(opt2_id, "lose")
         elif winner == "option2":
+            purge_existing(opt1_id)
+            purge_existing(opt2_id)
             add_event(opt1_id, "lose")
             add_event(opt2_id, "win")
 
