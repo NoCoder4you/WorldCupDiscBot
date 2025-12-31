@@ -3,6 +3,13 @@ import requests
 from flask import Blueprint, jsonify, request, session, send_file
 from stage_constants import STAGE_ALLOWED, STAGE_ORDER
 
+from stage_constants import (
+    STAGE_ALLOWED,
+    STAGE_ALIASES,
+    STAGE_CHANNEL_SLUGS,
+    STAGE_ORDER,
+)
+
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
 
@@ -1173,7 +1180,7 @@ def create_admin_routes(ctx):
         ).strip()
         stage_norm = _normalize_stage(stage_raw) or stage_raw
         if stage_norm and stage_norm not in ("Group Stage", "Groups"):
-            channel = STAGE_CHANNEL_MAP.get(stage_norm)
+            channel = STAGE_CHANNEL_SLUGS.get(stage_norm)
             if channel:
                 return channel
 

@@ -2,27 +2,32 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+from stage_constants import STAGE_CHANNEL_SLUGS
+
 IGNORED_TEXT_CHANNEL_ID = 1389403009766920325
 
-STAGE_CHANNELS = {
-    "groups": [f"group-{chr(97 + i)}" for i in range(12)],
-    "32": ["round-of-32"],
-    "16": ["round-of-16"],
-    "quarters": ["quarter-finals"],
-    "semi": ["semi-finals"],
-    "third": ["third-place-play"],
-    "finals": ["final"]
+STAGE_KEY_ALIASES = {
+    "groups": "Group Stage",
+    "32": "Round of 32",
+    "16": "Round of 16",
+    "quarters": "Quarter-finals",
+    "semi": "Semi-finals",
+    "third": "Third Place Play-off",
+    "finals": "Final",
 }
 
-VOICE_STAGE_CHANNELS = {
-    "groups": [f"Group {chr(65 + i)}" for i in range(12)],
-    "32": ["Round of 32"],
-    "16": ["Round of 16"],
-    "quarters": ["Quarter Finals"],
-    "semi": ["Semi Finals"],
-    "third": ["Third Place Play"],
-    "finals": ["Final"]
+VOICE_STAGE_NAMES = {
+    "Round of 32": "Round of 32",
+    "Round of 16": "Round of 16",
+    "Quarter-finals": "Quarter Finals",
+    "Semi-finals": "Semi Finals",
+    "Third Place Play-off": "Third Place Play",
+    "Final": "Final",
+    "Winner": "Final",
 }
+
+GROUP_TEXT_CHANNELS = [f"group-{chr(97 + i)}" for i in range(12)]
+GROUP_VOICE_CHANNELS = [f"Group {chr(65 + i)}" for i in range(12)]
 
 DIVIDER_CHANNEL_NAME = "________________"
 TEXT_CATEGORY_NAME = "world cup"
@@ -30,6 +35,20 @@ VOICE_CATEGORY_NAME = "world cup vc"
 
 def has_referee_role(member):
     return any(role.name.lower() == "referee" for role in getattr(member, "roles", []))
+
+def get_stage_channels(stage_key: str, is_voice: bool):
+    key = (stage_key or "").strip().lower()
+    canonical = STAGE_KEY_ALIASES.get(key, "")
+    if key == "groups" or canonical == "Group Stage":
+        targets = GROUP_VOICE_CHANNELS if is_voice else GROUP_TEXT_CHANNELS
+        return targets, True
+    if not canonical:
+        return [], False
+    if is_voice:
+        voice_name = VOICE_STAGE_NAMES.get(canonical)
+        return ([voice_name] if voice_name else []), False
+    slug = STAGE_CHANNEL_SLUGS.get(canonical)
+    return ([slug] if slug else []), False
 
 class ChannelManage(commands.Cog):
     def __init__(self, bot):
@@ -123,14 +142,14 @@ class ChannelManage(commands.Cog):
         all_channels.sort(key=lambda c: c.position)
 
         if is_voice:
-            stage_targets = VOICE_STAGE_CHANNELS.get(stage, [])
+            stage_targets, use_prefix = get_stage_channels(stage, is_voice=True)
             stage_indices = [i for i, ch in enumerate(all_channels) if ch.name in stage_targets]
-            if stage == "groups":
+            if use_prefix:
                 stage_indices = [i for i, ch in enumerate(all_channels) if ch.name.startswith("Group ")]
         else:
-            stage_targets = STAGE_CHANNELS.get(stage, [])
+            stage_targets, use_prefix = get_stage_channels(stage, is_voice=False)
             stage_indices = [i for i, ch in enumerate(all_channels) if ch.name.lower() in stage_targets]
-            if stage == "groups":
+            if use_prefix:
                 stage_indices = [i for i, ch in enumerate(all_channels) if ch.name.startswith("group-")]
 
         if not stage_indices:
