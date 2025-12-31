@@ -1,32 +1,10 @@
 import os, json, time, glob, sys, re
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
+from stage_constants import STAGE_ALLOWED, STAGE_ORDER
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
-STAGE_ALLOWED = {
-    "Eliminated",
-    "Group Stage",
-    "Round of 32",
-    "Round of 16",
-    "Quarter-finals",
-    "Semi-finals",
-    "Third Place Play-off",
-    "Final",
-    "Winner",
-}
-
-STAGE_ORDER = [
-    "Eliminated",
-    "Group Stage",
-    "Round of 32",
-    "Round of 16",
-    "Quarter-finals",
-    "Semi-finals",
-    "Third Place Play-off",
-    "Final",
-    "Winner",
-]
 
 STAGE_ALIASES = {
     "Quarter Final": "Quarter-finals",
