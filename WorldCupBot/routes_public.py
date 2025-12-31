@@ -1730,7 +1730,7 @@ def create_public_routes(ctx):
         ).strip()
         stage_norm = normalize_stage(stage_raw) or stage_raw
         if stage_norm and stage_norm not in ("Group Stage", "Groups"):
-            channel = STAGE_CHANNEL_MAP.get(stage_norm)
+            channel = STAGE_CHANNEL_SLUGS.get(stage_norm)
             if channel:
                 return channel
 
