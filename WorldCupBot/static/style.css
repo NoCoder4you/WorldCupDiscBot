@@ -2208,6 +2208,24 @@ body.user-admin-view #ownership .ownership-card {
   gap: 8px;
   margin-top: 10px;
   font-weight: 700;
+  width: 100%;
+  justify-content: center;
+  min-width: 0;
+}
+
+.team-caption .team-name {
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.team-caption .team-name--long {
+  font-size: 12px;
+}
+
+.team-caption .team-name--xlong {
+  font-size: 11px;
 }
 
 /* ownership pill */
@@ -3325,4 +3343,3 @@ body .notify-panel{ right: 90px; }
 @media (max-width: 720px) {
   .fz-search { width: 140px; }
 }
-
