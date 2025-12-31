@@ -5,6 +5,8 @@ import secrets
 import urllib.parse
 import requests
 
+from stage_constants import STAGE_CHANNEL_MAP, normalize_stage
+
 TOS_VERSION = "2026.2"
 
 
@@ -1690,33 +1692,6 @@ def create_public_routes(ctx):
                 out[str(k).strip().lower()] = str(v).strip().lower()
         return out
 
-    STAGE_CHANNEL_MAP = {
-        "Round of 32": "round-of-32",
-        "Round of 16": "round-of-16",
-        "Quarter-finals": "quarter-finals",
-        "Semi-finals": "semi-finals",
-        "Third Place Play-off": "third-place-play",
-        "Final": "final",
-        "Winner": "final",
-    }
-
-    STAGE_ALIASES = {
-        "Quarter Final": "Quarter-finals",
-        "Quarter Finals": "Quarter-finals",
-        "Semi Final": "Semi-finals",
-        "Semi Finals": "Semi-finals",
-        "Third Place Play": "Third Place Play-off",
-        "Third Place Playoff": "Third Place Play-off",
-        "Third Place": "Third Place Play-off",
-        "3rd Place Play-off": "Third Place Play-off",
-    }
-
-    def _normalize_stage(stage: str) -> str:
-        raw = str(stage or "").strip()
-        if not raw:
-            return ""
-        return STAGE_ALIASES.get(raw, raw)
-
     def _group_from_team_meta(base_dir, home: str, away: str) -> str:
         meta = _json_load(os.path.join(_json_dir(base_dir), "team_meta.json"), {})
         groups = meta.get("groups") if isinstance(meta, dict) else None
@@ -1753,7 +1728,7 @@ def create_public_routes(ctx):
             or fixture.get("tournament_stage")
             or ""
         ).strip()
-        stage_norm = _normalize_stage(stage_raw) or stage_raw
+        stage_norm = normalize_stage(stage_raw) or stage_raw
         if stage_norm and stage_norm not in ("Group Stage", "Groups"):
             channel = STAGE_CHANNEL_MAP.get(stage_norm)
             if channel:
