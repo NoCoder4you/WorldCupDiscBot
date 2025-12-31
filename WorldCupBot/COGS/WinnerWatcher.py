@@ -62,14 +62,17 @@ async def _message_url(bot: commands.Bot, channel_id: int, message_id: int) -> O
 # ---------- Betting.py layout ----------
 def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) -> discord.Embed:
     title = f"📝 Bet: {bet.get('bet_title', 'Unknown')}"
+    wager = bet.get("wager") or "-"
     option1 = bet.get("option1") or "Option 1"
     option2 = bet.get("option2") or "Option 2"
+    winner = str(bet.get("winner") or "").strip().lower()
 
     opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
     opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
 
     embed = discord.Embed(
         title=title,
+        description=f"Wager: {wager}",
         color=discord.Color.gold()
     )
 
@@ -82,13 +85,13 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
         opt1_name = f"~~{option1}~~"
         opt2_name = f"🏆 {option2}"
 
-    embed.add_field(name=opt1_name, value=f"Claimed By: {opt1_user}", inline=False)
-    embed.add_field(name=opt2_name, value=f"Claimed By: {opt2_user}", inline=False)
+    embed.add_field(name=opt1_name, value=f"Claimed by: {opt1_user}", inline=False)
+    embed.add_field(name=opt2_name, value=f"Claimed by: {opt2_user}", inline=False)
 
     if bot_user:
         avatar = bot_user.avatar.url if bot_user.avatar else bot_user.default_avatar.url
         embed.set_thumbnail(url=avatar)
-        embed.set_footer(text=f"{bot_user.display_name}")
+        embed.set_footer(text=f"{bot_user.display_name} • All bets claimed are final.")
     return embed
 
 # ---------- Admin embed ----------
@@ -107,8 +110,8 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
         color=discord.Color.gold(),
         timestamp=discord.utils.utcnow()
     )
-    emb.add_field(name=option1, value=f"Claimed By: {opt1_user}", inline=False)
-    emb.add_field(name=option2, value=f"Claimed By: {opt2_user}", inline=False)
+    emb.add_field(name=option1, value=f"Claimed by: {opt1_user}", inline=False)
+    emb.add_field(name=option2, value=f"Claimed by: {opt2_user}", inline=False)
     if msg_url:
         emb.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
     emb.set_footer(text="World Cup 2026")
@@ -117,14 +120,18 @@ def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[
 def _build_bet_result_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> discord.Embed:
     option1 = bet.get("option1") or "Option 1"
     option2 = bet.get("option2") or "Option 2"
+    wager = bet.get("wager") or "-"
     opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
     opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
     bet_title = bet.get("bet_title", "Bet update")
 
     desc = f"[Open bet message]({msg_url})" if msg_url else "Bet result available."
     embed = discord.Embed(title=f"Bet update: {bet_title}", description=desc, color=discord.Color.gold())
+    embed.add_field(name="Wager", value=wager, inline=False)
     embed.add_field(name=option1, value=opt1_user, inline=False)
     embed.add_field(name=option2, value=opt2_user, inline=False)
+    if msg_url:
+        embed.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
     embed.set_footer(text="World Cup 2026")
     embed.timestamp = discord.utils.utcnow()
     return embed
