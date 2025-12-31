@@ -3360,6 +3360,50 @@ body .notify-panel{ right: 90px; }
   color: rgba(255, 255, 255, 0.6);
 }
 
+.settings-channels {
+  margin-top: 20px;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-channel-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.settings-channel-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+  gap: 12px;
+}
+
+.settings-channel-cell {
+  background: rgba(14, 18, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f2f4ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-size: 0.92rem;
+}
+
+.settings-channel-cell.empty {
+  background: transparent;
+  border-style: dashed;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.settings-channel-empty {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(14, 18, 30, 0.35);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
 .settings-actions {
   display: flex;
   gap: 12px;

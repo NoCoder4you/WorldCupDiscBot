@@ -2384,6 +2384,8 @@ function shortId(id) {
         const categorySelect = document.getElementById('settings-channel-category');
         const guildSelect = document.getElementById('settings-guild');
         const status = document.getElementById('settings-status');
+        const channelList = document.getElementById('settings-channel-list');
+        const channelStatus = document.getElementById('settings-channels-status');
         if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
