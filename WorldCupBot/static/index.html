@@ -19,13 +19,13 @@
               <li><a href="#" data-page="worldmap">World Map</a></li>
               <li><a href="#" data-page="leaderboards">Leaderboards</a></li>
               <li><a href="#" data-page="fanzone">Fan Zone</a></li>
+              <li><a href="#" data-page="settings">Settings</a></li>
 
               <!-- Admin-only items -->
               <li class="admin-only"><a href="#" data-page="splits">Splits</a></li>
               <li class="admin-only"><a href="#" data-page="backups">Backups</a></li>
               <li class="admin-only"><a href="#" data-page="log">Logs</a></li>
               <li class="admin-only"><a href="#" data-page="cogs">Cogs</a></li>
-              <li class="admin-only"><a href="#" data-page="settings">Settings</a></li>
               <li><a href="#" data-page="user">User</a></li>
               <li class="admin-only"><a href="#" data-page="verified-log">Verified</a></li>
           </ul>
@@ -121,7 +121,7 @@
           <section id="log" class="page-section admin-only"></section>
 
           <!-- SETTINGS -->
-          <section id="settings" class="page-section admin-only">
+          <section id="settings" class="page-section">
               <div class="card settings-card">
                   <div class="settings-head">
                       <div class="card-title">Settings</div>
@@ -130,6 +130,20 @@
                       </div>
                   </div>
                   <div class="settings-grid">
+                      <div class="settings-field">
+                          <span class="settings-label">Active guild</span>
+                          <div class="settings-value" id="settings-public-guild">--</div>
+                          <div class="settings-help">Shows the guild used for current public data.</div>
+                      </div>
+                      <div class="settings-field">
+                          <span class="settings-label">Stage announcement channel</span>
+                          <div class="settings-value" id="settings-public-channel">--</div>
+                          <div class="settings-help">Where stage updates post in the active guild.</div>
+                      </div>
+                  </div>
+                  <div class="settings-status muted" id="settings-public-status"></div>
+                  <div class="settings-divider"></div>
+                  <div class="settings-grid admin-only">
                       <label class="settings-field">
                           <span class="settings-label">Target guild</span>
                           <select id="settings-guild-select" class="select-dark">
@@ -145,7 +159,25 @@
                           <select id="settings-channel-select" class="select-dark"></select>
                       </label>
                   </div>
-                  <div class="settings-status muted" id="settings-status"></div>
+                  <div class="settings-status muted admin-only" id="settings-status"></div>
+                  <div class="settings-divider"></div>
+                  <div class="settings-grid settings-placeholders">
+                      <div class="settings-field">
+                          <span class="settings-label">Placeholder setting</span>
+                          <div class="settings-value muted">Coming soon</div>
+                          <div class="settings-help">Reserved for future configuration.</div>
+                      </div>
+                      <div class="settings-field">
+                          <span class="settings-label">Placeholder setting</span>
+                          <div class="settings-value muted">Coming soon</div>
+                          <div class="settings-help">Reserved for future configuration.</div>
+                      </div>
+                      <div class="settings-field">
+                          <span class="settings-label">Placeholder setting</span>
+                          <div class="settings-value muted">Coming soon</div>
+                          <div class="settings-help">Reserved for future configuration.</div>
+                      </div>
+                  </div>
               </div>
           </section>
 

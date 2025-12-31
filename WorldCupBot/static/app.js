@@ -153,7 +153,7 @@ function stagePill(stage){
   // === PAGE SWITCHER ===
     function showPage(page) {
       // admin-only pages
-      const adminPages = new Set(['splits','backups','log','cogs','settings']);
+      const adminPages = new Set(['splits','backups','log','cogs']);
 
       // block admin pages when not logged in
       if (adminPages.has(page) && !isAdminUI()) {
@@ -174,11 +174,11 @@ function stagePill(stage){
       if (page === 'cogs' && state.admin) loadCogs().catch(()=>{});
       if (page === 'backups' && state.admin) loadBackups().catch(()=>{});
       if (page === 'splits' && state.admin) loadSplits().catch(()=>{});
-      if (page === 'settings' && state.admin) loadSettings().catch(()=>{});
+      if (page === 'settings') loadSettings().catch(()=>{});
     }
 
 function setPage(p) {
-  const adminPages = new Set(['splits','backups','log','cogs','settings']);
+  const adminPages = new Set(['splits','backups','log','cogs']);
   if (adminPages.has(p) && !isAdminUI()) {
     notify('That page requires admin login.', false);
     p = 'dashboard';
@@ -2358,6 +2358,34 @@ function shortId(id) {
         sec = document.getElementById('settings');
         if (!sec) return;
         sec.dataset.settingsHydrating = '1';
+        const publicStatus = document.getElementById('settings-public-status');
+        const publicGuild = document.getElementById('settings-public-guild');
+        const publicChannel = document.getElementById('settings-public-channel');
+        if (publicStatus) publicStatus.textContent = 'Loading settings...';
+        const refreshBtn = document.getElementById('settings-refresh');
+        if (refreshBtn && !refreshBtn.dataset.bound) {
+          refreshBtn.dataset.bound = '1';
+          refreshBtn.addEventListener('click', loadSettings);
+        }
+        try{
+          const data = await fetchJSON('/api/settings');
+          const effectiveGuild = data?.effective_guild_id
+            || data?.selected_guild_id
+            || data?.primary_guild_id
+            || '';
+          if (publicGuild) publicGuild.textContent = effectiveGuild || 'Not set';
+          if (publicChannel) {
+            publicChannel.textContent = data?.stage_announce_channel
+              ? `#${data.stage_announce_channel}`
+              : 'Not set';
+          }
+          if (publicStatus) publicStatus.textContent = '';
+        }catch(e){
+          if (publicStatus) publicStatus.textContent = `Failed to load settings: ${e.message}`;
+        }
+
+        if (!isAdminUI()) return;
+
         const status = document.getElementById('settings-status');
         const channelStatus = document.getElementById('settings-channels-status');
         const guildSelect = document.getElementById('settings-guild-select');
@@ -2535,13 +2563,6 @@ function shortId(id) {
             if (channelStatus) channelStatus.textContent = `Failed to load channels: ${e.message}`;
           }
         };
-
-        const refreshBtn = document.getElementById('settings-refresh');
-
-        if (refreshBtn && !refreshBtn.dataset.bound) {
-          refreshBtn.dataset.bound = '1';
-          refreshBtn.addEventListener('click', loadSettings);
-        }
 
         if (guildSelect && !guildSelect.dataset.bound) {
           guildSelect.dataset.bound = '1';
@@ -2873,11 +2894,11 @@ async function getCogStatus(name){
       case 'dashboard': await loadDash(); break;
       case 'bets': await loadAndRenderBets(); break;
       case 'ownership': await loadOwnershipPage(); break;
+      case 'settings': await loadSettings(); break;
       case 'splits': if(isAdminUI()) await loadSplits(); else setPage('dashboard'); break;
       case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
       case 'log': if(isAdminUI()) await loadLogs('bot'); else setPage('dashboard'); break;
       case 'cogs': if(isAdminUI()) await loadCogs(); else setPage('dashboard'); break;
-      case 'settings': if(isAdminUI()) await loadSettings(); else setPage('dashboard'); break;
     }
   }
 
