@@ -4,9 +4,9 @@ from flask import Blueprint, jsonify, request, session, send_file
 
 from stage_constants import (
     STAGE_ALLOWED,
-    STAGE_ALIASES,
-    STAGE_CHANNEL_SLUGS,
-    STAGE_ORDER,
+    STAGE_CHANNEL_MAP,
+    normalize_stage,
+    stage_rank,
 )
 
 USER_SESSION_KEY = "wc_user"
@@ -101,19 +101,6 @@ def _write_json_atomic(path, data):
 def _now_iso():
     import datetime as _dt
     return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-
-def _normalize_stage(stage: str) -> str:
-    raw = str(stage or "").strip()
-    if not raw:
-        return ""
-    return STAGE_ALIASES.get(raw, raw)
-
-def _stage_rank(stage: str) -> int:
-    stage = _normalize_stage(stage)
-    try:
-        return STAGE_ORDER.index(stage)
-    except ValueError:
-        return -1
 
 def _commands_path(ctx):
     rd = os.path.join(_base_dir(ctx), "runtime")
@@ -908,13 +895,13 @@ def create_admin_routes(ctx):
         data = _read_json(path, {})
         if not isinstance(data, dict): data = {}
         prev_stage = data.get(team) or ""
-        prev_stage_norm = _normalize_stage(prev_stage) or "Group Stage"
-        next_stage_norm = _normalize_stage(stage)
+        prev_stage_norm = normalize_stage(prev_stage) or "Group Stage"
+        next_stage_norm = normalize_stage(stage)
         data[team] = stage
         _write_json_atomic(path, data)
 
-        prev_rank = _stage_rank(prev_stage_norm)
-        next_rank = _stage_rank(next_stage_norm)
+        prev_rank = stage_rank(prev_stage_norm)
+        next_rank = stage_rank(next_stage_norm)
         progressed = next_rank > prev_rank >= 0
 
         if progressed:
@@ -1156,9 +1143,9 @@ def create_admin_routes(ctx):
             or fixture.get("tournament_stage")
             or ""
         ).strip()
-        stage_norm = _normalize_stage(stage_raw) or stage_raw
+        stage_norm = normalize_stage(stage_raw) or stage_raw
         if stage_norm and stage_norm not in ("Group Stage", "Groups"):
-            channel = STAGE_CHANNEL_SLUGS.get(stage_norm)
+            channel = STAGE_CHANNEL_MAP.get(stage_norm)
             if channel:
                 return channel
 

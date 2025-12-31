@@ -1,15 +1,3 @@
-STAGE_ALLOWED = {
-    "Eliminated",
-    "Group Stage",
-    "Round of 32",
-    "Round of 16",
-    "Quarter-finals",
-    "Semi-finals",
-    "Third Place Play-off",
-    "Final",
-    "Winner",
-}
-
 STAGE_ORDER = [
     "Eliminated",
     "Group Stage",
@@ -21,6 +9,8 @@ STAGE_ORDER = [
     "Final",
     "Winner",
 ]
+
+STAGE_ALLOWED = set(STAGE_ORDER)
 
 STAGE_ALIASES = {
     "Quarter Final": "Quarter-finals",
@@ -42,3 +32,20 @@ STAGE_CHANNEL_SLUGS = {
     "Final": "final",
     "Winner": "final",
 }
+
+STAGE_CHANNEL_MAP = STAGE_CHANNEL_SLUGS
+
+
+def normalize_stage(stage: str) -> str:
+    raw = str(stage or "").strip()
+    if not raw:
+        return ""
+    return STAGE_ALIASES.get(raw, raw)
+
+
+def stage_rank(stage: str) -> int:
+    stage = normalize_stage(stage)
+    try:
+        return STAGE_ORDER.index(stage)
+    except ValueError:
+        return -1
