@@ -2536,15 +2536,7 @@ function shortId(id) {
           }
         };
 
-        const saveBtn = document.getElementById('settings-save');
         const refreshBtn = document.getElementById('settings-refresh');
-
-        if (saveBtn && !saveBtn.dataset.bound) {
-          saveBtn.dataset.bound = '1';
-          saveBtn.addEventListener('click', async () => {
-            await saveSettings();
-          });
-        }
 
         if (refreshBtn && !refreshBtn.dataset.bound) {
           refreshBtn.dataset.bound = '1';
