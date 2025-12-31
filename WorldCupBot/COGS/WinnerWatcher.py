@@ -72,7 +72,7 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
 
     embed = discord.Embed(
         title=title,
-        description=f"Wager: {wager}",
+        description=f"### Wager: {wager}",
         color=discord.Color.gold()
     )
 

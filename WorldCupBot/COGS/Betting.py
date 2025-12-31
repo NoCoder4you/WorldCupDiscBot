@@ -158,7 +158,7 @@ class BettingCog(commands.Cog):
 
         embed = discord.Embed(
             title=f"📝 Bet: {modal.bet_title.value}",
-            description=f"Wager: {modal.wager.value}",
+            description=f"### Wager: {modal.wager.value}",
             color=discord.Color.gold()
         )
         embed.add_field(
