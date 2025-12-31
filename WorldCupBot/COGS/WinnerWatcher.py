@@ -94,8 +94,8 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
         embed.set_footer(text=f"{bot_user.display_name} • All bets claimed are final.")
     return embed
 
-# ---------- Admin embed ----------
-def _build_admin_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[discord.Embed]:
+# ---------- DM embed ----------
+def _build_dm_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[discord.Embed]:
     winner = bet.get("winner")
     if winner not in ("option1", "option2"):
         return None
@@ -158,7 +158,7 @@ def _append_bet_results(bet: Dict[str, Any]):
         eid = f"bet:{bet_id}:{uid}"
         if eid in existing:
             return
-        outcome = "🏆 Won 🏆" if result == "win" else "Lost"
+        outcome = "Status: 🏆 Won 🏆" if result == "win" else "Lost"
         events.append({
             "id": eid,
             "discord_id": uid,
@@ -289,7 +289,7 @@ class WinnerWatcher(commands.Cog):
                     msg_url = await _message_url(self.bot, chan_id, msg_id)
 
             if changed_now and winner in ("option1", "option2"):
-                admin_embed = _build_admin_embed(bet, msg_url)
+                admin_embed = _build_dm_embed(bet, msg_url)
                 if admin_embed:
                     admin_chan = await _resolve_admin_channel(self.bot, self._admin_bet_channel, self._admin_category)
                     if admin_chan:
