@@ -61,6 +61,8 @@ def _verified_path(base_dir):
     return os.path.join(_json_dir(base_dir), "verified.json")
 def _guilds_path(base_dir):
     return os.path.join(_json_dir(base_dir), "guilds.json")
+def _admin_settings_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "admin_settings.json")
 def _split_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "split_requests.json")
 def _split_requests_log_path(base_dir):
@@ -110,6 +112,30 @@ def _json_read(path, default):
             return json.load(f)
     except Exception:
         return default
+
+def _load_admin_settings(base_dir):
+    return _json_read(_admin_settings_path(base_dir), {})
+
+def _load_primary_guild_id(base_dir) -> str:
+    settings = _load_admin_settings(base_dir)
+    selected = str(settings.get("SELECTED_GUILD_ID") or "").strip()
+    if selected:
+        return selected
+    cfg = _load_config(base_dir)
+    for key in ("DISCORD_GUILD_ID", "GUILD_ID", "PRIMARY_GUILD_ID", "ADMIN_GUILD_ID"):
+        raw = str(cfg.get(key) or "").strip()
+        if raw:
+            return raw
+    data = _json_read(_guilds_path(base_dir), {})
+    if isinstance(data, dict):
+        guilds = data.get("guilds") or []
+        if isinstance(guilds, list):
+            for g in guilds:
+                if isinstance(g, dict):
+                    gid = str(g.get("id") or "").strip()
+                    if gid:
+                        return gid
+    return ""
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
@@ -358,6 +384,23 @@ def create_public_routes(ctx):
             "last_start": last_start,
             "last_stop": last_stop,
             "ts": int(now)
+        })
+
+    # ---------- Public Settings ----------
+    @api.get("/settings")
+    def api_public_settings():
+        base_dir = ctx.get("BASE_DIR", "")
+        settings = _load_admin_settings(base_dir)
+        primary_guild_id = _load_primary_guild_id(base_dir)
+        selected_guild_id = str(settings.get("SELECTED_GUILD_ID") or "").strip()
+        stage_channel = str(settings.get("STAGE_ANNOUNCE_CHANNEL") or "").strip()
+        effective_guild_id = selected_guild_id or primary_guild_id
+        return jsonify({
+            "ok": True,
+            "stage_announce_channel": stage_channel,
+            "selected_guild_id": selected_guild_id,
+            "primary_guild_id": primary_guild_id,
+            "effective_guild_id": effective_guild_id,
         })
 
     # ---------- Teams ----------
