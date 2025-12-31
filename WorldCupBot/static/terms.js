@@ -230,8 +230,7 @@
     if (ver) ver.textContent = 'v' + (st.version || '?');
 
     if (st && st.connected && st.accepted) {
-      window.location.href = '/';
-      return;
+      // Stay on the terms page so users can re-read after acceptance.
     }
   } catch (e) { /* ignore */ }
 
