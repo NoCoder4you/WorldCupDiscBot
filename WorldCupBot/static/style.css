@@ -2734,10 +2734,10 @@ body.user-admin-view #ownership .ownership-card {
 
 .pill-win-UP  {
     background:#0dff00;
-    color:#08131d;
+    color: var(--accent);
 }
 .pill-loss-UP {
-    background:#ff0000;
+    background: var(--danger);
     color:#fff;
 }
 .pill-wait-UP {
