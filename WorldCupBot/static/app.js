@@ -2381,11 +2381,130 @@ function shortId(id) {
         const sec = document.getElementById('settings');
         if (!sec) return;
         const input = document.getElementById('settings-stage-channel');
+        const categorySelect = document.getElementById('settings-channel-category');
+        const guildSelect = document.getElementById('settings-guild');
         const status = document.getElementById('settings-status');
         if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
-        if (input) input.value = data?.stage_announce_channel || '';
+        const currentChannel = data?.stage_announce_channel || '';
+        const currentGuild = data?.stage_announce_guild_id || '';
+        if (input) input.innerHTML = '';
+        if (categorySelect) categorySelect.innerHTML = '';
+        if (guildSelect) guildSelect.innerHTML = '';
+
+        try{
+          const guildData = await fetchJSON('/admin/discord/guilds');
+          const guilds = Array.isArray(guildData?.guilds) ? guildData.guilds : [];
+
+          if (guildSelect) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select guild';
+            guildSelect.appendChild(placeholder);
+            guilds.forEach((guild) => {
+              const opt = document.createElement('option');
+              opt.value = guild.id;
+              opt.textContent = guild.name || guild.id;
+              guildSelect.appendChild(opt);
+            });
+          }
+
+          let categories = new Map();
+          const updateChannelOptions = (selectedCategory) => {
+            if (!input) return;
+            input.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select channel';
+            input.appendChild(placeholder);
+            const channelsForCategory = categories.get(selectedCategory ?? '') || [];
+            channelsForCategory.forEach((channel) => {
+              const opt = document.createElement('option');
+              opt.value = channel;
+              opt.textContent = channel;
+              input.appendChild(opt);
+            });
+          };
+
+          const populateChannels = async (guildId, savedChannel = '') => {
+            if (categorySelect) categorySelect.innerHTML = '';
+            if (input) input.innerHTML = '';
+            categories = new Map();
+            if (!guildId) return;
+            const channelData = await fetchJSON(`/admin/discord/channels?guild_id=${encodeURIComponent(guildId)}`);
+            const channels = Array.isArray(channelData?.channels) ? channelData.channels : [];
+            channels.forEach((row) => {
+              const category = row?.category || '';
+              if (!categories.has(category)) categories.set(category, []);
+              categories.get(category).push(row.channel);
+            });
+
+            const categoryOptions = [];
+            categories.forEach((_value, key) => {
+              categoryOptions.push(key);
+            });
+            categoryOptions.sort((a, b) => a.localeCompare(b));
+
+            if (categorySelect) {
+              const placeholder = document.createElement('option');
+              placeholder.value = '';
+              placeholder.textContent = 'Select category';
+              categorySelect.appendChild(placeholder);
+              categoryOptions.forEach((category) => {
+                const opt = document.createElement('option');
+                opt.value = category;
+                opt.textContent = category || 'Uncategorized';
+                categorySelect.appendChild(opt);
+              });
+            }
+
+            if (savedChannel) {
+              let currentCategory = '';
+              categories.forEach((list, key) => {
+                if (list.includes(savedChannel)) currentCategory = key;
+              });
+              if (categorySelect) categorySelect.value = currentCategory;
+              updateChannelOptions(currentCategory);
+              if (input) input.value = savedChannel;
+            } else if (categorySelect) {
+              updateChannelOptions(categorySelect.value);
+            }
+
+            if (savedChannel && input && !input.value) {
+              const opt = document.createElement('option');
+              opt.value = savedChannel;
+              opt.textContent = `${savedChannel} (not found)`;
+              input.appendChild(opt);
+              input.value = savedChannel;
+            }
+          };
+
+          if (categorySelect && !categorySelect.dataset.bound) {
+            categorySelect.dataset.bound = '1';
+            categorySelect.addEventListener('change', (event) => {
+              updateChannelOptions(event.target.value);
+            });
+          }
+
+          if (guildSelect && !guildSelect.dataset.bound) {
+            guildSelect.dataset.bound = '1';
+            guildSelect.addEventListener('change', async (event) => {
+              await populateChannels(event.target.value, '');
+            });
+          }
+
+          if (currentGuild && guildSelect) {
+            guildSelect.value = currentGuild;
+          } else if (guildSelect && guilds.length) {
+            guildSelect.value = guilds[0].id;
+          }
+
+          const selectedGuild = guildSelect?.value || currentGuild || '';
+          await populateChannels(selectedGuild, currentChannel);
+        }catch(e){
+          if (status) status.textContent = `Failed to load channels: ${e.message}`;
+        }
 
         const saveBtn = document.getElementById('settings-save');
         const refreshBtn = document.getElementById('settings-refresh');
@@ -2395,9 +2514,13 @@ function shortId(id) {
           saveBtn.addEventListener('click', async () => {
             try {
               const channel = (input?.value || '').trim();
+              const guildId = (guildSelect?.value || '').trim();
               const res = await fetchJSON('/admin/settings', {
                 method: 'POST',
-                body: JSON.stringify({ stage_announce_channel: channel })
+                body: JSON.stringify({
+                  stage_announce_channel: channel,
+                  stage_announce_guild_id: guildId,
+                })
               });
               if (status) {
                 status.textContent = res?.stage_announce_channel
