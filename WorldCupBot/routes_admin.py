@@ -32,6 +32,9 @@ def _fan_zone_results_path(ctx):
 def _players_path(ctx):
     return _path(ctx, "players.json")
 
+def _fanzone_votes_path(ctx):
+    return os.path.join(_json_dir(ctx), "fan_votes.json")
+
 def _owners_for_team(ctx, team_name: str):
     team_name = (team_name or "").strip().lower()
     if not team_name:
@@ -900,6 +903,48 @@ def create_admin_routes(ctx):
         data['events'] = events[:500]
         _write_json_atomic(path, data)
 
+    def _append_fanzone_vote_results(voters: dict, winner_side: str, winner_team: str, fixture_id: str, ts: int):
+        if winner_side not in ("home", "away"):
+            return
+        path = _path(ctx, 'fan_zone_results.json')
+        data = _read_json(path, {})
+        if not isinstance(data, dict):
+            data = {}
+        events = data.get('events')
+        if not isinstance(events, list):
+            events = []
+
+        existing = {str(e.get('id')) for e in events if isinstance(e, dict) and e.get('id')}
+
+        for uid, choice in voters.items():
+            suid = str(uid or '').strip()
+            side = str(choice or '').strip().lower()
+            if not suid or side not in ('home', 'away'):
+                continue
+
+            result = 'win' if side == winner_side else 'lose'
+            eid = f"fz:{fixture_id}:{suid}:{ts}"
+            if eid in existing:
+                continue
+
+            title = f"Fan Zone: {winner_team} declared" if winner_team else "Fan Zone result"
+            body = "You won your Fan Zone pick." if result == "win" else "You lost your Fan Zone pick."
+
+            events.append({
+                'id': eid,
+                'discord_id': suid,
+                'fixture_id': fixture_id,
+                'result': result,
+                'title': title,
+                'body': body,
+                'ts': ts
+            })
+            existing.add(eid)
+
+        events.sort(key=lambda x: int((x or {}).get('ts') or 0), reverse=True)
+        data['events'] = events[:500]
+        _write_json_atomic(path, data)
+
     def _runtime_dir(ctx):
         rd = os.path.join(_base_dir(ctx), "runtime")
         os.makedirs(rd, exist_ok=True)
@@ -997,7 +1042,7 @@ def create_admin_routes(ctx):
         _write_json_atomic(winners_path, winners)
 
         # Snapshot votes at declare-time for fairness/audit
-        votes_path = _runtime_path(ctx, 'fan_votes.json')
+        votes_path = _fanzone_votes_path(ctx)
         votes_blob = _read_json(votes_path, {'fixtures': {}})
         if not isinstance(votes_blob, dict):
             votes_blob = {'fixtures': {}}
@@ -1007,12 +1052,21 @@ def create_admin_routes(ctx):
             fixtures_votes = {}
 
         fx = fixtures_votes.get(fixture_id, {})
+        if not isinstance(fx, dict) and alias_ids:
+            for aid in alias_ids:
+                fx = fixtures_votes.get(aid, {})
+                if isinstance(fx, dict):
+                    break
         if not isinstance(fx, dict):
             fx = {}
 
         home_votes = int(fx.get('home') or 0)
         away_votes = int(fx.get('away') or 0)
         total_votes = max(0, home_votes + away_votes)
+
+        discord_voters = fx.get('discord_voters')
+        if not isinstance(discord_voters, dict):
+            discord_voters = {}
 
         snapshots_path = _runtime_path(ctx, 'fan_vote_snapshots.json')
         snap_blob = _read_json(snapshots_path, {'fixtures': {}})
@@ -1067,6 +1121,7 @@ def create_admin_routes(ctx):
         # Website bell notifications
         _append_fanzone_results(winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
         _append_fanzone_results(loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
+        _append_fanzone_vote_results(discord_voters, side, winner_team, fixture_id, int(time.time()))
 
         return jsonify({
             'ok': True,
