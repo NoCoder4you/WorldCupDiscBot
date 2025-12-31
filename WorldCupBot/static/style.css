@@ -3408,13 +3408,6 @@ body .notify-panel{ right: 90px; }
   font-size: 0.9rem;
 }
 
-.settings-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 18px;
-  flex-wrap: wrap;
-}
-
 .settings-status {
   margin-top: 12px;
 }
