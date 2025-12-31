@@ -123,7 +123,12 @@
           <!-- SETTINGS -->
           <section id="settings" class="page-section admin-only">
               <div class="card settings-card">
-                  <div class="card-title">Settings</div>
+                  <div class="settings-head">
+                      <div class="card-title">Settings</div>
+                      <div class="settings-head-actions">
+                          <button id="settings-refresh" class="btn btn-outline">Refresh</button>
+                      </div>
+                  </div>
                   <p class="muted">Manage channel routing for automated announcements.</p>
                   <div class="settings-grid">
                       <label class="settings-field">
@@ -143,7 +148,6 @@
                   </div>
                   <div class="settings-actions">
                       <button id="settings-save" class="btn">Save settings</button>
-                      <button id="settings-refresh" class="btn btn-outline">Refresh</button>
                   </div>
                   <div class="settings-status muted" id="settings-status"></div>
               </div>

@@ -2350,10 +2350,14 @@ function shortId(id) {
       }
     }
 
+    let settingsAutoSaveTimer;
+
     async function loadSettings(){
+      let sec;
       try{
-        const sec = document.getElementById('settings');
+        sec = document.getElementById('settings');
         if (!sec) return;
+        sec.dataset.settingsHydrating = '1';
         const status = document.getElementById('settings-status');
         const channelStatus = document.getElementById('settings-channels-status');
         const guildSelect = document.getElementById('settings-guild-select');
@@ -2409,6 +2413,44 @@ function shortId(id) {
             guildSelect.innerHTML = '<option value="" disabled>Failed to load guilds</option>';
           }
         }
+        const isHydrating = () => sec?.dataset.settingsHydrating === '1';
+        const saveSettings = async ({ silent = false } = {}) => {
+          try {
+            const channel = (channelSelect?.value || '').trim();
+            const selectedGuildId = (guildSelect?.value || '').trim();
+            if (status) status.textContent = 'Saving settings...';
+            const res = await fetchJSON('/admin/settings', {
+              method: 'POST',
+              body: JSON.stringify({
+                stage_announce_channel: channel,
+                selected_guild_id: selectedGuildId
+              })
+            });
+            if (status) {
+              status.textContent = res?.stage_announce_channel
+                ? `Saved. Announcements will post to #${res.stage_announce_channel}.`
+                : 'Saved. Announcements channel cleared (will use default).';
+            }
+            if (!silent) {
+              notify('Settings saved');
+              await loadSettings();
+            }
+          } catch (e) {
+            if (status) status.textContent = `Failed to save settings: ${e.message}`;
+            if (!silent) {
+              notify(`Failed to save settings: ${e.message}`, false);
+            }
+          }
+        };
+
+        const scheduleAutoSave = () => {
+          if (isHydrating()) return;
+          if (settingsAutoSaveTimer) clearTimeout(settingsAutoSaveTimer);
+          settingsAutoSaveTimer = setTimeout(() => {
+            saveSettings({ silent: true });
+          }, 500);
+        };
+
         const loadChannelsForGuild = async (guildId, preferredChannel) => {
           if (!guildId) {
             setSelectOptions(categorySelect, [], 'Select a guild first');
@@ -2482,7 +2524,10 @@ function shortId(id) {
             };
 
             if (categorySelect) {
-              categorySelect.onchange = updateChannelOptions;
+              categorySelect.onchange = () => {
+                updateChannelOptions();
+                scheduleAutoSave();
+              };
             }
             updateChannelOptions();
             if (channelStatus) channelStatus.textContent = '';
@@ -2497,26 +2542,7 @@ function shortId(id) {
         if (saveBtn && !saveBtn.dataset.bound) {
           saveBtn.dataset.bound = '1';
           saveBtn.addEventListener('click', async () => {
-            try {
-              const channel = (channelSelect?.value || '').trim();
-              const selectedGuildId = (guildSelect?.value || '').trim();
-              const res = await fetchJSON('/admin/settings', {
-                method: 'POST',
-                body: JSON.stringify({
-                  stage_announce_channel: channel,
-                  selected_guild_id: selectedGuildId
-                })
-              });
-              if (status) {
-                status.textContent = res?.stage_announce_channel
-                  ? `Saved. Announcements will post to #${res.stage_announce_channel}.`
-                  : 'Saved. Announcements channel cleared (will use default).';
-              }
-              notify('Settings saved');
-              await loadSettings();
-            } catch (e) {
-              notify(`Failed to save settings: ${e.message}`, false);
-            }
+            await saveSettings();
           });
         }
 
@@ -2527,14 +2553,22 @@ function shortId(id) {
 
         if (guildSelect && !guildSelect.dataset.bound) {
           guildSelect.dataset.bound = '1';
-          guildSelect.addEventListener('change', () => {
-            loadChannelsForGuild(guildSelect.value, channelSelect?.value || savedChannel);
+          guildSelect.addEventListener('change', async () => {
+            await loadChannelsForGuild(guildSelect.value, channelSelect?.value || savedChannel);
+            scheduleAutoSave();
           });
+        }
+
+        if (channelSelect && !channelSelect.dataset.bound) {
+          channelSelect.dataset.bound = '1';
+          channelSelect.addEventListener('change', scheduleAutoSave);
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
       }catch(e){
         notify(`Settings error: ${e.message}`, false);
+      }finally{
+        if (sec) sec.dataset.settingsHydrating = '0';
       }
     }
 
