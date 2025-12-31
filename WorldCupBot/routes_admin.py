@@ -216,6 +216,10 @@ def _guilds_path(ctx):
     return _path(ctx, "guilds.json")
 
 def _load_primary_guild_id(ctx) -> str:
+    settings = _load_settings(ctx)
+    selected = str(settings.get("SELECTED_GUILD_ID") or "").strip()
+    if selected:
+        return selected
     cfg = _load_config(ctx)
     for key in ("DISCORD_GUILD_ID", "GUILD_ID", "PRIMARY_GUILD_ID", "ADMIN_GUILD_ID"):
         raw = str(cfg.get(key) or "").strip()
@@ -990,7 +994,8 @@ def create_admin_routes(ctx):
         cfg = _load_settings(ctx)
         return jsonify({
             "ok": True,
-            "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip()
+            "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),
+            "selected_guild_id": str(cfg.get("SELECTED_GUILD_ID") or "").strip()
         })
 
     @bp.post("/settings")
@@ -1000,12 +1005,21 @@ def create_admin_routes(ctx):
             return resp
         body = request.get_json(silent=True) or {}
         channel = str(body.get("stage_announce_channel") or "").strip()
+        selected_guild_id = str(body.get("selected_guild_id") or "").strip()
 
         cfg = _load_settings(ctx)
         cfg["STAGE_ANNOUNCE_CHANNEL"] = channel
+        if selected_guild_id:
+            cfg["SELECTED_GUILD_ID"] = selected_guild_id
+        else:
+            cfg.pop("SELECTED_GUILD_ID", None)
         if not _save_settings(ctx, cfg):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
-        return jsonify({"ok": True, "stage_announce_channel": channel})
+        return jsonify({
+            "ok": True,
+            "stage_announce_channel": channel,
+            "selected_guild_id": selected_guild_id
+        })
 
     @bp.get("/discord/channels")
     def admin_discord_channels():
