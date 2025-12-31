@@ -633,10 +633,18 @@ body.admin .dashboard-grid .card {
 
 /* ===== FOOTER ===== */
 footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
     text-align: center;
     color: var(--muted);
     padding: 10px 12px;
     border-top: 1px solid var(--border);
+}
+
+.footer-terms {
+    text-decoration: none;
 }
 
 /* --- Bot Action Buttons (scaled to fill card nicely) --- */
