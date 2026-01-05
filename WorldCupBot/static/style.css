@@ -3348,6 +3348,16 @@ body .notify-panel{ right: 90px; }
   grid-template-columns: repeat(2, minmax(220px, 1fr));
 }
 
+.settings-notifications-column {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.settings-notifications-category {
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+}
+
 .settings-rows {
   display: flex;
   flex-direction: column;
