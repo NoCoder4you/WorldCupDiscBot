@@ -3340,11 +3340,43 @@ body .notify-panel{ right: 90px; }
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.settings-notifications-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.settings-notifications-head {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1fr);
+  gap: 16px;
+}
+
+.settings-notifications-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-notifications-via {
+  margin-top: 0;
+}
+
+.settings-notifications-about {
+  display: grid;
+  gap: 8px;
+}
+
 .settings-rows {
   display: flex;
   flex-direction: column;
   gap: 18px;
   margin-top: 16px;
+}
+
+body:not(.admin) .settings-rows {
+  margin-top: 8px;
 }
 
 .settings-row {
@@ -3387,6 +3419,25 @@ body .notify-panel{ right: 90px; }
 }
 
 .settings-field .checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: #6ea3ff;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.settings-notifications-grid .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #d7deff;
+  font-size: 0.9rem;
+}
+
+.settings-notifications-grid .checkbox input {
   width: 16px;
   height: 16px;
   accent-color: #6ea3ff;
