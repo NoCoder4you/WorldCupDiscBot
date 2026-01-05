@@ -3341,14 +3341,13 @@ body .notify-panel{ right: 90px; }
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
-.settings-notifications-grid{
-  display: grid;
+.settings-notifications-grid {
+  display: flex;
+  gap: 32px;
   margin-top: 16px;
-  grid-template-columns: auto auto;
-  column-gap: 32px;
-  row-gap: 16px;
-  align-items: start;
-  justify-content: start;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .settings-notifications-column {
@@ -3361,9 +3360,8 @@ body .notify-panel{ right: 90px; }
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, 320px);
-  grid-auto-rows: min-content;
-  justify-content: start;
   align-content: start;
+  justify-content: start;
 }
 
 .settings-rows {
