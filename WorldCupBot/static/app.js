@@ -909,7 +909,7 @@ function setPage(p) {
       }
     }
 
-    function escapeHTML(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+    function escapeHtml(v){ return String(v==null?'':v).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
 
     function ensureSectionCard(id, title, controls){
       const sec = qs(`#${id}`);
@@ -2309,12 +2309,12 @@ function shortId(id) {
             const a = document.createElement('a');
             a.href = `/api/backups/download?rel=${encodeURIComponent(f.rel || f.name)}`;
             a.className = 'download-link';
-            a.innerHTML = `<span class="file-name">${escapeHTML(f.name)}</span>`;
+            a.innerHTML = `<span class="file-name">${escapeHtml(f.name)}</span>`;
 
             tr.innerHTML = `
               <td>${a.outerHTML}</td>
               <td>${Math.round(sizeBytes/1024/1024)} MB</td>
-              <td>${escapeHTML(dt)}</td>
+              <td>${escapeHtml(dt)}</td>
               <td><a href="${a.href}" class="download-link">Download</a></td>
             `;
             tb.appendChild(tr);
@@ -3251,7 +3251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-  function escapeHTML(str){
+  function escapeHtml(str){
     return String(str || '')
       .replace(/&/g,'&amp;')
       .replace(/</g,'&lt;')
@@ -3722,14 +3722,14 @@ document.addEventListener('DOMContentLoaded', () => {
       // tooltip handlers
       el.onmouseenter = ev => {
         const flagPrefix = flag ? flag + ' ' : '';
-        const teamLine   = `${flagPrefix}<strong>${escapeHTML(teamLabel)}</strong>`;
-        const ownerLine  = ownersText ? `Owners: ${escapeHTML(ownersText)}` : 'Owners: Unassigned';
+        const teamLine   = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
+        const ownerLine  = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
 
         tip.innerHTML = `
           <div class="map-info">
             <h3>${teamLine}</h3>
             <p>${ownerLine}</p>
-            ${group ? `<p>Group: ${escapeHTML(group)}</p>` : ''}
+            ${group ? `<p>Group: ${escapeHtml(group)}</p>` : ''}
           </div>`;
         tip.style.opacity = '1';
         positionTip(ev);
@@ -4833,7 +4833,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${escapeHTML((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
+        <div class="fan-time">${escAttr((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
