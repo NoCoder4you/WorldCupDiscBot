@@ -3343,7 +3343,7 @@ body .notify-panel{ right: 90px; }
 
 .settings-notifications-grid {
   display: flex;
-  gap: 32px;
+  gap: 15%;
   margin-top: 16px;
   align-items: flex-start;
   justify-content: flex-start;
