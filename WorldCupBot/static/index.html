@@ -147,6 +147,43 @@
                   </div>
                   <div class="settings-status muted admin-only" id="settings-status"></div>
               </div>
+              <div class="card settings-card">
+                  <div class="settings-head">
+                      <div class="card-title">Notifications</div>
+                  </div>
+                  <div class="settings-grid">
+                      <label class="settings-field">
+                          <span class="settings-label">Notify me via</span>
+                          <select id="settings-notifications-select" class="select-dark">
+                              <option value="">Discord DMs + bell (default)</option>
+                              <option value="dms">Discord DMs</option>
+                              <option value="bell">Bell notifications</option>
+                              <option value="none">Nothing</option>
+                          </select>
+                          <span class="settings-help">Choose how you want to receive World Cup bot alerts.</span>
+                      </label>
+                      <div class="settings-field">
+                          <span class="settings-label">Notify me about</span>
+                          <label class="checkbox">
+                              <input type="checkbox" id="settings-notify-splits" checked>
+                              <span>Split requests &amp; updates</span>
+                          </label>
+                          <label class="checkbox">
+                              <input type="checkbox" id="settings-notify-matches" checked>
+                              <span>Match wins (Fan Zone)</span>
+                          </label>
+                          <label class="checkbox">
+                              <input type="checkbox" id="settings-notify-bets" checked>
+                              <span>Bet wins</span>
+                          </label>
+                          <label class="checkbox">
+                              <input type="checkbox" id="settings-notify-stages" checked>
+                              <span>Stage progress</span>
+                          </label>
+                      </div>
+                  </div>
+                  <div class="settings-status muted" id="settings-notifications-status"></div>
+              </div>
           </section>
 
           <!-- OWNERSHIP -->

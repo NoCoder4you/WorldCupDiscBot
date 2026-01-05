@@ -91,6 +91,15 @@ def _swap_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "swap_requests.json")
 def _notifications_read_path(base_dir):
     return os.path.join(base_dir, "JSON", "notifications_read.json")
+def _notification_settings_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "notification_settings.json")
+
+NOTIFICATION_CATEGORIES = (
+    "splits",
+    "matches",
+    "bets",
+    "stages",
+)
 
 def _load_notifications_read(base_dir):
     try:
@@ -103,6 +112,40 @@ def _save_notifications_read(base_dir, data):
     os.makedirs(os.path.dirname(_notifications_read_path(base_dir)), exist_ok=True)
     with open(_notifications_read_path(base_dir), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
+def _load_notification_settings(base_dir):
+    return _json_read(_notification_settings_path(base_dir), {})
+
+def _save_notification_settings(base_dir, data):
+    _json_save(_notification_settings_path(base_dir), data)
+
+def _default_notification_categories() -> dict:
+    return {key: True for key in NOTIFICATION_CATEGORIES}
+
+def _notification_record(base_dir, uid: str) -> dict:
+    settings = _load_notification_settings(base_dir)
+    if not isinstance(settings, dict):
+        settings = {}
+    raw = settings.get(str(uid))
+    if isinstance(raw, str):
+        raw = {"channel": raw}
+    if not isinstance(raw, dict):
+        raw = {}
+    channel = str(raw.get("channel") or "").strip().lower()
+    raw_categories = raw.get("categories")
+    categories = _default_notification_categories()
+    if isinstance(raw_categories, dict):
+        for key in NOTIFICATION_CATEGORIES:
+            if key in raw_categories:
+                categories[key] = bool(raw_categories.get(key))
+    return {"channel": channel, "categories": categories}
+
+def _notification_channel_preference(base_dir, uid: str) -> str:
+    return _notification_record(base_dir, uid).get("channel") or ""
+
+def _notification_category_enabled(base_dir, uid: str, category: str) -> bool:
+    rec = _notification_record(base_dir, uid)
+    return bool(rec.get("categories", {}).get(category, True))
 
 def _json_read(path, default):
     try:
@@ -1181,6 +1224,65 @@ def create_public_routes(ctx):
             "masquerading_as": None if effective_uid == real_uid else effective_uid
         })
 
+    @api.get("/me/notification-settings")
+    def me_notification_settings_get():
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({
+                "ok": True,
+                "connected": False,
+                "preference": "",
+                "categories": _default_notification_categories(),
+            })
+
+        uid = _effective_uid() or str(user.get("discord_id") or "")
+        rec = _notification_record(base, uid)
+        return jsonify({
+            "ok": True,
+            "connected": True,
+            "preference": rec.get("channel") or "",
+            "categories": rec.get("categories") or _default_notification_categories(),
+        })
+
+    @api.post("/me/notification-settings")
+    def me_notification_settings_set():
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({
+                "ok": False,
+                "error": "not_authenticated"
+            }), 401
+
+        uid = _effective_uid() or str(user.get("discord_id") or "")
+        body = request.get_json(silent=True) or {}
+        pref = str(body.get("preference") or "").strip().lower()
+        categories = body.get("categories")
+        if pref not in ("", "bell", "dms", "none"):
+            return jsonify({"ok": False, "error": "invalid_preference"}), 400
+
+        settings = _load_notification_settings(base)
+        if not isinstance(settings, dict):
+            settings = {}
+        record = {}
+        if pref:
+            record["channel"] = pref
+        if isinstance(categories, dict):
+            record["categories"] = {
+                key: bool(categories.get(key)) for key in NOTIFICATION_CATEGORIES
+            }
+        if record:
+            settings[str(uid)] = record
+        else:
+            settings.pop(str(uid), None)
+        _save_notification_settings(base, settings)
+        return jsonify({
+            "ok": True,
+            "preference": pref,
+            "categories": record.get("categories") or _default_notification_categories(),
+        })
+
     def _terms_accept_path(base_dir):
         return os.path.join(base_dir, "JSON", "terms_accept.json")
 
@@ -1204,6 +1306,19 @@ def create_public_routes(ctx):
         # Respect masquerade (admins viewing as another user)
         uid = _effective_uid() or str(user.get("discord_id") or "")
         uid = str(uid).strip()
+
+        preference = _notification_channel_preference(base, uid)
+        if preference in ("dms", "none"):
+            resp = make_response(jsonify({
+                "ok": True,
+                "connected": True,
+                "items": [],
+                "unread": 0
+            }))
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
         now = int(time.time())
         items = []
@@ -1273,7 +1388,7 @@ def create_public_routes(ctx):
                     rr.setdefault("id", req_id)
                     pending_rows.append(rr)
 
-        if isinstance(pending_rows, list):
+        if isinstance(pending_rows, list) and _notification_category_enabled(base, uid, "splits"):
             for r in pending_rows:
                 if not isinstance(r, dict):
                     continue
@@ -1320,7 +1435,7 @@ def create_public_routes(ctx):
         # ----------------------------
         split_log = _json_load(_split_requests_log_path(base), [])
         split_events = split_log.get("events") if isinstance(split_log, dict) else split_log
-        if isinstance(split_events, list):
+        if isinstance(split_events, list) and _notification_category_enabled(base, uid, "splits"):
             for ev in split_events:
                 if not isinstance(ev, dict):
                     continue
@@ -1357,7 +1472,7 @@ def create_public_routes(ctx):
         # ----------------------------
         fz = _json_load(_fan_zone_results_path(base), {})
         events = fz.get("events") if isinstance(fz, dict) else []
-        if isinstance(events, list):
+        if isinstance(events, list) and _notification_category_enabled(base, uid, "matches"):
             for ev in events:
                 if not isinstance(ev, dict):
                     continue
@@ -1388,7 +1503,7 @@ def create_public_routes(ctx):
         # ----------------------------
         tsn = _json_load(_team_stage_notifications_path(base), {})
         stage_events = tsn.get("events") if isinstance(tsn, dict) else []
-        if isinstance(stage_events, list):
+        if isinstance(stage_events, list) and _notification_category_enabled(base, uid, "stages"):
             for ev in stage_events:
                 if not isinstance(ev, dict):
                     continue
@@ -1415,7 +1530,7 @@ def create_public_routes(ctx):
         # ----------------------------
         br = _json_load(_bet_results_path(base), {})
         bet_events = br.get("events") if isinstance(br, dict) else []
-        if isinstance(bet_events, list):
+        if isinstance(bet_events, list) and _notification_category_enabled(base, uid, "bets"):
             for ev in bet_events:
                 if not isinstance(ev, dict):
                     continue
