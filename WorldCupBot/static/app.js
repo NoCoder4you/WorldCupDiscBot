@@ -2554,20 +2554,16 @@ function shortId(id) {
             const channel = (channelSelect?.value || '').trim();
             const selectedGuildId = (guildSelect?.value || '').trim();
             if (status) status.textContent = 'Saving settings...';
-            const res = await fetchJSON('/admin/settings', {
+            await fetchJSON('/admin/settings', {
               method: 'POST',
               body: JSON.stringify({
                 stage_announce_channel: channel,
                 selected_guild_id: selectedGuildId
               })
             });
-            if (status) {
-              status.textContent = res?.stage_announce_channel
-                ? `Saved. Announcements will post to #${res.stage_announce_channel}.`
-                : 'Saved. Announcements channel cleared (will use default).';
-            }
+            if (status) status.textContent = 'Saved';
             if (!silent) {
-              notify('Settings saved');
+              notify('Saved');
               await loadSettings();
             }
           } catch (e) {
