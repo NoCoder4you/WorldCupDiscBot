@@ -3344,28 +3344,17 @@ body .notify-panel{ right: 90px; }
   display: grid;
   gap: 16px;
   margin-top: 16px;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
 }
 
-.settings-notifications-head {
+.settings-notifications-column {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1fr);
-  gap: 16px;
+  gap: 12px;
+  align-content: start;
 }
 
-.settings-notifications-row {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.settings-notifications-via {
-  margin-top: 0;
-}
-
-.settings-notifications-about {
-  display: grid;
-  gap: 8px;
+.settings-notifications-category {
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
 }
 
 .settings-rows {
@@ -3435,6 +3424,13 @@ body:not(.admin) .settings-rows {
   gap: 10px;
   color: #d7deff;
   font-size: 0.9rem;
+}
+
+.settings-notification-option {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(14, 18, 30, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .settings-notifications-grid .checkbox input {
