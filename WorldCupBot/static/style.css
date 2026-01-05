@@ -3343,23 +3343,23 @@ body .notify-panel{ right: 90px; }
 
 .settings-notifications-grid{
   display: grid;
-  gap: 16px;
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: auto auto;
+  column-gap: 32px;
+  row-gap: 16px;
   align-items: start;
+  justify-content: start;
 }
 
 .settings-notifications-column {
   display: grid;
   gap: 12px;
-  align-content: start;
+  width: 320px;
 }
 
 .settings-notifications-category {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-  align-content: start;
 }
 
 .settings-rows {
