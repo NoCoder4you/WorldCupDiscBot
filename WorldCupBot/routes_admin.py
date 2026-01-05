@@ -30,6 +30,13 @@ def _fan_zone_results_path(ctx):
 def _notification_settings_path(ctx):
     return _path(ctx, "notification_settings.json")
 
+NOTIFICATION_CATEGORIES = (
+    "splits",
+    "matches",
+    "bets",
+    "stages",
+)
+
 def _players_path(ctx):
     return _path(ctx, "players.json")
 
@@ -105,9 +112,27 @@ def _load_notification_settings(ctx):
     data = _read_json(_notification_settings_path(ctx), {})
     return data if isinstance(data, dict) else {}
 
-def _notification_preference(ctx, uid: str) -> str:
+def _default_notification_categories() -> dict:
+    return {key: True for key in NOTIFICATION_CATEGORIES}
+
+def _notification_record(ctx, uid: str) -> dict:
     settings = _load_notification_settings(ctx)
-    return str(settings.get(str(uid)) or "").strip().lower()
+    raw = settings.get(str(uid))
+    if isinstance(raw, str):
+        raw = {"channel": raw}
+    if not isinstance(raw, dict):
+        raw = {}
+    channel = str(raw.get("channel") or "").strip().lower()
+    raw_categories = raw.get("categories")
+    categories = _default_notification_categories()
+    if isinstance(raw_categories, dict):
+        for key in NOTIFICATION_CATEGORIES:
+            if key in raw_categories:
+                categories[key] = bool(raw_categories.get(key))
+    return {"channel": channel, "categories": categories}
+
+def _notification_preference(ctx, uid: str) -> str:
+    return _notification_record(ctx, uid).get("channel") or ""
 
 def _prefers_bell(ctx, uid: str) -> bool:
     return _notification_preference(ctx, uid) in ("", "bell")
@@ -115,7 +140,10 @@ def _prefers_bell(ctx, uid: str) -> bool:
 def _prefers_dms(ctx, uid: str) -> bool:
     return _notification_preference(ctx, uid) in ("", "dms")
 
-def _filter_notification_ids(ctx, ids: list[str], channel: str) -> list[str]:
+def _category_enabled(ctx, uid: str, category: str) -> bool:
+    return bool(_notification_record(ctx, uid).get("categories", {}).get(category, True))
+
+def _filter_notification_ids(ctx, ids: list[str], channel: str, category: str) -> list[str]:
     if not ids:
         return []
     settings = _load_notification_settings(ctx)
@@ -124,14 +152,26 @@ def _filter_notification_ids(ctx, ids: list[str], channel: str) -> list[str]:
         suid = str(uid or "").strip()
         if not suid:
             continue
-        pref = str(settings.get(suid) or "").strip().lower()
+        pref_record = settings.get(suid)
+        if isinstance(pref_record, str):
+            pref_record = {"channel": pref_record}
+        if not isinstance(pref_record, dict):
+            pref_record = {}
+        pref = str(pref_record.get("channel") or "").strip().lower()
+        categories = _default_notification_categories()
+        if isinstance(pref_record.get("categories"), dict):
+            for key in NOTIFICATION_CATEGORIES:
+                if key in pref_record["categories"]:
+                    categories[key] = bool(pref_record["categories"].get(key))
+        if not categories.get(category, True):
+            continue
         if channel == "bell" and pref in ("", "bell"):
             out.append(suid)
         elif channel == "dms" and pref in ("", "dms"):
             out.append(suid)
     return out
 
-def _filter_notification_voters(ctx, voters: dict) -> dict:
+def _filter_notification_voters(ctx, voters: dict, category: str) -> dict:
     if not isinstance(voters, dict) or not voters:
         return {}
     settings = _load_notification_settings(ctx)
@@ -140,7 +180,19 @@ def _filter_notification_voters(ctx, voters: dict) -> dict:
         suid = str(uid or "").strip()
         if not suid:
             continue
-        pref = str(settings.get(suid) or "").strip().lower()
+        pref_record = settings.get(suid)
+        if isinstance(pref_record, str):
+            pref_record = {"channel": pref_record}
+        if not isinstance(pref_record, dict):
+            pref_record = {}
+        pref = str(pref_record.get("channel") or "").strip().lower()
+        categories = _default_notification_categories()
+        if isinstance(pref_record.get("categories"), dict):
+            for key in NOTIFICATION_CATEGORIES:
+                if key in pref_record["categories"]:
+                    categories[key] = bool(pref_record["categories"].get(key))
+        if not categories.get(category, True):
+            continue
         if pref in ("", "bell"):
             out[suid] = choice
     return out
@@ -759,7 +811,7 @@ def create_admin_routes(ctx):
         def add_event(uid: str, result: str):
             if not uid:
                 return
-            if not _prefers_bell(ctx, uid):
+            if not _prefers_bell(ctx, uid) or not _category_enabled(ctx, uid, "bets"):
                 return
             eid = f"bet:{bet_id}:{uid}"
             if eid in existing:
@@ -956,8 +1008,8 @@ def create_admin_routes(ctx):
         if progressed:
             owner_ids = _owners_for_team(ctx, team)
             now = int(time.time())
-            bell_owner_ids = _filter_notification_ids(ctx, owner_ids, "bell")
-            dm_owner_ids = _filter_notification_ids(ctx, owner_ids, "dms")
+            bell_owner_ids = _filter_notification_ids(ctx, owner_ids, "bell", "stages")
+            dm_owner_ids = _filter_notification_ids(ctx, owner_ids, "dms", "stages")
             _append_stage_notifications(bell_owner_ids, team, next_stage_norm, now)
 
             settings = _load_settings(ctx)
@@ -1464,10 +1516,10 @@ def create_admin_routes(ctx):
         # Determine owners for DM + site notifications
         winner_owner_ids = _owners_for_team(ctx, winner_team)
         loser_owner_ids = _owners_for_team(ctx, loser_team)
-        dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms")
-        dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms")
-        bell_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "bell")
-        bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell")
+        dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms", "matches")
+        dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms", "matches")
+        bell_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "bell", "matches")
+        bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell", "matches")
 
         # Queue bot announcement + DMs
         cfg = _read_json(_path(ctx, 'config.json'), {})
@@ -1497,7 +1549,7 @@ def create_admin_routes(ctx):
         # Website bell notifications
         _append_fanzone_results(bell_winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
         _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
-        _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters), side, winner_team, fixture_id, int(time.time()))
+        _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters, "matches"), side, winner_team, fixture_id, int(time.time()))
 
         return jsonify({
             'ok': True,

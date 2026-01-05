@@ -2363,6 +2363,12 @@ function shortId(id) {
         const publicChannel = document.getElementById('settings-public-channel');
         const notificationSelect = document.getElementById('settings-notifications-select');
         const notificationStatus = document.getElementById('settings-notifications-status');
+        const notificationChecks = {
+          splits: document.getElementById('settings-notify-splits'),
+          matches: document.getElementById('settings-notify-matches'),
+          bets: document.getElementById('settings-notify-bets'),
+          stages: document.getElementById('settings-notify-stages')
+        };
         if (publicStatus) publicStatus.textContent = 'Loading settings...';
         const refreshBtn = document.getElementById('settings-refresh');
         if (refreshBtn && !refreshBtn.dataset.bound) {
@@ -2392,8 +2398,17 @@ function shortId(id) {
             const data = await fetchJSON('/api/me/notification-settings');
             const pref = typeof data?.preference === 'string' ? data.preference : '';
             notificationSelect.value = pref;
+            const categories = data?.categories || {};
+            Object.keys(notificationChecks).forEach((key) => {
+              if (notificationChecks[key]) {
+                notificationChecks[key].checked = categories[key] !== false;
+              }
+            });
             const connected = data?.connected !== false;
             notificationSelect.disabled = !connected;
+            Object.values(notificationChecks).forEach((input) => {
+              if (input) input.disabled = !connected;
+            });
             if (notificationStatus) {
               notificationStatus.textContent = connected ? '' : 'Connect Discord to update notification preferences.';
             }
@@ -2404,27 +2419,45 @@ function shortId(id) {
           }
         };
 
+        const buildNotificationPayload = () => ({
+          preference: notificationSelect?.value || '',
+          categories: Object.keys(notificationChecks).reduce((acc, key) => {
+            const input = notificationChecks[key];
+            acc[key] = input ? input.checked : true;
+            return acc;
+          }, {})
+        });
+
+        const saveNotificationSettings = async () => {
+          if (notificationStatus) notificationStatus.textContent = 'Saving notification preference...';
+          try {
+            const res = await fetchJSON('/api/me/notification-settings', {
+              method: 'POST',
+              body: JSON.stringify(buildNotificationPayload())
+            });
+            if (notificationStatus) {
+              notificationStatus.textContent = res?.preference
+                ? 'Notification preference saved.'
+                : 'Notification preference reset to default.';
+            }
+          } catch (e) {
+            if (notificationStatus) {
+              notificationStatus.textContent = `Failed to save preference: ${e.message}`;
+            }
+          }
+        };
+
         if (notificationSelect && !notificationSelect.dataset.bound) {
           notificationSelect.dataset.bound = '1';
-          notificationSelect.addEventListener('change', async () => {
-            if (notificationStatus) notificationStatus.textContent = 'Saving notification preference...';
-            try {
-              const res = await fetchJSON('/api/me/notification-settings', {
-                method: 'POST',
-                body: JSON.stringify({ preference: notificationSelect.value })
-              });
-              if (notificationStatus) {
-                notificationStatus.textContent = res?.preference
-                  ? 'Notification preference saved.'
-                  : 'Notification preference reset to default.';
-              }
-            } catch (e) {
-              if (notificationStatus) {
-                notificationStatus.textContent = `Failed to save preference: ${e.message}`;
-              }
-            }
-          });
+          notificationSelect.addEventListener('change', saveNotificationSettings);
         }
+
+        Object.values(notificationChecks).forEach((input) => {
+          if (input && !input.dataset.bound) {
+            input.dataset.bound = '1';
+            input.addEventListener('change', saveNotificationSettings);
+          }
+        });
 
         await loadNotificationSettings();
 

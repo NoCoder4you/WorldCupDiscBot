@@ -3359,6 +3359,26 @@ body .notify-panel{ right: 90px; }
   padding: 12px 14px;
 }
 
+.settings-field .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  color: #d7deff;
+  font-size: 0.9rem;
+}
+
+.settings-field .checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: #6ea3ff;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
 .settings-value {
   width: 100%;
   background: rgba(14, 18, 30, 0.6);
