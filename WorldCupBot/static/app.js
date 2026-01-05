@@ -2361,7 +2361,10 @@ function shortId(id) {
         const publicStatus = document.getElementById('settings-public-status');
         const publicGuild = document.getElementById('settings-public-guild');
         const publicChannel = document.getElementById('settings-public-channel');
-        const notificationSelect = document.getElementById('settings-notifications-select');
+        const notificationChannels = {
+          dms: document.getElementById('settings-notify-dms'),
+          bell: document.getElementById('settings-notify-bell')
+        };
         const notificationStatus = document.getElementById('settings-notifications-status');
         const notificationChecks = {
           splits: document.getElementById('settings-notify-splits'),
@@ -2393,11 +2396,25 @@ function shortId(id) {
         }
 
         const loadNotificationSettings = async () => {
-          if (!notificationSelect) return;
+          if (!notificationChannels.dms && !notificationChannels.bell) return;
           try {
             const data = await fetchJSON('/api/me/notification-settings');
             const pref = typeof data?.preference === 'string' ? data.preference : '';
-            notificationSelect.value = pref;
+            if (notificationChannels.dms && notificationChannels.bell) {
+              if (pref === 'dms') {
+                notificationChannels.dms.checked = true;
+                notificationChannels.bell.checked = false;
+              } else if (pref === 'bell') {
+                notificationChannels.dms.checked = false;
+                notificationChannels.bell.checked = true;
+              } else if (pref === 'none') {
+                notificationChannels.dms.checked = false;
+                notificationChannels.bell.checked = false;
+              } else {
+                notificationChannels.dms.checked = true;
+                notificationChannels.bell.checked = true;
+              }
+            }
             const categories = data?.categories || {};
             Object.keys(notificationChecks).forEach((key) => {
               if (notificationChecks[key]) {
@@ -2405,7 +2422,9 @@ function shortId(id) {
               }
             });
             const connected = data?.connected !== false;
-            notificationSelect.disabled = !connected;
+            Object.values(notificationChannels).forEach((input) => {
+              if (input) input.disabled = !connected;
+            });
             Object.values(notificationChecks).forEach((input) => {
               if (input) input.disabled = !connected;
             });
@@ -2419,17 +2438,26 @@ function shortId(id) {
           }
         };
 
-        const buildNotificationPayload = () => ({
-          preference: notificationSelect?.value || '',
-          categories: Object.keys(notificationChecks).reduce((acc, key) => {
-            const input = notificationChecks[key];
-            acc[key] = input ? input.checked : true;
-            return acc;
-          }, {})
-        });
+        const buildNotificationPayload = () => {
+          const dmsEnabled = notificationChannels.dms?.checked;
+          const bellEnabled = notificationChannels.bell?.checked;
+          let preference = '';
+          if (dmsEnabled && bellEnabled) preference = '';
+          else if (dmsEnabled) preference = 'dms';
+          else if (bellEnabled) preference = 'bell';
+          else preference = 'none';
+          return {
+            preference,
+            categories: Object.keys(notificationChecks).reduce((acc, key) => {
+              const input = notificationChecks[key];
+              acc[key] = input ? input.checked : true;
+              return acc;
+            }, {})
+          };
+        };
 
         const saveNotificationSettings = async () => {
-          if (notificationStatus) notificationStatus.textContent = 'Saving notification preference...';
+          if (notificationStatus) notificationStatus.textContent = 'Saving notification preferences...';
           try {
             const res = await fetchJSON('/api/me/notification-settings', {
               method: 'POST',
@@ -2437,20 +2465,22 @@ function shortId(id) {
             });
             if (notificationStatus) {
               notificationStatus.textContent = res?.preference
-                ? 'Notification preference saved.'
-                : 'Notification preference reset to default.';
+                ? 'Notification preferences saved.'
+                : 'Notification preferences set to default.';
             }
           } catch (e) {
             if (notificationStatus) {
-              notificationStatus.textContent = `Failed to save preference: ${e.message}`;
+              notificationStatus.textContent = `Failed to save preferences: ${e.message}`;
             }
           }
         };
 
-        if (notificationSelect && !notificationSelect.dataset.bound) {
-          notificationSelect.dataset.bound = '1';
-          notificationSelect.addEventListener('change', saveNotificationSettings);
-        }
+        Object.values(notificationChannels).forEach((input) => {
+          if (input && !input.dataset.bound) {
+            input.dataset.bound = '1';
+            input.addEventListener('change', saveNotificationSettings);
+          }
+        });
 
         Object.values(notificationChecks).forEach((input) => {
           if (input && !input.dataset.bound) {
