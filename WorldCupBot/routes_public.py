@@ -91,6 +91,8 @@ def _swap_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "swap_requests.json")
 def _notifications_read_path(base_dir):
     return os.path.join(base_dir, "JSON", "notifications_read.json")
+def _notification_settings_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "notification_settings.json")
 
 def _load_notifications_read(base_dir):
     try:
@@ -103,6 +105,18 @@ def _save_notifications_read(base_dir, data):
     os.makedirs(os.path.dirname(_notifications_read_path(base_dir)), exist_ok=True)
     with open(_notifications_read_path(base_dir), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
+
+def _load_notification_settings(base_dir):
+    return _json_read(_notification_settings_path(base_dir), {})
+
+def _save_notification_settings(base_dir, data):
+    _json_save(_notification_settings_path(base_dir), data)
+
+def _notification_preference(base_dir, uid: str) -> str:
+    settings = _load_notification_settings(base_dir)
+    if not isinstance(settings, dict):
+        return ""
+    return str(settings.get(str(uid)) or "").strip().lower()
 
 def _json_read(path, default):
     try:
@@ -1181,6 +1195,54 @@ def create_public_routes(ctx):
             "masquerading_as": None if effective_uid == real_uid else effective_uid
         })
 
+    @api.get("/me/notification-settings")
+    def me_notification_settings_get():
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({
+                "ok": True,
+                "connected": False,
+                "preference": ""
+            })
+
+        uid = _effective_uid() or str(user.get("discord_id") or "")
+        pref = _notification_preference(base, uid)
+        return jsonify({
+            "ok": True,
+            "connected": True,
+            "preference": pref
+        })
+
+    @api.post("/me/notification-settings")
+    def me_notification_settings_set():
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({
+                "ok": False,
+                "error": "not_authenticated"
+            }), 401
+
+        uid = _effective_uid() or str(user.get("discord_id") or "")
+        body = request.get_json(silent=True) or {}
+        pref = str(body.get("preference") or "").strip().lower()
+        if pref not in ("", "bell", "dms", "none"):
+            return jsonify({"ok": False, "error": "invalid_preference"}), 400
+
+        settings = _load_notification_settings(base)
+        if not isinstance(settings, dict):
+            settings = {}
+        if pref:
+            settings[str(uid)] = pref
+        else:
+            settings.pop(str(uid), None)
+        _save_notification_settings(base, settings)
+        return jsonify({
+            "ok": True,
+            "preference": pref
+        })
+
     def _terms_accept_path(base_dir):
         return os.path.join(base_dir, "JSON", "terms_accept.json")
 
@@ -1204,6 +1266,19 @@ def create_public_routes(ctx):
         # Respect masquerade (admins viewing as another user)
         uid = _effective_uid() or str(user.get("discord_id") or "")
         uid = str(uid).strip()
+
+        preference = _notification_preference(base, uid)
+        if preference in ("dms", "none"):
+            resp = make_response(jsonify({
+                "ok": True,
+                "connected": True,
+                "items": [],
+                "unread": 0
+            }))
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
         now = int(time.time())
         items = []

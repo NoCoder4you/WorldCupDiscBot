@@ -27,6 +27,9 @@ def _fan_votes_path(base_dir):
 def _fan_zone_results_path(ctx):
     return _path(ctx, "fan_zone_results.json")
 
+def _notification_settings_path(ctx):
+    return _path(ctx, "notification_settings.json")
+
 def _players_path(ctx):
     return _path(ctx, "players.json")
 
@@ -97,6 +100,50 @@ def _write_json_atomic(path, data):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
+
+def _load_notification_settings(ctx):
+    data = _read_json(_notification_settings_path(ctx), {})
+    return data if isinstance(data, dict) else {}
+
+def _notification_preference(ctx, uid: str) -> str:
+    settings = _load_notification_settings(ctx)
+    return str(settings.get(str(uid)) or "").strip().lower()
+
+def _prefers_bell(ctx, uid: str) -> bool:
+    return _notification_preference(ctx, uid) in ("", "bell")
+
+def _prefers_dms(ctx, uid: str) -> bool:
+    return _notification_preference(ctx, uid) in ("", "dms")
+
+def _filter_notification_ids(ctx, ids: list[str], channel: str) -> list[str]:
+    if not ids:
+        return []
+    settings = _load_notification_settings(ctx)
+    out = []
+    for uid in ids:
+        suid = str(uid or "").strip()
+        if not suid:
+            continue
+        pref = str(settings.get(suid) or "").strip().lower()
+        if channel == "bell" and pref in ("", "bell"):
+            out.append(suid)
+        elif channel == "dms" and pref in ("", "dms"):
+            out.append(suid)
+    return out
+
+def _filter_notification_voters(ctx, voters: dict) -> dict:
+    if not isinstance(voters, dict) or not voters:
+        return {}
+    settings = _load_notification_settings(ctx)
+    out = {}
+    for uid, choice in voters.items():
+        suid = str(uid or "").strip()
+        if not suid:
+            continue
+        pref = str(settings.get(suid) or "").strip().lower()
+        if pref in ("", "bell"):
+            out[suid] = choice
+    return out
 
 def _now_iso():
     import datetime as _dt
@@ -712,6 +759,8 @@ def create_admin_routes(ctx):
         def add_event(uid: str, result: str):
             if not uid:
                 return
+            if not _prefers_bell(ctx, uid):
+                return
             eid = f"bet:{bet_id}:{uid}"
             if eid in existing:
                 return
@@ -907,7 +956,9 @@ def create_admin_routes(ctx):
         if progressed:
             owner_ids = _owners_for_team(ctx, team)
             now = int(time.time())
-            _append_stage_notifications(owner_ids, team, next_stage_norm, now)
+            bell_owner_ids = _filter_notification_ids(ctx, owner_ids, "bell")
+            dm_owner_ids = _filter_notification_ids(ctx, owner_ids, "dms")
+            _append_stage_notifications(bell_owner_ids, team, next_stage_norm, now)
 
             settings = _load_settings(ctx)
             channel_name = str(settings.get("STAGE_ANNOUNCE_CHANNEL") or "announcements")
@@ -916,7 +967,7 @@ def create_admin_routes(ctx):
                 "team": team,
                 "stage": next_stage_norm,
                 "previous_stage": prev_stage_norm,
-                "owner_ids": owner_ids,
+                "owner_ids": dm_owner_ids,
                 "channel": channel_name,
             })
         return jsonify({"ok": True, "team": team, "stage": stage})
@@ -1413,6 +1464,10 @@ def create_admin_routes(ctx):
         # Determine owners for DM + site notifications
         winner_owner_ids = _owners_for_team(ctx, winner_team)
         loser_owner_ids = _owners_for_team(ctx, loser_team)
+        dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms")
+        dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms")
+        bell_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "bell")
+        bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell")
 
         # Queue bot announcement + DMs
         cfg = _read_json(_path(ctx, 'config.json'), {})
@@ -1431,8 +1486,8 @@ def create_admin_routes(ctx):
             'loser_team': loser_team,
             'winner_iso': winner_iso_in,
             'loser_iso': '',
-            'winner_owner_ids': winner_owner_ids,
-            'loser_owner_ids': loser_owner_ids,
+            'winner_owner_ids': dm_winner_owner_ids,
+            'loser_owner_ids': dm_loser_owner_ids,
             'channel': channel_name,
             'home_votes': home_votes,
             'away_votes': away_votes,
@@ -1440,9 +1495,9 @@ def create_admin_routes(ctx):
         })
 
         # Website bell notifications
-        _append_fanzone_results(winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
-        _append_fanzone_results(loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
-        _append_fanzone_vote_results(discord_voters, side, winner_team, fixture_id, int(time.time()))
+        _append_fanzone_results(bell_winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
+        _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
+        _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters), side, winner_team, fixture_id, int(time.time()))
 
         return jsonify({
             'ok': True,
