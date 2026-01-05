@@ -3341,11 +3341,12 @@ body .notify-panel{ right: 90px; }
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
-.settings-notifications-grid {
+.settings-notifications-grid{
   display: grid;
-  gap: 16px;
+  gap: 12px;
   margin-top: 16px;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
 }
 
 .settings-notifications-column {
@@ -3427,11 +3428,37 @@ body:not(.admin) .settings-rows {
   font-size: 0.9rem;
 }
 
-.settings-notification-option {
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(14, 18, 30, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.settings-notification-option{
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  min-height: 46px;
+
+  border-radius: 12px;
+  background: rgba(14, 18, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+
+  cursor: pointer;
+  user-select: none;
+  transition: transform 80ms ease, filter 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.settings-notification-option:hover{
+  filter: brightness(1.06);
+  border-color: rgba(110, 163, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+.settings-notification-option:active{
+  transform: translateY(0);
+}
+
+.settings-notification-option:has(input:checked){
+  background: rgba(110, 163, 255, 0.12);
+  border-color: rgba(110, 163, 255, 0.38);
 }
 
 .settings-notifications-grid .checkbox input {
@@ -3522,12 +3549,13 @@ body:not(.admin) .settings-rows {
 
 @keyframes bellRing {
   0%   { transform: rotate(0deg) scale(1); }
-  10%  { transform: rotate(-12deg) scale(1.02); }
-  20%  { transform: rotate(12deg) scale(1.02); }
-  30%  { transform: rotate(-10deg) scale(1.02); }
-  40%  { transform: rotate(10deg) scale(1.02); }
-  50%  { transform: rotate(-6deg) scale(1.01); }
-  60%  { transform: rotate(6deg) scale(1.01); }
+  10%  { transform: rotate(-25deg) scale(1.02); }
+  20%  { transform: rotate(25deg) scale(1.02); }
+  30%  { transform: rotate(-15deg) scale(1.02); }
+  40%  { transform: rotate(15deg) scale(1.02); }
+  50%  { transform: rotate(-10deg) scale(1.01); }
+  60%  { transform: rotate(10deg) scale(1.01); }
+  80%  { transform: rotate(5deg) scale(1.01); }
   100% { transform: rotate(0deg) scale(1); }
 }
 
