@@ -3240,6 +3240,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.formatFixtureDateTime = formatFixtureDateTime;
     window.formatOffsetLabel = formatOffsetLabel;
     window.getLocalOffsetLabel = getLocalOffsetLabel;
+    if (!window.loadMatchTimings) {
+      window.loadMatchTimings = () => {};
+    }
 
 
   function escapeHtml(str){
