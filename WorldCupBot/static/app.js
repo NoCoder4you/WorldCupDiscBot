@@ -2361,6 +2361,8 @@ function shortId(id) {
         const publicStatus = document.getElementById('settings-public-status');
         const publicGuild = document.getElementById('settings-public-guild');
         const publicChannel = document.getElementById('settings-public-channel');
+        const notificationSelect = document.getElementById('settings-notifications-select');
+        const notificationStatus = document.getElementById('settings-notifications-status');
         if (publicStatus) publicStatus.textContent = 'Loading settings...';
         const refreshBtn = document.getElementById('settings-refresh');
         if (refreshBtn && !refreshBtn.dataset.bound) {
@@ -2383,6 +2385,48 @@ function shortId(id) {
         }catch(e){
           if (publicStatus) publicStatus.textContent = `Failed to load settings: ${e.message}`;
         }
+
+        const loadNotificationSettings = async () => {
+          if (!notificationSelect) return;
+          try {
+            const data = await fetchJSON('/api/me/notification-settings');
+            const pref = typeof data?.preference === 'string' ? data.preference : '';
+            notificationSelect.value = pref;
+            const connected = data?.connected !== false;
+            notificationSelect.disabled = !connected;
+            if (notificationStatus) {
+              notificationStatus.textContent = connected ? '' : 'Connect Discord to update notification preferences.';
+            }
+          } catch (e) {
+            if (notificationStatus) {
+              notificationStatus.textContent = `Failed to load notification preferences: ${e.message}`;
+            }
+          }
+        };
+
+        if (notificationSelect && !notificationSelect.dataset.bound) {
+          notificationSelect.dataset.bound = '1';
+          notificationSelect.addEventListener('change', async () => {
+            if (notificationStatus) notificationStatus.textContent = 'Saving notification preference...';
+            try {
+              const res = await fetchJSON('/api/me/notification-settings', {
+                method: 'POST',
+                body: JSON.stringify({ preference: notificationSelect.value })
+              });
+              if (notificationStatus) {
+                notificationStatus.textContent = res?.preference
+                  ? 'Notification preference saved.'
+                  : 'Notification preference reset to default.';
+              }
+            } catch (e) {
+              if (notificationStatus) {
+                notificationStatus.textContent = `Failed to save preference: ${e.message}`;
+              }
+            }
+          });
+        }
+
+        await loadNotificationSettings();
 
         if (!isAdminUI()) return;
 
