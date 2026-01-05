@@ -201,6 +201,9 @@ def _now_iso():
     import datetime as _dt
     return _dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
+def _matches_path(ctx):
+    return _path(ctx, "matches.json")
+
 def _commands_path(ctx):
     rd = os.path.join(_base_dir(ctx), "runtime")
     os.makedirs(rd, exist_ok=True)
@@ -1084,6 +1087,85 @@ def create_admin_routes(ctx):
             "stage_announce_channel": channel,
             "selected_guild_id": selected_guild_id
         })
+
+    def _load_matches_payload():
+        raw = _read_json(_matches_path(ctx), [])
+        if isinstance(raw, dict):
+            if isinstance(raw.get("fixtures"), list):
+                return raw, raw.get("fixtures"), "fixtures"
+            if isinstance(raw.get("matches"), list):
+                return raw, raw.get("matches"), "matches"
+            return raw, [], ""
+        if isinstance(raw, list):
+            return None, raw, ""
+        return None, [], ""
+
+    def _valid_utc(utc: str) -> bool:
+        return bool(re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", utc or ""))
+
+    @bp.get("/fixtures")
+    def admin_fixtures_get():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        _, fixtures, _ = _load_matches_payload()
+        out = []
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            fid = str(fixture.get("id") or "").strip()
+            home = str(fixture.get("home") or "").strip()
+            away = str(fixture.get("away") or "").strip()
+            utc = str(fixture.get("utc") or fixture.get("time") or "").strip()
+            if not fid:
+                continue
+            out.append({
+                "id": fid,
+                "home": home,
+                "away": away,
+                "utc": utc,
+            })
+        return jsonify({"ok": True, "fixtures": out})
+
+    @bp.post("/fixtures")
+    def admin_fixtures_set():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("id") or body.get("match_id") or "").strip()
+        utc = str(body.get("utc") or "").strip()
+        if not match_id or not utc:
+            return jsonify({"ok": False, "error": "missing_match_id_or_time"}), 400
+        if not _valid_utc(utc):
+            return jsonify({"ok": False, "error": "invalid_utc"}), 400
+
+        container, fixtures, key = _load_matches_payload()
+        updated = False
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
+            if fid != match_id:
+                continue
+            fixture["utc"] = utc
+            if "time" in fixture:
+                fixture["time"] = utc
+            updated = True
+            break
+
+        if not updated:
+            return jsonify({"ok": False, "error": "match_not_found"}), 404
+
+        if container is None:
+            _write_json_atomic(_matches_path(ctx), fixtures)
+        else:
+            if key:
+                container[key] = fixtures
+            _write_json_atomic(_matches_path(ctx), container)
+        return jsonify({"ok": True, "id": match_id, "utc": utc})
 
     @bp.get("/discord/channels")
     def admin_discord_channels():
