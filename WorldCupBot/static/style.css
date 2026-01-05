@@ -3360,6 +3360,8 @@ body .notify-panel{ right: 90px; }
 .settings-notifications-category {
   display: grid;
   gap: 12px;
+  grid-template-columns: repeat(2, 320px);
+  align-content: start;
 }
 
 .settings-rows {
