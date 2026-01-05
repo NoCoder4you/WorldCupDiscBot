@@ -2890,7 +2890,13 @@ function shortId(id) {
     }
 
     function escapeHTML(s){
-      return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[c]));
     }
 
 // --- helpers (keep once in your file) ---
@@ -4827,7 +4833,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${escapeHtml((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
+        <div class="fan-time">${escapeHTML((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
