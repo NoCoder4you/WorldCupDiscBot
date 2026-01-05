@@ -2549,7 +2549,7 @@ function shortId(id) {
           try {
             const channel = (channelSelect?.value || '').trim();
             const selectedGuildId = (guildSelect?.value || '').trim();
-            if (status) status.textContent = 'Saving settings...';
+            if (status) status.textContent = '';
             await fetchJSON('/admin/settings', {
               method: 'POST',
               body: JSON.stringify({
@@ -2557,13 +2557,13 @@ function shortId(id) {
                 selected_guild_id: selectedGuildId
               })
             });
-            if (status) status.textContent = 'Saved';
+            if (status) status.textContent = '';
             if (!silent) {
               notify('Saved');
               await loadSettings();
             }
           } catch (e) {
-            if (status) status.textContent = `Failed to save settings: ${e.message}`;
+            if (status) status.textContent = '';
             if (!silent) {
               notify(`Failed to save settings: ${e.message}`, false);
             }
