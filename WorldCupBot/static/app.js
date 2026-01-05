@@ -2487,188 +2487,6 @@ function shortId(id) {
 
         await loadNotificationSettings();
 
-        if (!isAdminUI()) return;
-
-        const status = document.getElementById('settings-status');
-        const channelStatus = document.getElementById('settings-channels-status');
-        const guildSelect = document.getElementById('settings-guild-select');
-        const categorySelect = document.getElementById('settings-category-select');
-        const channelSelect = document.getElementById('settings-channel-select');
-        const matchesStatus = document.getElementById('settings-matches-status');
-        const matchesList = document.getElementById('settings-matches-list');
-        const matchesFormatSelect = document.getElementById('settings-match-date-format');
-        if (status) status.textContent = '';
-
-        const resolveDateOrder = () => {
-          const stored = matchesFormatSelect ? matchesFormatSelect.value : '';
-          if (stored === 'MD' || stored === 'DM') {
-            return {
-              order: stored,
-              label: stored === 'MD' ? 'MM/DD' : 'DD/MM'
-            };
-          }
-          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-          const useAmerican = tz.startsWith('America/');
-          return {
-            order: useAmerican ? 'MD' : 'DM',
-            label: useAmerican ? 'MM/DD' : 'DD/MM'
-          };
-        };
-
-        const pad2 = (val) => String(val).padStart(2, '0');
-
-        const formatUtcParts = (utc, order) => {
-          if (!utc) return { date: '', time: '', year: '' };
-          const d = new Date(utc);
-          if (Number.isNaN(d.getTime())) return { date: '', time: '', year: '' };
-          const day = pad2(d.getUTCDate());
-          const month = pad2(d.getUTCMonth() + 1);
-          const year = d.getUTCFullYear();
-          const date = order === 'MD' ? `${month}/${day}` : `${day}/${month}`;
-          const time = `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
-          return { date, time, year };
-        };
-
-        const parseDateInput = (value, order) => {
-          const raw = String(value || '').trim();
-          if (!raw) return null;
-          const parts = raw.split(/[\/\-.]/).map((part) => part.trim()).filter(Boolean);
-          if (parts.length < 2) return null;
-          const first = Number(parts[0]);
-          const second = Number(parts[1]);
-          if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
-          const month = order === 'MD' ? first : second;
-          const day = order === 'MD' ? second : first;
-          if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-          return { month, day };
-        };
-
-        const buildUtcString = (year, month, day, timeValue) => {
-          const timeRaw = String(timeValue || '').trim();
-          const parts = timeRaw.split(':');
-          const hour = Number(parts[0] || 0);
-          const minute = Number(parts[1] || 0);
-          if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-            return null;
-          }
-          return `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:00Z`;
-        };
-
-        const loadMatchTimings = async () => {
-          if (!matchesList) return;
-          const { order, label } = resolveDateOrder();
-          if (matchesStatus) matchesStatus.textContent = 'Loading match timings...';
-          matchesList.innerHTML = '';
-          try {
-            const data = await fetchJSON('/admin/fixtures');
-            const fixtures = Array.isArray(data?.fixtures) ? data.fixtures : [];
-            if (!fixtures.length) {
-              matchesList.innerHTML = '<div class="settings-value">No fixtures available.</div>';
-              if (matchesStatus) matchesStatus.textContent = '';
-              return;
-            }
-            const frag = document.createDocumentFragment();
-            fixtures.forEach((fixture) => {
-              if (!fixture || !fixture.id) return;
-              const { date, time, year } = formatUtcParts(fixture.utc, order);
-              const row = document.createElement('div');
-              row.className = 'settings-match-row';
-              row.dataset.matchId = fixture.id;
-              row.dataset.matchYear = String(year || new Date().getUTCFullYear());
-
-              const main = document.createElement('div');
-              main.className = 'settings-match-main';
-              const title = document.createElement('div');
-              title.className = 'settings-match-title';
-              title.textContent = `${fixture.home || 'TBA'} vs ${fixture.away || 'TBA'}`;
-              const meta = document.createElement('div');
-              meta.className = 'settings-match-meta';
-              meta.textContent = fixture.id;
-              main.appendChild(title);
-              main.appendChild(meta);
-
-              const inputs = document.createElement('div');
-              inputs.className = 'settings-match-inputs';
-
-              const dateLabel = document.createElement('label');
-              const dateSpan = document.createElement('span');
-              dateSpan.textContent = `Date (${label})`;
-              const dateInput = document.createElement('input');
-              dateInput.type = 'text';
-              dateInput.className = 'settings-match-date';
-              dateInput.placeholder = label;
-              dateInput.value = date;
-              dateLabel.appendChild(dateSpan);
-              dateLabel.appendChild(dateInput);
-
-              const timeLabel = document.createElement('label');
-              const timeSpan = document.createElement('span');
-              timeSpan.textContent = 'Time (UTC)';
-              const timeInput = document.createElement('input');
-              timeInput.type = 'time';
-              timeInput.step = '60';
-              timeInput.className = 'settings-match-time';
-              timeInput.value = time;
-              timeLabel.appendChild(timeSpan);
-              timeLabel.appendChild(timeInput);
-
-              const saveButton = document.createElement('button');
-              saveButton.type = 'button';
-              saveButton.className = 'btn btn-outline sm settings-match-save';
-              saveButton.textContent = 'Save';
-
-              saveButton.addEventListener('click', async () => {
-                const parsed = parseDateInput(dateInput.value, order);
-                if (!parsed) {
-                  notify(`Invalid date format. Use ${label}.`, false);
-                  return;
-                }
-                const matchYear = Number(row.dataset.matchYear) || new Date().getUTCFullYear();
-                const newUtc = buildUtcString(matchYear, parsed.month, parsed.day, timeInput.value);
-                if (!newUtc) {
-                  notify('Invalid time format.', false);
-                  return;
-                }
-                try {
-                  await fetchJSON('/admin/fixtures', {
-                    method: 'POST',
-                    body: JSON.stringify({ id: fixture.id, utc: newUtc })
-                  });
-                  notify('Match timing saved');
-                } catch (e) {
-                  notify(`Failed to save match timing: ${e.message}`, false);
-                }
-              });
-
-              inputs.appendChild(dateLabel);
-              inputs.appendChild(timeLabel);
-              inputs.appendChild(saveButton);
-              row.appendChild(main);
-              row.appendChild(inputs);
-              frag.appendChild(row);
-            });
-            matchesList.appendChild(frag);
-            if (matchesStatus) matchesStatus.textContent = '';
-          } catch (e) {
-            if (matchesStatus) matchesStatus.textContent = `Failed to load match timings: ${e.message}`;
-          }
-        };
-
-        if (matchesFormatSelect && !matchesFormatSelect.dataset.bound) {
-          matchesFormatSelect.dataset.bound = '1';
-          const saved = localStorage.getItem('wc:matchDateFormat');
-          if (saved === 'MD' || saved === 'DM') {
-            matchesFormatSelect.value = saved;
-          } else {
-            const { order } = resolveDateOrder();
-            matchesFormatSelect.value = order;
-          }
-          matchesFormatSelect.addEventListener('change', async () => {
-            localStorage.setItem('wc:matchDateFormat', matchesFormatSelect.value);
-            await loadMatchTimings();
-          });
-        }
-
         const setSelectOptions = (select, options, placeholder) => {
           if (!select) return;
           const frag = document.createDocumentFragment();
@@ -2688,6 +2506,73 @@ function shortId(id) {
           select.innerHTML = '';
           select.appendChild(frag);
         };
+
+        const timezoneSelect = document.getElementById('settings-timezone-select');
+        const dateFormatSelect = document.getElementById('settings-date-format-select');
+        if (timezoneSelect && !timezoneSelect.dataset.bound) {
+          timezoneSelect.dataset.bound = '1';
+          const options = [];
+          const offsets = new Set();
+          for (let hour = 14; hour >= -11; hour -= 1) {
+            offsets.add(hour * 60);
+          }
+          [
+            750,  // GMT+12:30
+            630,  // GMT+10:30
+            570,  // GMT+09:30
+            330,  // GMT+05:30
+            270,  // GMT+04:30
+            210,  // GMT+03:30
+            -210, // GMT-03:30
+            -270, // GMT-04:30
+            -570, // GMT-09:30
+            -630  // GMT-10:30
+          ].forEach((minutes) => offsets.add(minutes));
+          [...offsets]
+            .sort((a, b) => b - a)
+            .forEach((minutes) => {
+              const label = formatOffsetLabel(minutes);
+              options.push({ value: label, label });
+            });
+          setSelectOptions(timezoneSelect, options, 'Select a timezone');
+          const preferred = window.getPreferredTimeZone ? window.getPreferredTimeZone() : formatOffsetLabel(-new Date().getTimezoneOffset());
+          if (options.some((opt) => opt.value === preferred)) {
+            timezoneSelect.value = preferred;
+          } else {
+            const localLabel = formatOffsetLabel(-new Date().getTimezoneOffset());
+            timezoneSelect.value = options.some((opt) => opt.value === localLabel) ? localLabel : 'GMT+00';
+          }
+          timezoneSelect.addEventListener('change', () => {
+            localStorage.setItem(window.TIMEZONE_STORAGE_KEY || TIMEZONE_STORAGE_KEY, timezoneSelect.value);
+            if (dateFormatSelect && !localStorage.getItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY)) {
+              dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
+            }
+            routePage();
+            if (typeof window.loadFanZone === 'function') {
+              window.loadFanZone();
+            }
+          });
+        }
+        if (dateFormatSelect && !dateFormatSelect.dataset.bound) {
+          dateFormatSelect.dataset.bound = '1';
+          dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
+          dateFormatSelect.addEventListener('change', () => {
+            localStorage.setItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
+            routePage();
+            if (typeof window.loadFanZone === 'function') {
+              window.loadFanZone();
+            }
+          });
+        }
+
+        if (!isAdminUI()) return;
+
+        const status = document.getElementById('settings-status');
+        const channelStatus = document.getElementById('settings-channels-status');
+        const guildSelect = document.getElementById('settings-guild-select');
+        const categorySelect = document.getElementById('settings-category-select');
+        const channelSelect = document.getElementById('settings-channel-select');
+        if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
         const savedChannel = data?.stage_announce_channel || '';
@@ -3263,15 +3148,95 @@ document.addEventListener('DOMContentLoaded', () => {
     return await r.json();
   });
 
+    const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
+    const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
+
+    function formatOffsetLabel(totalMinutes){
+    const sign = totalMinutes >= 0 ? '+' : '-';
+    const abs = Math.abs(totalMinutes);
+    const hours = String(Math.floor(abs / 60)).padStart(2, '0');
+    const minutes = abs % 60;
+    if (minutes) {
+      return `GMT${sign}${hours}:${String(minutes).padStart(2, '0')}`;
+    }
+    return `GMT${sign}${hours}`;
+  }
+
+    function parseOffsetLabel(label){
+    const match = /^GMT([+-])(\\d{2})(?::(\\d{2}))?$/.exec(String(label || ''));
+    if (!match) return 0;
+    const sign = match[1] === '-' ? -1 : 1;
+    const hours = Number(match[2] || 0);
+    const minutes = Number(match[3] || 0);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+    return sign * (hours * 60 + minutes);
+  }
+
+    function getLocalOffsetLabel(){
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    return formatOffsetLabel(offsetMinutes);
+  }
+
+    function getPreferredTimeZone(){
+    const stored = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+    if (stored) return stored;
+    return getLocalOffsetLabel();
+  }
+
+    function isAmericanLocale(){
+    return String(navigator.language || '').toLowerCase().startsWith('en-us');
+  }
+
+    function getPreferredDateFormat(){
+    const stored = localStorage.getItem(DATE_FORMAT_STORAGE_KEY);
+    if (stored === 'MD' || stored === 'DM') return stored;
+    return isAmericanLocale() ? 'MD' : 'DM';
+  }
+
+    function getDateTimeParts(isoString, offsetLabel){
+    if (!isoString) return null;
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return null;
+    const offsetMinutes = parseOffsetLabel(offsetLabel);
+    const localMs = d.getTime() + offsetMinutes * 60 * 1000;
+    const localDate = new Date(localMs);
+    return {
+      year: String(localDate.getUTCFullYear()),
+      month: String(localDate.getUTCMonth() + 1).padStart(2, '0'),
+      day: String(localDate.getUTCDate()).padStart(2, '0'),
+      hour: String(localDate.getUTCHours()).padStart(2, '0'),
+      minute: String(localDate.getUTCMinutes()).padStart(2, '0'),
+      timeZoneName: offsetLabel
+    };
+  }
+
+    function formatFixtureDateTime(isoString, { includeTime = true, includeYear = false, includeTimeZone = true } = {}){
+    const timeZone = getPreferredTimeZone();
+    const parts = getDateTimeParts(isoString, timeZone);
+    if (!parts) return isoString || '';
+    const dateOrder = getPreferredDateFormat();
+    const date = dateOrder === 'MD'
+      ? `${parts.month}/${parts.day}`
+      : `${parts.day}/${parts.month}`;
+    const dateWithYear = includeYear ? `${date}/${parts.year}` : date;
+    let out = dateWithYear;
+    if (includeTime) {
+      out = `${out} ${parts.hour}:${parts.minute}`;
+    }
+    const tzLabel = includeTimeZone ? (parts.timeZoneName || timeZone) : '';
+    return tzLabel ? `${out} ${tzLabel}` : out;
+  }
+
     function formatMatchDateShort(isoString){
     if (!isoString) return '';
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return '';
-    const day = d.getUTCDate();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const mon = months[d.getUTCMonth()];
-    return `${day} ${mon}`;
+    return formatFixtureDateTime(isoString, { includeTime: false, includeYear: false, includeTimeZone: false });
   }
+
+    window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
+    window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
+    window.getPreferredTimeZone = getPreferredTimeZone;
+    window.getPreferredDateFormat = getPreferredDateFormat;
+    window.formatFixtureDateTime = formatFixtureDateTime;
 
 
   function escapeHtml(str){
@@ -4856,7 +4821,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
+        <div class="fan-time">${escapeHtml((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
