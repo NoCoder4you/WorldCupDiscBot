@@ -154,13 +154,15 @@
                   <div class="settings-grid">
                       <label class="settings-field">
                           <span class="settings-label">Notify me via</span>
-                          <select id="settings-notifications-select" class="select-dark">
-                              <option value="">Discord DMs + bell (default)</option>
-                              <option value="dms">Discord DMs</option>
-                              <option value="bell">Bell notifications</option>
-                              <option value="none">Nothing</option>
-                          </select>
-                          <span class="settings-help">Choose how you want to receive World Cup bot alerts.</span>
+                          <label class="checkbox">
+                              <input type="checkbox" id="settings-notify-dms" checked>
+                              <span>Discord DMs</span>
+                          </label>
+                          <label class="checkbox">
+                              <input type="checkbox" id="settings-notify-bell" checked>
+                              <span>Bell notifications</span>
+                          </label>
+                          <span class="settings-help">Select one or both ways to receive World Cup bot alerts.</span>
                       </label>
                       <div class="settings-field">
                           <span class="settings-label">Notify me about</span>
