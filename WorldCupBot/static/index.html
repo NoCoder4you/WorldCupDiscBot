@@ -129,61 +129,65 @@
                           <button id="settings-refresh" class="btn btn-outline">Refresh</button>
                       </div>
                   </div>
-                  <div class="settings-grid admin-only">
-                      <label class="settings-field">
-                          <span class="settings-label">Target guild</span>
-                          <select id="settings-guild-select" class="select-dark">
-                              <option value="" disabled>Select a guild</option>
-                          </select>
-                      </label>
-                      <label class="settings-field">
-                          <span class="settings-label">Channel category</span>
-                          <select id="settings-category-select" class="select-dark"></select>
-                      </label>
-                      <label class="settings-field">
-                          <span class="settings-label">Stage announcement channel</span>
-                          <select id="settings-channel-select" class="select-dark"></select>
-                      </label>
-                  </div>
-                  <div class="settings-status muted admin-only" id="settings-status"></div>
-              </div>
-              <div class="card settings-card">
-                  <div class="settings-head">
-                      <div class="card-title">Notifications</div>
-                  </div>
-                  <div class="settings-grid">
-                      <label class="settings-field">
-                          <span class="settings-label">Notify me via</span>
-                          <label class="checkbox">
-                              <input type="checkbox" id="settings-notify-dms" checked>
-                              <span>Discord DMs</span>
-                          </label>
-                          <label class="checkbox">
-                              <input type="checkbox" id="settings-notify-bell" checked>
-                              <span>Bell notifications</span>
-                          </label>
-                      </label>
-                      <div class="settings-field">
-                          <span class="settings-label">Notify me about</span>
-                          <label class="checkbox">
-                              <input type="checkbox" id="settings-notify-splits" checked>
-                              <span>Split requests &amp; updates</span>
-                          </label>
-                          <label class="checkbox">
-                              <input type="checkbox" id="settings-notify-matches" checked>
-                              <span>Match wins (Fan Zone)</span>
-                          </label>
-                          <label class="checkbox">
-                              <input type="checkbox" id="settings-notify-bets" checked>
-                              <span>Bet wins</span>
-                          </label>
-                          <label class="checkbox">
-                              <input type="checkbox" id="settings-notify-stages" checked>
-                              <span>Stage progress</span>
-                          </label>
+                  <div class="settings-rows">
+                      <div class="settings-row admin-only">
+                          <div class="settings-row-title">Admin settings</div>
+                          <div class="settings-grid">
+                              <label class="settings-field">
+                                  <span class="settings-label">Target guild</span>
+                                  <select id="settings-guild-select" class="select-dark">
+                                      <option value="" disabled>Select a guild</option>
+                                  </select>
+                              </label>
+                              <label class="settings-field">
+                                  <span class="settings-label">Channel category</span>
+                                  <select id="settings-category-select" class="select-dark"></select>
+                              </label>
+                              <label class="settings-field">
+                                  <span class="settings-label">Stage announcement channel</span>
+                                  <select id="settings-channel-select" class="select-dark"></select>
+                              </label>
+                          </div>
+                          <div class="settings-status muted" id="settings-status"></div>
+                      </div>
+                      <div class="settings-divider admin-only"></div>
+                      <div class="settings-row">
+                          <div class="settings-row-title">Notifications</div>
+                          <div class="settings-grid">
+                              <label class="settings-field">
+                                  <span class="settings-label">Notify me via</span>
+                                  <label class="checkbox">
+                                      <input type="checkbox" id="settings-notify-dms" checked>
+                                      <span>Discord DMs</span>
+                                  </label>
+                                  <label class="checkbox">
+                                      <input type="checkbox" id="settings-notify-bell" checked>
+                                      <span>Bell notifications</span>
+                                  </label>
+                              </label>
+                              <div class="settings-field">
+                                  <span class="settings-label">Notify me about</span>
+                                  <label class="checkbox">
+                                      <input type="checkbox" id="settings-notify-splits" checked>
+                                      <span>Split requests &amp; updates</span>
+                                  </label>
+                                  <label class="checkbox">
+                                      <input type="checkbox" id="settings-notify-matches" checked>
+                                      <span>Match wins (Fan Zone)</span>
+                                  </label>
+                                  <label class="checkbox">
+                                      <input type="checkbox" id="settings-notify-bets" checked>
+                                      <span>Bet wins</span>
+                                  </label>
+                                  <label class="checkbox">
+                                      <input type="checkbox" id="settings-notify-stages" checked>
+                                      <span>Stage progress</span>
+                                  </label>
+                              </div>
+                          </div>
+                          <div class="settings-status muted" id="settings-notifications-status"></div>
                       </div>
                   </div>
-                  <div class="settings-status muted" id="settings-notifications-status"></div>
               </div>
           </section>
 

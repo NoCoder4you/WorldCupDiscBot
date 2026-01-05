@@ -3340,6 +3340,24 @@ body .notify-panel{ right: 90px; }
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.settings-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-row-title {
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .settings-field {
   display: grid;
   gap: 8px;
