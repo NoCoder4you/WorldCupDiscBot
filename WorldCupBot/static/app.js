@@ -2736,6 +2736,7 @@ function shortId(id) {
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
+        await loadMatchTimings();
       }catch(e){
         notify(`Settings error: ${e.message}`, false);
       }finally{
