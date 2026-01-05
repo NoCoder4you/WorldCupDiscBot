@@ -2513,6 +2513,8 @@ function shortId(id) {
           timezoneSelect.dataset.bound = '1';
           const options = [];
           const offsets = new Set();
+          const formatLabel = window.formatOffsetLabel || formatOffsetLabel;
+          const localLabel = window.getLocalOffsetLabel ? window.getLocalOffsetLabel() : formatLabel(-new Date().getTimezoneOffset());
           for (let hour = 14; hour >= -11; hour -= 1) {
             offsets.add(hour * 60);
           }
@@ -2531,15 +2533,14 @@ function shortId(id) {
           [...offsets]
             .sort((a, b) => b - a)
             .forEach((minutes) => {
-              const label = formatOffsetLabel(minutes);
+              const label = formatLabel(minutes);
               options.push({ value: label, label });
             });
           setSelectOptions(timezoneSelect, options, 'Select a timezone');
-          const preferred = window.getPreferredTimeZone ? window.getPreferredTimeZone() : formatOffsetLabel(-new Date().getTimezoneOffset());
+          const preferred = window.getPreferredTimeZone ? window.getPreferredTimeZone() : localLabel;
           if (options.some((opt) => opt.value === preferred)) {
             timezoneSelect.value = preferred;
           } else {
-            const localLabel = formatOffsetLabel(-new Date().getTimezoneOffset());
             timezoneSelect.value = options.some((opt) => opt.value === localLabel) ? localLabel : 'GMT+00';
           }
           timezoneSelect.addEventListener('change', () => {
@@ -3237,6 +3238,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.getPreferredTimeZone = getPreferredTimeZone;
     window.getPreferredDateFormat = getPreferredDateFormat;
     window.formatFixtureDateTime = formatFixtureDateTime;
+    window.formatOffsetLabel = formatOffsetLabel;
+    window.getLocalOffsetLabel = getLocalOffsetLabel;
 
 
   function escapeHtml(str){
