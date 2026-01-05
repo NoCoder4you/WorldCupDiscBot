@@ -3318,6 +3318,7 @@ body .notify-panel{ right: 90px; }
 .settings-card {
   max-width: 1200px;
   margin: 16px auto;
+  height: auto;
 }
 
 .settings-head {
