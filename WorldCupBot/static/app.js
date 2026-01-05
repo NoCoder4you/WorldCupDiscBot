@@ -2487,15 +2487,6 @@ function shortId(id) {
 
         await loadNotificationSettings();
 
-        if (!isAdminUI()) return;
-
-        const status = document.getElementById('settings-status');
-        const channelStatus = document.getElementById('settings-channels-status');
-        const guildSelect = document.getElementById('settings-guild-select');
-        const categorySelect = document.getElementById('settings-category-select');
-        const channelSelect = document.getElementById('settings-channel-select');
-        if (status) status.textContent = '';
-
         const setSelectOptions = (select, options, placeholder) => {
           if (!select) return;
           const frag = document.createDocumentFragment();
@@ -2515,6 +2506,74 @@ function shortId(id) {
           select.innerHTML = '';
           select.appendChild(frag);
         };
+
+        const timezoneSelect = document.getElementById('settings-timezone-select');
+        const dateFormatSelect = document.getElementById('settings-date-format-select');
+        if (timezoneSelect && !timezoneSelect.dataset.bound) {
+          timezoneSelect.dataset.bound = '1';
+          const options = [];
+          const offsets = new Set();
+          const formatLabel = window.formatOffsetLabel || formatOffsetLabel;
+          const localLabel = window.getLocalOffsetLabel ? window.getLocalOffsetLabel() : formatLabel(-new Date().getTimezoneOffset());
+          for (let hour = 14; hour >= -11; hour -= 1) {
+            offsets.add(hour * 60);
+          }
+          [
+            750,  // GMT+12:30
+            630,  // GMT+10:30
+            570,  // GMT+09:30
+            330,  // GMT+05:30
+            270,  // GMT+04:30
+            210,  // GMT+03:30
+            -210, // GMT-03:30
+            -270, // GMT-04:30
+            -570, // GMT-09:30
+            -630  // GMT-10:30
+          ].forEach((minutes) => offsets.add(minutes));
+          [...offsets]
+            .sort((a, b) => b - a)
+            .forEach((minutes) => {
+              const label = formatLabel(minutes);
+              options.push({ value: label, label });
+            });
+          setSelectOptions(timezoneSelect, options, 'Select a timezone');
+          const preferred = window.getPreferredTimeZone ? window.getPreferredTimeZone() : localLabel;
+          if (options.some((opt) => opt.value === preferred)) {
+            timezoneSelect.value = preferred;
+          } else {
+            timezoneSelect.value = options.some((opt) => opt.value === localLabel) ? localLabel : 'GMT+00';
+          }
+          timezoneSelect.addEventListener('change', () => {
+            localStorage.setItem(window.TIMEZONE_STORAGE_KEY || TIMEZONE_STORAGE_KEY, timezoneSelect.value);
+            if (dateFormatSelect && !localStorage.getItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY)) {
+              dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
+            }
+            routePage();
+            if (typeof window.loadFanZone === 'function') {
+              window.loadFanZone();
+            }
+          });
+        }
+        if (dateFormatSelect && !dateFormatSelect.dataset.bound) {
+          dateFormatSelect.dataset.bound = '1';
+          dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
+          dateFormatSelect.addEventListener('change', () => {
+            localStorage.setItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
+            routePage();
+            if (typeof window.loadFanZone === 'function') {
+              window.loadFanZone();
+            }
+          });
+        }
+
+        if (!isAdminUI()) return;
+
+        const status = document.getElementById('settings-status');
+        const channelStatus = document.getElementById('settings-channels-status');
+        const guildSelect = document.getElementById('settings-guild-select');
+        const categorySelect = document.getElementById('settings-category-select');
+        const channelSelect = document.getElementById('settings-channel-select');
+        if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
         const savedChannel = data?.stage_announce_channel || '';
@@ -2677,6 +2736,7 @@ function shortId(id) {
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
+        await loadMatchTimings();
       }catch(e){
         notify(`Settings error: ${e.message}`, false);
       }finally{
@@ -3089,15 +3149,100 @@ document.addEventListener('DOMContentLoaded', () => {
     return await r.json();
   });
 
+    const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
+    const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
+
+    function formatOffsetLabel(totalMinutes){
+    const sign = totalMinutes >= 0 ? '+' : '-';
+    const abs = Math.abs(totalMinutes);
+    const hours = String(Math.floor(abs / 60)).padStart(2, '0');
+    const minutes = abs % 60;
+    if (minutes) {
+      return `GMT${sign}${hours}:${String(minutes).padStart(2, '0')}`;
+    }
+    return `GMT${sign}${hours}`;
+  }
+
+    function parseOffsetLabel(label){
+    const match = /^GMT([+-])(\\d{2})(?::(\\d{2}))?$/.exec(String(label || ''));
+    if (!match) return 0;
+    const sign = match[1] === '-' ? -1 : 1;
+    const hours = Number(match[2] || 0);
+    const minutes = Number(match[3] || 0);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+    return sign * (hours * 60 + minutes);
+  }
+
+    function getLocalOffsetLabel(){
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    return formatOffsetLabel(offsetMinutes);
+  }
+
+    function getPreferredTimeZone(){
+    const stored = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+    if (stored) return stored;
+    return getLocalOffsetLabel();
+  }
+
+    function isAmericanLocale(){
+    return String(navigator.language || '').toLowerCase().startsWith('en-us');
+  }
+
+    function getPreferredDateFormat(){
+    const stored = localStorage.getItem(DATE_FORMAT_STORAGE_KEY);
+    if (stored === 'MD' || stored === 'DM') return stored;
+    return isAmericanLocale() ? 'MD' : 'DM';
+  }
+
+    function getDateTimeParts(isoString, offsetLabel){
+    if (!isoString) return null;
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return null;
+    const offsetMinutes = parseOffsetLabel(offsetLabel);
+    const localMs = d.getTime() + offsetMinutes * 60 * 1000;
+    const localDate = new Date(localMs);
+    return {
+      year: String(localDate.getUTCFullYear()),
+      month: String(localDate.getUTCMonth() + 1).padStart(2, '0'),
+      day: String(localDate.getUTCDate()).padStart(2, '0'),
+      hour: String(localDate.getUTCHours()).padStart(2, '0'),
+      minute: String(localDate.getUTCMinutes()).padStart(2, '0'),
+      timeZoneName: offsetLabel
+    };
+  }
+
+    function formatFixtureDateTime(isoString, { includeTime = true, includeYear = false, includeTimeZone = true } = {}){
+    const timeZone = getPreferredTimeZone();
+    const parts = getDateTimeParts(isoString, timeZone);
+    if (!parts) return isoString || '';
+    const dateOrder = getPreferredDateFormat();
+    const date = dateOrder === 'MD'
+      ? `${parts.month}/${parts.day}`
+      : `${parts.day}/${parts.month}`;
+    const dateWithYear = includeYear ? `${date}/${parts.year}` : date;
+    let out = dateWithYear;
+    if (includeTime) {
+      out = `${out} ${parts.hour}:${parts.minute}`;
+    }
+    const tzLabel = includeTimeZone ? (parts.timeZoneName || timeZone) : '';
+    return tzLabel ? `${out} ${tzLabel}` : out;
+  }
+
     function formatMatchDateShort(isoString){
     if (!isoString) return '';
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return '';
-    const day = d.getUTCDate();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const mon = months[d.getUTCMonth()];
-    return `${day} ${mon}`;
+    return formatFixtureDateTime(isoString, { includeTime: false, includeYear: false, includeTimeZone: false });
   }
+
+    window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
+    window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
+    window.getPreferredTimeZone = getPreferredTimeZone;
+    window.getPreferredDateFormat = getPreferredDateFormat;
+    window.formatFixtureDateTime = formatFixtureDateTime;
+    window.formatOffsetLabel = formatOffsetLabel;
+    window.getLocalOffsetLabel = getLocalOffsetLabel;
+    if (!window.loadMatchTimings) {
+      window.loadMatchTimings = () => {};
+    }
 
 
   function escapeHtml(str){
@@ -4682,7 +4827,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
+        <div class="fan-time">${escapeHtml((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
