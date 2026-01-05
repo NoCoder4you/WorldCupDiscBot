@@ -183,6 +183,24 @@
                               </div>
                           </div>
                       </div>
+                      <div class="settings-divider admin-only"></div>
+                      <div class="settings-row admin-only">
+                          <div class="settings-row-title">Match timings</div>
+                          <div class="settings-help">
+                              Update match dates and times (UTC). Date format follows your timezone: DD/MM or MM/DD.
+                          </div>
+                          <div class="settings-grid settings-match-format">
+                              <label class="settings-field">
+                                  <span class="settings-label">Date format</span>
+                                  <select id="settings-match-date-format" class="select-dark">
+                                      <option value="DM">DD/MM</option>
+                                      <option value="MD">MM/DD</option>
+                                  </select>
+                              </label>
+                          </div>
+                          <div id="settings-matches-status" class="settings-status"></div>
+                          <div id="settings-matches-list" class="settings-matches-list"></div>
+                      </div>
                   </div>
               </div>
           </section>

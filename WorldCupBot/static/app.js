@@ -2494,7 +2494,180 @@ function shortId(id) {
         const guildSelect = document.getElementById('settings-guild-select');
         const categorySelect = document.getElementById('settings-category-select');
         const channelSelect = document.getElementById('settings-channel-select');
+        const matchesStatus = document.getElementById('settings-matches-status');
+        const matchesList = document.getElementById('settings-matches-list');
+        const matchesFormatSelect = document.getElementById('settings-match-date-format');
         if (status) status.textContent = '';
+
+        const resolveDateOrder = () => {
+          const stored = matchesFormatSelect ? matchesFormatSelect.value : '';
+          if (stored === 'MD' || stored === 'DM') {
+            return {
+              order: stored,
+              label: stored === 'MD' ? 'MM/DD' : 'DD/MM'
+            };
+          }
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+          const useAmerican = tz.startsWith('America/');
+          return {
+            order: useAmerican ? 'MD' : 'DM',
+            label: useAmerican ? 'MM/DD' : 'DD/MM'
+          };
+        };
+
+        const pad2 = (val) => String(val).padStart(2, '0');
+
+        const formatUtcParts = (utc, order) => {
+          if (!utc) return { date: '', time: '', year: '' };
+          const d = new Date(utc);
+          if (Number.isNaN(d.getTime())) return { date: '', time: '', year: '' };
+          const day = pad2(d.getUTCDate());
+          const month = pad2(d.getUTCMonth() + 1);
+          const year = d.getUTCFullYear();
+          const date = order === 'MD' ? `${month}/${day}` : `${day}/${month}`;
+          const time = `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+          return { date, time, year };
+        };
+
+        const parseDateInput = (value, order) => {
+          const raw = String(value || '').trim();
+          if (!raw) return null;
+          const parts = raw.split(/[\/\-.]/).map((part) => part.trim()).filter(Boolean);
+          if (parts.length < 2) return null;
+          const first = Number(parts[0]);
+          const second = Number(parts[1]);
+          if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
+          const month = order === 'MD' ? first : second;
+          const day = order === 'MD' ? second : first;
+          if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+          return { month, day };
+        };
+
+        const buildUtcString = (year, month, day, timeValue) => {
+          const timeRaw = String(timeValue || '').trim();
+          const parts = timeRaw.split(':');
+          const hour = Number(parts[0] || 0);
+          const minute = Number(parts[1] || 0);
+          if (!Number.isFinite(hour) || !Number.isFinite(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+            return null;
+          }
+          return `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:00Z`;
+        };
+
+        const loadMatchTimings = async () => {
+          if (!matchesList) return;
+          const { order, label } = resolveDateOrder();
+          if (matchesStatus) matchesStatus.textContent = 'Loading match timings...';
+          matchesList.innerHTML = '';
+          try {
+            const data = await fetchJSON('/admin/fixtures');
+            const fixtures = Array.isArray(data?.fixtures) ? data.fixtures : [];
+            if (!fixtures.length) {
+              matchesList.innerHTML = '<div class="settings-value">No fixtures available.</div>';
+              if (matchesStatus) matchesStatus.textContent = '';
+              return;
+            }
+            const frag = document.createDocumentFragment();
+            fixtures.forEach((fixture) => {
+              if (!fixture || !fixture.id) return;
+              const { date, time, year } = formatUtcParts(fixture.utc, order);
+              const row = document.createElement('div');
+              row.className = 'settings-match-row';
+              row.dataset.matchId = fixture.id;
+              row.dataset.matchYear = String(year || new Date().getUTCFullYear());
+
+              const main = document.createElement('div');
+              main.className = 'settings-match-main';
+              const title = document.createElement('div');
+              title.className = 'settings-match-title';
+              title.textContent = `${fixture.home || 'TBA'} vs ${fixture.away || 'TBA'}`;
+              const meta = document.createElement('div');
+              meta.className = 'settings-match-meta';
+              meta.textContent = fixture.id;
+              main.appendChild(title);
+              main.appendChild(meta);
+
+              const inputs = document.createElement('div');
+              inputs.className = 'settings-match-inputs';
+
+              const dateLabel = document.createElement('label');
+              const dateSpan = document.createElement('span');
+              dateSpan.textContent = `Date (${label})`;
+              const dateInput = document.createElement('input');
+              dateInput.type = 'text';
+              dateInput.className = 'settings-match-date';
+              dateInput.placeholder = label;
+              dateInput.value = date;
+              dateLabel.appendChild(dateSpan);
+              dateLabel.appendChild(dateInput);
+
+              const timeLabel = document.createElement('label');
+              const timeSpan = document.createElement('span');
+              timeSpan.textContent = 'Time (UTC)';
+              const timeInput = document.createElement('input');
+              timeInput.type = 'time';
+              timeInput.step = '60';
+              timeInput.className = 'settings-match-time';
+              timeInput.value = time;
+              timeLabel.appendChild(timeSpan);
+              timeLabel.appendChild(timeInput);
+
+              const saveButton = document.createElement('button');
+              saveButton.type = 'button';
+              saveButton.className = 'btn btn-outline sm settings-match-save';
+              saveButton.textContent = 'Save';
+
+              saveButton.addEventListener('click', async () => {
+                const parsed = parseDateInput(dateInput.value, order);
+                if (!parsed) {
+                  notify(`Invalid date format. Use ${label}.`, false);
+                  return;
+                }
+                const matchYear = Number(row.dataset.matchYear) || new Date().getUTCFullYear();
+                const newUtc = buildUtcString(matchYear, parsed.month, parsed.day, timeInput.value);
+                if (!newUtc) {
+                  notify('Invalid time format.', false);
+                  return;
+                }
+                try {
+                  await fetchJSON('/admin/fixtures', {
+                    method: 'POST',
+                    body: JSON.stringify({ id: fixture.id, utc: newUtc })
+                  });
+                  notify('Match timing saved');
+                } catch (e) {
+                  notify(`Failed to save match timing: ${e.message}`, false);
+                }
+              });
+
+              inputs.appendChild(dateLabel);
+              inputs.appendChild(timeLabel);
+              inputs.appendChild(saveButton);
+              row.appendChild(main);
+              row.appendChild(inputs);
+              frag.appendChild(row);
+            });
+            matchesList.appendChild(frag);
+            if (matchesStatus) matchesStatus.textContent = '';
+          } catch (e) {
+            if (matchesStatus) matchesStatus.textContent = `Failed to load match timings: ${e.message}`;
+          }
+        };
+
+        if (matchesFormatSelect && !matchesFormatSelect.dataset.bound) {
+          matchesFormatSelect.dataset.bound = '1';
+          const saved = localStorage.getItem('wc:matchDateFormat');
+          if (saved === 'MD' || saved === 'DM') {
+            matchesFormatSelect.value = saved;
+          } else {
+            const { order } = resolveDateOrder();
+            matchesFormatSelect.value = order;
+          }
+          matchesFormatSelect.addEventListener('change', async () => {
+            localStorage.setItem('wc:matchDateFormat', matchesFormatSelect.value);
+            await loadMatchTimings();
+          });
+        }
 
         const setSelectOptions = (select, options, placeholder) => {
           if (!select) return;
@@ -2677,6 +2850,7 @@ function shortId(id) {
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
+        await loadMatchTimings();
       }catch(e){
         notify(`Settings error: ${e.message}`, false);
       }finally{
