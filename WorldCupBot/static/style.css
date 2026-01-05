@@ -3343,11 +3343,10 @@ body .notify-panel{ right: 90px; }
 
 .settings-notifications-grid{
   display: grid;
-  gap: 12px;
+  gap: 16px;
   margin-top: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 320px));
-  justify-content: start;
-  align-items: stretch;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  align-items: start;
 }
 
 .settings-notifications-column {
@@ -3357,7 +3356,10 @@ body .notify-panel{ right: 90px; }
 }
 
 .settings-notifications-category {
-  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  align-content: start;
 }
 
 .settings-rows {
@@ -3430,7 +3432,6 @@ body:not(.admin) .settings-rows {
 }
 
 .settings-notification-option{
-  max-width: 320px;
   width: 100%;
   box-sizing: border-box;
   display: flex;
@@ -3447,6 +3448,7 @@ body:not(.admin) .settings-rows {
   user-select: none;
   transition: transform 80ms ease, filter 150ms ease, border-color 150ms ease, background 150ms ease;
 }
+
 
 .settings-notification-option:hover{
   filter: brightness(1.06);
