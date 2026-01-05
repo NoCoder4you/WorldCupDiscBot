@@ -3545,7 +3545,7 @@ body:not(.admin) .settings-rows {
 
 .settings-divider {
   height: 1px;
-  margin: 20px 0;
+  margin: 10px 0;
   background: rgba(255, 255, 255, 0.08);
 }
 
