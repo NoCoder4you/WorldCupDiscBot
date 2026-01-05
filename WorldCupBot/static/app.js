@@ -2457,21 +2457,17 @@ function shortId(id) {
         };
 
         const saveNotificationSettings = async () => {
-          if (notificationStatus) notificationStatus.textContent = 'Saving notification preferences...';
+          if (notificationStatus) notificationStatus.textContent = '';
           try {
-            const res = await fetchJSON('/api/me/notification-settings', {
+            await fetchJSON('/api/me/notification-settings', {
               method: 'POST',
               body: JSON.stringify(buildNotificationPayload())
             });
-            if (notificationStatus) {
-              notificationStatus.textContent = res?.preference
-                ? 'Notification preferences saved.'
-                : 'Notification preferences set to default.';
-            }
+            if (notificationStatus) notificationStatus.textContent = '';
+            notify('Saved');
           } catch (e) {
-            if (notificationStatus) {
-              notificationStatus.textContent = `Failed to save preferences: ${e.message}`;
-            }
+            if (notificationStatus) notificationStatus.textContent = '';
+            notify(`Failed to save preferences: ${e.message}`, false);
           }
         };
 
