@@ -2487,15 +2487,6 @@ function shortId(id) {
 
         await loadNotificationSettings();
 
-        if (!isAdminUI()) return;
-
-        const status = document.getElementById('settings-status');
-        const channelStatus = document.getElementById('settings-channels-status');
-        const guildSelect = document.getElementById('settings-guild-select');
-        const categorySelect = document.getElementById('settings-category-select');
-        const channelSelect = document.getElementById('settings-channel-select');
-        if (status) status.textContent = '';
-
         const setSelectOptions = (select, options, placeholder) => {
           if (!select) return;
           const frag = document.createDocumentFragment();
@@ -2515,6 +2506,71 @@ function shortId(id) {
           select.innerHTML = '';
           select.appendChild(frag);
         };
+
+        const timezoneSelect = document.getElementById('settings-timezone-select');
+        const dateFormatSelect = document.getElementById('settings-date-format-select');
+        if (timezoneSelect && !timezoneSelect.dataset.bound) {
+          timezoneSelect.dataset.bound = '1';
+          let zones = [];
+          if (typeof Intl.supportedValuesOf === 'function') {
+            zones = Intl.supportedValuesOf('timeZone');
+          } else {
+            zones = [
+              'UTC',
+              'Europe/London',
+              'Europe/Paris',
+              'Europe/Berlin',
+              'America/New_York',
+              'America/Chicago',
+              'America/Denver',
+              'America/Los_Angeles',
+              'America/Sao_Paulo',
+              'Asia/Dubai',
+              'Asia/Kolkata',
+              'Asia/Singapore',
+              'Asia/Tokyo',
+              'Australia/Sydney'
+            ];
+          }
+          const options = zones.map((zone) => ({ value: zone, label: zone }));
+          setSelectOptions(timezoneSelect, options, 'Select a timezone');
+          const preferred = getPreferredTimeZone();
+          if (options.some((opt) => opt.value === preferred)) {
+            timezoneSelect.value = preferred;
+          } else if (options.length) {
+            timezoneSelect.value = options[0].value;
+          }
+          timezoneSelect.addEventListener('change', () => {
+            localStorage.setItem(TIMEZONE_STORAGE_KEY, timezoneSelect.value);
+            if (dateFormatSelect && !localStorage.getItem(DATE_FORMAT_STORAGE_KEY)) {
+              dateFormatSelect.value = getPreferredDateFormat();
+            }
+            routePage();
+            if (typeof window.loadFanZone === 'function') {
+              window.loadFanZone();
+            }
+          });
+        }
+        if (dateFormatSelect && !dateFormatSelect.dataset.bound) {
+          dateFormatSelect.dataset.bound = '1';
+          dateFormatSelect.value = getPreferredDateFormat();
+          dateFormatSelect.addEventListener('change', () => {
+            localStorage.setItem(DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
+            routePage();
+            if (typeof window.loadFanZone === 'function') {
+              window.loadFanZone();
+            }
+          });
+        }
+
+        if (!isAdminUI()) return;
+
+        const status = document.getElementById('settings-status');
+        const channelStatus = document.getElementById('settings-channels-status');
+        const guildSelect = document.getElementById('settings-guild-select');
+        const categorySelect = document.getElementById('settings-category-select');
+        const channelSelect = document.getElementById('settings-channel-select');
+        if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
         const savedChannel = data?.stage_announce_channel || '';
@@ -3089,14 +3145,66 @@ document.addEventListener('DOMContentLoaded', () => {
     return await r.json();
   });
 
+    const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
+    const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
+
+    function getPreferredTimeZone(){
+    const stored = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+    if (stored) return stored;
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  }
+
+    function isAmericanTimeZone(timeZone){
+    return String(timeZone || '').startsWith('America/');
+  }
+
+    function getPreferredDateFormat(){
+    const stored = localStorage.getItem(DATE_FORMAT_STORAGE_KEY);
+    if (stored === 'MD' || stored === 'DM') return stored;
+    return isAmericanTimeZone(getPreferredTimeZone()) ? 'MD' : 'DM';
+  }
+
+    function getDateTimeParts(isoString, timeZone){
+    if (!isoString) return null;
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return null;
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZoneName: 'short'
+    });
+    const out = {};
+    fmt.formatToParts(d).forEach((part) => {
+      out[part.type] = part.value;
+    });
+    return out;
+  }
+
+    function formatFixtureDateTime(isoString, { includeTime = true, includeYear = false, includeTimeZone = true } = {}){
+    const timeZone = getPreferredTimeZone();
+    const parts = getDateTimeParts(isoString, timeZone);
+    if (!parts) return isoString || '';
+    const dateOrder = getPreferredDateFormat();
+    const date = dateOrder === 'MD'
+      ? `${parts.month}/${parts.day}`
+      : `${parts.day}/${parts.month}`;
+    const dateWithYear = includeYear ? `${date}/${parts.year}` : date;
+    let out = dateWithYear;
+    if (includeTime) {
+      out = `${out} ${parts.hour}:${parts.minute}`;
+    }
+    const tzLabel = includeTimeZone ? (parts.timeZoneName || timeZone) : '';
+    return tzLabel ? `${out} ${tzLabel}` : out;
+  }
+
     function formatMatchDateShort(isoString){
     if (!isoString) return '';
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return '';
-    const day = d.getUTCDate();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const mon = months[d.getUTCMonth()];
-    return `${day} ${mon}`;
+    return formatFixtureDateTime(isoString, { includeTime: false, includeYear: false, includeTimeZone: false });
   }
 
 
@@ -4682,7 +4790,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${(f.utc || '').replace('T',' ').replace('Z',' UTC')}</div>
+        <div class="fan-time">${escapeHtml(formatFixtureDateTime(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
