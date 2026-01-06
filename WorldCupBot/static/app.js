@@ -1039,8 +1039,69 @@ function flagHTML(country) {
           onerror="this.replaceWith(document.createTextNode('${fallback}'));">`;
 }
 
-var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country' };
+var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country', groupMap: new Map() };
 var playerNames = {}; // id -> username
+
+function normalizeOwnershipTeam(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function buildOwnershipGroupMap(teamMeta) {
+  var out = new Map();
+  if (!teamMeta) return out;
+
+  if (teamMeta.groups && typeof teamMeta.groups === 'object') {
+    Object.entries(teamMeta.groups).forEach(function ([group, entries]) {
+      (entries || []).forEach(function (entry) {
+        var name = '';
+        if (typeof entry === 'string') {
+          name = entry;
+        } else if (entry && typeof entry === 'object') {
+          name = entry.team || entry.name || '';
+        }
+        var key = normalizeOwnershipTeam(name);
+        if (key) out.set(key, String(group || '').toUpperCase());
+      });
+    });
+    return out;
+  }
+
+  if (typeof teamMeta === 'object') {
+    Object.entries(teamMeta).forEach(function ([team, meta]) {
+      if (!meta || typeof meta !== 'object') return;
+      var group = meta.group;
+      var key = normalizeOwnershipTeam(team);
+      if (key && group) out.set(key, String(group).toUpperCase());
+    });
+  }
+  return out;
+}
+
+async function loadOwnershipTeamMeta() {
+  var cacheKey = 'wc:team_meta';
+  var ttl = 24 * 60 * 60 * 1000;
+  try {
+    var blob = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if (blob && blob.ts && (Date.now() - blob.ts) < ttl && blob.data) {
+      return blob.data;
+    }
+  } catch (_) {
+    try { localStorage.removeItem(cacheKey); } catch (_) {}
+  }
+  try {
+    var res = await fetch('/api/team_meta', { credentials: 'include' });
+    if (!res.ok) return null;
+    var data = await res.json();
+    try { localStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: data })); } catch (_) {}
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
 
 function formatOwnershipPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
@@ -1143,6 +1204,18 @@ function sortMerged(by) {
   var list = ownershipState.merged.slice();
   if (by === 'country') {
     list.sort(function (a, b) { return a.country.localeCompare(b.country); });
+  } else if (by === 'group') {
+    var groupKey = function (row) {
+      var team = normalizeOwnershipTeam(row.country);
+      var group = ownershipState.groupMap.get(team) || '';
+      return group.toUpperCase();
+    };
+    list.sort(function (a, b) {
+      var ga = groupKey(a) || 'ZZZ';
+      var gb = groupKey(b) || 'ZZZ';
+      if (ga !== gb) return ga.localeCompare(gb);
+      return a.country.localeCompare(b.country);
+    });
   } else if (by === 'player') {
     var name = function (r) {
       var n = (r.main_owner && (r.main_owner.username || r.main_owner.id)) || 'zzzz~unassigned';
@@ -1426,7 +1499,14 @@ async function initOwnership() {
     } catch { stages = {}; }
     ownershipState.stages = stages || {};
 
-    // 6) Render
+    // 6) Load group metadata for sorting
+    let teamMeta = null;
+    try {
+      teamMeta = await loadOwnershipTeamMeta();
+    } catch { teamMeta = null; }
+    ownershipState.groupMap = buildOwnershipGroupMap(teamMeta);
+
+    // 7) Render
     ownershipState.merged = list;
     ownershipState.loaded = true;
     sortMerged(ownershipState.lastSort || 'country');
@@ -1439,8 +1519,10 @@ async function initOwnership() {
 
 // Sort buttons
 var sortCountryBtn = document.querySelector('#sort-country');
+var sortGroupBtn = document.querySelector('#sort-group');
 var sortPlayerBtn = document.querySelector('#sort-player');
 if (sortCountryBtn) sortCountryBtn.addEventListener('click', function () { sortMerged('country'); });
+if (sortGroupBtn) sortGroupBtn.addEventListener('click', function () { sortMerged('group'); });
 if (sortPlayerBtn) sortPlayerBtn.addEventListener('click', function () { sortMerged('player'); });
 
 document.addEventListener('click', async (ev) => {
