@@ -1376,14 +1376,6 @@ body.user-admin-view #ownership .ownership-card {
     table-layout: fixed;
 }
 
-/* --- Cells --- */
-#ownership .ownership-table th,
-#ownership .ownership-table td {
-    padding: 10px 12px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    border-bottom: 1px solid var(--border);
-}
 
 #ownership .ownership-table th {
     font-weight: 900;
