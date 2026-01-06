@@ -1177,7 +1177,7 @@ function formatOwnershipPercent(value) {
         }
 
         tr.innerHTML = `
-          <td>${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
+          <td id="country">${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
           <td><span class="ownership-group">${groupLabel}</span></td>
           <td>${ownerCell}</td>
           <td>${splitStr}</td>
