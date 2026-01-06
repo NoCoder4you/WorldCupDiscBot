@@ -2631,6 +2631,7 @@ function shortId(id) {
               dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
             }
             routePage();
+            window.dispatchEvent(new CustomEvent('timezonechange', { detail: { value: timezoneSelect.value } }));
             if (typeof window.updateFanZoneTimes === 'function') {
               window.updateFanZoneTimes();
             } else if (typeof window.loadFanZone === 'function') {
@@ -2644,6 +2645,7 @@ function shortId(id) {
           dateFormatSelect.addEventListener('change', () => {
             localStorage.setItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
             routePage();
+            window.dispatchEvent(new CustomEvent('dateformatchange', { detail: { value: dateFormatSelect.value } }));
             if (typeof window.updateFanZoneTimes === 'function') {
               window.updateFanZoneTimes();
             } else if (typeof window.loadFanZone === 'function') {
@@ -5220,6 +5222,8 @@ async function fetchGoalsData(){
   };
 
   window.updateFanZoneTimes = updateFanZoneTimes;
+  window.addEventListener('timezonechange', updateFanZoneTimes);
+  window.addEventListener('dateformatchange', updateFanZoneTimes);
 
   // Auto-refresh while the Fan Zone section is visible
   let fanTimer = null;
