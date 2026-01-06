@@ -1,16 +1,16 @@
 {
   "groups": {
-    "A": ["Mexico", "South Korea", "South Africa", "TBA"],
-    "B": ["Canada", "Switzerland", "Qatar", "TBA"],
+    "A": ["Mexico", "South Korea", "South Africa"],
+    "B": ["Canada", "Switzerland", "Qatar"],
     "C": ["Brazil", "Morocco", "Scotland", "Haiti"],
-    "D": ["USA", "Australia", "Paraguay", "TBA"],
+    "D": ["USA", "Australia", "Paraguay"],
     "E": ["Germany", "Ecuador", "Côte d'Ivoire", "Curaçao"],
-    "F": ["Netherlands", "Japan", "Tunisia", "TBA"],
+    "F": ["Netherlands", "Japan", "Tunisia"],
     "G": ["Belgium", "Iran", "Egypt", "New Zealand"],
     "H": ["Spain", "Uruguay", "Saudi Arabia", "Cape Verde"],
-    "I": ["France", "Senegal", "Norway", "TBA"],
+    "I": ["France", "Senegal", "Norway"],
     "J": ["Argentina", "Austria", "Algeria", "Jordan"],
-    "K": ["Portugal", "Colombia", "Uzbekistan", "TBA"],
+    "K": ["Portugal", "Colombia", "Uzbekistan"],
     "L": ["England", "Croatia", "Ghana", "Panama"]
   },
   "not_qualified": []
