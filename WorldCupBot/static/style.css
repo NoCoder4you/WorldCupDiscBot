@@ -1794,6 +1794,10 @@ select.select-dark:disabled {
     user-select: none;
 }
 
+#country {
+    text-align: left;
+}
+
 /* Flags inline with country */
 .flag-img {
     width: 32px;

@@ -867,8 +867,8 @@ function setPage(p) {
           const li = document.createElement('li');
           li.setAttribute('role', 'option');
           li.dataset.id = id;
-          li.dataset.label = `${name} (${id})`;
-          li.textContent = li.dataset.label;
+          li.dataset.label = name;
+          li.textContent = name;
           list.appendChild(li);
         });
       }
@@ -1177,7 +1177,7 @@ function formatOwnershipPercent(value) {
         }
 
         tr.innerHTML = `
-          <td>${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
+          <td id="country">${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
           <td><span class="ownership-group">${groupLabel}</span></td>
           <td>${ownerCell}</td>
           <td>${splitStr}</td>
