@@ -6,6 +6,11 @@
   const qsa = (s, el=document) => [...el.querySelectorAll(s)];
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
+  const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
+  const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
+  if (!window.TIMEZONE_STORAGE_KEY) window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
+  if (!window.DATE_FORMAT_STORAGE_KEY) window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
+
   const state = {
     admin:false,
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
@@ -2631,6 +2636,7 @@ function shortId(id) {
               dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
             }
             routePage();
+            window.dispatchEvent(new CustomEvent('timezonechange', { detail: { value: timezoneSelect.value } }));
             if (typeof window.updateFanZoneTimes === 'function') {
               window.updateFanZoneTimes();
             } else if (typeof window.loadFanZone === 'function') {
@@ -2644,6 +2650,7 @@ function shortId(id) {
           dateFormatSelect.addEventListener('change', () => {
             localStorage.setItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
             routePage();
+            window.dispatchEvent(new CustomEvent('dateformatchange', { detail: { value: dateFormatSelect.value } }));
             if (typeof window.updateFanZoneTimes === 'function') {
               window.updateFanZoneTimes();
             } else if (typeof window.loadFanZone === 'function') {
@@ -3241,9 +3248,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return await r.json();
   });
 
-    const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
-    const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
-
     function formatOffsetLabel(totalMinutes){
     const sign = totalMinutes >= 0 ? '+' : '-';
     const abs = Math.abs(totalMinutes);
@@ -3256,7 +3260,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
     function parseOffsetLabel(label){
-    const match = /^GMT([+-])(\\d{2})(?::(\\d{2}))?$/.exec(String(label || ''));
+    const match = /^GMT([+-])(\d{2})(?::(\d{2}))?$/.exec(String(label || ''));
     if (!match) return 0;
     const sign = match[1] === '-' ? -1 : 1;
     const hours = Number(match[2] || 0);
@@ -3331,8 +3335,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${parts.day}/${parts.month} - ${parts.hour}:${parts.minute}`;
   }
 
-    window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
-    window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
     window.getPreferredTimeZone = getPreferredTimeZone;
     window.getPreferredDateFormat = getPreferredDateFormat;
     window.formatFixtureDateTime = formatFixtureDateTime;
@@ -5220,6 +5222,8 @@ async function fetchGoalsData(){
   };
 
   window.updateFanZoneTimes = updateFanZoneTimes;
+  window.addEventListener('timezonechange', updateFanZoneTimes);
+  window.addEventListener('dateformatchange', updateFanZoneTimes);
 
   // Auto-refresh while the Fan Zone section is visible
   let fanTimer = null;
