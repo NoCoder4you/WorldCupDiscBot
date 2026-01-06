@@ -755,6 +755,22 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     --fg: #fff
 }
 
+.pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.2px;
+    min-width: 84px;
+    text-align: center;
+    box-sizing: border-box;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
 .pill-ok {
     background: var(--accent);
     color: #08131d;
@@ -894,20 +910,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     border-bottom: 1px solid var(--border);
 }
 
-/* Pill width so text swap doesn't move layout */
-.pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-weight: 800;
-    font-size: .85rem;
-    letter-spacing: .2px;
-    min-width: 92px;
-    white-space: nowrap;
-    box-sizing: border-box;
-}
 
 .pill-ok {
     background: var(--accent);
@@ -2932,8 +2934,6 @@ select.select-dark:disabled {
   font-size: 12px;
   line-height: 1;
 }
-
-.pill { min-width: 84px; }
 
 .fan-card.voted-home .fan-bar-home,
 .fan-actions .btn.home.active {
