@@ -3260,7 +3260,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
     function parseOffsetLabel(label){
-    const match = /^GMT([+-])(\\d{2})(?::(\\d{2}))?$/.exec(String(label || ''));
+    const match = /^GMT([+-])(\d{2})(?::(\d{2}))?$/.exec(String(label || ''));
     if (!match) return 0;
     const sign = match[1] === '-' ? -1 : 1;
     const hours = Number(match[2] || 0);
