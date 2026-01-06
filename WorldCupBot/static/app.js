@@ -2595,8 +2595,6 @@ function shortId(id) {
           timezoneSelect.dataset.bound = '1';
           const options = [];
           const offsets = new Set();
-          const formatLabel = window.formatOffsetLabel || formatOffsetLabel;
-          const localLabel = window.getLocalOffsetLabel ? window.getLocalOffsetLabel() : formatLabel(-new Date().getTimezoneOffset());
           for (let hour = 14; hour >= -11; hour -= 1) {
             offsets.add(hour * 60);
           }
@@ -2615,20 +2613,21 @@ function shortId(id) {
           [...offsets]
             .sort((a, b) => b - a)
             .forEach((minutes) => {
-              const label = formatLabel(minutes);
+              const label = formatOffsetLabel(minutes);
               options.push({ value: label, label });
             });
           setSelectOptions(timezoneSelect, options, 'Select a timezone');
-          const preferred = window.getPreferredTimeZone ? window.getPreferredTimeZone() : localLabel;
+          const preferred = getPreferredTimeZone();
           if (options.some((opt) => opt.value === preferred)) {
             timezoneSelect.value = preferred;
           } else {
+            const localLabel = formatOffsetLabel(-new Date().getTimezoneOffset());
             timezoneSelect.value = options.some((opt) => opt.value === localLabel) ? localLabel : 'GMT+00';
           }
           timezoneSelect.addEventListener('change', () => {
-            localStorage.setItem(window.TIMEZONE_STORAGE_KEY || TIMEZONE_STORAGE_KEY, timezoneSelect.value);
-            if (dateFormatSelect && !localStorage.getItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY)) {
-              dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
+            localStorage.setItem(TIMEZONE_STORAGE_KEY, timezoneSelect.value);
+            if (dateFormatSelect && !localStorage.getItem(DATE_FORMAT_STORAGE_KEY)) {
+              dateFormatSelect.value = getPreferredDateFormat();
             }
             routePage();
             if (typeof window.loadFanZone === 'function') {
@@ -2638,9 +2637,9 @@ function shortId(id) {
         }
         if (dateFormatSelect && !dateFormatSelect.dataset.bound) {
           dateFormatSelect.dataset.bound = '1';
-          dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
+          dateFormatSelect.value = getPreferredDateFormat();
           dateFormatSelect.addEventListener('change', () => {
-            localStorage.setItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
+            localStorage.setItem(DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
             routePage();
             if (typeof window.loadFanZone === 'function') {
               window.loadFanZone();
@@ -3319,12 +3318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatMatchDateShort(isoString){
     if (!isoString) return '';
     return formatFixtureDateTime(isoString, { includeTime: false, includeYear: false, includeTimeZone: false });
-  }
-
-    function formatFixtureDateTimeCompact(isoString){
-    const parts = getDateTimeParts(isoString, getPreferredTimeZone());
-    if (!parts) return '-';
-    return `${parts.day}/${parts.month} - ${parts.hour}:${parts.minute}`;
   }
 
     window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
@@ -4922,7 +4915,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${escAttr((window.formatFixtureDateTimeCompact || formatFixtureDateTime)(f.utc || ''))}</div>
+        <div class="fan-time">${escapeHtml(formatFixtureDateTime(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
