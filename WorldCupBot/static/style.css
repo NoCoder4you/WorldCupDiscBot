@@ -1188,6 +1188,10 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     font-weight: 700;
     letter-spacing: 0.2px;
 }
+.ownership-table th:nth-child(2),
+.ownership-table td:nth-child(2) {
+    text-align: center;
+}
 
 /* Owner name focus, ID muted */
 .ownership-table td .owner-name {
