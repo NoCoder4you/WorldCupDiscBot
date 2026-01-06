@@ -2631,7 +2631,9 @@ function shortId(id) {
               dateFormatSelect.value = window.getPreferredDateFormat ? window.getPreferredDateFormat() : dateFormatSelect.value;
             }
             routePage();
-            if (typeof window.loadFanZone === 'function') {
+            if (typeof window.updateFanZoneTimes === 'function') {
+              window.updateFanZoneTimes();
+            } else if (typeof window.loadFanZone === 'function') {
               window.loadFanZone();
             }
           });
@@ -2642,7 +2644,9 @@ function shortId(id) {
           dateFormatSelect.addEventListener('change', () => {
             localStorage.setItem(window.DATE_FORMAT_STORAGE_KEY || DATE_FORMAT_STORAGE_KEY, dateFormatSelect.value);
             routePage();
-            if (typeof window.loadFanZone === 'function') {
+            if (typeof window.updateFanZoneTimes === 'function') {
+              window.updateFanZoneTimes();
+            } else if (typeof window.loadFanZone === 'function') {
               window.loadFanZone();
             }
           });
@@ -4911,7 +4915,7 @@ async function fetchGoalsData(){
     ` : '';
 
     return `
-      <div class="fan-card ${votedClass} ${lockedClass} ${winnerClass}" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}" data-winner="${isLocked ? winner : ''}">
+      <div class="fan-card ${votedClass} ${lockedClass} ${winnerClass}" data-fid="${f.id}" data-utc="${escAttr(f.utc || '')}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}" data-winner="${isLocked ? winner : ''}">
         <div class="fan-head">
           <div class="fan-team">
             ${flagImg(f.home_iso)} <span class="fan-team-name">${f.home}</span>
@@ -5068,6 +5072,18 @@ async function fetchGoalsData(){
       return data;
     }
 
+  function updateFanZoneTimes() {
+    const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
+    if (!cards.length) return;
+    const formatter = window.formatFixtureDateTimeCompact || formatFixtureDateTime;
+    cards.forEach((card) => {
+      const utc = card.dataset.utc || '';
+      if (!utc) return;
+      const timeEl = card.querySelector('.fan-time');
+      if (timeEl) timeEl.textContent = formatter(utc);
+    });
+  }
+
   async function renderFanZone() {
     const host = $('#fanzone-list');
     if (!host) return;
@@ -5103,7 +5119,7 @@ async function fetchGoalsData(){
     }
 
     host.innerHTML = fixtures.map(f => `
-      <div class="fan-card" data-fid="${f.id}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}">
+      <div class="fan-card" data-fid="${f.id}" data-utc="${escAttr(f.utc || '')}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}">
         <div class="muted" style="padding:12px">Loading…</div>
       </div>
     `).join('');
@@ -5202,6 +5218,8 @@ async function fetchGoalsData(){
   window.loadFanZone = async function loadFanZone() {
     await renderFanZone();
   };
+
+  window.updateFanZoneTimes = updateFanZoneTimes;
 
   // Auto-refresh while the Fan Zone section is visible
   let fanTimer = null;
