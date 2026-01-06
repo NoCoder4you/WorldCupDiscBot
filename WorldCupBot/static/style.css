@@ -1773,6 +1773,10 @@ select.select-dark:disabled {
     box-shadow: none;
 }
 
+.select-dark {
+    position: relative;
+}
+
 #reassign-picker {
     width: 100%;
     text-align: left;
