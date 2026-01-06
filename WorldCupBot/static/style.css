@@ -1206,6 +1206,16 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     .ownership-actions {
         gap: 6px;
     }
+    #ownership .ownership-actions {
+        padding-top: 0;
+    }
+    #ownership .ownership-group-filters {
+        position: static;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+    }
 }
 
 /* === Ownership layout fix (aligned headings) === */
@@ -1325,9 +1335,30 @@ body.user-admin-view #ownership .ownership-card {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
     display: block;
     height: auto;
+}
+
+#ownership .ownership-header {
+    position: relative;
+}
+
+#ownership .ownership-actions {
+    position: relative;
+    padding-top: 18px;
+}
+
+#ownership .ownership-group-filters {
+    position: absolute;
+    top: -18px;
+    right: 0;
+    z-index: 3;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(8, 14, 22, 0.9);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
 }
 
 #ownership .ownership-table-scroll {
