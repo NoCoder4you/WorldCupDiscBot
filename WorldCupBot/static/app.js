@@ -1629,11 +1629,18 @@ document.addEventListener('change', async (e) => {
       if (inputId) inputId.value = '';
 
       if (listbox) {
-        listbox.hidden = true;
+        listbox.hidden = false;
       }
 
       setupVerifiedPicker(true).then(() => {
-        picker?.setAttribute('aria-expanded', 'false');
+        if (!listbox) return;
+        if (listbox.childElementCount === 0) {
+          listbox.hidden = true;
+          picker?.setAttribute('aria-expanded', 'false');
+        } else {
+          listbox.hidden = false;
+          picker?.setAttribute('aria-expanded', 'true');
+        }
       }).catch(() => {});
 
       backdrop.style.display = 'flex';
