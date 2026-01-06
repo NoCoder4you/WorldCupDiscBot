@@ -3516,13 +3516,35 @@ body:not(.admin) .settings-rows {
 }
 
 .settings-field input,
-.settings-field select {
+.settings-field select,
+.settings-field textarea {
   width: 100%;
   background: rgba(14, 18, 30, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f2f4ff;
   border-radius: 10px;
   padding: 12px 14px;
+}
+
+.settings-field textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.settings-grid-wide {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.settings-field.full {
+  grid-column: 1 / -1;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
 }
 
 .settings-field .checkbox {
