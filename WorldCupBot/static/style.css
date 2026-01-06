@@ -1447,11 +1447,7 @@ body.user-admin-view #ownership .ownership-card {
 
 #ownership .stage-select-display {
     width: 100%;
-    text-align: left;
-}
-
-#ownership .stage-select-list {
-    z-index: 20;
+    text-align: center;
 }
 
 /* --- Misc --- */
