@@ -6,6 +6,11 @@
   const qsa = (s, el=document) => [...el.querySelectorAll(s)];
   const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
+  const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
+  const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
+  if (!window.TIMEZONE_STORAGE_KEY) window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
+  if (!window.DATE_FORMAT_STORAGE_KEY) window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
+
   const state = {
     admin:false,
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
@@ -3243,9 +3248,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return await r.json();
   });
 
-    const TIMEZONE_STORAGE_KEY = 'wc:timeZone';
-    const DATE_FORMAT_STORAGE_KEY = 'wc:dateFormat';
-
     function formatOffsetLabel(totalMinutes){
     const sign = totalMinutes >= 0 ? '+' : '-';
     const abs = Math.abs(totalMinutes);
@@ -3333,8 +3335,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${parts.day}/${parts.month} - ${parts.hour}:${parts.minute}`;
   }
 
-    window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
-    window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
     window.getPreferredTimeZone = getPreferredTimeZone;
     window.getPreferredDateFormat = getPreferredDateFormat;
     window.formatFixtureDateTime = formatFixtureDateTime;
