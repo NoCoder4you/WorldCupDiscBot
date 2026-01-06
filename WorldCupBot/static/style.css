@@ -1440,11 +1440,25 @@ body.user-admin-view #ownership .ownership-card {
 #ownership .ownership-table td:nth-child(5) {
     overflow: visible;
 }
+#ownership .ownership-table td {
+    position: relative;
+    z-index: 0;
+}
+#ownership .ownership-table tbody tr {
+    position: relative;
+    z-index: 0;
+}
+#ownership .ownership-table tbody tr.stage-select-open {
+    z-index: 5;
+}
 
 #ownership .stage-select-wrap {
     width: 100%;
     min-width: 120px;
-    z-index: 3;
+    z-index: 2;
+}
+#ownership .stage-select-wrap.is-open {
+    z-index: 10;
 }
 
 #ownership .stage-select-display {
