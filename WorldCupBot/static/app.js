@@ -1264,6 +1264,10 @@ function enhanceStageSelects() {
       .forEach(btn => btn.classList.remove('open'));
     document.querySelectorAll('.stage-select-list.open')
       .forEach(list => list.classList.remove('open'));
+    document.querySelectorAll('.stage-select-wrap.is-open')
+      .forEach(wrap => wrap.classList.remove('is-open'));
+    document.querySelectorAll('#ownership .ownership-table tbody tr.stage-select-open')
+      .forEach(row => row.classList.remove('stage-select-open'));
   };
 
   selects.forEach(sel => {
@@ -1330,6 +1334,8 @@ function enhanceStageSelects() {
       if (!isOpen) {
         btn.classList.add('open');
         list.classList.add('open');
+        wrap.classList.add('is-open');
+        wrap.closest('tr')?.classList.add('stage-select-open');
       }
     }
   });
@@ -1351,6 +1357,8 @@ function initStageDropdowns() {
         if (ul !== list) {
           ul.classList.remove('open');
           ul.closest('.stage-select-wrap')?.classList.remove('drop-up');
+          ul.closest('.stage-select-wrap')?.classList.remove('is-open');
+          ul.closest('tr')?.classList.remove('stage-select-open');
         }
       });
 
@@ -1358,11 +1366,15 @@ function initStageDropdowns() {
       if (list.classList.contains('open')) {
         list.classList.remove('open');
         wrap.classList.remove('drop-up');
+        wrap.classList.remove('is-open');
+        wrap.closest('tr')?.classList.remove('stage-select-open');
         return;
       }
 
       // temporarily open to measure height
       list.classList.add('open');
+      wrap.classList.add('is-open');
+      wrap.closest('tr')?.classList.add('stage-select-open');
       const listRect = list.getBoundingClientRect();
       const btnRect  = btn.getBoundingClientRect();
       const vh       = window.innerHeight || document.documentElement.clientHeight;
