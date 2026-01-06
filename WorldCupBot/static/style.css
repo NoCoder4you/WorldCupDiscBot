@@ -2856,6 +2856,7 @@ body.user-admin-view #ownership .ownership-card {
   color: var(--muted);
   font-weight: 700;
   margin-bottom: 8px;
+  text-align: center;
 }
 
 .fan-bars {
@@ -3543,9 +3544,74 @@ body:not(.admin) .settings-rows {
   margin-top: 12px;
 }
 
+.settings-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.settings-match-format {
+  margin-top: 8px;
+}
+
+.settings-match-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(14, 18, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.settings-match-main {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+}
+
+.settings-match-title {
+  font-weight: 600;
+}
+
+.settings-match-meta {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+  word-break: break-all;
+}
+
+.settings-match-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.settings-match-inputs label {
+  display: grid;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.settings-match-inputs input {
+  width: 100%;
+  background: rgba(14, 18, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f2f4ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.settings-match-save {
+  align-self: center;
+}
+
 .settings-divider {
   height: 1px;
-  margin: 20px 0;
+  margin: 10px 0;
   background: rgba(255, 255, 255, 0.08);
 }
 

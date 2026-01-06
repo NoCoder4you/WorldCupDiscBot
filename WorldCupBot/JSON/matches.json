@@ -3,7 +3,7 @@
     "id": "2026-06-11-A-MEX-ZAF",
     "home": "Mexico",
     "away": "South Africa",
-    "utc": "2026-06-11T00:00:00Z",
+    "utc": "2026-06-11T19:00:00Z",
     "stadium": "Mexico City Stadium",
     "group": "A"
   },
@@ -11,7 +11,7 @@
     "id": "2026-06-11-A-KOR-QUAL1",
     "home": "South Korea",
     "away": "TBA",
-    "utc": "2026-06-11T00:00:00Z",
+    "utc": "2026-06-12T02:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "A"
   },
@@ -19,7 +19,7 @@
     "id": "2026-06-12-B-CAN-QUAL2",
     "home": "Canada",
     "away": "TBA",
-    "utc": "2026-06-12T00:00:00Z",
+    "utc": "2026-06-12T19:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "B"
   },
@@ -27,7 +27,7 @@
     "id": "2026-06-12-D-USA-PAR",
     "home": "USA",
     "away": "Paraguay",
-    "utc": "2026-06-12T00:00:00Z",
+    "utc": "2026-06-13T01:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "D"
   },
@@ -35,7 +35,7 @@
     "id": "2026-06-13-C-HAI-SCO",
     "home": "Haiti",
     "away": "Scotland",
-    "utc": "2026-06-13T00:00:00Z",
+    "utc": "2026-06-14T01:00:00Z",
     "stadium": "Boston Stadium",
     "group": "C"
   },
@@ -43,7 +43,7 @@
     "id": "2026-06-13-D-AUS-QUAL3",
     "home": "Australia",
     "away": "TBA",
-    "utc": "2026-06-13T00:00:00Z",
+    "utc": "2026-06-13T04:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "D"
   },
@@ -51,7 +51,7 @@
     "id": "2026-06-13-C-BRA-MAR",
     "home": "Brazil",
     "away": "Morocco",
-    "utc": "2026-06-13T00:00:00Z",
+    "utc": "2026-06-13T22:00:00Z",
     "stadium": "New York New Jersey Stadium",
     "group": "C"
   },
@@ -59,7 +59,7 @@
     "id": "2026-06-13-B-QAT-SUI",
     "home": "Qatar",
     "away": "Switzerland",
-    "utc": "2026-06-13T00:00:00Z",
+    "utc": "2026-06-13T19:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
     "group": "B"
   },
@@ -67,7 +67,7 @@
     "id": "2026-06-14-E-CIV-ECU",
     "home": "Côte d'Ivoire",
     "away": "Ecuador",
-    "utc": "2026-06-14T00:00:00Z",
+    "utc": "2026-06-14T23:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "E"
   },
@@ -75,7 +75,7 @@
     "id": "2026-06-14-E-GER-CUW",
     "home": "Germany",
     "away": "Curaçao",
-    "utc": "2026-06-14T00:00:00Z",
+    "utc": "2026-06-14T19:00:00Z",
     "stadium": "Houston Stadium",
     "group": "E"
   },
@@ -83,7 +83,7 @@
     "id": "2026-06-14-F-NED-JPN",
     "home": "Netherlands",
     "away": "Japan",
-    "utc": "2026-06-14T00:00:00Z",
+    "utc": "2026-06-14T20:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "F"
   },
@@ -91,7 +91,7 @@
     "id": "2026-06-14-F-QUAL4-TUN",
     "home": "TBA",
     "away": "Tunisia",
-    "utc": "2026-06-14T00:00:00Z",
+    "utc": "2026-06-15T02:00:00Z",
     "stadium": "Estadio Monterrey",
     "group": "F"
   },
@@ -99,7 +99,7 @@
     "id": "2026-06-15-H-KSA-URU",
     "home": "Saudi Arabia",
     "away": "Uruguay",
-    "utc": "2026-06-15T00:00:00Z",
+    "utc": "2026-06-15T22:00:00Z",
     "stadium": "Miami Stadium",
     "group": "H"
   },
@@ -107,7 +107,7 @@
     "id": "2026-06-15-H-ESP-CPV",
     "home": "Spain",
     "away": "Cape Verde",
-    "utc": "2026-06-15T00:00:00Z",
+    "utc": "2026-06-15T16:00:00Z",
     "stadium": "Atlanta Stadium",
     "group": "H"
   },
@@ -115,7 +115,7 @@
     "id": "2026-06-15-G-IRN-NZL",
     "home": "Iran",
     "away": "New Zealand",
-    "utc": "2026-06-15T00:00:00Z",
+    "utc": "2026-06-16T01:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "G"
   },
@@ -123,7 +123,7 @@
     "id": "2026-06-15-G-BEL-EGY",
     "home": "Belgium",
     "away": "Egypt",
-    "utc": "2026-06-15T00:00:00Z",
+    "utc": "2026-06-15T19:00:00Z",
     "stadium": "Seattle Stadium",
     "group": "G"
   },
@@ -131,7 +131,7 @@
     "id": "2026-06-16-I-FRA-SEN",
     "home": "France",
     "away": "Senegal",
-    "utc": "2026-06-16T00:00:00Z",
+    "utc": "2026-06-16T19:00:00Z",
     "stadium": "New York New Jersey Stadium",
     "group": "I"
   },
@@ -139,7 +139,7 @@
     "id": "2026-06-16-I-QUAL5-NOR",
     "home": "TBA",
     "away": "Norway",
-    "utc": "2026-06-16T00:00:00Z",
+    "utc": "2026-06-16T22:00:00Z",
     "stadium": "Boston Stadium",
     "group": "I"
   },
@@ -147,7 +147,7 @@
     "id": "2026-06-16-J-ARG-ALG",
     "home": "Argentina",
     "away": "Algeria",
-    "utc": "2026-06-16T00:00:00Z",
+    "utc": "2026-06-17T01:00:00Z",
     "stadium": "Kansas City Stadium",
     "group": "J"
   },
@@ -155,7 +155,7 @@
     "id": "2026-06-16-J-AUT-JOR",
     "home": "Austria",
     "away": "Jordan",
-    "utc": "2026-06-16T00:00:00Z",
+    "utc": "2026-06-17T04:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
     "group": "J"
   },
@@ -163,7 +163,7 @@
     "id": "2026-06-17-L-GHA-PAN",
     "home": "Ghana",
     "away": "Panama",
-    "utc": "2026-06-17T00:00:00Z",
+    "utc": "2026-06-17T23:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "L"
   },
@@ -171,11 +171,11 @@
     "id": "2026-06-17-L-ENG-CRO",
     "home": "England",
     "away": "Croatia",
-    "utc": "2026-06-17T00:00:00Z",
+    "utc": "2026-06-17T20:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "L"
   },
-    {
+  {
     "id": "2026-06-17-L-ENG-SPA",
     "home": "England",
     "away": "Spain",
@@ -187,7 +187,7 @@
     "id": "2026-06-17-K-POR-QUAL6",
     "home": "Portugal",
     "away": "TBA",
-    "utc": "2026-06-17T00:00:00Z",
+    "utc": "2026-06-17T17:00:00Z",
     "stadium": "Houston Stadium",
     "group": "K"
   },
@@ -195,7 +195,7 @@
     "id": "2026-06-17-K-UZB-COL",
     "home": "Uzbekistan",
     "away": "Colombia",
-    "utc": "2026-06-17T00:00:00Z",
+    "utc": "2026-06-18T02:00:00Z",
     "stadium": "Mexico City Stadium",
     "group": "K"
   },
@@ -203,7 +203,7 @@
     "id": "2026-06-18-A-QUAL7-ZAF",
     "home": "TBA",
     "away": "South Africa",
-    "utc": "2026-06-18T00:00:00Z",
+    "utc": "2026-06-18T16:00:00Z",
     "stadium": "Atlanta Stadium",
     "group": "A"
   },
@@ -211,7 +211,7 @@
     "id": "2026-06-18-B-SUI-QUAL8",
     "home": "Switzerland",
     "away": "TBA",
-    "utc": "2026-06-18T00:00:00Z",
+    "utc": "2026-06-18T19:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "B"
   },
@@ -219,7 +219,7 @@
     "id": "2026-06-18-B-CAN-QAT",
     "home": "Canada",
     "away": "Qatar",
-    "utc": "2026-06-18T00:00:00Z",
+    "utc": "2026-06-18T22:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "B"
   },
@@ -227,7 +227,7 @@
     "id": "2026-06-18-A-MEX-KOR",
     "home": "Mexico",
     "away": "South Korea",
-    "utc": "2026-06-18T00:00:00Z",
+    "utc": "2026-06-19T01:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "A"
   },
@@ -235,7 +235,7 @@
     "id": "2026-06-19-C-BRA-HAI",
     "home": "Brazil",
     "away": "Haiti",
-    "utc": "2026-06-19T00:00:00Z",
+    "utc": "2026-06-20T01:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "C"
   },
@@ -243,7 +243,7 @@
     "id": "2026-06-19-C-SCO-MAR",
     "home": "Scotland",
     "away": "Morocco",
-    "utc": "2026-06-19T00:00:00Z",
+    "utc": "2026-06-19T22:00:00Z",
     "stadium": "Boston Stadium",
     "group": "C"
   },
@@ -251,7 +251,7 @@
     "id": "2026-06-19-D-QUAL9-PAR",
     "home": "TBA",
     "away": "Paraguay",
-    "utc": "2026-06-19T00:00:00Z",
+    "utc": "2026-06-19T04:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
     "group": "D"
   },
@@ -259,7 +259,7 @@
     "id": "2026-06-19-D-USA-AUS",
     "home": "USA",
     "away": "Australia",
-    "utc": "2026-06-19T00:00:00Z",
+    "utc": "2026-06-19T19:00:00Z",
     "stadium": "Seattle Stadium",
     "group": "D"
   },
@@ -267,7 +267,7 @@
     "id": "2026-06-20-E-GER-CIV",
     "home": "Germany",
     "away": "Côte d'Ivoire",
-    "utc": "2026-06-20T00:00:00Z",
+    "utc": "2026-06-20T20:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "E"
   },
@@ -275,7 +275,7 @@
     "id": "2026-06-20-E-ECU-CUW",
     "home": "Ecuador",
     "away": "Curaçao",
-    "utc": "2026-06-20T00:00:00Z",
+    "utc": "2026-06-21T00:00:00Z",
     "stadium": "Kansas City Stadium",
     "group": "E"
   },
@@ -283,7 +283,7 @@
     "id": "2026-06-20-F-NED-QUAL10",
     "home": "Netherlands",
     "away": "TBA",
-    "utc": "2026-06-20T00:00:00Z",
+    "utc": "2026-06-20T17:00:00Z",
     "stadium": "Houston Stadium",
     "group": "F"
   },
@@ -291,16 +291,15 @@
     "id": "2026-06-20-F-TUN-JPN",
     "home": "Tunisia",
     "away": "Japan",
-    "utc": "2026-06-20T00:00:00Z",
+    "utc": "2026-06-21T04:00:00Z",
     "stadium": "Estadio Monterrey",
     "group": "F"
   },
-
   {
     "id": "2026-06-21-H-URU-CPV",
     "home": "Uruguay",
     "away": "Cape Verde",
-    "utc": "2026-06-21T00:00:00Z",
+    "utc": "2026-06-21T22:00:00Z",
     "stadium": "Miami Stadium",
     "group": "H"
   },
@@ -308,7 +307,7 @@
     "id": "2026-06-21-H-ESP-KSA",
     "home": "Spain",
     "away": "Saudi Arabia",
-    "utc": "2026-06-21T00:00:00Z",
+    "utc": "2026-06-21T16:00:00Z",
     "stadium": "Atlanta Stadium",
     "group": "H"
   },
@@ -316,7 +315,7 @@
     "id": "2026-06-21-G-BEL-IRN",
     "home": "Belgium",
     "away": "Iran",
-    "utc": "2026-06-21T00:00:00Z",
+    "utc": "2026-06-21T19:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "G"
   },
@@ -324,16 +323,15 @@
     "id": "2026-06-21-G-NZL-EGY",
     "home": "New Zealand",
     "away": "Egypt",
-    "utc": "2026-06-21T00:00:00Z",
+    "utc": "2026-06-22T01:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "G"
   },
-
   {
     "id": "2026-06-22-I-NOR-SEN",
     "home": "Norway",
     "away": "Senegal",
-    "utc": "2026-06-22T00:00:00Z",
+    "utc": "2026-06-23T00:00:00Z",
     "stadium": "New York New Jersey Stadium",
     "group": "I"
   },
@@ -341,7 +339,7 @@
     "id": "2026-06-22-I-FRA-QUAL11",
     "home": "France",
     "away": "TBA",
-    "utc": "2026-06-22T00:00:00Z",
+    "utc": "2026-06-22T02:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "I"
   },
@@ -349,7 +347,7 @@
     "id": "2026-06-22-J-ARG-AUT",
     "home": "Argentina",
     "away": "Austria",
-    "utc": "2026-06-22T00:00:00Z",
+    "utc": "2026-06-22T17:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "J"
   },
@@ -357,16 +355,15 @@
     "id": "2026-06-22-J-JOR-ALG",
     "home": "Jordan",
     "away": "Algeria",
-    "utc": "2026-06-22T00:00:00Z",
+    "utc": "2026-06-23T03:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
     "group": "J"
   },
-
   {
     "id": "2026-06-23-L-ENG-GHA",
     "home": "England",
     "away": "Ghana",
-    "utc": "2026-06-23T00:00:00Z",
+    "utc": "2026-06-23T20:00:00Z",
     "stadium": "Boston Stadium",
     "group": "L"
   },
@@ -374,7 +371,7 @@
     "id": "2026-06-23-L-PAN-CRO",
     "home": "Panama",
     "away": "Croatia",
-    "utc": "2026-06-23T00:00:00Z",
+    "utc": "2026-06-23T23:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "L"
   },
@@ -382,7 +379,7 @@
     "id": "2026-06-23-K-POR-UZB",
     "home": "Portugal",
     "away": "Uzbekistan",
-    "utc": "2026-06-23T00:00:00Z",
+    "utc": "2026-06-23T17:00:00Z",
     "stadium": "Houston Stadium",
     "group": "K"
   },
@@ -390,16 +387,15 @@
     "id": "2026-06-23-K-COL-QUAL12",
     "home": "Colombia",
     "away": "TBA",
-    "utc": "2026-06-23T00:00:00Z",
+    "utc": "2026-06-24T02:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "K"
   },
-
   {
     "id": "2026-06-24-C-SCO-BRA",
     "home": "Scotland",
     "away": "Brazil",
-    "utc": "2026-06-24T00:00:00Z",
+    "utc": "2026-06-24T22:00:00Z",
     "stadium": "Miami Stadium",
     "group": "C"
   },
@@ -407,7 +403,7 @@
     "id": "2026-06-24-C-MAR-HAI",
     "home": "Morocco",
     "away": "Haiti",
-    "utc": "2026-06-24T00:00:00Z",
+    "utc": "2026-06-24T22:00:00Z",
     "stadium": "Atlanta Stadium",
     "group": "C"
   },
@@ -415,7 +411,7 @@
     "id": "2026-06-24-B-SUI-CAN",
     "home": "Switzerland",
     "away": "Canada",
-    "utc": "2026-06-24T00:00:00Z",
+    "utc": "2026-06-24T19:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "B"
   },
@@ -423,7 +419,7 @@
     "id": "2026-06-24-B-QUAL13-QAT",
     "home": "TBA",
     "away": "Qatar",
-    "utc": "2026-06-24T00:00:00Z",
+    "utc": "2026-06-24T19:00:00Z",
     "stadium": "Seattle Stadium",
     "group": "B"
   },
@@ -431,7 +427,7 @@
     "id": "2026-06-24-A-QUAL14-MEX",
     "home": "TBA",
     "away": "Mexico",
-    "utc": "2026-06-24T00:00:00Z",
+    "utc": "2026-06-25T01:00:00Z",
     "stadium": "Mexico City Stadium",
     "group": "A"
   },
@@ -439,16 +435,15 @@
     "id": "2026-06-24-A-ZAF-KOR",
     "home": "South Africa",
     "away": "South Korea",
-    "utc": "2026-06-24T00:00:00Z",
+    "utc": "2026-06-25T01:00:00Z",
     "stadium": "Estadio Monterrey",
     "group": "A"
   },
-
   {
     "id": "2026-06-25-E-CUW-CIV",
     "home": "Curaçao",
     "away": "Côte d'Ivoire",
-    "utc": "2026-06-25T00:00:00Z",
+    "utc": "2026-06-25T20:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "E"
   },
@@ -456,7 +451,7 @@
     "id": "2026-06-25-E-ECU-GER",
     "home": "Ecuador",
     "away": "Germany",
-    "utc": "2026-06-25T00:00:00Z",
+    "utc": "2026-06-25T20:00:00Z",
     "stadium": "New York New Jersey Stadium",
     "group": "E"
   },
@@ -464,7 +459,7 @@
     "id": "2026-06-25-F-JPN-QUAL15",
     "home": "Japan",
     "away": "TBA",
-    "utc": "2026-06-25T00:00:00Z",
+    "utc": "2026-06-25T23:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "F"
   },
@@ -472,7 +467,7 @@
     "id": "2026-06-25-F-TUN-NED",
     "home": "Tunisia",
     "away": "Netherlands",
-    "utc": "2026-06-25T00:00:00Z",
+    "utc": "2026-06-25T23:00:00Z",
     "stadium": "Kansas City Stadium",
     "group": "F"
   },
@@ -480,7 +475,7 @@
     "id": "2026-06-25-D-QUAL16-USA",
     "home": "TBA",
     "away": "USA",
-    "utc": "2026-06-25T00:00:00Z",
+    "utc": "2026-06-26T02:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "D"
   },
@@ -488,16 +483,15 @@
     "id": "2026-06-25-D-PAR-AUS",
     "home": "Paraguay",
     "away": "Australia",
-    "utc": "2026-06-25T00:00:00Z",
+    "utc": "2026-06-26T02:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
     "group": "D"
   },
-
   {
     "id": "2026-06-26-I-NOR-FRA",
     "home": "Norway",
     "away": "France",
-    "utc": "2026-06-26T00:00:00Z",
+    "utc": "2026-06-26T19:00:00Z",
     "stadium": "Boston Stadium",
     "group": "I"
   },
@@ -505,7 +499,7 @@
     "id": "2026-06-26-I-SEN-QUAL17",
     "home": "Senegal",
     "away": "TBA",
-    "utc": "2026-06-26T00:00:00Z",
+    "utc": "2026-06-26T19:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "I"
   },
@@ -513,7 +507,7 @@
     "id": "2026-06-26-G-EGY-IRN",
     "home": "Egypt",
     "away": "Iran",
-    "utc": "2026-06-26T00:00:00Z",
+    "utc": "2026-06-27T03:00:00Z",
     "stadium": "Seattle Stadium",
     "group": "G"
   },
@@ -521,7 +515,7 @@
     "id": "2026-06-26-G-NZL-BEL",
     "home": "New Zealand",
     "away": "Belgium",
-    "utc": "2026-06-26T00:00:00Z",
+    "utc": "2026-06-27T03:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "G"
   },
@@ -529,7 +523,7 @@
     "id": "2026-06-26-H-CPV-KSA",
     "home": "Cape Verde",
     "away": "Saudi Arabia",
-    "utc": "2026-06-26T00:00:00Z",
+    "utc": "2026-06-27T00:00:00Z",
     "stadium": "Houston Stadium",
     "group": "H"
   },
@@ -537,16 +531,15 @@
     "id": "2026-06-26-H-URU-ESP",
     "home": "Uruguay",
     "away": "Spain",
-    "utc": "2026-06-26T00:00:00Z",
+    "utc": "2026-06-27T00:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "H"
   },
-
   {
     "id": "2026-06-27-L-PAN-ENG",
     "home": "Panama",
     "away": "England",
-    "utc": "2026-06-27T00:00:00Z",
+    "utc": "2026-06-27T21:00:00Z",
     "stadium": "New York New Jersey Stadium",
     "group": "L"
   },
@@ -554,7 +547,7 @@
     "id": "2026-06-27-L-CRO-GHA",
     "home": "Croatia",
     "away": "Ghana",
-    "utc": "2026-06-27T00:00:00Z",
+    "utc": "2026-06-27T21:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "L"
   },
@@ -562,7 +555,7 @@
     "id": "2026-06-27-J-ALG-AUT",
     "home": "Algeria",
     "away": "Austria",
-    "utc": "2026-06-27T00:00:00Z",
+    "utc": "2026-06-28T02:00:00Z",
     "stadium": "Kansas City Stadium",
     "group": "J"
   },
@@ -570,7 +563,7 @@
     "id": "2026-06-27-J-JOR-ARG",
     "home": "Jordan",
     "away": "Argentina",
-    "utc": "2026-06-27T00:00:00Z",
+    "utc": "2026-06-28T02:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "J"
   },
@@ -578,7 +571,7 @@
     "id": "2026-06-27-K-COL-POR",
     "home": "Colombia",
     "away": "Portugal",
-    "utc": "2026-06-27T00:00:00Z",
+    "utc": "2026-06-27T23:30:00Z",
     "stadium": "Miami Stadium",
     "group": "K"
   },
@@ -586,7 +579,7 @@
     "id": "2026-06-27-K-QUAL18-UZB",
     "home": "TBA",
     "away": "Uzbekistan",
-    "utc": "2026-06-27T00:00:00Z",
+    "utc": "2026-06-27T23:30:00Z",
     "stadium": "Atlanta Stadium",
     "group": "K"
   }
