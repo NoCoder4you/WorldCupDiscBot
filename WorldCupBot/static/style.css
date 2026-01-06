@@ -1442,7 +1442,7 @@ body.user-admin-view #ownership .ownership-card {
 #ownership .stage-select-wrap {
     width: 100%;
     min-width: 120px;
-    z-index: 1;
+    z-index: 3;
 }
 
 #ownership .stage-select-display {
@@ -3111,6 +3111,7 @@ select.select-dark:disabled {
   display: block;
   top: calc(100% + 4px);
   bottom: auto;
+  z-index: 10001;
 }
 
 /* Open ABOVE when JS adds .drop-up */
