@@ -1044,7 +1044,7 @@ function flagHTML(country) {
           onerror="this.replaceWith(document.createTextNode('${fallback}'));">`;
 }
 
-var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country', groupMap: new Map() };
+var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country', groupMap: new Map(), groupFilter: 'ALL' };
 var playerNames = {}; // id -> username
 
 function normalizeOwnershipTeam(value) {
@@ -1122,6 +1122,8 @@ function formatOwnershipPercent(value) {
       list.forEach(function (row) {
         const tr = document.createElement('tr');
         tr.className = row.main_owner ? 'row-assigned' : 'row-unassigned';
+        const groupKey = normalizeOwnershipTeam(row.country);
+        const groupLabel = ownershipState.groupMap.get(groupKey) || '—';
 
         const ownersCount = row.owners_count || ((row.main_owner ? 1 : 0) + ((row.split_with && row.split_with.length) || 0));
         const shareValue = ownersCount > 0 ? (100 / ownersCount) : 0;
@@ -1176,6 +1178,7 @@ function formatOwnershipPercent(value) {
 
         tr.innerHTML = `
           <td>${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
+          <td><span class="ownership-group">${groupLabel}</span></td>
           <td>${ownerCell}</td>
           <td>${splitStr}</td>
           <td>${stageCell}</td>
@@ -1221,15 +1224,27 @@ function sortMerged(by) {
       if (ga !== gb) return ga.localeCompare(gb);
       return a.country.localeCompare(b.country);
     });
-  } else if (by === 'player') {
-    var name = function (r) {
-      var n = (r.main_owner && (r.main_owner.username || r.main_owner.id)) || 'zzzz~unassigned';
-      return n.toLowerCase();
-    };
-    list.sort(function (a, b) { return name(a).localeCompare(name(b)); });
   }
-  renderOwnershipTable(list);
+  renderOwnershipTable(applyOwnershipGroupFilter(list));
   initStageDropdowns();
+}
+
+function applyOwnershipGroupFilter(list) {
+  var filter = (ownershipState.groupFilter || 'ALL').toUpperCase();
+  if (filter === 'ALL') return list;
+  return list.filter(function (row) {
+    var groupKey = normalizeOwnershipTeam(row.country);
+    return (ownershipState.groupMap.get(groupKey) || '').toUpperCase() === filter;
+  });
+}
+
+function setOwnershipGroupFilter(filter) {
+  ownershipState.groupFilter = (filter || 'ALL').toUpperCase();
+  document.querySelectorAll('.group-filter-btn').forEach(btn => {
+    var btnGroup = (btn.getAttribute('data-group') || 'ALL').toUpperCase();
+    btn.classList.toggle('active', btnGroup === ownershipState.groupFilter);
+  });
+  sortMerged(ownershipState.lastSort || 'country');
 }
 
 function enhanceStageSelects() {
@@ -1514,7 +1529,7 @@ async function initOwnership() {
     // 7) Render
     ownershipState.merged = list;
     ownershipState.loaded = true;
-    sortMerged(ownershipState.lastSort || 'country');
+    setOwnershipGroupFilter(ownershipState.groupFilter || 'ALL');
   } catch (e) {
     console.error('[ownership:init]', e);
     notify('Failed to load ownership data', false);
@@ -1525,10 +1540,14 @@ async function initOwnership() {
 // Sort buttons
 var sortCountryBtn = document.querySelector('#sort-country');
 var sortGroupBtn = document.querySelector('#sort-group');
-var sortPlayerBtn = document.querySelector('#sort-player');
 if (sortCountryBtn) sortCountryBtn.addEventListener('click', function () { sortMerged('country'); });
 if (sortGroupBtn) sortGroupBtn.addEventListener('click', function () { sortMerged('group'); });
-if (sortPlayerBtn) sortPlayerBtn.addEventListener('click', function () { sortMerged('player'); });
+document.querySelectorAll('.group-filter-btn').forEach(btn => {
+  btn.addEventListener('click', function () {
+    var group = btn.getAttribute('data-group') || 'ALL';
+    setOwnershipGroupFilter(group);
+  });
+});
 
 document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('.reassign-btn');
@@ -3332,7 +3351,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatFixtureDateTimeCompact(isoString){
     const parts = getDateTimeParts(isoString, getPreferredTimeZone());
     if (!parts) return '-';
-    return `${parts.day}/${parts.month} - ${parts.hour}:${parts.minute}`;
+    const dateOrder = getPreferredDateFormat();
+    const date = dateOrder === 'MD'
+      ? `${parts.month}/${parts.day}`
+      : `${parts.day}/${parts.month}`;
+    return `${date} - ${parts.hour}:${parts.minute}`;
   }
 
     window.getPreferredTimeZone = getPreferredTimeZone;
