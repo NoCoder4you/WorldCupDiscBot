@@ -1391,7 +1391,7 @@ body.user-admin-view #ownership .ownership-card {
     height: auto !important;
     max-height: none !important;
     overflow-y: visible;
-    overflow-x: hidden;
+    overflow-x: visible;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
@@ -1399,6 +1399,7 @@ body.user-admin-view #ownership .ownership-card {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
+    overflow: visible;
 }
 
 /* --- Cells --- */
@@ -1441,6 +1442,7 @@ body.user-admin-view #ownership .ownership-card {
 #ownership .stage-select-wrap {
     width: 100%;
     min-width: 120px;
+    z-index: 1;
 }
 
 #ownership .stage-select-display {
