@@ -1217,6 +1217,11 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     filter: drop-shadow(0 0 6px rgba(255, 180, 0, 0.15));
 }
 
+/* Split list em dash style */
+.ownership-table td:nth-child(3) {
+    color: var(--muted);
+}
+
 /* Compact pill buttons up top */
 .ownership-actions .btn.sm {
     border-radius: 999px;
@@ -1247,6 +1252,25 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     .ownership-actions {
         gap: 6px;
     }
+}
+
+/* === Ownership layout fix (aligned headings) === */
+/* Column widths */
+#ownership .ownership-table th:nth-child(1),
+#ownership .ownership-table td:nth-child(1) {
+    width: 20%;
+}
+#ownership .ownership-table th:nth-child(2),
+#ownership .ownership-table td:nth-child(2) {
+    width: 20%;
+}
+#ownership .ownership-table th:nth-child(3),
+#ownership .ownership-table td:nth-child(3) {
+    width: 20%;
+}
+#ownership .ownership-table th:nth-child(4),
+#ownership .ownership-table td:nth-child(4) {
+    width: 20%;
 }
 
 /* Keep content tidy */
