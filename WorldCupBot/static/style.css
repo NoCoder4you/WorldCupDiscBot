@@ -47,6 +47,10 @@ body {
     overflow: hidden;
 }
 
+body:not(.admin) {
+    --card-h: 160px;
+}
+
 body:not(.admin) section.page-section.admin-only {
     display: none !important;
 }
@@ -244,18 +248,12 @@ body.admin li.admin-only {
 .dashboard-grid {
     display: grid;
     gap: 16px;
-    max-width: 900px;
+    max-width: 1200px;
     margin: 40px auto;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
     grid-auto-rows: var(--card-h);
     justify-content: center;
     align-content: start;
-}
-
-@media (max-width:900px) {
-    .dashboard-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr))
-    }
 }
 
 @media (max-width:600px) {
