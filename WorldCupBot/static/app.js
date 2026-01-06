@@ -1445,7 +1445,6 @@ function mergeTeamsWithOwnership(teams, rows) {
   });
 }
 
-// REPLACE your whole initOwnership with this async version
 async function initOwnership() {
   try {
     // 1) Try merged endpoint
