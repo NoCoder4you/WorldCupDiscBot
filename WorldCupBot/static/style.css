@@ -1125,7 +1125,21 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 .ownership-actions {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.ownership-sorts,
+.ownership-group-filters {
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+}
+.ownership-group-filters .btn.active {
+    background: var(--accent);
+    color: #07111c;
+    border-color: transparent;
 }
 .btn.sm {
     padding: 6px 10px;
