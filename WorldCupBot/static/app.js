@@ -867,8 +867,8 @@ function setPage(p) {
           const li = document.createElement('li');
           li.setAttribute('role', 'option');
           li.dataset.id = id;
-          li.dataset.label = `${name} (${id})`;
-          li.textContent = li.dataset.label;
+          li.dataset.label = name;
+          li.textContent = name;
           list.appendChild(li);
         });
       }
