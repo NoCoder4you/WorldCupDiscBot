@@ -1188,7 +1188,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Team column emphasis */
 .ownership-table td:first-child {
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.2px;
 }
 .ownership-table th:nth-child(2),
 .ownership-table td:nth-child(2) {
@@ -1376,6 +1376,14 @@ body.user-admin-view #ownership .ownership-card {
     table-layout: fixed;
 }
 
+/* --- Cells --- */
+#ownership .ownership-table th,
+#ownership .ownership-table td {
+    padding: 10px 12px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--border);
+}
 
 #ownership .ownership-table th {
     font-weight: 900;
