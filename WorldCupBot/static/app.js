@@ -2847,6 +2847,129 @@ function shortId(id) {
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
+
+        const initEmbedMaker = async (settingsData) => {
+          const embedGuildSelect = document.getElementById('embed-guild-select');
+          const embedChannelSelect = document.getElementById('embed-channel-select');
+          const embedSendBtn = document.getElementById('embed-send');
+          const embedStatus = document.getElementById('embed-status');
+          if (!embedGuildSelect || !embedChannelSelect || !embedSendBtn) return;
+
+          const titleInput = document.getElementById('embed-title');
+          const descriptionInput = document.getElementById('embed-description');
+          const footerInput = document.getElementById('embed-footer');
+          const footerIconInput = document.getElementById('embed-footer-icon');
+          const authorInput = document.getElementById('embed-author');
+          const authorIconInput = document.getElementById('embed-author-icon');
+          const thumbnailInput = document.getElementById('embed-thumbnail');
+          const imageInput = document.getElementById('embed-image');
+          const colorInput = document.getElementById('embed-color');
+          const contentInput = document.getElementById('embed-content');
+
+          const setStatus = (msg) => {
+            if (embedStatus) embedStatus.textContent = msg || '';
+          };
+
+          const loadEmbedGuilds = async () => {
+            let guilds = [];
+            try {
+              const guildData = await fetchJSON('/admin/discord/guilds');
+              guilds = Array.isArray(guildData?.guilds) ? guildData.guilds : [];
+            } catch (e) {
+              try {
+                const guildData = await fetchJSON('/api/guilds');
+                guilds = Array.isArray(guildData?.guilds) ? guildData.guilds : [];
+              } catch (err) {
+                guilds = [];
+              }
+            }
+            const options = guilds
+              .filter((g) => g?.id)
+              .map((g) => ({
+                value: String(g.id),
+                label: g?.name ? `${g.name} (${g.id})` : String(g.id)
+              }));
+            setSelectOptions(embedGuildSelect, options, 'Select a guild');
+            const preferredGuild = settingsData?.selected_guild_id || settingsData?.primary_guild_id || '';
+            const selected = options.find((opt) => opt.value === preferredGuild);
+            embedGuildSelect.value = selected ? preferredGuild : '';
+          };
+
+          const loadEmbedChannels = async (guildId, preferredChannelId) => {
+            if (!guildId) {
+              setSelectOptions(embedChannelSelect, [], 'Select a guild first');
+              return;
+            }
+            setStatus('Loading channels...');
+            try {
+              const url = `/admin/discord/channels?guild_id=${encodeURIComponent(guildId)}`;
+              const channelData = await fetchJSON(url);
+              const channels = Array.isArray(channelData?.channels) ? channelData.channels : [];
+              const options = channels
+                .filter((row) => row?.id)
+                .map((row) => {
+                  const category = String(row?.category || '').trim();
+                  const channel = String(row?.channel || '').trim();
+                  const label = category ? `${category} / #${channel}` : `#${channel}`;
+                  return { value: String(row.id), label };
+                });
+              setSelectOptions(embedChannelSelect, options, 'Select a channel');
+              if (preferredChannelId && options.some((opt) => opt.value === preferredChannelId)) {
+                embedChannelSelect.value = preferredChannelId;
+              } else if (options.length) {
+                embedChannelSelect.value = options[0].value;
+              }
+              setStatus('');
+            } catch (e) {
+              setStatus(`Failed to load channels: ${e.message}`);
+            }
+          };
+
+          if (!embedGuildSelect.dataset.bound) {
+            embedGuildSelect.dataset.bound = '1';
+            embedGuildSelect.addEventListener('change', async () => {
+              await loadEmbedChannels(embedGuildSelect.value, embedChannelSelect?.value || '');
+            });
+          }
+
+          if (!embedSendBtn.dataset.bound) {
+            embedSendBtn.dataset.bound = '1';
+            embedSendBtn.addEventListener('click', async () => {
+              const channelId = (embedChannelSelect?.value || '').trim();
+              if (!channelId) {
+                setStatus('Select a channel before sending.');
+                return;
+              }
+              setStatus('');
+              try {
+                await fetchJSON('/admin/embed', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    channel_id: channelId,
+                    title: (titleInput?.value || '').trim(),
+                    description: (descriptionInput?.value || '').trim(),
+                    footer_text: (footerInput?.value || '').trim(),
+                    footer_icon_url: (footerIconInput?.value || '').trim(),
+                    author_name: (authorInput?.value || '').trim(),
+                    author_icon_url: (authorIconInput?.value || '').trim(),
+                    thumbnail_url: (thumbnailInput?.value || '').trim(),
+                    image_url: (imageInput?.value || '').trim(),
+                    color: (colorInput?.value || '').trim(),
+                    content: (contentInput?.value || '').trim()
+                  })
+                });
+                notify('Embed sent');
+              } catch (e) {
+                notify(`Failed to send embed: ${e.message}`, false);
+              }
+            });
+          }
+
+          await loadEmbedGuilds();
+          await loadEmbedChannels(embedGuildSelect?.value || '', '');
+        };
+
+        await initEmbedMaker(data);
         await loadMatchTimings();
       }catch(e){
         notify(`Settings error: ${e.message}`, false);

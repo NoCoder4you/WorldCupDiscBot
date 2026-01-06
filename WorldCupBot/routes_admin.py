@@ -1225,6 +1225,7 @@ def create_admin_routes(ctx):
             rows.append({
                 "category": category_name,
                 "channel": name,
+                "id": str(ch.get("id") or "").strip(),
                 "category_position": category_positions.get(parent_id, 1_000_000),
                 "channel_position": int(ch.get("position") or 0),
             })
@@ -1235,7 +1236,7 @@ def create_admin_routes(ctx):
             (item.get("category") or "").lower(),
             (item.get("channel") or "").lower(),
         ))
-        cleaned = [{"category": r["category"], "channel": r["channel"]} for r in rows]
+        cleaned = [{"category": r["category"], "channel": r["channel"], "id": r.get("id") or ""} for r in rows]
         return jsonify({"ok": True, "channels": cleaned})
 
     @bp.get("/discord/guilds")
@@ -1276,6 +1277,97 @@ def create_admin_routes(ctx):
                 "name": str(g.get("name") or "").strip()
             })
         return jsonify({"ok": True, "guilds": guilds})
+
+    def _parse_embed_color(raw: str):
+        val = str(raw or "").strip()
+        if not val:
+            return None
+        if val.startswith("#"):
+            val = val[1:]
+        if not re.match(r"^[0-9a-fA-F]{6}$", val):
+            return None
+        try:
+            return int(val, 16)
+        except Exception:
+            return None
+
+    @bp.post("/embed")
+    def admin_embed_post():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+        cfg = _load_config(ctx)
+        token = str(cfg.get("DISCORD_BOT_TOKEN") or cfg.get("BOT_TOKEN") or "").strip()
+        if not token:
+            return jsonify({"ok": False, "error": "missing_bot_token"}), 500
+
+        body = request.get_json(silent=True) or {}
+        channel_id = str(body.get("channel_id") or "").strip()
+        if not channel_id:
+            return jsonify({"ok": False, "error": "missing_channel_id"}), 400
+
+        title = str(body.get("title") or "").strip()
+        description = str(body.get("description") or "").strip()
+        content = str(body.get("content") or "").strip()
+        footer_text = str(body.get("footer_text") or "").strip()
+        footer_icon_url = str(body.get("footer_icon_url") or "").strip()
+        author_name = str(body.get("author_name") or "").strip()
+        author_icon_url = str(body.get("author_icon_url") or "").strip()
+        thumbnail_url = str(body.get("thumbnail_url") or "").strip()
+        image_url = str(body.get("image_url") or "").strip()
+        color = _parse_embed_color(body.get("color"))
+
+        embed = {}
+        if title:
+            embed["title"] = title
+        if description:
+            embed["description"] = description
+        if color is not None:
+            embed["color"] = color
+        if footer_text or footer_icon_url:
+            footer_payload = {"text": footer_text or " "}
+            if footer_icon_url:
+                footer_payload["icon_url"] = footer_icon_url
+            embed["footer"] = footer_payload
+        if author_name or author_icon_url:
+            author_payload = {"name": author_name or " "}
+            if author_icon_url:
+                author_payload["icon_url"] = author_icon_url
+            embed["author"] = author_payload
+        if thumbnail_url:
+            embed["thumbnail"] = {"url": thumbnail_url}
+        if image_url:
+            embed["image"] = {"url": image_url}
+
+        if not embed and not content:
+            return jsonify({"ok": False, "error": "empty_embed"}), 400
+
+        payload = {"content": content}
+        if embed:
+            payload["embeds"] = [embed]
+
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        try:
+            resp = requests.post(
+                url,
+                headers={"Authorization": f"Bot {token}"},
+                json=payload,
+                timeout=10,
+            )
+        except requests.RequestException as exc:
+            return jsonify({"ok": False, "error": "discord_request_failed", "detail": str(exc)}), 502
+        if resp.status_code >= 300:
+            detail = resp.text.strip() if resp.text else ""
+            return jsonify({
+                "ok": False,
+                "error": f"discord_error ({resp.status_code})",
+                "status": resp.status_code,
+                "detail": detail[:200],
+            }), 502
+
+        data = resp.json() if resp.content else {}
+        message_id = str((data or {}).get("id") or "").strip()
+        return jsonify({"ok": True, "message_id": message_id})
 
 
     # ---------- FAN ZONE ----------
