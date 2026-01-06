@@ -2856,6 +2856,7 @@ body.user-admin-view #ownership .ownership-card {
   color: var(--muted);
   font-weight: 700;
   margin-bottom: 8px;
+  text-align: center;
 }
 
 .fan-bars {

@@ -3321,11 +3321,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return formatFixtureDateTime(isoString, { includeTime: false, includeYear: false, includeTimeZone: false });
   }
 
+    function formatFixtureDateTimeCompact(isoString){
+    const parts = getDateTimeParts(isoString, getPreferredTimeZone());
+    if (!parts) return '-';
+    return `${parts.day}/${parts.month} - ${parts.hour}:${parts.minute}`;
+  }
+
     window.TIMEZONE_STORAGE_KEY = TIMEZONE_STORAGE_KEY;
     window.DATE_FORMAT_STORAGE_KEY = DATE_FORMAT_STORAGE_KEY;
     window.getPreferredTimeZone = getPreferredTimeZone;
     window.getPreferredDateFormat = getPreferredDateFormat;
     window.formatFixtureDateTime = formatFixtureDateTime;
+    window.formatFixtureDateTimeCompact = formatFixtureDateTimeCompact;
     window.formatOffsetLabel = formatOffsetLabel;
     window.getLocalOffsetLabel = getLocalOffsetLabel;
     if (!window.loadMatchTimings) {
@@ -4915,7 +4922,7 @@ async function fetchGoalsData(){
           </div>
         </div>
 
-        <div class="fan-time">${escAttr((window.formatFixtureDateTime || formatFixtureDateTime)(f.utc || ''))}</div>
+        <div class="fan-time">${escAttr((window.formatFixtureDateTimeCompact || formatFixtureDateTime)(f.utc || ''))}</div>
 
         <div class="fan-bars">
           <div class="fan-bar-row">
