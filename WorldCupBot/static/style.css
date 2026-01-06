@@ -755,23 +755,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     --fg: #fff
 }
 
-/* --- Cog Status Pill --- */
-.pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-weight: 800;
-    font-size: 0.85rem;
-    letter-spacing: 0.2px;
-    min-width: 84px;
-    text-align: center;
-    box-sizing: border-box;
-    white-space: nowrap;
-    transition: background 0.2s ease, color 0.2s ease;
-}
-
 .pill-ok {
     background: var(--accent);
     color: #08131d;
@@ -831,21 +814,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* History body spacing */
 #split-history-body {
     padding: 10px 0 0;
-}
-
-/* reuse your pill system + add warn */
-.pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-weight: 800;
-    font-size: .85rem;
-    letter-spacing: .2px;
-    min-width: 84px;
-    text-align: center;
-    white-space: nowrap;
 }
 
 .pill-ok {
@@ -1188,7 +1156,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Team column emphasis */
 .ownership-table td:first-child {
     font-weight: 700;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.5px;
 }
 .ownership-table th:nth-child(2),
 .ownership-table td:nth-child(2) {
