@@ -1174,6 +1174,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* Split list em dash style */
 .ownership-table td:nth-child(3) {
     color: var(--muted);
+    text-align: center;
 }
 
 /* Compact pill buttons up top */
@@ -1433,6 +1434,7 @@ body.user-admin-view #ownership .ownership-card {
 
 #ownership .ownership-table td:nth-child(3) {
     color: var(--muted);
+    text-align: center;
 }
 
 #ownership .ownership-table td:nth-child(5) {
