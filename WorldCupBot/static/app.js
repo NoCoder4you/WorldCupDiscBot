@@ -1628,20 +1628,40 @@ document.addEventListener('change', async (e) => {
       }
       if (inputId) inputId.value = '';
 
-      if (listbox) {
-        listbox.hidden = false;
-      }
-
-      setupVerifiedPicker(true).then(() => {
-        if (!listbox) return;
-        if (listbox.childElementCount === 0) {
+      // populate verified users for the picker (best-effort)
+      (async () => {
+        try {
+          const users = await fetchJSON('/api/verified'); // public route
+          if (!listbox || !picker) return;
+          listbox.innerHTML = '';
+          (users || []).forEach(u => {
+            const li = document.createElement('li');
+            li.role = 'option';
+            li.tabIndex = -1;
+            li.textContent = (u.display_name || u.username || u.discord_id || '').trim();
+            li.dataset.id = String(u.discord_id || '').trim();
+            li.addEventListener('click', () => {
+              picker.textContent = li.textContent;
+              picker.dataset.id = li.dataset.id;
+              listbox.hidden = true;
+              picker.setAttribute('aria-expanded', 'false');
+            });
+            listbox.appendChild(li);
+          });
           listbox.hidden = true;
-          picker?.setAttribute('aria-expanded', 'false');
-        } else {
-          listbox.hidden = false;
-          picker?.setAttribute('aria-expanded', 'true');
-        }
-      }).catch(() => {});
+          picker.setAttribute('aria-expanded', 'false');
+          picker.onclick = () => {
+            listbox.hidden = !listbox.hidden;
+            picker.setAttribute('aria-expanded', String(!listbox.hidden));
+          };
+          document.addEventListener('click', (e) => {
+            if (!picker.contains(e.target) && !listbox.contains(e.target)) {
+              listbox.hidden = true;
+              picker.setAttribute('aria-expanded', 'false');
+            }
+          }, { once: true });
+        } catch (_) {}
+      })();
 
       backdrop.style.display = 'flex';
       modal.focus();
