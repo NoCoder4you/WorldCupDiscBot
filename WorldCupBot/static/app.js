@@ -3332,7 +3332,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatFixtureDateTimeCompact(isoString){
     const parts = getDateTimeParts(isoString, getPreferredTimeZone());
     if (!parts) return '-';
-    return `${parts.day}/${parts.month} - ${parts.hour}:${parts.minute}`;
+    const dateOrder = getPreferredDateFormat();
+    const date = dateOrder === 'MD'
+      ? `${parts.month}/${parts.day}`
+      : `${parts.day}/${parts.month}`;
+    return `${date} - ${parts.hour}:${parts.minute}`;
   }
 
     window.getPreferredTimeZone = getPreferredTimeZone;
