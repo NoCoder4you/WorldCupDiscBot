@@ -1773,6 +1773,10 @@ select.select-dark:disabled {
     box-shadow: none;
 }
 
+.select-dark {
+    position: relative;
+}
+
 #reassign-picker {
     width: 100%;
     text-align: left;
@@ -1841,6 +1845,10 @@ select.select-dark:disabled {
     color: #aeb8c5;
     border: 1px solid #1b2838;
     user-select: none;
+}
+
+#country {
+    text-align: left;
 }
 
 /* Flags inline with country */
