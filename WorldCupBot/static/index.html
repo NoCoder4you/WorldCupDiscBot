@@ -210,9 +210,25 @@
                   <div class="ownership-header">
                       <div class="ownership-title">Team Ownership</div>
                       <div class="ownership-actions">
-                          <button id="sort-country" class="btn btn-outline sm">Country A-Z</button>
-                          <button id="sort-group" class="btn btn-outline sm">Group A-Z</button>
-                          <button id="sort-player" class="btn btn-outline sm">Player A-Z</button>
+                          <div class="ownership-sorts">
+                              <button id="sort-country" class="btn btn-outline sm">Country A-Z</button>
+                              <button id="sort-group" class="btn btn-outline sm">Group A-Z</button>
+                          </div>
+                          <div class="ownership-group-filters" aria-label="Filter by group">
+                              <button class="btn btn-outline sm group-filter-btn" data-group="ALL">All</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="A">Group A</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="B">Group B</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="C">Group C</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="D">Group D</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="E">Group E</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="F">Group F</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="G">Group G</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="H">Group H</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="I">Group I</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="J">Group J</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="K">Group K</button>
+                              <button class="btn btn-outline sm group-filter-btn" data-group="L">Group L</button>
+                          </div>
                       </div>
                   </div>
                   <div class="ownership-table-scroll">
@@ -220,6 +236,7 @@
                           <thead>
                           <tr>
                               <th>Team</th>
+                              <th>Group</th>
                               <th>Owner</th>
                               <th>Split with</th>
                               <th>Stage</th>
