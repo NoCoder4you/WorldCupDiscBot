@@ -1136,12 +1136,14 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .ownership-table th:nth-child(2),
 .ownership-table td:nth-child(2) {
     text-align: center;
+    font-weight: bold;
 }
 
 /* Owner name focus, ID muted */
 .ownership-table td .owner-name {
-    font-weight: 800;
+    font-weight: bold;
     letter-spacing: 0.1px;
+    color: var(--text);
 }
 .ownership-table td .muted {
     color: var(--muted);
@@ -1233,10 +1235,13 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #ownership .ownership-table th:nth-child(3),
 #ownership .ownership-table td:nth-child(3) {
     width: 24%;
+    text-align: center;
 }
 #ownership .ownership-table th:nth-child(4),
 #ownership .ownership-table td:nth-child(4) {
     width: 18%;
+    text-align: center;
+    color: var(--text);
 }
 #ownership .ownership-table th:nth-child(5),
 #ownership .ownership-table td:nth-child(5) {
