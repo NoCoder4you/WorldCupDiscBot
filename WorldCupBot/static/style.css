@@ -1172,6 +1172,9 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .ownership-table tbody tr {
     height: 46px;
 }
+.ownership-table td {
+    vertical-align: middle;
+}
 .ownership-table tbody tr:nth-child(2n) {
     background: rgba(255, 255, 255, 0.02);
 }
@@ -1212,8 +1215,15 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     opacity: 0.9;
 }
 .warn-icon {
-    margin-left: 8px;
-    vertical-align: -2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    margin-left: 6px;
+    font-size: 0.95em;
+    line-height: 1;
+    vertical-align: middle;
     filter: drop-shadow(0 0 6px rgba(255, 180, 0, 0.15));
 }
 

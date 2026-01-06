@@ -1622,30 +1622,26 @@ document.addEventListener('change', async (e) => {
       // never show a toast here — the gate lives in the click handler
       inputT.value = teamName || '';
 
-      // populate verified users for the picker (best-effort)
-      (async () => {
-        try {
-          const users = await fetchJSON('/api/verified'); // public route
-          listbox.innerHTML = '';
-          (users || []).forEach(u => {
-            const li = document.createElement('li');
-            li.role = 'option';
-            li.tabIndex = -1;
-            li.textContent = (u.display_name || u.username || u.discord_id || '').trim();
-            li.dataset.id = String(u.discord_id || '').trim();
-            li.addEventListener('click', () => {
-              picker.textContent = li.textContent;
-              picker.dataset.id = li.dataset.id;
-              listbox.hidden = true;
-            });
-            listbox.appendChild(li);
-          });
-          picker.onclick = () => { listbox.hidden = !listbox.hidden; };
-          document.addEventListener('click', (e) => {
-            if (!picker.contains(e.target) && !listbox.contains(e.target)) listbox.hidden = true;
-          }, { once: true });
-        } catch (_) {}
-      })();
+      if (picker) {
+        picker.textContent = '-- Select a player --';
+        picker.dataset.id = '';
+      }
+      if (inputId) inputId.value = '';
+
+      if (listbox) {
+        listbox.hidden = false;
+      }
+
+      setupVerifiedPicker(true).then(() => {
+        if (!listbox) return;
+        if (listbox.childElementCount === 0) {
+          listbox.hidden = true;
+          picker?.setAttribute('aria-expanded', 'false');
+        } else {
+          listbox.hidden = false;
+          picker?.setAttribute('aria-expanded', 'true');
+        }
+      }).catch(() => {});
 
       backdrop.style.display = 'flex';
       modal.focus();
