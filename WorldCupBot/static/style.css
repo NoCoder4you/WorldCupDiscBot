@@ -265,7 +265,7 @@ body.admin li.admin-only {
 }
 
 /* Admin dice-5 grid */
-body.admin .dashboard-grid {
+body.user-admin-view .dashboard-grid {
     max-width: 1200px;
     margin: 16px auto;
     gap: 22px;
@@ -280,27 +280,27 @@ body.admin .dashboard-grid {
     justify-items: stretch;
 }
 
-body.admin .card-a {
+body.user-admin-view .card-a {
     grid-area: a
 }
 
-body.admin .card-b {
+body.user-admin-view .card-b {
     grid-area: b
 }
 
-body.admin .card-c {
+body.user-admin-view .card-c {
     grid-area: c
 }
 
-body.admin .card-d {
+body.user-admin-view .card-d {
     grid-area: d
 }
 
-body.admin .card-e {
+body.user-admin-view .card-e {
     grid-area: e
 }
 
-body.admin .dashboard-grid .card {
+body.user-admin-view .dashboard-grid .card {
     height: var(--card-h);
     display: flex;
     flex-direction: column;
@@ -308,7 +308,7 @@ body.admin .dashboard-grid .card {
 }
 
 @media (max-width:1100px) {
-    body.admin .dashboard-grid {
+    body.user-admin-view .dashboard-grid {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: auto;
         grid-template-areas:
