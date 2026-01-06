@@ -755,6 +755,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     --fg: #fff
 }
 
+/* --- Cog Status Pill --- */
 .pill {
     display: inline-flex;
     align-items: center;
@@ -830,6 +831,21 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 /* History body spacing */
 #split-history-body {
     padding: 10px 0 0;
+}
+
+/* reuse your pill system + add warn */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: .85rem;
+    letter-spacing: .2px;
+    min-width: 84px;
+    text-align: center;
+    white-space: nowrap;
 }
 
 .pill-ok {
@@ -910,6 +926,20 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     border-bottom: 1px solid var(--border);
 }
 
+/* Pill width so text swap doesn't move layout */
+.pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: .85rem;
+    letter-spacing: .2px;
+    min-width: 92px;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
 
 .pill-ok {
     background: var(--accent);
@@ -2934,6 +2964,8 @@ select.select-dark:disabled {
   font-size: 12px;
   line-height: 1;
 }
+
+.pill { min-width: 84px; }
 
 .fan-card.voted-home .fan-bar-home,
 .fan-actions .btn.home.active {
