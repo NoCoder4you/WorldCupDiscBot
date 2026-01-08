@@ -5087,6 +5087,11 @@ async function fetchGoalsData(){
             </div>
           </div>
           <div class="fan-bar-row">
+            <div class="fan-bar fan-bar-draw" style="width:${dp}%">
+              <span>${dp}%</span>
+            </div>
+          </div>
+          <div class="fan-bar-row">
             <div class="fan-bar fan-bar-away" style="width:${ap}%">
               <span>${ap}%</span>
             </div>
