@@ -2359,6 +2359,22 @@ def create_public_routes(ctx):
             "declared_at": declared_at
         })
 
+    @api.get("/fanzone/winners")
+    def api_fanzone_winners():
+        base = ctx.get("BASE_DIR", "")
+        winners_blob = _json_load(_fz_winners_path(base), {})
+        if not isinstance(winners_blob, dict):
+            winners_blob = {}
+        winners = {}
+        for fid, rec in winners_blob.items():
+            if not isinstance(rec, dict):
+                continue
+            winners[str(fid)] = {
+                "winner_side": rec.get("winner_side") or rec.get("winner") or "",
+                "winner_team": rec.get("winner_team") or "",
+            }
+        return jsonify({"ok": True, "winners": winners})
+
     @api.get("/fanzone/stats/<fixture_id>")
     def api_fanzone_stats_alias(fixture_id):
         return api_fanzone_stats(fixture_id)

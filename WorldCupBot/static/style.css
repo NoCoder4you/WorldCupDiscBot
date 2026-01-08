@@ -636,14 +636,14 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .fixtures-bracket-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(9, minmax(160px, 1fr));
     gap: 24px;
     overflow-x: auto;
-    padding-bottom: 8px;
+    padding-bottom: 12px;
 }
 
 .bracket-column {
-    min-width: 200px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -658,30 +658,17 @@ body.user-admin-view .dashboard-grid .card {
     letter-spacing: 0.06em;
 }
 
-.bracket-pairs {
+.bracket-list {
     display: grid;
-    gap: 24px;
+    gap: 16px;
 }
 
-.bracket-pair {
-    display: grid;
-    gap: 12px;
-    position: relative;
-    padding-right: 24px;
-}
-
-.bracket-pair::after {
-    content: "";
-    position: absolute;
-    right: 8px;
-    top: 12px;
-    bottom: 12px;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.15);
-}
-
-.bracket-column.is-final .bracket-pair::after {
-    display: none;
+.bracket-subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 8px;
 }
 
 .bracket-match {
@@ -704,8 +691,38 @@ body.user-admin-view .dashboard-grid .card {
     background: rgba(255, 255, 255, 0.2);
 }
 
-.bracket-column.is-final .bracket-match::after {
+.bracket-column.bracket-center .bracket-match::after {
     display: none;
+}
+
+.bracket-column.bracket-right .bracket-match::after {
+    display: none;
+}
+
+.bracket-column.bracket-right .bracket-match::before {
+    content: "";
+    position: absolute;
+    left: -16px;
+    top: 50%;
+    width: 16px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.bracket-column.bracket-center {
+    align-items: center;
+}
+
+.bracket-column.bracket-center .bracket-list {
+    width: 100%;
+}
+
+.bracket-column.bracket-right {
+    align-items: flex-end;
+}
+
+.bracket-column.bracket-right .bracket-match {
+    text-align: right;
 }
 
 .bracket-meta {
@@ -827,33 +844,6 @@ body.user-admin-view .dashboard-grid .card {
 
 .wdl-count.loss {
     color: #ff6b6b;
-}
-
-.fixtures-stages {
-    display: grid;
-    gap: 16px;
-}
-
-.fixtures-stage {
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-    background: #0f1622;
-}
-
-.fixtures-stage-title {
-    padding: 12px 16px;
-    font-weight: 900;
-    color: var(--accent);
-    border-bottom: 1px solid var(--border);
-}
-
-.fixtures-stage-table {
-    overflow-x: auto;
-}
-
-.fixtures-empty {
-    padding: 12px 16px;
 }
 
 .fixtures-time {
