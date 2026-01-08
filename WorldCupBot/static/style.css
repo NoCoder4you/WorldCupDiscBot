@@ -622,6 +622,15 @@ body.user-admin-view .dashboard-grid .card {
     gap: 12px;
 }
 
+.fixtures-summary-toggle {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.fixtures-summary.is-collapsed {
+    display: none;
+}
+
 .fixtures-bracket {
     border: 1px solid var(--border);
     border-radius: 16px;

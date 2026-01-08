@@ -4979,6 +4979,26 @@ async function fetchGoalsData(){
     }).join('');
   }
 
+  function ensureSummaryToggle(){
+    const wrap = document.querySelector('.fixtures-summary');
+    const btn = document.getElementById('fixtures-summary-toggle');
+    if (!wrap || !btn || btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+
+    const updateLabel = () => {
+      const collapsed = wrap.classList.contains('is-collapsed');
+      btn.textContent = collapsed ? 'Expand summaries' : 'Collapse summaries';
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    };
+
+    btn.addEventListener('click', () => {
+      wrap.classList.toggle('is-collapsed');
+      updateLabel();
+    });
+
+    updateLabel();
+  }
+
   function makePlaceholderMatch(stage){
     return { home: 'TBD', away: 'TBD', utc: '', stadium: '', group: '', stage, _placeholder: true };
   }
@@ -5151,6 +5171,7 @@ async function fetchGoalsData(){
 
     renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.');
     renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.');
+    ensureSummaryToggle();
     renderBracket(bracketHost, fixtures);
     updateFixturesTimes();
   }
