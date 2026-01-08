@@ -133,16 +133,18 @@ class FanZoneAnnouncer(commands.Cog):
             return
 
     def _public_embed(self, home: str, away: str, winner: str, loser: str, thumb_iso: str | None):
+        is_draw = str(winner or "").strip().lower() == "draw" or not loser
+        result_line = f"Result: **Draw**" if is_draw else f"Winner: **{winner}**"
         e = discord.Embed(
-            title="Fan Zone Result",
-            description=f"**{home}** vs **{away}**\nWinner: **{winner}**",
+            title="Match Votes Result",
+            description=f"**{home}** vs **{away}**\n{result_line}",
             color=discord.Color.gold()
         )
         e.add_field(name="Stats", value="COMING SOON", inline=False)
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
-        e.set_footer(text="World Cup 2026 Fan Zone")
+        e.set_footer(text="World Cup 2026 Match Votes")
         e.timestamp = discord.utils.utcnow()
         return e
 
@@ -156,7 +158,7 @@ class FanZoneAnnouncer(commands.Cog):
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
-        e.set_footer(text="World Cup 2026 Fan Zone")
+        e.set_footer(text="World Cup 2026 Match Votes")
         e.timestamp = discord.utils.utcnow()
         return e
 
@@ -230,13 +232,14 @@ class FanZoneAnnouncer(commands.Cog):
             win_owner_ids = data.get("winner_owner_ids") or []
             lose_owner_ids = data.get("loser_owner_ids") or []
 
-            win_emb = self._dm_embed(True, winner_team, loser_team, winner_iso)
-            lose_emb = self._dm_embed(False, loser_team, winner_team, loser_iso)
+            if str(data.get("winner_side") or "").strip().lower() != "draw":
+                win_emb = self._dm_embed(True, winner_team, loser_team, winner_iso)
+                lose_emb = self._dm_embed(False, loser_team, winner_team, loser_iso)
 
-            for uid in win_owner_ids:
-                await self._dm_user_embed(uid, win_emb)
-            for uid in lose_owner_ids:
-                await self._dm_user_embed(uid, lose_emb)
+                for uid in win_owner_ids:
+                    await self._dm_user_embed(uid, win_emb)
+                for uid in lose_owner_ids:
+                    await self._dm_user_embed(uid, lose_emb)
 
     @_loop.before_loop
     async def _before_loop(self):

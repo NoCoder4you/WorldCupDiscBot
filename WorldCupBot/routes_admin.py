@@ -1476,7 +1476,7 @@ def create_admin_routes(ctx):
             if eid in existing:
                 continue
 
-            title = 'Fan Zone result'
+            title = 'Match Votes result'
             if result == 'win':
                 body = f"✅ {winner_team} beat {loser_team} ({home} vs {away})."
             else:
@@ -1498,7 +1498,7 @@ def create_admin_routes(ctx):
         _write_json_atomic(path, data)
 
     def _append_fanzone_vote_results(voters: dict, winner_side: str, winner_team: str, fixture_id: str, ts: int):
-        if winner_side not in ("home", "away"):
+        if winner_side not in ("home", "away", "draw"):
             return
         path = _path(ctx, 'fan_zone_results.json')
         data = _read_json(path, {})
@@ -1513,7 +1513,7 @@ def create_admin_routes(ctx):
         for uid, choice in voters.items():
             suid = str(uid or '').strip()
             side = str(choice or '').strip().lower()
-            if not suid or side not in ('home', 'away'):
+            if not suid or side not in ('home', 'away', 'draw'):
                 continue
 
             result = 'win' if side == winner_side else 'lose'
@@ -1521,8 +1521,8 @@ def create_admin_routes(ctx):
             if eid in existing:
                 continue
 
-            title = f"Fan Zone: {winner_team} declared" if winner_team else "Fan Zone result"
-            body = "You won your Fan Zone pick." if result == "win" else "You lost your Fan Zone pick."
+            title = f"Match Votes: {winner_team} declared" if winner_team else "Match Votes result"
+            body = "You won your Match Votes pick." if result == "win" else "You lost your Match Votes pick."
 
             events.append({
                 'id': eid,
@@ -1576,7 +1576,7 @@ def create_admin_routes(ctx):
             alias_ids.append(derived_id)
 
         # Winner can be provided as side (home|away) or as team name.
-        side = str(body.get('winner') or '').strip().lower()  # 'home' | 'away'
+        side = str(body.get('winner') or '').strip().lower()  # 'home' | 'away' | 'draw'
         winner_team_in = str(body.get('winner_team') or body.get('winnerTeam') or '').strip()
         winner_iso_in = str(body.get('winner_iso') or body.get('winnerIso') or '').strip().lower()
 
@@ -1591,6 +1591,9 @@ def create_admin_routes(ctx):
         elif side in ('home', 'away'):
             winner_team = home if side == 'home' else away
             loser_team = away if side == 'home' else home
+        elif side == 'draw':
+            winner_team = 'Draw'
+            loser_team = ''
         elif winner_team_in:
             if winner_team_in.lower() == home.lower():
                 winner_team = home
@@ -1656,7 +1659,8 @@ def create_admin_routes(ctx):
 
         home_votes = int(fx.get('home') or 0)
         away_votes = int(fx.get('away') or 0)
-        total_votes = max(0, home_votes + away_votes)
+        draw_votes = int(fx.get('draw') or 0)
+        total_votes = max(0, home_votes + away_votes + draw_votes)
 
         discord_voters = fx.get('discord_voters')
         if not isinstance(discord_voters, dict):
@@ -1683,13 +1687,14 @@ def create_admin_routes(ctx):
             'declared_at': int(time.time()),
             'home_votes': home_votes,
             'away_votes': away_votes,
+            'draw_votes': draw_votes,
             'total': total_votes
         }
         _write_json_atomic(snapshots_path, snap_blob)
 
         # Determine owners for DM + site notifications
-        winner_owner_ids = _owners_for_team(ctx, winner_team)
-        loser_owner_ids = _owners_for_team(ctx, loser_team)
+        winner_owner_ids = _owners_for_team(ctx, winner_team) if side in ('home', 'away') else []
+        loser_owner_ids = _owners_for_team(ctx, loser_team) if side in ('home', 'away') else []
         dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms", "matches")
         dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms", "matches")
         bell_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "bell", "matches")
@@ -1708,6 +1713,7 @@ def create_admin_routes(ctx):
             'utc': utc,
             'group': str(f.get('group') or ''),
             'stage': str(f.get('stage') or f.get('round') or f.get('phase') or ''),
+            'winner_side': side,
             'winner_team': winner_team,
             'loser_team': loser_team,
             'winner_iso': winner_iso_in,
@@ -1717,12 +1723,14 @@ def create_admin_routes(ctx):
             'channel': channel_name,
             'home_votes': home_votes,
             'away_votes': away_votes,
+            'draw_votes': draw_votes,
             'total_votes': total_votes
         })
 
         # Website bell notifications
-        _append_fanzone_results(bell_winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
-        _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
+        if side in ('home', 'away'):
+            _append_fanzone_results(bell_winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
+            _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
         _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters, "matches"), side, winner_team, fixture_id, int(time.time()))
 
         return jsonify({
@@ -1735,6 +1743,7 @@ def create_admin_routes(ctx):
             'loser_owner_ids': loser_owner_ids,
             'home_votes': home_votes,
             'away_votes': away_votes,
+            'draw_votes': draw_votes,
             'total_votes': total_votes
         })
 

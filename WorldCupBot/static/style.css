@@ -3012,9 +3012,14 @@ select.select-dark:disabled {
   background: linear-gradient(90deg, var(--accent-2), #77c3ff);
   color: #06121a;
 }
+
+.fan-bar-draw {
+  background: linear-gradient(90deg, #f3c85c, #f8e2a0);
+  color: #332510;
+}
 .fan-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 8px;
 }
@@ -3055,20 +3060,28 @@ select.select-dark:disabled {
   box-shadow: 0 0 0 2px rgba(0,0,0,.15) inset;
 }
 
+.fan-card.voted-draw .fan-bar-draw,
+.fan-actions .btn.draw.active {
+  outline: 2px solid #f3c85c;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.15) inset;
+}
+
 .fan-actions .btn.active {
   filter: saturate(1.1);
   font-weight: 800;
 }
 
 .fan-card.voted-home .fan-actions,
-.fan-card.voted-away .fan-actions {
+.fan-card.voted-away .fan-actions,
+.fan-card.voted-draw .fan-actions {
   pointer-events: none;
   filter: grayscale(0.6);
   opacity: 0.6;
 }
 
 .fan-card.voted-home .fan-actions .btn,
-.fan-card.voted-away .fan-actions .btn {
+.fan-card.voted-away .fan-actions .btn,
+.fan-card.voted-draw .fan-actions .btn {
   cursor: not-allowed;
 }
 

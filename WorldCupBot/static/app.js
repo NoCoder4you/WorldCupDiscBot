@@ -5039,14 +5039,16 @@ async function fetchGoalsData(){
   function cardHTML(f, stats) {
     const hp = pct(stats?.home_pct || 0);
     const ap = pct(stats?.away_pct || 0);
+    const dp = pct(stats?.draw_pct || 0);
     const total = stats?.total || 0;
     const last = stats?.last_choice;
     const winner = String(stats?.winner || stats?.winner_side || '').toLowerCase();
-    const isLocked = winner === 'home' || winner === 'away';
+    const isLocked = winner === 'home' || winner === 'away' || winner === 'draw';
 
     const votedHome = last === 'home';
     const votedAway = last === 'away';
-    const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : '';
+    const votedDraw = last === 'draw';
+    const votedClass = votedHome ? 'voted-home' : votedAway ? 'voted-away' : votedDraw ? 'voted-draw' : '';
     const lockedClass = isLocked ? 'locked' : '';
     const winnerClass = isLocked ? `winner-${winner}` : '';
 
@@ -5057,6 +5059,9 @@ async function fetchGoalsData(){
         </button>
         <button class="btn xs fan-win" type="button" data-side="away" data-team="${f.away}" data-iso="${f.away_iso || ''}">
           Declare ${f.away}
+        </button>
+        <button class="btn xs fan-win" type="button" data-side="draw">
+          Declare Draw
         </button>
       </span>
     ` : '';
@@ -5082,6 +5087,11 @@ async function fetchGoalsData(){
             </div>
           </div>
           <div class="fan-bar-row">
+            <div class="fan-bar fan-bar-draw" style="width:${dp}%">
+              <span>${dp}%</span>
+            </div>
+          </div>
+          <div class="fan-bar-row">
             <div class="fan-bar fan-bar-away" style="width:${ap}%">
               <span>${ap}%</span>
             </div>
@@ -5092,6 +5102,9 @@ async function fetchGoalsData(){
           <button class="btn fan-vote home ${votedHome ? 'active' : ''}" data-choice="home" ${isLocked || last ? 'disabled' : ''}>
             Vote ${f.home}
           </button>
+          <button class="btn fan-vote draw ${votedDraw ? 'active' : ''}" data-choice="draw" ${isLocked || last ? 'disabled' : ''}>
+            Vote Draw
+          </button>
           <button class="btn fan-vote away ${votedAway ? 'active' : ''}" data-choice="away" ${isLocked || last ? 'disabled' : ''}>
             Vote ${f.away}
           </button>
@@ -5099,7 +5112,7 @@ async function fetchGoalsData(){
 
         <div class="fan-foot">
           <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
-          ${last ? `<span class="pill pill-ok">You voted: ${last === 'home' ? f.home : f.away}</span>` : ''}
+          ${last ? `<span class="pill pill-ok">You voted: ${last === 'home' ? f.home : last === 'away' ? f.away : 'Draw'}</span>` : ''}
           ${adminControls}
         </div>
       </div>
@@ -5112,37 +5125,45 @@ async function fetchGoalsData(){
   // Vote buttons
   const btnHome = card.querySelector('.fan-vote[data-choice="home"]');
   const btnAway = card.querySelector('.fan-vote[data-choice="away"]');
+  const btnDraw = card.querySelector('.fan-vote[data-choice="draw"]');
 
   // Percent bars (matches cardHTML markup: .fan-bar-home/.fan-bar-away each contains a <span>)
   const barHome = card.querySelector('.fan-bar-home');
   const barAway = card.querySelector('.fan-bar-away');
+  const barDraw = card.querySelector('.fan-bar-draw');
   const barHomePct = barHome ? barHome.querySelector('span') : null;
   const barAwayPct = barAway ? barAway.querySelector('span') : null;
+  const barDrawPct = barDraw ? barDraw.querySelector('span') : null;
 
   // Totals
   const totalEl = card.querySelector('.fan-total');
 
   const hp = Math.max(0, Math.min(100, Number(stats.home_pct || 0)));
   const ap = Math.max(0, Math.min(100, Number(stats.away_pct || 0)));
+  const dp = Math.max(0, Math.min(100, Number(stats.draw_pct || 0)));
 
   if (barHome) barHome.style.width = `${hp}%`;
   if (barAway) barAway.style.width = `${ap}%`;
+  if (barDraw) barDraw.style.width = `${dp}%`;
   if (barHomePct) barHomePct.textContent = `${hp.toFixed(0)}%`;
   if (barAwayPct) barAwayPct.textContent = `${ap.toFixed(0)}%`;
+  if (barDrawPct) barDrawPct.textContent = `${dp.toFixed(0)}%`;
 
   if (totalEl) totalEl.textContent = String(Number(stats.total || 0));
 
   // "You voted" state (this is what brings the outline back)
-  const last = String(stats.last_choice || stats.last || '').toLowerCase(); // "home"|"away"|""
+  const last = String(stats.last_choice || stats.last || '').toLowerCase(); // "home"|"away"|"draw"| ""
   const homeLabel = card.dataset.home || 'Home';
   const awayLabel = card.dataset.away || 'Away';
   if (btnHome) btnHome.classList.toggle('active', last === 'home');
   if (btnAway) btnAway.classList.toggle('active', last === 'away');
+  if (btnDraw) btnDraw.classList.toggle('active', last === 'draw');
   card.classList.toggle('voted-home', last === 'home');
   card.classList.toggle('voted-away', last === 'away');
+  card.classList.toggle('voted-draw', last === 'draw');
 
     const winner = String(stats.winner || stats.winner_side || '').toLowerCase();
-    const isLocked = (winner === 'home' || winner === 'away');
+    const isLocked = (winner === 'home' || winner === 'away' || winner === 'draw');
 
     if (isLocked) {
       card.classList.add('locked');
@@ -5158,6 +5179,7 @@ async function fetchGoalsData(){
 
   if (btnHome) btnHome.disabled = isLocked || !!last;
   if (btnAway) btnAway.disabled = isLocked || !!last;
+  if (btnDraw) btnDraw.disabled = isLocked || !!last;
 
   // Lock visuals + disable Admin "Declare" buttons too
   card.classList.toggle('locked', isLocked);
@@ -5169,11 +5191,12 @@ async function fetchGoalsData(){
   // Optional winner highlight classes if you want them
   card.classList.toggle('winner-home', isLocked && winner === 'home');
   card.classList.toggle('winner-away', isLocked && winner === 'away');
+  card.classList.toggle('winner-draw', isLocked && winner === 'draw');
 
   // Update the little pill if present
   const pill = card.querySelector('.pill.pill-ok');
   if (pill) {
-    const votedLabel = last === 'home' ? homeLabel : last === 'away' ? awayLabel : '';
+    const votedLabel = last === 'home' ? homeLabel : last === 'away' ? awayLabel : last === 'draw' ? 'Draw' : '';
     pill.textContent = votedLabel ? `You voted: ${votedLabel}` : '';
   }
 }
@@ -5295,7 +5318,7 @@ async function fetchGoalsData(){
         const card = winBtn.closest('.fan-card');
         if (!card) return;
 
-          if (card.dataset.winner === 'home' || card.dataset.winner === 'away') {
+          if (card.dataset.winner === 'home' || card.dataset.winner === 'away' || card.dataset.winner === 'draw') {
             notify('This match has already been declared and is locked.', false);
             return;
   }
@@ -5304,14 +5327,15 @@ async function fetchGoalsData(){
         if (!fid) return;
 
         const side = String(winBtn.dataset.side || '').toLowerCase();
-        if (side !== 'home' && side !== 'away') return;
+        if (side !== 'home' && side !== 'away' && side !== 'draw') return;
 
         const winnerTeam = String(winBtn.dataset.team || '').trim();
 
         try {
           const r = await declareFanZoneWinner(fid, side);
           if (r && r.ok) {
-            notify(`Winner declared: ${winnerTeam || side}`, true);
+            const declaredLabel = winnerTeam || (side === 'draw' ? 'Draw' : side);
+            notify(`Winner declared: ${declaredLabel}`, true);
           } else {
             notify('Failed to declare winner', false);
           }
