@@ -5318,7 +5318,7 @@ async function fetchGoalsData(){
         const card = winBtn.closest('.fan-card');
         if (!card) return;
 
-          if (card.dataset.winner === 'home' || card.dataset.winner === 'away') {
+          if (card.dataset.winner === 'home' || card.dataset.winner === 'away' || card.dataset.winner === 'draw') {
             notify('This match has already been declared and is locked.', false);
             return;
   }
