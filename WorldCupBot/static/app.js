@@ -5057,6 +5057,9 @@ async function fetchGoalsData(){
         <button class="btn xs fan-win" type="button" data-side="home" data-team="${f.home}" data-iso="${f.home_iso || ''}">
           Declare ${f.home}
         </button>
+        <button class="btn xs fan-win" type="button" data-side="draw">
+          Declare Draw
+        </button>
         <button class="btn xs fan-win" type="button" data-side="away" data-team="${f.away}" data-iso="${f.away_iso || ''}">
           Declare ${f.away}
         </button>
