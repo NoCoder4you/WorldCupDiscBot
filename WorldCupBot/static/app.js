@@ -4997,7 +4997,7 @@ async function fetchGoalsData(){
     };
   }
 
-  function matchCard(f){
+  function matchCard(f, opts = {}){
     const hs = parseScore(f.home_score);
     const as = parseScore(f.away_score);
     const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
@@ -5005,8 +5005,9 @@ async function fetchGoalsData(){
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
     const meta = f.id ? escAttr(f.id) : '';
     const placeholderClass = f._placeholder ? ' is-placeholder' : '';
+    const gridRow = opts.gridRow ? ` style="grid-row:${escAttr(opts.gridRow)}"` : '';
     return `
-      <div class="bracket-match${placeholderClass}">
+      <div class="bracket-match${placeholderClass}"${gridRow}>
         <div class="bracket-meta">${meta || 'Match'}</div>
         <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
         <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
@@ -5016,6 +5017,14 @@ async function fetchGoalsData(){
         </div>
       </div>
     `;
+  }
+
+  function renderBracketColumn(matches, span) {
+    return matches.map((match, idx) => {
+      const start = 1 + (idx * span);
+      const gridRow = `${start} / span ${span}`;
+      return matchCard(match, { gridRow });
+    }).join('');
   }
 
   function renderBracket(host, fixtures){
@@ -5031,57 +5040,57 @@ async function fetchGoalsData(){
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${r32.left.map(matchCard).join('')}
+          ${renderBracketColumn(r32.left, 1)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${r16.left.map(matchCard).join('')}
+          ${renderBracketColumn(r16.left, 2)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${qf.left.map(matchCard).join('')}
+          ${renderBracketColumn(qf.left, 4)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${sf.left.map(matchCard).join('')}
+          ${renderBracketColumn(sf.left, 8)}
         </div>
       </div>
       <div class="bracket-column bracket-center">
         <div class="bracket-title">Final</div>
         <div class="bracket-list">
-          ${finalMatch.map(matchCard).join('')}
+          ${finalMatch.map(match => matchCard(match, { gridRow: '4 / span 2' })).join('')}
           <div class="bracket-subtitle">Third Place</div>
-          ${thirdPlace.map(matchCard).join('')}
+          ${thirdPlace.map(match => matchCard(match, { gridRow: '6 / span 2' })).join('')}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${sf.right.map(matchCard).join('')}
+          ${renderBracketColumn(sf.right, 8)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${qf.right.map(matchCard).join('')}
+          ${renderBracketColumn(qf.right, 4)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${r16.right.map(matchCard).join('')}
+          ${renderBracketColumn(r16.right, 2)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${r32.right.map(matchCard).join('')}
+          ${renderBracketColumn(r32.right, 1)}
         </div>
       </div>
     `;

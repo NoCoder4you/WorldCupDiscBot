@@ -641,6 +641,9 @@ body.user-admin-view .dashboard-grid .card {
     gap: 16px;
     overflow-x: auto;
     padding-bottom: 8px;
+    --bracket-card: 72px;
+    --bracket-gap: 16px;
+    --bracket-row: calc(var(--bracket-card) + var(--bracket-gap));
 }
 
 .bracket-column {
@@ -660,7 +663,8 @@ body.user-admin-view .dashboard-grid .card {
 
 .bracket-list {
     display: grid;
-    gap: 12px;
+    grid-template-rows: repeat(8, var(--bracket-row));
+    row-gap: 0;
 }
 
 .bracket-subtitle {
@@ -669,6 +673,7 @@ body.user-admin-view .dashboard-grid .card {
     text-transform: uppercase;
     letter-spacing: 0.06em;
     margin-top: 6px;
+    align-self: center;
 }
 
 .bracket-match {
@@ -679,6 +684,8 @@ body.user-admin-view .dashboard-grid .card {
     display: grid;
     gap: 4px;
     position: relative;
+    height: var(--bracket-card);
+    align-self: center;
 }
 
 .bracket-match::after {
