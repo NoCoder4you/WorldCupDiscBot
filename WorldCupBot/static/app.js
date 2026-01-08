@@ -4864,6 +4864,370 @@ async function fetchGoalsData(){
     document.addEventListener('DOMContentLoaded', hookNav);
 })();
 
+// ---------------- Fixtures (public) ----------------
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+  const escAttr = (s) => String(s || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+
+  const {
+    STAGE_ORDER = [],
+    normalizeStage = (label) => String(label || '').trim()
+  } = window.WorldCupStages || {};
+
+  const tableStageOrder = [
+    'Group Stage',
+    'Round of 32',
+    'Round of 16',
+    'Quarter-finals',
+    'Semi-finals',
+    'Third Place Play-off',
+    'Final'
+  ];
+
+  const fetchJSON = window.fetchJSON || (async (url, opts) => {
+    const r = await fetch(url, { cache: 'no-store', ...opts });
+    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    return r.json();
+  });
+
+  function stageRank(stage){
+    const label = normalizeStage(stage);
+    if (Array.isArray(STAGE_ORDER) && STAGE_ORDER.length) {
+      const idx = STAGE_ORDER.indexOf(label);
+      return idx === -1 ? 999 : idx;
+    }
+    return 999;
+  }
+
+  function stageBadge(stage){
+    const label = normalizeStage(stage) || 'Group Stage';
+    const cls = label === 'Winner' ? 'pill-ok' : label === 'Eliminated' ? 'pill-off' : 'pill';
+    return `<span class="${cls}">${escAttr(label)}</span>`;
+  }
+
+  function parseScore(val){
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function computeRecords(fixtures){
+    const rec = new Map();
+    fixtures.forEach(f => {
+      const home = String(f.home || '').trim();
+      const away = String(f.away || '').trim();
+      if (!home || !away) return;
+      const hs = parseScore(f.home_score);
+      const as = parseScore(f.away_score);
+      if (hs === null || as === null) return;
+
+      const homeRec = rec.get(home) || { w: 0, d: 0, l: 0 };
+      const awayRec = rec.get(away) || { w: 0, d: 0, l: 0 };
+
+      if (hs > as) {
+        homeRec.w += 1;
+        awayRec.l += 1;
+      } else if (hs < as) {
+        homeRec.l += 1;
+        awayRec.w += 1;
+      } else {
+        homeRec.d += 1;
+        awayRec.d += 1;
+      }
+
+      rec.set(home, homeRec);
+      rec.set(away, awayRec);
+    });
+    return rec;
+  }
+
+  function recordBar(rec){
+    const total = rec.w + rec.d + rec.l;
+    const winPct = total ? (rec.w / total) * 100 : 0;
+    const drawPct = total ? (rec.d / total) * 100 : 0;
+    const lossPct = total ? (rec.l / total) * 100 : 0;
+    const empty = total === 0 ? 'is-empty' : '';
+    return `
+      <div class="wdl-bar ${empty}" role="img" aria-label="Wins ${rec.w}, Draws ${rec.d}, Losses ${rec.l}">
+        <span class="wdl-seg win" style="width:${winPct}%"></span>
+        <span class="wdl-seg draw" style="width:${drawPct}%"></span>
+        <span class="wdl-seg loss" style="width:${lossPct}%"></span>
+      </div>
+      <div class="wdl-counts">
+        <span class="wdl-count win">W ${rec.w}</span>
+        <span class="wdl-count draw">D ${rec.d}</span>
+        <span class="wdl-count loss">L ${rec.l}</span>
+      </div>
+    `;
+  }
+
+  function renderTeamList(host, teams, records, emptyLabel){
+    if (!host) return;
+    if (!teams.length) {
+      host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
+      return;
+    }
+
+    host.innerHTML = teams.map(({ name, stage }) => {
+      const rec = records.get(name) || { w: 0, d: 0, l: 0 };
+      return `
+        <div class="fixtures-team">
+          <div class="fixtures-team-head">
+            <span class="fixtures-team-name">${escAttr(name)}</span>
+            ${stageBadge(stage)}
+          </div>
+          <div class="fixtures-team-record">
+            ${recordBar(rec)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function groupFixtures(fixtures){
+    const groups = new Map();
+    fixtures.forEach(f => {
+      const stage = normalizeStage(f.stage || '') || (f.group ? 'Group Stage' : '');
+      const key = stage || 'Other';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(f);
+    });
+    for (const list of groups.values()) {
+      list.sort((a, b) => String(a.utc || '').localeCompare(String(b.utc || '')));
+    }
+    return groups;
+  }
+
+  function renderStageTables(host, fixtures){
+    if (!host) return;
+    if (!fixtures.length) {
+      host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      return;
+    }
+
+    const grouped = groupFixtures(fixtures);
+    const allStages = [...tableStageOrder];
+    if (!allStages.includes('Group Stage') && grouped.has('Group Stage')) {
+      allStages.unshift('Group Stage');
+    }
+    if (!allStages.includes('Other') && grouped.has('Other')) {
+      allStages.push('Other');
+    }
+
+    host.innerHTML = allStages.map(stage => {
+      const list = grouped.get(stage) || [];
+      return `
+        <div class="fixtures-stage">
+          <div class="fixtures-stage-title">${escAttr(stage)}</div>
+          <div class="fixtures-stage-table">
+            ${list.length ? `
+              <table class="table fixtures-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Home</th>
+                    <th>Away</th>
+                    <th>Stadium</th>
+                    <th>Group</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${list.map(f => {
+                    const hs = parseScore(f.home_score);
+                    const as = parseScore(f.away_score);
+                    const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
+                    const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
+                    return `
+                      <tr>
+                        <td><span class="fixtures-time" data-utc="${escAttr(f.utc || '')}">${escAttr(formatter(f.utc || ''))}</span></td>
+                        <td>${escAttr(f.home || '')}</td>
+                        <td>${escAttr(f.away || '')}</td>
+                        <td>${escAttr(f.stadium || '—')}</td>
+                        <td>${escAttr(f.group || '—')}</td>
+                        <td>${escAttr(score)}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            ` : `<div class="muted fixtures-empty">No fixtures scheduled.</div>`}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function chunkPairs(list){
+    const out = [];
+    for (let i = 0; i < list.length; i += 2) {
+      out.push(list.slice(i, i + 2));
+    }
+    return out;
+  }
+
+  function makePlaceholderMatch(stage){
+    return { home: 'TBD', away: 'TBD', utc: '', stadium: '', group: '', stage, _placeholder: true };
+  }
+
+  function stageMatches(fixtures, stage, expected){
+    const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
+    list.sort((a, b) => String(a.utc || '').localeCompare(String(b.utc || '')) || String(a.id || '').localeCompare(String(b.id || '')));
+    while (expected && list.length < expected) list.push(makePlaceholderMatch(stage));
+    return list;
+  }
+
+  function matchCard(f){
+    const hs = parseScore(f.home_score);
+    const as = parseScore(f.away_score);
+    const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
+    const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
+    const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
+    const meta = f.id ? escAttr(f.id) : '';
+    const placeholderClass = f._placeholder ? ' is-placeholder' : '';
+    return `
+      <div class="bracket-match${placeholderClass}">
+        <div class="bracket-meta">${meta || 'Match'}</div>
+        <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
+        <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
+        <div class="bracket-foot">
+          <span class="fixtures-time" data-utc="${escAttr(f.utc || '')}">${escAttr(utcLabel)}</span>
+          <span class="bracket-score">${escAttr(score)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBracket(host, fixtures){
+    if (!host) return;
+    const columns = [
+      { label: 'Round of 32', stage: 'Round of 32', expected: 16, pair: true },
+      { label: 'Round of 16', stage: 'Round of 16', expected: 8, pair: true },
+      { label: 'Quarter-finals', stage: 'Quarter-finals', expected: 4, pair: true },
+      { label: 'Semi-finals', stage: 'Semi-finals', expected: 2, pair: true },
+      { label: 'Finals', stage: 'Final', expected: 1, pair: false, extras: [{ stage: 'Third Place Play-off', label: 'Third Place' }] }
+    ];
+
+    host.innerHTML = columns.map((col, idx) => {
+      const matches = stageMatches(fixtures, col.stage, col.expected);
+      const extraMatches = (col.extras || []).flatMap(extra => {
+        const list = stageMatches(fixtures, extra.stage, 1);
+        if (!list.length) list.push(makePlaceholderMatch(extra.stage));
+        return list;
+      });
+      const isFinalColumn = idx === columns.length - 1;
+
+      if (col.pair) {
+        const pairs = chunkPairs(matches);
+        return `
+          <div class="bracket-column${isFinalColumn ? ' is-final' : ''}">
+            <div class="bracket-title">${escAttr(col.label)}</div>
+            <div class="bracket-pairs">
+              ${pairs.map(pair => `
+                <div class="bracket-pair">
+                  ${pair.map(matchCard).join('')}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="bracket-column is-final">
+          <div class="bracket-title">${escAttr(col.label)}</div>
+          <div class="bracket-pairs">
+            ${matches.map(matchCard).join('')}
+            ${extraMatches.map(matchCard).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function updateFixturesTimes(){
+    const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
+    document.querySelectorAll('.fixtures-time').forEach(el => {
+      const utc = el.dataset.utc || '';
+      if (!utc) return;
+      el.textContent = formatter(utc);
+    });
+  }
+
+  async function loadFixtures(){
+    const stageHost = $('#fixtures-stages');
+    const nextHost = $('#fixtures-next-stage');
+    const knockedHost = $('#fixtures-knocked-out');
+    if (!stageHost) return;
+
+    stageHost.innerHTML = `<div class="muted" style="padding:12px">Loading fixtures…</div>`;
+    if (nextHost) nextHost.innerHTML = `<div class="muted">Loading teams…</div>`;
+    if (knockedHost) knockedHost.innerHTML = `<div class="muted">Loading teams…</div>`;
+
+    let fixtures = [];
+    let stages = {};
+    try {
+      const [fx, st] = await Promise.all([
+        fetchJSON('/api/fixtures'),
+        fetchJSON('/api/team_stage')
+      ]);
+      fixtures = (fx && fx.fixtures) || [];
+      stages = (st && typeof st === 'object') ? st : {};
+    } catch (err) {
+      stageHost.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      if (nextHost) nextHost.innerHTML = `<div class="muted">No team data available.</div>`;
+      if (knockedHost) knockedHost.innerHTML = `<div class="muted">No team data available.</div>`;
+      return;
+    }
+
+    const records = computeRecords(fixtures);
+    const entries = Object.entries(stages).map(([name, stage]) => ({
+      name,
+      stage: normalizeStage(stage) || stage || 'Group Stage'
+    }));
+
+    entries.sort((a, b) => {
+      const diff = stageRank(a.stage) - stageRank(b.stage);
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name);
+    });
+
+    const nextStageTeams = entries.filter(e => e.stage !== 'Eliminated');
+    const knockedTeams = entries.filter(e => e.stage === 'Eliminated');
+
+    renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.');
+    renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.');
+    renderBracket(document.getElementById('fixtures-bracket'), fixtures);
+    renderStageTables(stageHost, fixtures);
+    updateFixturesTimes();
+  }
+
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-page=\"fixtures\"]');
+    if (!link) return;
+    setTimeout(() => loadFixtures(), 50);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'fixtures-refresh') {
+      loadFixtures();
+    }
+  });
+
+  window.addEventListener('timezonechange', updateFixturesTimes);
+  window.addEventListener('dateformatchange', updateFixturesTimes);
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (document.querySelector('#fixtures.page-section.active-section')) {
+      loadFixtures();
+    }
+  });
+})();
+
 // ---------------- Fan Zone (fixtures + voting) ----------------
 (() => {
   const $ = (sel) => document.querySelector(sel);
