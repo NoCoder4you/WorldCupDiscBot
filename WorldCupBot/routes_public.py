@@ -1487,10 +1487,10 @@ def create_public_routes(ctx):
                     "id": f"fz:{rid}",
                     "type": "fanzone",
                     "severity": sev,
-                    "title": ev.get("title") or "Fan Zone result",
+                    "title": ev.get("title") or "Match Votes result",
                     "body": ev.get("body") or (
-                        "You won a Fan Zone pick." if res == "win"
-                        else "You lost a Fan Zone pick."
+                        "You won a Match Votes pick." if res == "win"
+                        else "You lost a Match Votes pick."
                     ),
                     "action": {"kind": "page", "page": "fanzone"},
                     "ts": int(ev.get("ts") or now)
@@ -1938,7 +1938,7 @@ def create_public_routes(ctx):
         fixture_id = str(body.get("fixture_id") or "").strip()
         choice = str(body.get("choice") or "").strip().lower()
 
-        if not fixture_id or choice not in ("home", "away"):
+        if not fixture_id or choice not in ("home", "away", "draw"):
             return jsonify({"ok": False, "error": "invalid_request"}), 400
 
         winners_blob = _json_load(_fz_winners_path(base), {})
@@ -1951,9 +1951,9 @@ def create_public_routes(ctx):
             votes_blob = {"fixtures": {}}
 
         fixtures = votes_blob.setdefault("fixtures", {})
-        fx = fixtures.setdefault(fixture_id, {"home": 0, "away": 0, "voters": {}})
+        fx = fixtures.setdefault(fixture_id, {"home": 0, "away": 0, "draw": 0, "voters": {}})
         if not isinstance(fx, dict):
-            fx = {"home": 0, "away": 0, "voters": {}}
+            fx = {"home": 0, "away": 0, "draw": 0, "voters": {}}
             fixtures[fixture_id] = fx
 
         voters = fx.setdefault("voters", {})
@@ -1987,8 +1987,10 @@ def create_public_routes(ctx):
         voters[fan_id] = choice
         if choice == "home":
             fx["home"] = int(fx.get("home") or 0) + 1
-        else:
+        elif choice == "away":
             fx["away"] = int(fx.get("away") or 0) + 1
+        else:
+            fx["draw"] = int(fx.get("draw") or 0) + 1
 
         _json_save(votes_path, votes_blob)
         return resp
@@ -1999,7 +2001,7 @@ def create_public_routes(ctx):
         body = request.get_json(silent=True) or {}
 
         fixture_id = str(body.get("fixture_id") or body.get("match_id") or "").strip()
-        winner_side = str(body.get("winner") or body.get("winner_side") or "").strip().lower()  # home | away
+        winner_side = str(body.get("winner") or body.get("winner_side") or "").strip().lower()  # home | away | draw
         winner_team = str(body.get("winner_team") or "").strip()
 
         # Must be logged in as Discord user
@@ -2011,7 +2013,7 @@ def create_public_routes(ctx):
         if not _is_admin(base, uid):
             return jsonify({"ok": False, "error": "admin_required"}), 403
 
-        if not fixture_id or winner_side not in ("home", "away"):
+        if not fixture_id or winner_side not in ("home", "away", "draw"):
             return jsonify({"ok": False, "error": "invalid_request"}), 400
 
         # ----------------------------
@@ -2065,6 +2067,8 @@ def create_public_routes(ctx):
             return home, away, fixture
 
         home, away, fixture = _resolve_fixture_teams(fixture_id)
+        resolved_winner_team = winner_team or (home if winner_side == "home" else away if winner_side == "away" else "Draw")
+        resolved_loser_team = (away if winner_side == "home" else home if winner_side == "away" else "")
 
         # ----------------------------
         # Lock voting by writing winners record
@@ -2085,7 +2089,7 @@ def create_public_routes(ctx):
         ts = int(time.time())
         winners_blob[fixture_id] = {
             "winner_side": winner_side,
-            "winner_team": winner_team or None,
+            "winner_team": resolved_winner_team or None,
             "declared_by": str(uid),
             "ts": ts
         }
@@ -2120,7 +2124,7 @@ def create_public_routes(ctx):
         for voter_uid, choice in dv.items():
             voter_uid = str(voter_uid).strip()
             choice = str(choice or "").strip().lower()
-            if not voter_uid or choice not in ("home", "away"):
+            if not voter_uid or choice not in ("home", "away", "draw"):
                 continue
 
             result = "win" if choice == winner_side else "lose"
@@ -2128,8 +2132,8 @@ def create_public_routes(ctx):
             if eid in existing_ids:
                 continue
 
-            title = f"Fan Zone: {winner_team} declared" if winner_team else "Fan Zone result"
-            body_txt = "You won your Fan Zone pick." if result == "win" else "You lost your Fan Zone pick."
+            title = f"Match Votes: {resolved_winner_team} declared" if resolved_winner_team else "Match Votes result"
+            body_txt = "You won your Match Votes pick." if result == "win" else "You lost your Match Votes pick."
 
             evs.append({
                 "id": eid,
@@ -2184,17 +2188,13 @@ def create_public_routes(ctx):
 
             return owners
 
-        # Determine winner/loser team names for owner notifications
-        resolved_winner_team = winner_team or (home if winner_side == "home" else away)
-        resolved_loser_team = (away if winner_side == "home" else home)
-
-        win_owners = _team_owner_ids(resolved_winner_team)
-        lose_owners = _team_owner_ids(resolved_loser_team)
+        win_owners = _team_owner_ids(resolved_winner_team) if winner_side in ("home", "away") else set()
+        lose_owners = _team_owner_ids(resolved_loser_team) if winner_side in ("home", "away") else set()
         all_owners = win_owners | lose_owners
 
         # Even if teams couldn't be resolved from matches.json, still notify owners of winner_team if provided
         # (loser owners won't be known in that case)
-        if not all_owners and resolved_winner_team:
+        if not all_owners and resolved_winner_team and winner_side in ("home", "away"):
             win_owners = _team_owner_ids(resolved_winner_team)
             all_owners = set(win_owners)
 
@@ -2253,6 +2253,7 @@ def create_public_routes(ctx):
                 "utc": str((fixture or {}).get("utc") or (fixture or {}).get("time") or ""),
                 "group": str((fixture or {}).get("group") or ""),
                 "stage": str((fixture or {}).get("stage") or (fixture or {}).get("round") or (fixture or {}).get("phase") or ""),
+                "winner_side": winner_side,
                 "winner_team": resolved_winner_team,
                 "loser_team": resolved_loser_team,
                 "winner_iso": winner_iso,
@@ -2284,7 +2285,8 @@ def create_public_routes(ctx):
         fx = (votes_blob.get("fixtures") or {}).get(fid, {}) if isinstance(votes_blob, dict) else {}
         home_n = int(fx.get("home") or 0)
         away_n = int(fx.get("away") or 0)
-        total = max(0, home_n + away_n)
+        draw_n = int(fx.get("draw") or 0)
+        total = max(0, home_n + away_n + draw_n)
 
         last_choice = None
         fan_id = _get_fan_id()
@@ -2294,6 +2296,7 @@ def create_public_routes(ctx):
 
         home_pct = (home_n / total * 100.0) if total else 0.0
         away_pct = (away_n / total * 100.0) if total else 0.0
+        draw_pct = (draw_n / total * 100.0) if total else 0.0
 
         winner = None
         winner_team = None
@@ -2310,9 +2313,11 @@ def create_public_routes(ctx):
             "ok": True,
             "home_votes": home_n,
             "away_votes": away_n,
+            "draw_votes": draw_n,
             "total": total,
             "home_pct": home_pct,
             "away_pct": away_pct,
+            "draw_pct": draw_pct,
             "last_choice": last_choice,
             "winner": winner,
             "winner_team": winner_team,
@@ -2340,7 +2345,7 @@ def create_public_routes(ctx):
                 seen.add(fixture_id)
 
                 winner_side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
-                if winner_side not in ("home", "away"):
+                if winner_side not in ("home", "away", "draw"):
                     continue
 
                 fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
@@ -2351,7 +2356,7 @@ def create_public_routes(ctx):
                 for voter_uid, choice in dv.items():
                     voter_uid = str(voter_uid).strip()
                     choice = str(choice or "").strip().lower()
-                    if not voter_uid or choice not in ("home", "away"):
+                    if not voter_uid or choice not in ("home", "away", "draw"):
                         continue
                     is_win = choice == winner_side
                     if (result_kind == "wins" and is_win) or (result_kind == "losses" and not is_win):
