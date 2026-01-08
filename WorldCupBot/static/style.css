@@ -665,6 +665,7 @@ body.user-admin-view .dashboard-grid .card {
     display: grid;
     grid-template-rows: repeat(8, var(--bracket-row));
     row-gap: 0;
+    justify-items: center;
 }
 
 .bracket-subtitle {
@@ -686,6 +687,8 @@ body.user-admin-view .dashboard-grid .card {
     position: relative;
     height: var(--bracket-card);
     align-self: center;
+    width: 140px;
+    min-width: 140px;
 }
 
 .bracket-match::after {
