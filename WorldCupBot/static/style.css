@@ -637,12 +637,12 @@ body.user-admin-view .dashboard-grid .card {
 
 .fixtures-bracket-grid {
     display: grid;
-    grid-template-columns: repeat(9, minmax(120px, 1fr));
-    gap: 16px;
-    overflow-x: auto;
+    grid-template-columns: repeat(9, minmax(100px, 1fr));
+    gap: 12px;
+    overflow-x: hidden;
     padding-bottom: 8px;
     --bracket-card: 72px;
-    --bracket-gap: 16px;
+    --bracket-gap: 12px;
     --bracket-row: calc(var(--bracket-card) + var(--bracket-gap));
 }
 
@@ -687,8 +687,8 @@ body.user-admin-view .dashboard-grid .card {
     position: relative;
     height: var(--bracket-card);
     align-self: center;
-    width: 140px;
-    min-width: 140px;
+    width: 120px;
+    min-width: 120px;
 }
 
 .bracket-match::after {

@@ -5065,8 +5065,8 @@ async function fetchGoalsData(){
         <div class="bracket-title">Final</div>
         <div class="bracket-list">
           ${finalMatch.map(match => matchCard(match, { gridRow: '4 / span 2' })).join('')}
-          <div class="bracket-subtitle">Third Place</div>
-          ${thirdPlace.map(match => matchCard(match, { gridRow: '6 / span 2' })).join('')}
+          <div class="bracket-subtitle" style="grid-row:6 / span 1">Third Place</div>
+          ${thirdPlace.map(match => matchCard(match, { gridRow: '7 / span 2' })).join('')}
         </div>
       </div>
       <div class="bracket-column bracket-right">
