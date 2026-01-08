@@ -17,6 +17,7 @@
               <li><a href="#" data-page="bets">Bets</a></li>
               <li><a href="#" data-page="ownership">Ownership</a></li>
               <li><a href="#" data-page="worldmap">World Map</a></li>
+              <li><a href="#" data-page="fixtures">Fixtures</a></li>
               <li><a href="#" data-page="leaderboards">Leaderboards</a></li>
               <li><a href="#" data-page="fanzone">Match Votes</a></li>
 
@@ -357,6 +358,39 @@
                               <p id="map-info-share">Prize Share: —</p>
                               <p id="map-info-status">Status: —</p>
                           </div>
+                      </div>
+                  </div>
+              </div>
+          </section>
+
+          <!-- FIXTURES -->
+          <section id="fixtures" class="page-section">
+              <div class="table-wrap fixtures-wrap">
+                  <div class="table-head">
+                      <div class="table-title">Fixtures</div>
+                      <div class="table-actions">
+                          <button id="fixtures-refresh" class="btn sm">Refresh</button>
+                      </div>
+                  </div>
+                  <div class="fixtures-body">
+                      <div class="fixtures-summary">
+                          <div class="fixtures-summary-card">
+                              <div class="summary-title">Next stage</div>
+                              <div id="fixtures-next-stage" class="summary-list"></div>
+                          </div>
+                          <div class="fixtures-summary-card knocked">
+                              <div class="summary-title">Knocked out</div>
+                              <div id="fixtures-knocked-out" class="summary-list"></div>
+                          </div>
+                      </div>
+                      <div class="fixtures-summary-toggle">
+                          <button id="fixtures-summary-toggle" class="btn btn-outline sm" type="button" aria-expanded="true">
+                              Collapse summaries
+                          </button>
+                      </div>
+                      <div class="fixtures-bracket">
+                          <div class="fixtures-bracket-title">Knockout Pathways</div>
+                          <div id="fixtures-bracket" class="fixtures-bracket-grid"></div>
                       </div>
                   </div>
               </div>
