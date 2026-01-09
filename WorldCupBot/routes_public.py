@@ -81,6 +81,8 @@ def _team_stage_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage.json")
 def _team_stage_notifications_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage_notifications.json")
+def _bracket_slots_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "bracket_slots.json")
 def _fanzone_votes_path(base):
     return os.path.join(_json_dir(base), "fan_votes.json")
 def _fan_zone_results_path(base_dir):
@@ -469,6 +471,12 @@ def create_public_routes(ctx):
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
         return resp
+
+    @api.get("/bracket_slots")
+    def api_bracket_slots():
+        base = ctx.get("BASE_DIR", "")
+        data = _json_read(_bracket_slots_path(base), {})
+        return jsonify({"ok": True, "slots": data if isinstance(data, dict) else {}})
 
     # ---------- Bot controls ----------
     @api.post("/bot/start")

@@ -424,6 +424,45 @@
               </div>
           </section>
 
+          <div id="fixtures-slot-backdrop" style="display:none;">
+              <div id="fixtures-slot-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="fixtures-slot-title">
+                  <div class="modal-head">
+                      <h3 id="fixtures-slot-title">Edit Bracket Slot</h3>
+                      <button class="modal-close" id="fixtures-slot-close" aria-label="Close">×</button>
+                  </div>
+                  <div class="modal-body">
+                      <label>
+                          <span>Stage</span>
+                          <select id="fixtures-slot-stage" class="select-dark">
+                              <option value="Round of 32">Round of 32</option>
+                              <option value="Round of 16">Round of 16</option>
+                              <option value="Quarter-finals">Quarter-finals</option>
+                              <option value="Semi-finals">Semi-finals</option>
+                              <option value="Final">Final</option>
+                              <option value="Third Place Play-off">Third Place Play-off</option>
+                          </select>
+                      </label>
+                      <label>
+                          <span>Slot number</span>
+                          <input id="fixtures-slot-number" type="number" min="1" placeholder="e.g. 1" />
+                      </label>
+                      <label>
+                          <span>Label (optional)</span>
+                          <input id="fixtures-slot-label" type="text" placeholder="e.g. 1A vs 2B" />
+                      </label>
+                      <label>
+                          <span>Match ID (optional)</span>
+                          <input id="fixtures-slot-match" type="text" placeholder="e.g. 2026-06-11-A-MEX-ZAF" />
+                      </label>
+                      <div class="hint">Leave label and match ID blank to clear the slot.</div>
+                  </div>
+                  <div class="modal-foot">
+                      <button class="btn btn-outline" id="fixtures-slot-cancel">Cancel</button>
+                      <button class="btn" id="fixtures-slot-save">Save</button>
+                  </div>
+              </div>
+          </div>
+
 
           <!-- ===== Leaderboards ===== -->
           <section id="leaderboards" class="page-section">

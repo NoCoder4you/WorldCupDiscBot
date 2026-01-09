@@ -5000,12 +5000,44 @@ async function fetchGoalsData(){
     updateLabel();
   }
 
-  function makePlaceholderMatch(stage){
-    return { home: 'TBD', away: 'TBD', utc: '', stadium: '', group: '', stage, _placeholder: true };
+  function makePlaceholderMatch(stage, label = '', slot = null){
+    return {
+      id: label || 'Match',
+      home: 'TBD',
+      away: 'TBD',
+      utc: '',
+      stadium: '',
+      group: '',
+      stage,
+      bracket_slot: slot,
+      _placeholder: true
+    };
   }
 
-  function stageMatches(fixtures, stage, expected){
+  function stageMatches(fixtures, stage, expected, slotConfig){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
+    const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
+    const slotKeys = slots ? Object.keys(slots).map((k) => Number(k)).filter(Number.isFinite).sort((a, b) => a - b) : [];
+
+    if (slotKeys.length) {
+      const byId = new Map(list.filter(f => f?.id).map(f => [String(f.id), f]));
+      const bySlot = new Map(list.map(f => [Number(f.bracket_slot), f]));
+      const out = [];
+      slotKeys.forEach((slot) => {
+        const cfg = slots[String(slot)] || slots[slot] || {};
+        const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+        let match = matchId ? byId.get(matchId) : bySlot.get(slot);
+        if (!match) {
+          const label = String(cfg.label || cfg.name || '').trim();
+          match = makePlaceholderMatch(stage, label || `Slot ${slot}`, slot);
+        }
+        if (match && match.bracket_slot == null) match.bracket_slot = slot;
+        out.push(match);
+      });
+      while (expected && out.length < expected) out.push(makePlaceholderMatch(stage));
+      return out;
+    }
+
     list.sort((a, b) => {
       const aSlot = Number(a.bracket_slot);
       const bSlot = Number(b.bracket_slot);
@@ -5055,14 +5087,14 @@ async function fetchGoalsData(){
     }).join('');
   }
 
-  function renderBracket(host, fixtures){
+  function renderBracket(host, fixtures, slots){
     if (!host) return;
-    const r32 = splitMatches(stageMatches(fixtures, 'Round of 32', 16), 8);
-    const r16 = splitMatches(stageMatches(fixtures, 'Round of 16', 8), 4);
-    const qf = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4), 2);
-    const sf = splitMatches(stageMatches(fixtures, 'Semi-finals', 2), 1);
-    const finalMatch = stageMatches(fixtures, 'Final', 1);
-    const thirdPlace = stageMatches(fixtures, 'Third Place Play-off', 1);
+    const r32 = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']), 8);
+    const r16 = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']), 4);
+    const qf = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']), 2);
+    const sf = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']), 1);
+    const finalMatch = stageMatches(fixtures, 'Final', 1, slots?.Final);
+    const thirdPlace = stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']);
 
     host.innerHTML = `
       <div class="bracket-column bracket-left">
@@ -5146,15 +5178,18 @@ async function fetchGoalsData(){
     let fixtures = [];
     let stages = {};
     let winners = {};
+    let bracketSlots = {};
     try {
-      const [fx, st, wn] = await Promise.all([
+      const [fx, st, wn, bs] = await Promise.all([
         fetchJSON('/api/fixtures'),
         fetchJSON('/api/team_stage'),
-        fetchJSON('/api/fanzone/winners')
+        fetchJSON('/api/fanzone/winners'),
+        fetchJSON('/api/bracket_slots')
       ]);
       fixtures = (fx && fx.fixtures) || [];
       stages = (st && typeof st === 'object') ? st : {};
       winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
+      bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
     } catch (err) {
       if (nextHost) nextHost.innerHTML = `<div class="muted">No team data available.</div>`;
       if (knockedHost) knockedHost.innerHTML = `<div class="muted">No team data available.</div>`;
@@ -5180,7 +5215,7 @@ async function fetchGoalsData(){
     renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.');
     renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.');
     ensureSummaryToggle();
-    renderBracket(bracketHost, fixtures);
+    renderBracket(bracketHost, fixtures, bracketSlots);
     updateFixturesTimes();
   }
 
@@ -5202,21 +5237,72 @@ async function fetchGoalsData(){
       notify('Admin required', false);
       return;
     }
+    openSlotModal();
+  });
 
-    const matchId = prompt('Match ID to edit (e.g. 2026-06-11-A-MEX-ZAF):');
-    if (!matchId) return;
-    const slot = prompt('Bracket slot number (leave blank to clear):');
-    const payload = { match_id: matchId };
-    if (slot !== null && String(slot).trim() !== '') {
-      payload.bracket_slot = String(slot).trim();
+  function openSlotModal() {
+    const backdrop = document.getElementById('fixtures-slot-backdrop');
+    const modal = document.getElementById('fixtures-slot-modal');
+    if (!backdrop || !modal) return;
+    backdrop.style.display = 'flex';
+    modal.focus();
+  }
+
+  function closeSlotModal() {
+    const backdrop = document.getElementById('fixtures-slot-backdrop');
+    if (backdrop) backdrop.style.display = 'none';
+  }
+
+  function readSlotForm() {
+    const stage = document.getElementById('fixtures-slot-stage')?.value || '';
+    const slot = document.getElementById('fixtures-slot-number')?.value || '';
+    const label = document.getElementById('fixtures-slot-label')?.value || '';
+    const matchId = document.getElementById('fixtures-slot-match')?.value || '';
+    return { stage, slot, label, matchId };
+  }
+
+  function clearSlotForm() {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+    setVal('fixtures-slot-number', '');
+    setVal('fixtures-slot-label', '');
+    setVal('fixtures-slot-match', '');
+  }
+
+  document.getElementById('fixtures-slot-cancel')?.addEventListener('click', () => {
+    closeSlotModal();
+  });
+
+  document.getElementById('fixtures-slot-close')?.addEventListener('click', () => {
+    closeSlotModal();
+  });
+
+  document.getElementById('fixtures-slot-backdrop')?.addEventListener('click', (e) => {
+    if (e.target?.id === 'fixtures-slot-backdrop') closeSlotModal();
+  });
+
+  document.getElementById('fixtures-slot-save')?.addEventListener('click', async () => {
+    const { stage, slot, label, matchId } = readSlotForm();
+    if (!stage || !slot) {
+      notify('Stage and slot are required.', false);
+      return;
     }
-
+    const payload = {
+      stage,
+      slot,
+      label: String(label || '').trim(),
+      match_id: String(matchId || '').trim()
+    };
     try {
-      await fetchJSON('/admin/fixtures/slot', {
+      await fetchJSON('/admin/bracket_slots', {
         method: 'POST',
         body: JSON.stringify(payload)
       });
       notify('Bracket slot updated', true);
+      closeSlotModal();
+      clearSlotForm();
       loadFixtures();
     } catch (err) {
       notify(`Failed to update slot: ${err.message || err}`, false);
