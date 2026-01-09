@@ -1167,6 +1167,52 @@ def create_admin_routes(ctx):
             _write_json_atomic(_matches_path(ctx), container)
         return jsonify({"ok": True, "id": match_id, "utc": utc})
 
+    @bp.post("/fixtures/slot")
+    def admin_fixture_slot_set():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("id") or body.get("match_id") or "").strip()
+        slot_raw = body.get("bracket_slot") if "bracket_slot" in body else body.get("slot")
+
+        if not match_id:
+            return jsonify({"ok": False, "error": "missing_match_id"}), 400
+
+        slot_val = None
+        if slot_raw is not None and str(slot_raw).strip() != "":
+            try:
+                slot_val = int(str(slot_raw).strip())
+            except Exception:
+                return jsonify({"ok": False, "error": "invalid_slot"}), 400
+
+        container, fixtures, key = _load_matches_payload()
+        updated = False
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
+            if fid != match_id:
+                continue
+            if slot_val is None:
+                fixture.pop("bracket_slot", None)
+            else:
+                fixture["bracket_slot"] = slot_val
+            updated = True
+            break
+
+        if not updated:
+            return jsonify({"ok": False, "error": "match_not_found"}), 404
+
+        if container is None:
+            _write_json_atomic(_matches_path(ctx), fixtures)
+        else:
+            if key:
+                container[key] = fixtures
+            _write_json_atomic(_matches_path(ctx), container)
+        return jsonify({"ok": True, "id": match_id, "bracket_slot": slot_val})
+
     @bp.get("/discord/channels")
     def admin_discord_channels():
         resp = require_admin()
