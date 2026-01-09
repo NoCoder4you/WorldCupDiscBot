@@ -5351,7 +5351,7 @@ async function fetchGoalsData(){
       notify('Stage and slot are required.', false);
       return;
     }
-    const stageNorm = normalizeStage(stage);
+    const stageNorm = String(normalizeStage(stage) || '').trim();
     if (!stageNorm) {
       notify('Invalid stage selection.', false);
       return;
@@ -5377,6 +5377,7 @@ async function fetchGoalsData(){
     try {
       await fetchJSON('/admin/bracket_slots', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       notify('Bracket slot updated', true);
