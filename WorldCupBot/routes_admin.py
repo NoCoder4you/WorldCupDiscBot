@@ -42,6 +42,8 @@ def _players_path(ctx):
 
 def _fanzone_votes_path(ctx):
     return os.path.join(_json_dir(ctx), "fan_votes.json")
+def _bracket_slots_path(ctx):
+    return _path(ctx, "bracket_slots.json")
 
 def _owners_for_team(ctx, team_name: str):
     team_name = (team_name or "").strip().lower()
@@ -1166,6 +1168,184 @@ def create_admin_routes(ctx):
                 container[key] = fixtures
             _write_json_atomic(_matches_path(ctx), container)
         return jsonify({"ok": True, "id": match_id, "utc": utc})
+
+    @bp.post("/fixtures/slot")
+    def admin_fixture_slot_set():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("id") or body.get("match_id") or "").strip()
+        slot_raw = body.get("bracket_slot") if "bracket_slot" in body else body.get("slot")
+
+        if not match_id:
+            return jsonify({"ok": False, "error": "missing_match_id"}), 400
+
+        slot_val = None
+        if slot_raw is not None and str(slot_raw).strip() != "":
+            try:
+                slot_val = int(str(slot_raw).strip())
+            except Exception:
+                return jsonify({"ok": False, "error": "invalid_slot"}), 400
+
+        container, fixtures, key = _load_matches_payload()
+        updated = False
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
+            if fid != match_id:
+                continue
+            if slot_val is None:
+                fixture.pop("bracket_slot", None)
+            else:
+                fixture["bracket_slot"] = slot_val
+            updated = True
+            break
+
+        if not updated:
+            return jsonify({"ok": False, "error": "match_not_found"}), 404
+
+        if container is None:
+            _write_json_atomic(_matches_path(ctx), fixtures)
+        else:
+            if key:
+                container[key] = fixtures
+            _write_json_atomic(_matches_path(ctx), container)
+        return jsonify({"ok": True, "id": match_id, "bracket_slot": slot_val})
+
+    @bp.post("/bracket_slots")
+    def admin_bracket_slots_set():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        stage_raw = str(body.get("stage") or "").strip()
+        stage = normalize_stage(stage_raw)
+        if stage not in STAGE_ALLOWED:
+            return jsonify({"ok": False, "error": "invalid_stage"}), 400
+
+        slot_limits = {
+            "Round of 32": 8,
+            "Round of 16": 4,
+            "Quarter-finals": 2,
+            "Semi-finals": 1,
+            "Final": 1,
+            "Third Place Play-off": 1,
+        }
+
+        slot_raw = body.get("slot") if "slot" in body else body.get("bracket_slot")
+        try:
+            slot_val = int(str(slot_raw).strip())
+        except Exception:
+            return jsonify({"ok": False, "error": "invalid_slot"}), 400
+        max_slot = slot_limits.get(stage)
+        if max_slot and (slot_val < 1 or slot_val > max_slot):
+            return jsonify({"ok": False, "error": "slot_out_of_range"}), 400
+
+        side_raw = str(body.get("side") or "").strip().lower()
+        if stage in ("Final", "Third Place Play-off"):
+            side = "center"
+        else:
+            side = side_raw if side_raw in ("left", "right") else ""
+        if stage not in ("Final", "Third Place Play-off") and not side:
+            return jsonify({"ok": False, "error": "invalid_side"}), 400
+
+        label = str(body.get("label") or "").strip()
+        home = str(body.get("home") or body.get("country_a") or "").strip()
+        away = str(body.get("away") or body.get("country_b") or "").strip()
+        match_id = str(body.get("match_id") or body.get("matchId") or "").strip()
+        utc = str(body.get("utc") or body.get("time") or "").strip()
+
+        slots = _read_json(_bracket_slots_path(ctx), {})
+        if not isinstance(slots, dict):
+            slots = {}
+        stage_slots = slots.get(stage)
+        if not isinstance(stage_slots, dict):
+            stage_slots = {}
+        side_key = side or "center"
+        side_slots = stage_slots.get(side_key)
+        if not isinstance(side_slots, dict):
+            side_slots = {}
+
+        if not home and not away and not match_id and not label:
+            side_slots.pop(str(slot_val), None)
+        else:
+            side_slots[str(slot_val)] = {
+                "label": label,
+                "match_id": match_id,
+                "home": home,
+                "away": away,
+                "utc": utc,
+            }
+
+        if side_slots:
+            stage_slots[side_key] = side_slots
+        else:
+            stage_slots.pop(side_key, None)
+
+        if stage_slots:
+            slots[stage] = stage_slots
+        else:
+            slots.pop(stage, None)
+
+        _write_json_atomic(_bracket_slots_path(ctx), slots)
+
+        if match_id:
+            container, fixtures, key = _load_matches_payload()
+            updated = False
+            for fixture in fixtures:
+                if not isinstance(fixture, dict):
+                    continue
+                fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
+                if fid != match_id:
+                    continue
+                fixture["bracket_slot"] = slot_val
+                if home:
+                    fixture["home"] = home
+                if away:
+                    fixture["away"] = away
+                if utc:
+                    fixture["utc"] = utc
+                    fixture["time"] = utc
+                updated = True
+                break
+            if not updated:
+                if not home and not away and label:
+                    if " vs " in label.lower():
+                        parts = re.split(r"\s+vs\s+", label, flags=re.IGNORECASE)
+                        home = parts[0].strip() if parts else "TBD"
+                        away = parts[1].strip() if len(parts) > 1 else "TBD"
+                    else:
+                        home = label
+                        away = "TBD"
+                if not home:
+                    home = "TBD"
+                if not away:
+                    away = "TBD"
+                fixtures.append({
+                    "id": match_id,
+                    "home": home or "TBD",
+                    "away": away or "TBD",
+                    "utc": "",
+                    "stadium": "",
+                    "group": "",
+                    "stage": stage,
+                    "bracket_slot": slot_val,
+                    "utc": utc,
+                })
+                updated = True
+            if updated:
+                if container is None:
+                    _write_json_atomic(_matches_path(ctx), fixtures)
+                else:
+                    if key:
+                        container[key] = fixtures
+                    _write_json_atomic(_matches_path(ctx), container)
+
+        return jsonify({"ok": True, "stage": stage, "slot": slot_val})
 
     @bp.get("/discord/channels")
     def admin_discord_channels():
