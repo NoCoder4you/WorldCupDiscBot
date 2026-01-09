@@ -5021,14 +5021,13 @@ async function fetchGoalsData(){
 
     if (slotKeys.length) {
       const byId = new Map(list.filter(f => f?.id).map(f => [String(f.id), f]));
-      const bySlot = new Map(list.map(f => [Number(f.bracket_slot), f]));
       const out = [];
       slotKeys.forEach((slot) => {
         const cfg = slots[String(slot)] || slots[slot] || {};
         const matchId = String(cfg.match_id || cfg.matchId || '').trim();
         const home = String(cfg.home || cfg.country_a || '').trim();
         const away = String(cfg.away || cfg.country_b || '').trim();
-        let match = matchId ? byId.get(matchId) : bySlot.get(slot);
+        let match = matchId ? byId.get(matchId) : null;
         if (!match) {
           match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || `Slot ${slot}`, slot);
         }
