@@ -5255,6 +5255,7 @@ async function fetchGoalsData(){
     if (!backdrop || !modal) return;
     backdrop.style.display = 'flex';
     modal.focus();
+    updateSlotFormConstraints();
   }
 
   function closeSlotModal() {
@@ -5284,6 +5285,12 @@ async function fetchGoalsData(){
       slotEl.min = '1';
     }
     if (sideEl) {
+      const leftOpt = sideEl.querySelector('option[value="left"]');
+      const rightOpt = sideEl.querySelector('option[value="right"]');
+      const centerOpt = sideEl.querySelector('option[value="center"]');
+      if (leftOpt) leftOpt.hidden = !cfg.side;
+      if (rightOpt) rightOpt.hidden = !cfg.side;
+      if (centerOpt) centerOpt.hidden = cfg.side;
       sideEl.disabled = !cfg.side;
       if (!cfg.side) sideEl.value = 'center';
     }
@@ -5344,7 +5351,12 @@ async function fetchGoalsData(){
       notify('Stage and slot are required.', false);
       return;
     }
-    const cfg = getStageConfig(stage);
+    const stageNorm = normalizeStage(stage);
+    if (!stageNorm) {
+      notify('Invalid stage selection.', false);
+      return;
+    }
+    const cfg = getStageConfig(stageNorm);
     const slotNum = Number(slot);
     if (!Number.isFinite(slotNum) || slotNum < 1 || slotNum > cfg.max) {
       notify(`Slot must be between 1 and ${cfg.max}.`, false);
@@ -5353,9 +5365,9 @@ async function fetchGoalsData(){
     const home = String(countryA || '').trim();
     const away = String(countryB || '').trim();
     const hasTeams = Boolean(home || away);
-    const matchId = hasTeams ? buildMatchId(stage, side, slotNum, home, away) : '';
+    const matchId = hasTeams ? buildMatchId(stageNorm, side, slotNum, home, away) : '';
     const payload = {
-      stage,
+      stage: stageNorm,
       side: cfg.side ? side : 'center',
       slot: slotNum,
       match_id: matchId,
