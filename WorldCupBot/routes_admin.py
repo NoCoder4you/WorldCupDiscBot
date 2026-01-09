@@ -1227,13 +1227,35 @@ def create_admin_routes(ctx):
         if stage not in STAGE_ALLOWED:
             return jsonify({"ok": False, "error": "invalid_stage"}), 400
 
+        slot_limits = {
+            "Round of 32": 8,
+            "Round of 16": 4,
+            "Quarter-finals": 2,
+            "Semi-finals": 1,
+            "Final": 1,
+            "Third Place Play-off": 1,
+        }
+
         slot_raw = body.get("slot") if "slot" in body else body.get("bracket_slot")
         try:
             slot_val = int(str(slot_raw).strip())
         except Exception:
             return jsonify({"ok": False, "error": "invalid_slot"}), 400
+        max_slot = slot_limits.get(stage)
+        if max_slot and (slot_val < 1 or slot_val > max_slot):
+            return jsonify({"ok": False, "error": "slot_out_of_range"}), 400
+
+        side_raw = str(body.get("side") or "").strip().lower()
+        if stage in ("Final", "Third Place Play-off"):
+            side = "center"
+        else:
+            side = side_raw if side_raw in ("left", "right") else ""
+        if stage not in ("Final", "Third Place Play-off") and not side:
+            return jsonify({"ok": False, "error": "invalid_side"}), 400
 
         label = str(body.get("label") or "").strip()
+        home = str(body.get("home") or body.get("country_a") or "").strip()
+        away = str(body.get("away") or body.get("country_b") or "").strip()
         match_id = str(body.get("match_id") or body.get("matchId") or "").strip()
 
         slots = _read_json(_bracket_slots_path(ctx), {})
@@ -1242,11 +1264,25 @@ def create_admin_routes(ctx):
         stage_slots = slots.get(stage)
         if not isinstance(stage_slots, dict):
             stage_slots = {}
+        side_key = side or "center"
+        side_slots = stage_slots.get(side_key)
+        if not isinstance(side_slots, dict):
+            side_slots = {}
 
-        if not label and not match_id:
-            stage_slots.pop(str(slot_val), None)
+        if not home and not away and not match_id and not label:
+            side_slots.pop(str(slot_val), None)
         else:
-            stage_slots[str(slot_val)] = {"label": label, "match_id": match_id}
+            side_slots[str(slot_val)] = {
+                "label": label,
+                "match_id": match_id,
+                "home": home,
+                "away": away,
+            }
+
+        if side_slots:
+            stage_slots[side_key] = side_slots
+        else:
+            stage_slots.pop(side_key, None)
 
         if stage_slots:
             slots[stage] = stage_slots
@@ -1265,10 +1301,14 @@ def create_admin_routes(ctx):
                 if fid != match_id:
                     continue
                 fixture["bracket_slot"] = slot_val
+                if home:
+                    fixture["home"] = home
+                if away:
+                    fixture["away"] = away
                 updated = True
                 break
             if not updated:
-                if label:
+                if not home and not away and label:
                     if " vs " in label.lower():
                         parts = re.split(r"\s+vs\s+", label, flags=re.IGNORECASE)
                         home = parts[0].strip() if parts else "TBD"
@@ -1276,8 +1316,9 @@ def create_admin_routes(ctx):
                     else:
                         home = label
                         away = "TBD"
-                else:
+                if not home:
                     home = "TBD"
+                if not away:
                     away = "TBD"
                 fixtures.append({
                     "id": match_id,

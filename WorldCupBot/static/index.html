@@ -443,18 +443,26 @@
                           </select>
                       </label>
                       <label>
+                          <span>Side</span>
+                          <select id="fixtures-slot-side" class="select-dark">
+                              <option value="left">Left</option>
+                              <option value="right">Right</option>
+                              <option value="center">Center</option>
+                          </select>
+                      </label>
+                      <label>
                           <span>Slot number</span>
                           <input id="fixtures-slot-number" type="number" min="1" placeholder="e.g. 1" />
                       </label>
                       <label>
-                          <span>Label (optional)</span>
-                          <input id="fixtures-slot-label" type="text" placeholder="e.g. 1A vs 2B" />
+                          <span>Country A</span>
+                          <input id="fixtures-slot-country-a" type="text" placeholder="e.g. Argentina" />
                       </label>
                       <label>
-                          <span>Match ID (optional)</span>
-                          <input id="fixtures-slot-match" type="text" placeholder="e.g. 2026-06-11-A-MEX-ZAF" />
+                          <span>Country B</span>
+                          <input id="fixtures-slot-country-b" type="text" placeholder="e.g. Brazil" />
                       </label>
-                      <div class="hint">Leave label and match ID blank to clear the slot.</div>
+                      <div class="hint">Leave both countries blank to clear the slot.</div>
                   </div>
                   <div class="modal-foot">
                       <button class="btn btn-outline" id="fixtures-slot-cancel">Cancel</button>

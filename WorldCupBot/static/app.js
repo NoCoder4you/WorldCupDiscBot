@@ -5000,11 +5000,11 @@ async function fetchGoalsData(){
     updateLabel();
   }
 
-  function makePlaceholderMatch(stage, label = '', slot = null){
+  function makePlaceholderMatch(stage, home = 'TBD', away = 'TBD', matchId = '', slot = null){
     return {
-      id: label || 'Match',
-      home: 'TBD',
-      away: 'TBD',
+      id: matchId || 'Match',
+      home: home || 'TBD',
+      away: away || 'TBD',
       utc: '',
       stadium: '',
       group: '',
@@ -5026,12 +5026,17 @@ async function fetchGoalsData(){
       slotKeys.forEach((slot) => {
         const cfg = slots[String(slot)] || slots[slot] || {};
         const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+        const home = String(cfg.home || cfg.country_a || '').trim();
+        const away = String(cfg.away || cfg.country_b || '').trim();
         let match = matchId ? byId.get(matchId) : bySlot.get(slot);
         if (!match) {
-          const label = String(cfg.label || cfg.name || '').trim();
-          match = makePlaceholderMatch(stage, label || `Slot ${slot}`, slot);
+          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || `Slot ${slot}`, slot);
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
+        if (match) {
+          match.home = match.home || home || 'TBD';
+          match.away = match.away || away || 'TBD';
+        }
         out.push(match);
       });
       while (expected && out.length < expected) out.push(makePlaceholderMatch(stage));
@@ -5089,36 +5094,40 @@ async function fetchGoalsData(){
 
   function renderBracket(host, fixtures, slots){
     if (!host) return;
-    const r32 = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']), 8);
-    const r16 = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']), 4);
-    const qf = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']), 2);
-    const sf = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']), 1);
-    const finalMatch = stageMatches(fixtures, 'Final', 1, slots?.Final);
-    const thirdPlace = stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']);
+    const r32Left = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']?.left), 8);
+    const r16Left = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']?.left), 4);
+    const qfLeft = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']?.left), 2);
+    const sfLeft = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']?.left), 1);
+    const r32Right = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']?.right), 8);
+    const r16Right = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']?.right), 4);
+    const qfRight = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']?.right), 2);
+    const sfRight = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']?.right), 1);
+    const finalMatch = stageMatches(fixtures, 'Final', 1, slots?.Final?.center);
+    const thirdPlace = stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']?.center);
 
     host.innerHTML = `
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r32.left, 1)}
+          ${renderBracketColumn(r32Left.left, 1)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r16.left, 2)}
+          ${renderBracketColumn(r16Left.left, 2)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(qf.left, 4)}
+          ${renderBracketColumn(qfLeft.left, 4)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(sf.left, 8)}
+          ${renderBracketColumn(sfLeft.left, 8)}
         </div>
       </div>
       <div class="bracket-column bracket-center">
@@ -5132,25 +5141,25 @@ async function fetchGoalsData(){
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(sf.right, 8)}
+          ${renderBracketColumn(sfRight.right, 8)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(qf.right, 4)}
+          ${renderBracketColumn(qfRight.right, 4)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r16.right, 2)}
+          ${renderBracketColumn(r16Right.right, 2)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r32.right, 1)}
+          ${renderBracketColumn(r32Right.right, 1)}
         </div>
       </div>
     `;
@@ -5253,12 +5262,40 @@ async function fetchGoalsData(){
     if (backdrop) backdrop.style.display = 'none';
   }
 
+  function getStageConfig(stage) {
+    const map = {
+      'Round of 32': { max: 8, side: true, code: 'R32' },
+      'Round of 16': { max: 4, side: true, code: 'R16' },
+      'Quarter-finals': { max: 2, side: true, code: 'QF' },
+      'Semi-finals': { max: 1, side: true, code: 'SF' },
+      'Final': { max: 1, side: false, code: 'F' },
+      'Third Place Play-off': { max: 1, side: false, code: '3P' },
+    };
+    return map[stage] || { max: 1, side: false, code: 'M' };
+  }
+
+  function updateSlotFormConstraints() {
+    const stage = document.getElementById('fixtures-slot-stage')?.value || '';
+    const sideEl = document.getElementById('fixtures-slot-side');
+    const slotEl = document.getElementById('fixtures-slot-number');
+    const cfg = getStageConfig(stage);
+    if (slotEl) {
+      slotEl.max = String(cfg.max);
+      slotEl.min = '1';
+    }
+    if (sideEl) {
+      sideEl.disabled = !cfg.side;
+      if (!cfg.side) sideEl.value = 'center';
+    }
+  }
+
   function readSlotForm() {
     const stage = document.getElementById('fixtures-slot-stage')?.value || '';
+    const side = document.getElementById('fixtures-slot-side')?.value || 'center';
     const slot = document.getElementById('fixtures-slot-number')?.value || '';
-    const label = document.getElementById('fixtures-slot-label')?.value || '';
-    const matchId = document.getElementById('fixtures-slot-match')?.value || '';
-    return { stage, slot, label, matchId };
+    const countryA = document.getElementById('fixtures-slot-country-a')?.value || '';
+    const countryB = document.getElementById('fixtures-slot-country-b')?.value || '';
+    return { stage, side, slot, countryA, countryB };
   }
 
   function clearSlotForm() {
@@ -5267,8 +5304,26 @@ async function fetchGoalsData(){
       if (el) el.value = val;
     };
     setVal('fixtures-slot-number', '');
-    setVal('fixtures-slot-label', '');
-    setVal('fixtures-slot-match', '');
+    setVal('fixtures-slot-country-a', '');
+    setVal('fixtures-slot-country-b', '');
+  }
+
+  function makeInitials(name) {
+    return String(name || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(part => part.slice(0, 3))
+      .join('');
+  }
+
+  function buildMatchId(stage, side, slot, countryA, countryB) {
+    const cfg = getStageConfig(stage);
+    const leftRight = cfg.side ? (side === 'right' ? 'R' : 'L') : 'C';
+    const a = makeInitials(countryA) || 'TBD';
+    const b = makeInitials(countryB) || 'TBD';
+    return `BRKT-${cfg.code}-${leftRight}${slot}-${a}-${b}`;
   }
 
   document.getElementById('fixtures-slot-cancel')?.addEventListener('click', () => {
@@ -5284,16 +5339,28 @@ async function fetchGoalsData(){
   });
 
   document.getElementById('fixtures-slot-save')?.addEventListener('click', async () => {
-    const { stage, slot, label, matchId } = readSlotForm();
+    const { stage, side, slot, countryA, countryB } = readSlotForm();
     if (!stage || !slot) {
       notify('Stage and slot are required.', false);
       return;
     }
+    const cfg = getStageConfig(stage);
+    const slotNum = Number(slot);
+    if (!Number.isFinite(slotNum) || slotNum < 1 || slotNum > cfg.max) {
+      notify(`Slot must be between 1 and ${cfg.max}.`, false);
+      return;
+    }
+    const home = String(countryA || '').trim();
+    const away = String(countryB || '').trim();
+    const hasTeams = Boolean(home || away);
+    const matchId = hasTeams ? buildMatchId(stage, side, slotNum, home, away) : '';
     const payload = {
       stage,
-      slot,
-      label: String(label || '').trim(),
-      match_id: String(matchId || '').trim()
+      side: cfg.side ? side : 'center',
+      slot: slotNum,
+      match_id: matchId,
+      home,
+      away,
     };
     try {
       await fetchJSON('/admin/bracket_slots', {
@@ -5308,6 +5375,9 @@ async function fetchGoalsData(){
       notify(`Failed to update slot: ${err.message || err}`, false);
     }
   });
+
+  document.getElementById('fixtures-slot-stage')?.addEventListener('change', updateSlotFormConstraints);
+  document.addEventListener('DOMContentLoaded', updateSlotFormConstraints);
 
   window.addEventListener('timezonechange', updateFixturesTimes);
   window.addEventListener('dateformatchange', updateFixturesTimes);
