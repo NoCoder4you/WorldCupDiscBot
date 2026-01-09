@@ -5068,12 +5068,11 @@ async function fetchGoalsData(){
     const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
-    const meta = f.id ? escAttr(f.id) : '';
     const placeholderClass = f._placeholder ? ' is-placeholder' : '';
     const gridRow = opts.gridRow ? ` style="grid-row:${escAttr(opts.gridRow)}"` : '';
     return `
       <div class="bracket-match${placeholderClass}"${gridRow}>
-        <div class="bracket-meta">${meta || 'Match'}</div>
+        <div class="bracket-meta">Match</div>
         <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
         <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
         <div class="bracket-foot">
@@ -5302,7 +5301,8 @@ async function fetchGoalsData(){
     const slot = document.getElementById('fixtures-slot-number')?.value || '';
     const countryA = document.getElementById('fixtures-slot-country-a')?.value || '';
     const countryB = document.getElementById('fixtures-slot-country-b')?.value || '';
-    return { stage, side, slot, countryA, countryB };
+    const utc = document.getElementById('fixtures-slot-utc')?.value || '';
+    return { stage, side, slot, countryA, countryB, utc };
   }
 
   function clearSlotForm() {
@@ -5313,6 +5313,7 @@ async function fetchGoalsData(){
     setVal('fixtures-slot-number', '');
     setVal('fixtures-slot-country-a', '');
     setVal('fixtures-slot-country-b', '');
+    setVal('fixtures-slot-utc', '');
   }
 
   function makeInitials(name) {
@@ -5346,7 +5347,7 @@ async function fetchGoalsData(){
   });
 
   document.getElementById('fixtures-slot-save')?.addEventListener('click', async () => {
-    const { stage, side, slot, countryA, countryB } = readSlotForm();
+    const { stage, side, slot, countryA, countryB, utc } = readSlotForm();
     if (!stage || !slot) {
       notify('Stage and slot are required.', false);
       return;
@@ -5364,6 +5365,11 @@ async function fetchGoalsData(){
     }
     const home = String(countryA || '').trim();
     const away = String(countryB || '').trim();
+    const utcValue = String(utc || '').trim();
+    if (utcValue && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(utcValue)) {
+      notify('Match date/time must be in UTC format: YYYY-MM-DDTHH:MM:SSZ', false);
+      return;
+    }
     const hasTeams = Boolean(home || away);
     const matchId = hasTeams ? buildMatchId(stageNorm, side, slotNum, home, away) : '';
     const payload = {
@@ -5373,6 +5379,7 @@ async function fetchGoalsData(){
       match_id: matchId,
       home,
       away,
+      utc: utcValue,
     };
     try {
       await fetchJSON('/admin/bracket_slots', {

@@ -1257,6 +1257,7 @@ def create_admin_routes(ctx):
         home = str(body.get("home") or body.get("country_a") or "").strip()
         away = str(body.get("away") or body.get("country_b") or "").strip()
         match_id = str(body.get("match_id") or body.get("matchId") or "").strip()
+        utc = str(body.get("utc") or body.get("time") or "").strip()
 
         slots = _read_json(_bracket_slots_path(ctx), {})
         if not isinstance(slots, dict):
@@ -1277,6 +1278,7 @@ def create_admin_routes(ctx):
                 "match_id": match_id,
                 "home": home,
                 "away": away,
+                "utc": utc,
             }
 
         if side_slots:
@@ -1305,6 +1307,9 @@ def create_admin_routes(ctx):
                     fixture["home"] = home
                 if away:
                     fixture["away"] = away
+                if utc:
+                    fixture["utc"] = utc
+                    fixture["time"] = utc
                 updated = True
                 break
             if not updated:
@@ -1329,6 +1334,7 @@ def create_admin_routes(ctx):
                     "group": "",
                     "stage": stage,
                     "bracket_slot": slot_val,
+                    "utc": utc,
                 })
                 updated = True
             if updated:
