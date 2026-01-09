@@ -2032,6 +2032,12 @@ body.user-admin-view #ownership .ownership-card {
     outline: none;
 }
 
+#fixtures-slot-backdrop .slot-datetime {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
 #fixtures-slot-backdrop .modal-foot {
     display: flex;
     justify-content: flex-end;

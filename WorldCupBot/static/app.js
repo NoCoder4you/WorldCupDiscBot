@@ -5072,7 +5072,6 @@ async function fetchGoalsData(){
     const gridRow = opts.gridRow ? ` style="grid-row:${escAttr(opts.gridRow)}"` : '';
     return `
       <div class="bracket-match${placeholderClass}"${gridRow}>
-        <div class="bracket-meta">Match</div>
         <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
         <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
         <div class="bracket-foot">
@@ -5301,8 +5300,9 @@ async function fetchGoalsData(){
     const slot = document.getElementById('fixtures-slot-number')?.value || '';
     const countryA = document.getElementById('fixtures-slot-country-a')?.value || '';
     const countryB = document.getElementById('fixtures-slot-country-b')?.value || '';
-    const utc = document.getElementById('fixtures-slot-utc')?.value || '';
-    return { stage, side, slot, countryA, countryB, utc };
+    const date = document.getElementById('fixtures-slot-date')?.value || '';
+    const time = document.getElementById('fixtures-slot-time')?.value || '';
+    return { stage, side, slot, countryA, countryB, date, time };
   }
 
   function clearSlotForm() {
@@ -5313,7 +5313,8 @@ async function fetchGoalsData(){
     setVal('fixtures-slot-number', '');
     setVal('fixtures-slot-country-a', '');
     setVal('fixtures-slot-country-b', '');
-    setVal('fixtures-slot-utc', '');
+    setVal('fixtures-slot-date', '');
+    setVal('fixtures-slot-time', '');
   }
 
   function makeInitials(name) {
@@ -5334,6 +5335,33 @@ async function fetchGoalsData(){
     return `BRKT-${cfg.code}-${leftRight}${slot}-${a}-${b}`;
   }
 
+  function buildUtcValue(dateRaw, timeRaw) {
+    const date = String(dateRaw || '').trim();
+    const time = String(timeRaw || '').trim();
+    if (!date && !time) return '';
+    if (!date || !time) return null;
+    const dateMatch = date.match(/^(\d{1,2})\/(\d{1,2})$/);
+    const timeMatch = time.match(/^(\d{1,2})[:\/](\d{1,2})$/);
+    if (!dateMatch || !timeMatch) return null;
+    const day = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2]);
+    if (
+      !Number.isFinite(day) || !Number.isFinite(month) ||
+      !Number.isFinite(hour) || !Number.isFinite(minute) ||
+      day < 1 || day > 31 ||
+      month < 1 || month > 12 ||
+      hour < 0 || hour > 23 ||
+      minute < 0 || minute > 59
+    ) {
+      return null;
+    }
+    const year = new Date().getUTCFullYear();
+    const pad = (num) => String(num).padStart(2, '0');
+    return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00Z`;
+  }
+
   document.getElementById('fixtures-slot-cancel')?.addEventListener('click', () => {
     closeSlotModal();
   });
@@ -5347,7 +5375,7 @@ async function fetchGoalsData(){
   });
 
   document.getElementById('fixtures-slot-save')?.addEventListener('click', async () => {
-    const { stage, side, slot, countryA, countryB, utc } = readSlotForm();
+    const { stage, side, slot, countryA, countryB, date, time } = readSlotForm();
     if (!stage || !slot) {
       notify('Stage and slot are required.', false);
       return;
@@ -5365,9 +5393,9 @@ async function fetchGoalsData(){
     }
     const home = String(countryA || '').trim();
     const away = String(countryB || '').trim();
-    const utcValue = String(utc || '').trim();
-    if (utcValue && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(utcValue)) {
-      notify('Match date/time must be in UTC format: YYYY-MM-DDTHH:MM:SSZ', false);
+    const utcValue = buildUtcValue(date, time);
+    if (utcValue === null) {
+      notify('Match date/time must be DD/MM and HH:MM (24h).', false);
       return;
     }
     const hasTeams = Boolean(home || away);
@@ -5379,7 +5407,7 @@ async function fetchGoalsData(){
       match_id: matchId,
       home,
       away,
-      utc: utcValue,
+      utc: utcValue || '',
     };
     try {
       await fetchJSON('/admin/bracket_slots', {
