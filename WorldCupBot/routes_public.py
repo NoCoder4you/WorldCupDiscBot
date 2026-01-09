@@ -81,6 +81,8 @@ def _team_stage_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage.json")
 def _team_stage_notifications_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage_notifications.json")
+def _bracket_slots_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "bracket_slots.json")
 def _fanzone_votes_path(base):
     return os.path.join(_json_dir(base), "fan_votes.json")
 def _fan_zone_results_path(base_dir):
@@ -469,6 +471,12 @@ def create_public_routes(ctx):
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
         return resp
+
+    @api.get("/bracket_slots")
+    def api_bracket_slots():
+        base = ctx.get("BASE_DIR", "")
+        data = _json_read(_bracket_slots_path(base), {})
+        return jsonify({"ok": True, "slots": data if isinstance(data, dict) else {}})
 
     # ---------- Bot controls ----------
     @api.post("/bot/start")
@@ -1916,17 +1924,53 @@ def create_public_routes(ctx):
                 home = str(m.get("home") or "").strip()
                 away = str(m.get("away") or "").strip()
                 utc = str(m.get("utc") or m.get("time") or "").strip()
+                stage_raw = str(
+                    m.get("stage")
+                    or m.get("round")
+                    or m.get("phase")
+                    or m.get("tournament_stage")
+                    or ""
+                ).strip()
+                stage = normalize_stage(stage_raw) or stage_raw
+                group = str(m.get("group") or "").strip()
                 if not (mid and home and away):
                     continue
+                home_score = m.get("home_score")
+                away_score = m.get("away_score")
+                if home_score is None:
+                    home_score = m.get("score_home")
+                if away_score is None:
+                    away_score = m.get("score_away")
+                if home_score is None or away_score is None:
+                    score_raw = m.get("score")
+                    if isinstance(score_raw, str) and "-" in score_raw:
+                        parts = score_raw.split("-", 1)
+                        if len(parts) == 2:
+                            home_score = home_score if home_score is not None else parts[0].strip()
+                            away_score = away_score if away_score is not None else parts[1].strip()
+                def _score_val(raw):
+                    try:
+                        return int(str(raw).strip())
+                    except Exception:
+                        return None
+                home_score = _score_val(home_score)
+                away_score = _score_val(away_score)
                 fixtures.append({
                     "id": mid,
                     "home": home,
                     "away": away,
                     "utc": utc,
                     "stadium": str(m.get("stadium") or ""),
+                    "stage": stage,
+                    "group": group,
+                    "bracket_slot": m.get("bracket_slot") or m.get("slot") or m.get("bracket"),
+                    "status": str(m.get("status") or m.get("state") or ""),
                     "home_iso": iso_map.get(home.lower(), ""),
                     "away_iso": iso_map.get(away.lower(), ""),
                 })
+                if home_score is not None and away_score is not None:
+                    fixtures[-1]["home_score"] = home_score
+                    fixtures[-1]["away_score"] = away_score
 
         return jsonify({"ok": True, "fixtures": fixtures})
 
@@ -2323,6 +2367,22 @@ def create_public_routes(ctx):
             "winner_team": winner_team,
             "declared_at": declared_at
         })
+
+    @api.get("/fanzone/winners")
+    def api_fanzone_winners():
+        base = ctx.get("BASE_DIR", "")
+        winners_blob = _json_load(_fz_winners_path(base), {})
+        if not isinstance(winners_blob, dict):
+            winners_blob = {}
+        winners = {}
+        for fid, rec in winners_blob.items():
+            if not isinstance(rec, dict):
+                continue
+            winners[str(fid)] = {
+                "winner_side": rec.get("winner_side") or rec.get("winner") or "",
+                "winner_team": rec.get("winner_team") or "",
+            }
+        return jsonify({"ok": True, "winners": winners})
 
     @api.get("/fanzone/stats/<fixture_id>")
     def api_fanzone_stats_alias(fixture_id):
