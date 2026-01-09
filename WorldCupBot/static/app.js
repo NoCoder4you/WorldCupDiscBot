@@ -5005,7 +5005,14 @@ async function fetchGoalsData(){
 
   function stageMatches(fixtures, stage, expected){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
-    list.sort((a, b) => String(a.utc || '').localeCompare(String(b.utc || '')) || String(a.id || '').localeCompare(String(b.id || '')));
+    list.sort((a, b) => {
+      const aSlot = Number(a.bracket_slot);
+      const bSlot = Number(b.bracket_slot);
+      if (Number.isFinite(aSlot) && Number.isFinite(bSlot) && aSlot !== bSlot) return aSlot - bSlot;
+      if (Number.isFinite(aSlot) && !Number.isFinite(bSlot)) return -1;
+      if (!Number.isFinite(aSlot) && Number.isFinite(bSlot)) return 1;
+      return String(a.utc || '').localeCompare(String(b.utc || '')) || String(a.id || '').localeCompare(String(b.id || ''));
+    });
     while (expected && list.length < expected) list.push(makePlaceholderMatch(stage));
     return list;
   }

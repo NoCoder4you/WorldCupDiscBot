@@ -1955,6 +1955,7 @@ def create_public_routes(ctx):
                     "stadium": str(m.get("stadium") or ""),
                     "stage": stage,
                     "group": group,
+                    "bracket_slot": m.get("bracket_slot") or m.get("slot") or m.get("bracket"),
                     "status": str(m.get("status") or m.get("state") or ""),
                     "home_iso": iso_map.get(home.lower(), ""),
                     "away_iso": iso_map.get(away.lower(), ""),
