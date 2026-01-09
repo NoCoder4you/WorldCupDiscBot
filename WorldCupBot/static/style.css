@@ -740,7 +740,7 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .bracket-meta {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -748,13 +748,13 @@ body.user-admin-view .dashboard-grid .card {
 
 .bracket-team {
     font-weight: 700;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .bracket-foot {
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--muted);
 }
 
