@@ -5014,7 +5014,7 @@ async function fetchGoalsData(){
     };
   }
 
-  function stageMatches(fixtures, stage, expected, slotConfig){
+  function stageMatches(fixtures, stage, expected, slotConfig, forceSlots = false){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
     const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
     const slotKeys = slots ? Object.keys(slots).map((k) => Number(k)).filter(Number.isFinite).sort((a, b) => a - b) : [];
@@ -5038,6 +5038,12 @@ async function fetchGoalsData(){
         }
         out.push(match);
       });
+      while (expected && out.length < expected) out.push(makePlaceholderMatch(stage));
+      return out;
+    }
+
+    if (forceSlots) {
+      const out = [];
       while (expected && out.length < expected) out.push(makePlaceholderMatch(stage));
       return out;
     }
@@ -5105,16 +5111,22 @@ async function fetchGoalsData(){
 
   function renderBracket(host, fixtures, slots){
     if (!host) return;
-    const r32Left = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, slots?.['Round of 32']?.left), 'Round of 32', 'left');
-    const r16Left = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, slots?.['Round of 16']?.left), 'Round of 16', 'left');
-    const qfLeft = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, slots?.['Quarter-finals']?.left), 'Quarter-finals', 'left');
-    const sfLeft = attachSlotIds(stageMatches(fixtures, 'Semi-finals', 1, slots?.['Semi-finals']?.left), 'Semi-finals', 'left');
-    const r32Right = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, slots?.['Round of 32']?.right), 'Round of 32', 'right');
-    const r16Right = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, slots?.['Round of 16']?.right), 'Round of 16', 'right');
-    const qfRight = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, slots?.['Quarter-finals']?.right), 'Quarter-finals', 'right');
-    const sfRight = attachSlotIds(stageMatches(fixtures, 'Semi-finals', 1, slots?.['Semi-finals']?.right), 'Semi-finals', 'right');
-    const finalMatch = attachSlotIds(stageMatches(fixtures, 'Final', 1, slots?.Final?.center), 'Final', 'center');
-    const thirdPlace = attachSlotIds(stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']?.center), 'Third Place Play-off', 'center');
+    const r32Slots = slots?.['Round of 32'];
+    const r16Slots = slots?.['Round of 16'];
+    const qfSlots = slots?.['Quarter-finals'];
+    const sfSlots = slots?.['Semi-finals'];
+    const finalSlots = slots?.Final;
+    const thirdSlots = slots?.['Third Place Play-off'];
+    const r32Left = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, r32Slots?.left, Boolean(r32Slots)), 'Round of 32', 'left');
+    const r16Left = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, r16Slots?.left, Boolean(r16Slots)), 'Round of 16', 'left');
+    const qfLeft = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, qfSlots?.left, Boolean(qfSlots)), 'Quarter-finals', 'left');
+    const sfLeft = attachSlotIds(stageMatches(fixtures, 'Semi-finals', 1, sfSlots?.left, Boolean(sfSlots)), 'Semi-finals', 'left');
+    const r32Right = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, r32Slots?.right, Boolean(r32Slots)), 'Round of 32', 'right');
+    const r16Right = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, r16Slots?.right, Boolean(r16Slots)), 'Round of 16', 'right');
+    const qfRight = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, qfSlots?.right, Boolean(qfSlots)), 'Quarter-finals', 'right');
+    const sfRight = attachSlotIds(stageMatches(fixtures, 'Semi-finals', 1, sfSlots?.right, Boolean(sfSlots)), 'Semi-finals', 'right');
+    const finalMatch = attachSlotIds(stageMatches(fixtures, 'Final', 1, finalSlots?.center, Boolean(finalSlots)), 'Final', 'center');
+    const thirdPlace = attachSlotIds(stageMatches(fixtures, 'Third Place Play-off', 1, thirdSlots?.center, Boolean(thirdSlots)), 'Third Place Play-off', 'center');
 
     host.innerHTML = `
       <div class="bracket-column bracket-left">
