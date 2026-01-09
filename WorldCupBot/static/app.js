@@ -5022,7 +5022,8 @@ async function fetchGoalsData(){
     if (slotKeys.length) {
       const byId = new Map(list.filter(f => f?.id).map(f => [String(f.id), f]));
       const out = [];
-      slotKeys.forEach((slot) => {
+      const total = expected || slotKeys.length;
+      for (let slot = 1; slot <= total; slot += 1) {
         const cfg = slots[String(slot)] || slots[slot] || {};
         const matchId = String(cfg.match_id || cfg.matchId || '').trim();
         const home = String(cfg.home || cfg.country_a || '').trim();
@@ -5037,8 +5038,7 @@ async function fetchGoalsData(){
           match.away = match.away || away || 'TBD';
         }
         out.push(match);
-      });
-      while (expected && out.length < expected) out.push(makePlaceholderMatch(stage));
+      }
       return out;
     }
 
