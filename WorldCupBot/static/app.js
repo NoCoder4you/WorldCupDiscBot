@@ -5055,13 +5055,6 @@ async function fetchGoalsData(){
     return list;
   }
 
-  function splitMatches(list, leftCount){
-    return {
-      left: list.slice(0, leftCount),
-      right: list.slice(leftCount)
-    };
-  }
-
   function matchCard(f, opts = {}){
     const hs = parseScore(f.home_score);
     const as = parseScore(f.away_score);
@@ -5070,8 +5063,10 @@ async function fetchGoalsData(){
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
     const placeholderClass = f._placeholder ? ' is-placeholder' : '';
     const gridRow = opts.gridRow ? ` style="grid-row:${escAttr(opts.gridRow)}"` : '';
+    const slotId = f._slot_id ? String(f._slot_id) : '';
+    const slotAttr = slotId ? ` id="${escAttr(slotId)}" data-slot-id="${escAttr(slotId)}"` : '';
     return `
-      <div class="bracket-match${placeholderClass}"${gridRow}>
+      <div class="bracket-match${placeholderClass}"${gridRow}${slotAttr}>
         <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
         <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
         <div class="bracket-foot">
@@ -5090,42 +5085,61 @@ async function fetchGoalsData(){
     }).join('');
   }
 
+  function buildSlotId(stage, side, slot) {
+    const cfg = getStageConfig(stage);
+    const slotNum = Number(slot);
+    if (!cfg || !Number.isFinite(slotNum)) return '';
+    const sideKey = (side || '').toString().charAt(0).toUpperCase();
+    const suffix = sideKey ? `-${sideKey}` : '';
+    return `${cfg.code}S${slotNum}${suffix}`;
+  }
+
+  function attachSlotIds(list, stage, side) {
+    return list.map((match, idx) => {
+      const slot = Number(match.bracket_slot) || (idx + 1);
+      if (!match._slot_id) {
+        match._slot_id = buildSlotId(stage, side, slot);
+      }
+      return match;
+    });
+  }
+
   function renderBracket(host, fixtures, slots){
     if (!host) return;
-    const r32Left = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']?.left), 8);
-    const r16Left = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']?.left), 4);
-    const qfLeft = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']?.left), 2);
-    const sfLeft = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']?.left), 1);
-    const r32Right = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']?.right), 8);
-    const r16Right = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']?.right), 4);
-    const qfRight = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']?.right), 2);
-    const sfRight = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']?.right), 1);
-    const finalMatch = stageMatches(fixtures, 'Final', 1, slots?.Final?.center);
-    const thirdPlace = stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']?.center);
+    const r32Left = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, slots?.['Round of 32']?.left), 'Round of 32', 'left');
+    const r16Left = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, slots?.['Round of 16']?.left), 'Round of 16', 'left');
+    const qfLeft = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, slots?.['Quarter-finals']?.left), 'Quarter-finals', 'left');
+    const sfLeft = attachSlotIds(stageMatches(fixtures, 'Semi-finals', 1, slots?.['Semi-finals']?.left), 'Semi-finals', 'left');
+    const r32Right = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, slots?.['Round of 32']?.right), 'Round of 32', 'right');
+    const r16Right = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, slots?.['Round of 16']?.right), 'Round of 16', 'right');
+    const qfRight = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, slots?.['Quarter-finals']?.right), 'Quarter-finals', 'right');
+    const sfRight = attachSlotIds(stageMatches(fixtures, 'Semi-finals', 1, slots?.['Semi-finals']?.right), 'Semi-finals', 'right');
+    const finalMatch = attachSlotIds(stageMatches(fixtures, 'Final', 1, slots?.Final?.center), 'Final', 'center');
+    const thirdPlace = attachSlotIds(stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']?.center), 'Third Place Play-off', 'center');
 
     host.innerHTML = `
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r32Left.left, 1)}
+          ${renderBracketColumn(r32Left, 1)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r16Left.left, 2)}
+          ${renderBracketColumn(r16Left, 2)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(qfLeft.left, 4)}
+          ${renderBracketColumn(qfLeft, 4)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(sfLeft.left, 8)}
+          ${renderBracketColumn(sfLeft, 8)}
         </div>
       </div>
       <div class="bracket-column bracket-center">
@@ -5139,25 +5153,25 @@ async function fetchGoalsData(){
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(sfRight.right, 8)}
+          ${renderBracketColumn(sfRight, 8)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(qfRight.right, 4)}
+          ${renderBracketColumn(qfRight, 4)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r16Right.right, 2)}
+          ${renderBracketColumn(r16Right, 2)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r32Right.right, 1)}
+          ${renderBracketColumn(r32Right, 1)}
         </div>
       </div>
     `;
