@@ -4873,6 +4873,7 @@ async function fetchGoalsData(){
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
+  const notify = window.notify || ((msg) => console.log('[notify]', msg));
 
   const {
     STAGE_ORDER = [],
@@ -5192,6 +5193,33 @@ async function fetchGoalsData(){
   document.addEventListener('click', (e) => {
     if (e.target.id === 'fixtures-refresh') {
       loadFixtures();
+    }
+  });
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.id !== 'fixtures-edit-slot') return;
+    if (typeof window.isAdminUI === 'function' && !window.isAdminUI()) {
+      notify('Admin required', false);
+      return;
+    }
+
+    const matchId = prompt('Match ID to edit (e.g. 2026-06-11-A-MEX-ZAF):');
+    if (!matchId) return;
+    const slot = prompt('Bracket slot number (leave blank to clear):');
+    const payload = { match_id: matchId };
+    if (slot !== null && String(slot).trim() !== '') {
+      payload.bracket_slot = String(slot).trim();
+    }
+
+    try {
+      await fetchJSON('/admin/fixtures/slot', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      notify('Bracket slot updated', true);
+      loadFixtures();
+    } catch (err) {
+      notify(`Failed to update slot: ${err.message || err}`, false);
     }
   });
 
