@@ -4864,6 +4864,579 @@ async function fetchGoalsData(){
     document.addEventListener('DOMContentLoaded', hookNav);
 })();
 
+// ---------------- Fixtures (public) ----------------
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+  const escAttr = (s) => String(s || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+  const notify = window.notify || ((msg) => console.log('[notify]', msg));
+
+  const {
+    STAGE_ORDER = [],
+    normalizeStage = (label) => String(label || '').trim()
+  } = window.WorldCupStages || {};
+
+  const fetchJSON = window.fetchJSON || (async (url, opts) => {
+    const r = await fetch(url, { cache: 'no-store', ...opts });
+    if (!r.ok) throw new Error(await r.text().catch(() => r.statusText));
+    return r.json();
+  });
+
+  function stageRank(stage){
+    const label = normalizeStage(stage);
+    if (Array.isArray(STAGE_ORDER) && STAGE_ORDER.length) {
+      const idx = STAGE_ORDER.indexOf(label);
+      return idx === -1 ? 999 : idx;
+    }
+    return 999;
+  }
+
+  function stageBadge(stage){
+    const label = normalizeStage(stage) || 'Group Stage';
+    const cls = label === 'Winner' ? 'pill-ok' : label === 'Eliminated' ? 'pill-off' : 'pill';
+    return `<span class="${cls}">${escAttr(label)}</span>`;
+  }
+
+  function parseScore(val){
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function computeRecords(fixtures, winnersMap){
+    const rec = new Map();
+    fixtures.forEach(f => {
+      const home = String(f.home || '').trim();
+      const away = String(f.away || '').trim();
+      if (!home || !away) return;
+      const winnerRec = winnersMap?.[f.id] || null;
+      let winnerSide = String(winnerRec?.winner_side || winnerRec?.winner || '').toLowerCase();
+
+      if (winnerSide !== 'home' && winnerSide !== 'away' && winnerSide !== 'draw') return;
+
+      const homeRec = rec.get(home) || { w: 0, d: 0, l: 0 };
+      const awayRec = rec.get(away) || { w: 0, d: 0, l: 0 };
+
+      if (winnerSide === 'home') {
+        homeRec.w += 1;
+        awayRec.l += 1;
+      } else if (winnerSide === 'away') {
+        homeRec.l += 1;
+        awayRec.w += 1;
+      } else {
+        homeRec.d += 1;
+        awayRec.d += 1;
+      }
+
+      rec.set(home, homeRec);
+      rec.set(away, awayRec);
+    });
+    return rec;
+  }
+
+  function recordBar(rec){
+    const total = rec.w + rec.d + rec.l;
+    const winPct = total ? (rec.w / total) * 100 : 0;
+    const drawPct = total ? (rec.d / total) * 100 : 0;
+    const lossPct = total ? (rec.l / total) * 100 : 0;
+    const empty = total === 0 ? 'is-empty' : '';
+    return `
+      <div class="wdl-bar ${empty}" role="img" aria-label="Wins ${rec.w}, Draws ${rec.d}, Losses ${rec.l}">
+        <span class="wdl-seg win" style="width:${winPct}%"></span>
+        <span class="wdl-seg draw" style="width:${drawPct}%"></span>
+        <span class="wdl-seg loss" style="width:${lossPct}%"></span>
+      </div>
+      <div class="wdl-counts">
+        <span class="wdl-count win">W ${rec.w}</span>
+        <span class="wdl-count draw">D ${rec.d}</span>
+        <span class="wdl-count loss">L ${rec.l}</span>
+      </div>
+    `;
+  }
+
+  function renderTeamList(host, teams, records, emptyLabel){
+    if (!host) return;
+    if (!teams.length) {
+      host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
+      return;
+    }
+
+    host.innerHTML = teams.map(({ name, stage }) => {
+      const rec = records.get(name) || { w: 0, d: 0, l: 0 };
+      return `
+        <div class="fixtures-team">
+          <div class="fixtures-team-head">
+            <span class="fixtures-team-name">${escAttr(name)}</span>
+            ${stageBadge(stage)}
+          </div>
+          <div class="fixtures-team-record">
+            ${recordBar(rec)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function ensureSummaryToggle(){
+    const wrap = document.querySelector('.fixtures-summary');
+    const btn = document.getElementById('fixtures-summary-toggle');
+    if (!wrap || !btn || btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+
+    const updateLabel = () => {
+      const collapsed = wrap.classList.contains('is-collapsed');
+      btn.textContent = collapsed ? 'Expand summaries' : 'Collapse summaries';
+      btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    };
+
+    btn.addEventListener('click', () => {
+      wrap.classList.toggle('is-collapsed');
+      updateLabel();
+    });
+
+    updateLabel();
+  }
+
+  function makePlaceholderMatch(stage, home = 'TBD', away = 'TBD', matchId = '', slot = null){
+    return {
+      id: matchId || 'Match',
+      home: home || 'TBD',
+      away: away || 'TBD',
+      utc: '',
+      stadium: '',
+      group: '',
+      stage,
+      bracket_slot: slot,
+      _placeholder: true
+    };
+  }
+
+  function stageMatches(fixtures, stage, expected, slotConfig){
+    const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
+    const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
+    const slotKeys = slots ? Object.keys(slots).map((k) => Number(k)).filter(Number.isFinite).sort((a, b) => a - b) : [];
+
+    if (slotKeys.length) {
+      const byId = new Map(list.filter(f => f?.id).map(f => [String(f.id), f]));
+      const bySlot = new Map(list.map(f => [Number(f.bracket_slot), f]));
+      const out = [];
+      slotKeys.forEach((slot) => {
+        const cfg = slots[String(slot)] || slots[slot] || {};
+        const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+        const home = String(cfg.home || cfg.country_a || '').trim();
+        const away = String(cfg.away || cfg.country_b || '').trim();
+        let match = matchId ? byId.get(matchId) : bySlot.get(slot);
+        if (!match) {
+          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || `Slot ${slot}`, slot);
+        }
+        if (match && match.bracket_slot == null) match.bracket_slot = slot;
+        if (match) {
+          match.home = match.home || home || 'TBD';
+          match.away = match.away || away || 'TBD';
+        }
+        out.push(match);
+      });
+      while (expected && out.length < expected) out.push(makePlaceholderMatch(stage));
+      return out;
+    }
+
+    list.sort((a, b) => {
+      const aSlot = Number(a.bracket_slot);
+      const bSlot = Number(b.bracket_slot);
+      if (Number.isFinite(aSlot) && Number.isFinite(bSlot) && aSlot !== bSlot) return aSlot - bSlot;
+      if (Number.isFinite(aSlot) && !Number.isFinite(bSlot)) return -1;
+      if (!Number.isFinite(aSlot) && Number.isFinite(bSlot)) return 1;
+      return String(a.utc || '').localeCompare(String(b.utc || '')) || String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    while (expected && list.length < expected) list.push(makePlaceholderMatch(stage));
+    return list;
+  }
+
+  function splitMatches(list, leftCount){
+    return {
+      left: list.slice(0, leftCount),
+      right: list.slice(leftCount)
+    };
+  }
+
+  function matchCard(f, opts = {}){
+    const hs = parseScore(f.home_score);
+    const as = parseScore(f.away_score);
+    const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
+    const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
+    const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
+    const placeholderClass = f._placeholder ? ' is-placeholder' : '';
+    const gridRow = opts.gridRow ? ` style="grid-row:${escAttr(opts.gridRow)}"` : '';
+    return `
+      <div class="bracket-match${placeholderClass}"${gridRow}>
+        <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
+        <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
+        <div class="bracket-foot">
+          <span class="fixtures-time" data-utc="${escAttr(f.utc || '')}">${escAttr(utcLabel)}</span>
+          <span class="bracket-score">${escAttr(score)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBracketColumn(matches, span) {
+    return matches.map((match, idx) => {
+      const start = 1 + (idx * span);
+      const gridRow = `${start} / span ${span}`;
+      return matchCard(match, { gridRow });
+    }).join('');
+  }
+
+  function renderBracket(host, fixtures, slots){
+    if (!host) return;
+    const r32Left = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']?.left), 8);
+    const r16Left = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']?.left), 4);
+    const qfLeft = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']?.left), 2);
+    const sfLeft = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']?.left), 1);
+    const r32Right = splitMatches(stageMatches(fixtures, 'Round of 32', 16, slots?.['Round of 32']?.right), 8);
+    const r16Right = splitMatches(stageMatches(fixtures, 'Round of 16', 8, slots?.['Round of 16']?.right), 4);
+    const qfRight = splitMatches(stageMatches(fixtures, 'Quarter-finals', 4, slots?.['Quarter-finals']?.right), 2);
+    const sfRight = splitMatches(stageMatches(fixtures, 'Semi-finals', 2, slots?.['Semi-finals']?.right), 1);
+    const finalMatch = stageMatches(fixtures, 'Final', 1, slots?.Final?.center);
+    const thirdPlace = stageMatches(fixtures, 'Third Place Play-off', 1, slots?.['Third Place Play-off']?.center);
+
+    host.innerHTML = `
+      <div class="bracket-column bracket-left">
+        <div class="bracket-title">Round of 32</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(r32Left.left, 1)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-left">
+        <div class="bracket-title">Round of 16</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(r16Left.left, 2)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-left">
+        <div class="bracket-title">Quarter-finals</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(qfLeft.left, 4)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-left">
+        <div class="bracket-title">Semi-finals</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(sfLeft.left, 8)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-center">
+        <div class="bracket-title">Final</div>
+        <div class="bracket-list">
+          ${finalMatch.map(match => matchCard(match, { gridRow: '4 / span 2' })).join('')}
+          <div class="bracket-subtitle" style="grid-row:6 / span 1">Third Place</div>
+          ${thirdPlace.map(match => matchCard(match, { gridRow: '7 / span 2' })).join('')}
+        </div>
+      </div>
+      <div class="bracket-column bracket-right">
+        <div class="bracket-title">Semi-finals</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(sfRight.right, 8)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-right">
+        <div class="bracket-title">Quarter-finals</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(qfRight.right, 4)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-right">
+        <div class="bracket-title">Round of 16</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(r16Right.right, 2)}
+        </div>
+      </div>
+      <div class="bracket-column bracket-right">
+        <div class="bracket-title">Round of 32</div>
+        <div class="bracket-list">
+          ${renderBracketColumn(r32Right.right, 1)}
+        </div>
+      </div>
+    `;
+  }
+
+  function updateFixturesTimes(){
+    const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
+    document.querySelectorAll('.fixtures-time').forEach(el => {
+      const utc = el.dataset.utc || '';
+      if (!utc) return;
+      el.textContent = formatter(utc);
+    });
+  }
+
+  async function loadFixtures(){
+    const nextHost = $('#fixtures-next-stage');
+    const knockedHost = $('#fixtures-knocked-out');
+    const bracketHost = $('#fixtures-bracket');
+    if (!bracketHost) return;
+
+    if (nextHost) nextHost.innerHTML = `<div class="muted">Loading teams…</div>`;
+    if (knockedHost) knockedHost.innerHTML = `<div class="muted">Loading teams…</div>`;
+    bracketHost.innerHTML = `<div class="muted" style="padding:12px">Loading bracket…</div>`;
+
+    let fixtures = [];
+    let stages = {};
+    let winners = {};
+    let bracketSlots = {};
+    try {
+      const [fx, st, wn, bs] = await Promise.all([
+        fetchJSON('/api/fixtures'),
+        fetchJSON('/api/team_stage'),
+        fetchJSON('/api/fanzone/winners'),
+        fetchJSON('/api/bracket_slots')
+      ]);
+      fixtures = (fx && fx.fixtures) || [];
+      stages = (st && typeof st === 'object') ? st : {};
+      winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
+      bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
+    } catch (err) {
+      if (nextHost) nextHost.innerHTML = `<div class="muted">No team data available.</div>`;
+      if (knockedHost) knockedHost.innerHTML = `<div class="muted">No team data available.</div>`;
+      if (bracketHost) bracketHost.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      return;
+    }
+
+    const records = computeRecords(fixtures, winners);
+    const entries = Object.entries(stages).map(([name, stage]) => ({
+      name,
+      stage: normalizeStage(stage) || stage || 'Group Stage'
+    }));
+
+    entries.sort((a, b) => {
+      const diff = stageRank(a.stage) - stageRank(b.stage);
+      if (diff !== 0) return diff;
+      return a.name.localeCompare(b.name);
+    });
+
+    const nextStageTeams = entries.filter(e => e.stage !== 'Eliminated');
+    const knockedTeams = entries.filter(e => e.stage === 'Eliminated');
+
+    renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.');
+    renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.');
+    ensureSummaryToggle();
+    renderBracket(bracketHost, fixtures, bracketSlots);
+    updateFixturesTimes();
+  }
+
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-page=\"fixtures\"]');
+    if (!link) return;
+    setTimeout(() => loadFixtures(), 50);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'fixtures-refresh') {
+      loadFixtures();
+    }
+  });
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.id !== 'fixtures-edit-slot') return;
+    if (typeof window.isAdminUI === 'function' && !window.isAdminUI()) {
+      notify('Admin required', false);
+      return;
+    }
+    openSlotModal();
+  });
+
+  function openSlotModal() {
+    const backdrop = document.getElementById('fixtures-slot-backdrop');
+    const modal = document.getElementById('fixtures-slot-modal');
+    if (!backdrop || !modal) return;
+    backdrop.style.display = 'flex';
+    modal.focus();
+    updateSlotFormConstraints();
+  }
+
+  function closeSlotModal() {
+    const backdrop = document.getElementById('fixtures-slot-backdrop');
+    if (backdrop) backdrop.style.display = 'none';
+  }
+
+  function getStageConfig(stage) {
+    const map = {
+      'Round of 32': { max: 8, side: true, code: 'R32' },
+      'Round of 16': { max: 4, side: true, code: 'R16' },
+      'Quarter-finals': { max: 2, side: true, code: 'QF' },
+      'Semi-finals': { max: 1, side: true, code: 'SF' },
+      'Final': { max: 1, side: false, code: 'F' },
+      'Third Place Play-off': { max: 1, side: false, code: '3P' },
+    };
+    return map[stage] || { max: 1, side: false, code: 'M' };
+  }
+
+  function updateSlotFormConstraints() {
+    const stage = document.getElementById('fixtures-slot-stage')?.value || '';
+    const sideEl = document.getElementById('fixtures-slot-side');
+    const slotEl = document.getElementById('fixtures-slot-number');
+    const cfg = getStageConfig(stage);
+    if (slotEl) {
+      slotEl.max = String(cfg.max);
+      slotEl.min = '1';
+    }
+    if (sideEl) {
+      const leftOpt = sideEl.querySelector('option[value="left"]');
+      const rightOpt = sideEl.querySelector('option[value="right"]');
+      const centerOpt = sideEl.querySelector('option[value="center"]');
+      if (leftOpt) leftOpt.hidden = !cfg.side;
+      if (rightOpt) rightOpt.hidden = !cfg.side;
+      if (centerOpt) centerOpt.hidden = cfg.side;
+      sideEl.disabled = !cfg.side;
+      if (!cfg.side) sideEl.value = 'center';
+    }
+  }
+
+  function readSlotForm() {
+    const stage = document.getElementById('fixtures-slot-stage')?.value || '';
+    const side = document.getElementById('fixtures-slot-side')?.value || 'center';
+    const slot = document.getElementById('fixtures-slot-number')?.value || '';
+    const countryA = document.getElementById('fixtures-slot-country-a')?.value || '';
+    const countryB = document.getElementById('fixtures-slot-country-b')?.value || '';
+    const date = document.getElementById('fixtures-slot-date')?.value || '';
+    const time = document.getElementById('fixtures-slot-time')?.value || '';
+    return { stage, side, slot, countryA, countryB, date, time };
+  }
+
+  function clearSlotForm() {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+    setVal('fixtures-slot-number', '');
+    setVal('fixtures-slot-country-a', '');
+    setVal('fixtures-slot-country-b', '');
+    setVal('fixtures-slot-date', '');
+    setVal('fixtures-slot-time', '');
+  }
+
+  function makeInitials(name) {
+    return String(name || '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map(part => part.slice(0, 3))
+      .join('');
+  }
+
+  function buildMatchId(stage, side, slot, countryA, countryB) {
+    const cfg = getStageConfig(stage);
+    const leftRight = cfg.side ? (side === 'right' ? 'R' : 'L') : 'C';
+    const a = makeInitials(countryA) || 'TBD';
+    const b = makeInitials(countryB) || 'TBD';
+    return `BRKT-${cfg.code}-${leftRight}${slot}-${a}-${b}`;
+  }
+
+  function buildUtcValue(dateRaw, timeRaw) {
+    const date = String(dateRaw || '').trim();
+    const time = String(timeRaw || '').trim();
+    if (!date && !time) return '';
+    if (!date || !time) return null;
+    const dateMatch = date.match(/^(\d{1,2})\/(\d{1,2})$/);
+    const timeMatch = time.match(/^(\d{1,2})[:\/](\d{1,2})$/);
+    if (!dateMatch || !timeMatch) return null;
+    const day = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const hour = Number(timeMatch[1]);
+    const minute = Number(timeMatch[2]);
+    if (
+      !Number.isFinite(day) || !Number.isFinite(month) ||
+      !Number.isFinite(hour) || !Number.isFinite(minute) ||
+      day < 1 || day > 31 ||
+      month < 1 || month > 12 ||
+      hour < 0 || hour > 23 ||
+      minute < 0 || minute > 59
+    ) {
+      return null;
+    }
+    const year = new Date().getUTCFullYear();
+    const pad = (num) => String(num).padStart(2, '0');
+    return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:00Z`;
+  }
+
+  document.getElementById('fixtures-slot-cancel')?.addEventListener('click', () => {
+    closeSlotModal();
+  });
+
+  document.getElementById('fixtures-slot-close')?.addEventListener('click', () => {
+    closeSlotModal();
+  });
+
+  document.getElementById('fixtures-slot-backdrop')?.addEventListener('click', (e) => {
+    if (e.target?.id === 'fixtures-slot-backdrop') closeSlotModal();
+  });
+
+  document.getElementById('fixtures-slot-save')?.addEventListener('click', async () => {
+    const { stage, side, slot, countryA, countryB, date, time } = readSlotForm();
+    if (!stage || !slot) {
+      notify('Stage and slot are required.', false);
+      return;
+    }
+    const stageNorm = String(normalizeStage(stage) || '').trim();
+    if (!stageNorm) {
+      notify('Invalid stage selection.', false);
+      return;
+    }
+    const cfg = getStageConfig(stageNorm);
+    const slotNum = Number(slot);
+    if (!Number.isFinite(slotNum) || slotNum < 1 || slotNum > cfg.max) {
+      notify(`Slot must be between 1 and ${cfg.max}.`, false);
+      return;
+    }
+    const home = String(countryA || '').trim();
+    const away = String(countryB || '').trim();
+    const utcValue = buildUtcValue(date, time);
+    if (utcValue === null) {
+      notify('Match date/time must be DD/MM and HH:MM (24h).', false);
+      return;
+    }
+    const hasTeams = Boolean(home || away);
+    const matchId = hasTeams ? buildMatchId(stageNorm, side, slotNum, home, away) : '';
+    const payload = {
+      stage: stageNorm,
+      side: cfg.side ? side : 'center',
+      slot: slotNum,
+      match_id: matchId,
+      home,
+      away,
+      utc: utcValue || '',
+    };
+    try {
+      await fetchJSON('/admin/bracket_slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      notify('Bracket slot updated', true);
+      closeSlotModal();
+      clearSlotForm();
+      loadFixtures();
+    } catch (err) {
+      notify(`Failed to update slot: ${err.message || err}`, false);
+    }
+  });
+
+  document.getElementById('fixtures-slot-stage')?.addEventListener('change', updateSlotFormConstraints);
+  document.addEventListener('DOMContentLoaded', updateSlotFormConstraints);
+
+  window.addEventListener('timezonechange', updateFixturesTimes);
+  window.addEventListener('dateformatchange', updateFixturesTimes);
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (document.querySelector('#fixtures.page-section.active-section')) {
+      loadFixtures();
+    }
+  });
+})();
+
 // ---------------- Fan Zone (fixtures + voting) ----------------
 (() => {
   const $ = (sel) => document.querySelector(sel);
@@ -5062,9 +5635,6 @@ async function fetchGoalsData(){
         </button>
         <button class="btn xs fan-win" type="button" data-side="away" data-team="${f.away}" data-iso="${f.away_iso || ''}">
           Declare ${f.away}
-        </button>
-        <button class="btn xs fan-win" type="button" data-side="draw">
-          Declare Draw
         </button>
       </span>
     ` : '';
