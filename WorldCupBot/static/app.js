@@ -4886,6 +4886,19 @@ async function fetchGoalsData(){
     return r.json();
   });
 
+  function normalizeTeamName(name){
+    return String(name || '').trim().toLowerCase();
+  }
+
+  function isoFlagImg(iso){
+    if (!iso) return '';
+    const code = String(iso).trim().toLowerCase();
+    if (!code) return '';
+    const safe = code.replace(/[^a-z0-9-]/g, '');
+    return `<img class="flag-img fixtures-flag" src="https://flagcdn.com/24x18/${safe}.png" alt="${safe} flag" loading="lazy"
+            onerror="this.style.display='none';">`;
+  }
+
   function stageRank(stage){
     const label = normalizeStage(stage);
     if (Array.isArray(STAGE_ORDER) && STAGE_ORDER.length) {
@@ -4981,7 +4994,7 @@ async function fetchGoalsData(){
     `;
   }
 
-  function renderTeamList(host, teams, records, emptyLabel){
+  function renderTeamList(host, teams, records, emptyLabel, isoByName){
     if (!host) return;
     if (!teams.length) {
       host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
@@ -4990,10 +5003,14 @@ async function fetchGoalsData(){
 
     host.innerHTML = teams.map(({ name, stage }) => {
       const rec = records.get(name) || { w: 0, d: 0, l: 0 };
+      const flag = isoFlagImg(isoByName?.[normalizeTeamName(name)] || '');
       return `
-        <div class="fixtures-team">
+        <div class="fixtures-team compact">
           <div class="fixtures-team-head">
-            <span class="fixtures-team-name">${escAttr(name)}</span>
+            <div class="fixtures-team-meta">
+              ${flag}
+              <span class="fixtures-team-name">${escAttr(name)}</span>
+            </div>
             ${stageBadge(stage)}
           </div>
           <div class="fixtures-team-record">
@@ -5235,17 +5252,26 @@ async function fetchGoalsData(){
     let stages = {};
     let winners = {};
     let bracketSlots = {};
+    let isoByName = {};
     try {
-      const [fx, st, wn, bs] = await Promise.all([
+      const [fx, st, wn, bs, iso] = await Promise.all([
         fetchJSON('/api/fixtures'),
         fetchJSON('/api/team_stage'),
         fetchJSON('/api/fanzone/winners'),
-        fetchJSON('/api/bracket_slots')
+        fetchJSON('/api/bracket_slots'),
+        fetchJSON('/api/team_iso')
       ]);
       fixtures = (fx && fx.fixtures) || [];
       stages = (st && typeof st === 'object') ? st : {};
       winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
       bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
+      if (iso && typeof iso === 'object') {
+        Object.entries(iso).forEach(([team, code]) => {
+          const norm = normalizeTeamName(team);
+          const value = String(code || '').trim().toLowerCase();
+          if (norm && value) isoByName[norm] = value;
+        });
+      }
     } catch (err) {
       if (nextHost) nextHost.innerHTML = `<div class="muted">No team data available.</div>`;
       if (knockedHost) knockedHost.innerHTML = `<div class="muted">No team data available.</div>`;
@@ -5268,8 +5294,8 @@ async function fetchGoalsData(){
     const nextStageTeams = entries.filter(e => e.stage !== 'Eliminated');
     const knockedTeams = entries.filter(e => e.stage === 'Eliminated');
 
-    renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.');
-    renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.');
+    renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.', isoByName);
+    renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.', isoByName);
     ensureSummaryToggle();
     renderBracket(bracketHost, fixtures, bracketSlots);
     updateFixturesTimes();

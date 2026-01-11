@@ -786,6 +786,7 @@ body.user-admin-view .dashboard-grid .card {
 .summary-list {
     display: grid;
     gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .fixtures-team {
@@ -797,6 +798,11 @@ body.user-admin-view .dashboard-grid .card {
     gap: 8px;
 }
 
+.fixtures-team.compact {
+    padding: 8px 10px;
+    gap: 6px;
+}
+
 .fixtures-team-head {
     display: flex;
     align-items: center;
@@ -804,8 +810,19 @@ body.user-admin-view .dashboard-grid .card {
     gap: 10px;
 }
 
+.fixtures-team-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
 .fixtures-team-name {
     font-weight: 800;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .fixtures-team-record {
@@ -817,6 +834,13 @@ body.user-admin-view .dashboard-grid .card {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.fixtures-flag {
+    width: 20px;
+    height: 14px;
+    margin-right: 0;
+    border-radius: 2px;
 }
 
 .wdl-label {
