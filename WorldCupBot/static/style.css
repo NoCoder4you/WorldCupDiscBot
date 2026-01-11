@@ -749,7 +749,7 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .bracket-match.is-placeholder {
-    opacity: 0.6;
+    opacity: 1;
 }
 
 .bracket-lines {
