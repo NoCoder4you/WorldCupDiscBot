@@ -163,7 +163,9 @@ main {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px
+    padding: 12px;
+    display: flex;
+    flex-direction: column
 }
 
 /* Only the active page shows */
@@ -173,6 +175,12 @@ section.page-section {
 
 section.page-section.active-section {
     display: block;
+    flex: 1
+}
+
+#leaderboards.active-section {
+    display: flex;
+    min-height: 100%;
 }
 
 #leaderboards.active-section {
