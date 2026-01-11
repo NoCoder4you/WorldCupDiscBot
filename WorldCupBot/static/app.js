@@ -4908,6 +4908,7 @@ async function fetchGoalsData(){
 
   function computeRecords(fixtures, winnersMap){
     const rec = new Map();
+    let seq = 0;
     fixtures.forEach(f => {
       const home = String(f.home || '').trim();
       const away = String(f.away || '').trim();
@@ -4917,42 +4918,65 @@ async function fetchGoalsData(){
 
       if (winnerSide !== 'home' && winnerSide !== 'away' && winnerSide !== 'draw') return;
 
-      const homeRec = rec.get(home) || { w: 0, d: 0, l: 0 };
-      const awayRec = rec.get(away) || { w: 0, d: 0, l: 0 };
+      const homeRec = rec.get(home) || { w: 0, d: 0, l: 0, form: [] };
+      const awayRec = rec.get(away) || { w: 0, d: 0, l: 0, form: [] };
+      const stamp = Number.isFinite(Date.parse(f.utc)) ? Date.parse(f.utc) : null;
+      const order = seq++;
 
       if (winnerSide === 'home') {
         homeRec.w += 1;
         awayRec.l += 1;
+        homeRec.form.push({ result: 'win', stamp, order });
+        awayRec.form.push({ result: 'loss', stamp, order });
       } else if (winnerSide === 'away') {
         homeRec.l += 1;
         awayRec.w += 1;
+        homeRec.form.push({ result: 'loss', stamp, order });
+        awayRec.form.push({ result: 'win', stamp, order });
       } else {
         homeRec.d += 1;
         awayRec.d += 1;
+        homeRec.form.push({ result: 'draw', stamp, order });
+        awayRec.form.push({ result: 'draw', stamp, order });
       }
 
       rec.set(home, homeRec);
       rec.set(away, awayRec);
     });
+    rec.forEach((entry) => {
+      if (!Array.isArray(entry.form)) entry.form = [];
+      entry.form.sort((a, b) => {
+        if (a.stamp !== null && b.stamp !== null && a.stamp !== b.stamp) {
+          return a.stamp - b.stamp;
+        }
+        if (a.stamp !== null && b.stamp === null) return -1;
+        if (a.stamp === null && b.stamp !== null) return 1;
+        return a.order - b.order;
+      });
+      entry.form = entry.form.slice(-5);
+    });
     return rec;
   }
 
   function recordBar(rec){
-    const total = rec.w + rec.d + rec.l;
-    const winPct = total ? (rec.w / total) * 100 : 0;
-    const drawPct = total ? (rec.d / total) * 100 : 0;
-    const lossPct = total ? (rec.l / total) * 100 : 0;
-    const empty = total === 0 ? 'is-empty' : '';
+    const form = Array.isArray(rec.form) ? rec.form : [];
+    const padded = Array.from({ length: 5 }, (_, i) => {
+      const idx = form.length - 5 + i;
+      return idx >= 0 ? form[idx] : null;
+    });
+    const label = padded.map(entry => {
+      if (!entry) return '-';
+      return entry.result === 'win' ? 'W' : entry.result === 'loss' ? 'L' : 'D';
+    }).join(' ');
     return `
-      <div class="wdl-bar ${empty}" role="img" aria-label="Wins ${rec.w}, Draws ${rec.d}, Losses ${rec.l}">
-        <span class="wdl-seg win" style="width:${winPct}%"></span>
-        <span class="wdl-seg draw" style="width:${drawPct}%"></span>
-        <span class="wdl-seg loss" style="width:${lossPct}%"></span>
-      </div>
-      <div class="wdl-counts">
-        <span class="wdl-count win">W ${rec.w}</span>
-        <span class="wdl-count draw">D ${rec.d}</span>
-        <span class="wdl-count loss">L ${rec.l}</span>
+      <div class="wdl-form" role="img" aria-label="Last 5: ${escAttr(label)}">
+        <span class="wdl-label">Last 5</span>
+        <div class="wdl-dots">
+          ${padded.map(entry => {
+            const cls = entry?.result ? entry.result : 'empty';
+            return `<span class="wdl-dot ${cls}"></span>`;
+          }).join('')}
+        </div>
       </div>
     `;
   }
