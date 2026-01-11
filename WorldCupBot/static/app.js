@@ -4350,21 +4350,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return list;
     }
 
-async function fetchGoalsData(){
-  const tryPaths = ['/api/goals', '/api/stats/goals', '/api/leaderboards/scorers'];
-  for(const path of tryPaths){
-    try{
-      const res = await fetch(path, { headers:{'Accept':'application/json'} });
-      if(!res.ok) continue;
-      const data = await res.json();
-      if(Array.isArray(data)) return data;
-      if(Array.isArray(data.rows)) return data.rows;
-      if(Array.isArray(data.players)) return data.players;
-    }catch(_) { /* keep trying */ }
-  }
-  return []; // nothing available
-}
-
     async function fetchFanZoneWinsData(){
       try{
         const res = await fetch('/api/leaderboards/fanzone_wins', { headers:{'Accept':'application/json'} });
@@ -4385,39 +4370,6 @@ async function fetchGoalsData(){
         if(Array.isArray(data.rows)) return data.rows;
       }catch(_) { /* keep silent */ }
       return [];
-    }
-
-    function aggregateScorers(raw, vmap){
-      const out = (raw||[]).map(p => {
-        const id = String(p.id||p.discord_id||'').trim();
-        const prof = vmap[id] || { id, display_name: p.name || p.username || id, username: p.username || '' };
-        return {
-          id,
-          name: prof.display_name || prof.username || id,
-          goals: Number(p.goals||0),
-          avatar_url: prof.avatar_url || null
-        };
-      }).filter(x => x.id);
-      out.sort((a,b) => (b.goals - a.goals) || String(a.name).localeCompare(String(b.name)));
-      return out;
-    }
-
-    function scorersRowEl(rec){
-      const row = document.createElement('div');
-      row.className = 'lb-row';
-      const left = document.createElement('div'); left.className='lb-left';
-      left.appendChild(avatarEl({id:rec.id, display_name:rec.name, avatar_url:rec.avatar_url}));
-      const t = document.createElement('div'); t.innerHTML = `<div class="lb-name">${rec.name}</div>`;
-      left.appendChild(t);
-
-      const right = document.createElement('div'); right.className='lb-right';
-      right.appendChild(barEl(rec.goals, rec._max || rec.goals));
-      const stats = document.createElement('div'); stats.className='lb-stats';
-      const chip = document.createElement('span'); chip.className='lb-chip'; chip.textContent = `G: ${rec.goals}`;
-      stats.appendChild(chip); right.appendChild(stats);
-
-      row.appendChild(left); row.appendChild(right);
-      return row;
     }
 
     function voteResultsRowEl(rec, label){
@@ -4537,19 +4489,6 @@ async function fetchGoalsData(){
       return {page:p,total,slice:list.slice(start,start+per)};
     }
 
-    function paintScorers(page=1){
-      const state=(window.state=window.state||{}); state.lb=state.lb||{};
-      const body=document.querySelector('#lb-scorers-body'); if(!body) return;
-      const q=document.querySelector('#lb-scorers-search')?.value||'';
-      const list=filterByQuery(state.lb.scorersAll||[], q);
-      const {page:cur,total,slice}=paginate(list,page,50);
-      body.innerHTML='';
-      if(!slice.length){ body.innerHTML='<div class="lb-empty">No goal data to show.</div>'; }
-      else { slice.forEach(r=>body.appendChild(scorersRowEl(r))); }
-      document.querySelector('#lb-scorers-page').textContent=`${cur}/${total}`;
-      state.lb.scorersPage=cur;
-    }
-
     async function renderLeaderboards(){
       const { rows, bets, iso, vmap } = await fetchAll();
 
@@ -4562,12 +4501,6 @@ async function fetchGoalsData(){
       let bettors = aggregateBettors(bets, vmap);
       const maxWin = bettors[0]?.wins || 0;
       bettors.forEach(b => b._max = maxWin);
-
-      // Scorers (if you added Goals)
-      const rawGoals = await fetchGoalsData();
-      let scorers = aggregateScorers(rawGoals, vmap);
-      const maxGoals = scorers[0]?.goals || 0;
-      scorers.forEach(s => s._max = maxGoals);
 
       // Fan Zone voting wins
       const rawVoteWins = await fetchFanZoneWinsData();
@@ -4603,12 +4536,11 @@ async function fetchGoalsData(){
       const state = (window.state = window.state || {}); state.lb = state.lb || {};
       state.lb.ownersAll = owners;
       state.lb.bettorsAll = bettors;
-      state.lb.scorersAll = scorers;
       state.lb.voteWinsAll = voteWins;
       state.lb.voteLossesAll = voteLosses;
       state.lb.iso = iso;
 
-      paintOwners(); paintBettors(); paintScorers(); paintVoteWins(); paintVoteLosses();
+      paintOwners(); paintBettors(); paintVoteWins(); paintVoteLosses();
       wireControls();
     }
 
@@ -4685,12 +4617,6 @@ async function fetchGoalsData(){
     qs('#lb-vote-wins-next')?.addEventListener('click', ()=>paintVoteWins((state.lb.voteWinsPage||1)+1));
     qs('#lb-vote-losses-prev')?.addEventListener('click', ()=>paintVoteLosses((state.lb.voteLossesPage||1)-1));
     qs('#lb-vote-losses-next')?.addEventListener('click', ()=>paintVoteLosses((state.lb.voteLossesPage||1)+1));
-    document.querySelector('#lb-scorers-search')?.addEventListener('input', debounce(()=>paintScorers(1),200));
-    document.querySelector('#lb-scorers-refresh')?.addEventListener('click', async ()=>{
-      const s=(window.state=window.state||{}); s.lb=s.lb||{}; s.lb.loaded=false; await loadLeaderboardsOnce();
-    });
-    document.querySelector('#lb-scorers-prev')?.addEventListener('click', ()=>paintScorers((window.state?.lb?.scorersPage||1)-1));
-    document.querySelector('#lb-scorers-next')?.addEventListener('click', ()=>paintScorers((window.state?.lb?.scorersPage||1)+1));
     }
 
     async function loadLeaderboardsOnce(){
