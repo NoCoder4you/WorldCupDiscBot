@@ -4865,6 +4865,7 @@ async function fetchGoalsData(){
 
   function renderTeamList(host, teams, records, emptyLabel, isoByName){
     if (!host) return;
+    host.classList.remove('results-list');
     if (!teams.length) {
       host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
       return;
@@ -4890,6 +4891,110 @@ async function fetchGoalsData(){
     }).join('');
   }
 
+  function renderResultsList(host, fixtures, isoByName, groupByName, activeGroup, emptyLabel){
+    if (!host) return;
+    host.classList.add('results-list');
+    if (!Array.isArray(fixtures) || !fixtures.length) {
+      host.innerHTML = `
+        <div class="muted">${escAttr(emptyLabel)}</div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('us')}
+            <span class="fixtures-result-name">Example A</span>
+          </div>
+          <div class="fixtures-result-score">2 - 1</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example B</span>
+            ${isoFlagImg('gb')}
+          </div>
+        </div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('fr')}
+            <span class="fixtures-result-name">Example C</span>
+          </div>
+          <div class="fixtures-result-score">0 - 0</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example D</span>
+            ${isoFlagImg('de')}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const filtered = fixtures.filter((fixture) => {
+      const home = String(fixture.home || '').trim();
+      const away = String(fixture.away || '').trim();
+      if (!home || !away) return false;
+      const hs = parseScore(fixture.home_score);
+      const as = parseScore(fixture.away_score);
+      if (hs === null || as === null) return false;
+      if (!activeGroup || activeGroup === 'ALL') return true;
+      const homeGroup = groupByName.get(normalizeTeamName(home)) || '';
+      const awayGroup = groupByName.get(normalizeTeamName(away)) || '';
+      return String(homeGroup).toUpperCase() === activeGroup || String(awayGroup).toUpperCase() === activeGroup;
+    });
+
+    const sorted = filtered.sort((a, b) => {
+      const aStamp = Number.isFinite(Date.parse(a.utc)) ? Date.parse(a.utc) : -Infinity;
+      const bStamp = Number.isFinite(Date.parse(b.utc)) ? Date.parse(b.utc) : -Infinity;
+      if (aStamp !== bStamp) return bStamp - aStamp;
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
+
+    if (!sorted.length) {
+      host.innerHTML = `
+        <div class="muted">${escAttr(emptyLabel)}</div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('us')}
+            <span class="fixtures-result-name">Example A</span>
+          </div>
+          <div class="fixtures-result-score">2 - 1</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example B</span>
+            ${isoFlagImg('gb')}
+          </div>
+        </div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('fr')}
+            <span class="fixtures-result-name">Example C</span>
+          </div>
+          <div class="fixtures-result-score">0 - 0</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example D</span>
+            ${isoFlagImg('de')}
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    host.innerHTML = sorted.map((fixture) => {
+      const home = String(fixture.home || '').trim();
+      const away = String(fixture.away || '').trim();
+      const hs = parseScore(fixture.home_score);
+      const as = parseScore(fixture.away_score);
+      const homeFlag = isoFlagImg(isoByName?.[normalizeTeamName(home)] || '');
+      const awayFlag = isoFlagImg(isoByName?.[normalizeTeamName(away)] || '');
+      return `
+        <div class="fixtures-result">
+          <div class="fixtures-result-team">
+            ${homeFlag}
+            <span class="fixtures-result-name">${escAttr(home)}</span>
+          </div>
+          <div class="fixtures-result-score">${hs} - ${as}</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">${escAttr(away)}</span>
+            ${awayFlag}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   function ensureSummaryToggle(){
     const wrap = document.querySelector('.fixtures-summary');
     const btn = document.getElementById('fixtures-summary-toggle');
@@ -4908,6 +5013,48 @@ async function fetchGoalsData(){
     });
 
     updateLabel();
+  }
+
+  const fixturesSummaryState = {
+    showResults: false,
+    data: null
+  };
+
+  function ensureResultsToggle(){
+    const btn = document.getElementById('fixtures-results-toggle');
+    if (!btn || btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => {
+      fixturesSummaryState.showResults = !fixturesSummaryState.showResults;
+      updateResultsView();
+    });
+  }
+
+  function updateResultsView(){
+    const host = document.getElementById('fixtures-knocked-out');
+    const title = document.getElementById('fixtures-knocked-title');
+    const btn = document.getElementById('fixtures-results-toggle');
+    if (!fixturesSummaryState.data || !host || !title || !btn) return;
+    const {
+      fixtures,
+      knockedTeams,
+      records,
+      knockedEmptyLabel,
+      resultsEmptyLabel,
+      isoByName,
+      groupByName,
+      activeGroup
+    } = fixturesSummaryState.data;
+
+    const showResults = fixturesSummaryState.showResults;
+    title.textContent = showResults ? 'Results' : 'Knocked out';
+    btn.textContent = showResults ? 'Show Knocked Out' : 'Show Results';
+    btn.setAttribute('aria-pressed', showResults ? 'true' : 'false');
+    if (showResults) {
+      renderResultsList(host, fixtures, isoByName, groupByName, activeGroup, resultsEmptyLabel);
+    } else {
+      renderTeamList(host, knockedTeams, records, knockedEmptyLabel, isoByName);
+    }
   }
 
   function makePlaceholderMatch(stage, home = 'TBD', away = 'TBD', matchId = '', slot = null){
@@ -4971,9 +5118,6 @@ async function fetchGoalsData(){
   }
 
   function matchCard(f, opts = {}){
-    const hs = parseScore(f.home_score);
-    const as = parseScore(f.away_score);
-    const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
     const placeholderClass = f._placeholder ? ' is-placeholder' : '';
@@ -4986,7 +5130,6 @@ async function fetchGoalsData(){
         <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
         <div class="bracket-foot">
           <span class="fixtures-time" data-utc="${escAttr(f.utc || '')}">${escAttr(utcLabel)}</span>
-          <span class="bracket-score">${escAttr(score)}</span>
         </div>
       </div>
     `;
@@ -5017,6 +5160,71 @@ async function fetchGoalsData(){
       }
       return match;
     });
+  }
+
+  let bracketLinesResizeBound = false;
+  let bracketLinesData = null;
+
+  function drawBracketLines(host, bracket) {
+    if (!host || !bracket) return;
+    const hostRect = host.getBoundingClientRect();
+    if (!hostRect.width || !hostRect.height) return;
+    const existing = host.querySelector('.bracket-lines');
+    if (existing) existing.remove();
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('bracket-lines');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('viewBox', `0 0 ${hostRect.width} ${hostRect.height}`);
+    svg.setAttribute('width', hostRect.width);
+    svg.setAttribute('height', hostRect.height);
+
+    const getMatchEl = match => {
+      const slotId = match?._slot_id ? String(match._slot_id) : '';
+      if (!slotId) return null;
+      return host.querySelector(`[data-slot-id="${slotId}"]`);
+    };
+
+    const addConnector = (fromMatch, toMatch) => {
+      const fromEl = getMatchEl(fromMatch);
+      const toEl = getMatchEl(toMatch);
+      if (!fromEl || !toEl) return;
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+      const startX = fromRect.left + (fromRect.width / 2) - hostRect.left;
+      const startY = fromRect.top + (fromRect.height / 2) - hostRect.top;
+      const endX = toRect.left + (toRect.width / 2) - hostRect.left;
+      const endY = toRect.top + (toRect.height / 2) - hostRect.top;
+      const midX = (startX + endX) / 2;
+      const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      polyline.setAttribute('fill', 'none');
+      polyline.setAttribute(
+        'points',
+        `${startX.toFixed(1)},${startY.toFixed(1)} ` +
+        `${midX.toFixed(1)},${startY.toFixed(1)} ` +
+        `${midX.toFixed(1)},${endY.toFixed(1)} ` +
+        `${endX.toFixed(1)},${endY.toFixed(1)}`
+      );
+      svg.appendChild(polyline);
+    };
+
+    const connectPairs = (fromList, toList, groupSize) => {
+      if (!fromList?.length || !toList?.length) return;
+      fromList.forEach((match, idx) => {
+        const target = toList[Math.floor(idx / groupSize)];
+        if (target) addConnector(match, target);
+      });
+    };
+
+    connectPairs(bracket.r32Left, bracket.r16Left, 2);
+    connectPairs(bracket.r16Left, bracket.qfLeft, 2);
+    connectPairs(bracket.qfLeft, bracket.sfLeft, 2);
+    connectPairs(bracket.sfLeft, bracket.finalMatch, 1);
+    connectPairs(bracket.r32Right, bracket.r16Right, 2);
+    connectPairs(bracket.r16Right, bracket.qfRight, 2);
+    connectPairs(bracket.qfRight, bracket.sfRight, 2);
+    connectPairs(bracket.sfRight, bracket.finalMatch, 1);
+
+    host.appendChild(svg);
   }
 
   function renderBracket(host, fixtures, slots){
@@ -5096,6 +5304,26 @@ async function fetchGoalsData(){
         </div>
       </div>
     `;
+    const bracketData = {
+      r32Left,
+      r16Left,
+      qfLeft,
+      sfLeft,
+      r32Right,
+      r16Right,
+      qfRight,
+      sfRight,
+      finalMatch
+    };
+    bracketLinesData = bracketData;
+    requestAnimationFrame(() => drawBracketLines(host, bracketData));
+    if (!bracketLinesResizeBound) {
+      bracketLinesResizeBound = true;
+      window.addEventListener('resize', () => {
+        const bracketHost = document.querySelector('#fixtures-bracket');
+        if (bracketHost && bracketLinesData) drawBracketLines(bracketHost, bracketLinesData);
+      });
+    }
   }
 
   function updateFixturesTimes(){
@@ -5181,10 +5409,24 @@ async function fetchGoalsData(){
     const knockedEmptyLabel = activeGroup === 'ALL'
       ? 'No teams knocked out yet.'
       : `No knocked out teams in Group ${activeGroup}.`;
+    const resultsEmptyLabel = activeGroup === 'ALL'
+      ? 'No results available yet.'
+      : `No results in Group ${activeGroup}.`;
 
     renderTeamList(nextHost, nextStageTeams, records, nextEmptyLabel, isoByName);
-    renderTeamList(knockedHost, knockedTeams, records, knockedEmptyLabel, isoByName);
+    fixturesSummaryState.data = {
+      fixtures,
+      knockedTeams,
+      records,
+      knockedEmptyLabel,
+      resultsEmptyLabel,
+      isoByName,
+      groupByName,
+      activeGroup
+    };
+    updateResultsView();
     ensureSummaryToggle();
+    ensureResultsToggle();
     renderBracket(bracketHost, fixtures, bracketSlots);
     updateFixturesTimes();
   }
