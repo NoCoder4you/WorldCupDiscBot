@@ -135,26 +135,6 @@ function stagePill(stage){
     }finally{ clearTimeout(to); }
   }
 
-    async function getJSON(url, opts = {}) {
-      const res = await fetch(url, { cache: 'no-store', ...opts });
-      if (res.status === 401) {
-        // Public side hitting an admin route - fail quietly
-        return { __unauthorized: true };
-      }
-      if (!res.ok) throw new Error(`${url} ${res.status}`);
-      return res.json();
-    }
-
-    async function postJSON(url, body) {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body || {})
-      });
-      if (!res.ok) throw new Error(`${url} ${res.status}`);
-      return res.json().catch(() => ({}));
-    }
-
   // === PAGE SWITCHER ===
     function showPage(page) {
       // admin-only pages
@@ -674,47 +654,6 @@ function setPage(p) {
     document.addEventListener('DOMContentLoaded', initAuth);
 
 
-    async function fetchVerifiedMap() {
-      try {
-        const res = await fetch('/api/verified', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`verified ${res.status}`);
-        const data = await res.json();
-
-        // Support array or object forms
-        const arr = Array.isArray(data)
-          ? data
-          : (Array.isArray(data.users) ? data.users : []);
-
-        const map = new Map();
-        for (const u of arr) {
-          const id = String(u.discord_id ?? u.id ?? '');
-          const name = (u.display_name && String(u.display_name).trim())
-                    || (u.username && String(u.username).trim())
-                    || '';
-          if (id) map.set(id, name || id);
-        }
-        return map;
-      } catch (e) {
-        console.error('[bets] verified map error:', e);
-        return new Map();
-      }
-    }
-
-    // 2) Resolve display name (prefer nickname)
-    function resolveDisplayName(map, userId, fallbackUserString) {
-      const id = userId ? String(userId) : '';
-      const name = (id && map.get(id)) || '';
-      if (name) return name;
-      if (fallbackUserString) return fallbackUserString;
-      if (id) return `User ${id}`;
-      return 'Unknown';
-    }
-
-    function setOptionTooltip(el, claimedByText) {
-      if (!el) return;
-      el.title = claimedByText || 'Unclaimed';
-    }
-
   // --- DASHBOARD ---
   async function loadDash(){
     try{
@@ -756,11 +695,6 @@ function setPage(p) {
     }catch(e){ notify(`Dashboard error: ${e.message}`, false); }
   }
 
-  function semicircleDash(pct){
-    const total = 125.66;
-    const c = Math.max(0, Math.min(100, Number(pct)||0));
-    return `${(c/100)*total},${total}`;
-  }
   function clearSystem(){
     ['mem-bar','cpu-bar','disk-bar'].forEach(id=>{
       const el = qs('#'+id); if(el) el.setAttribute('stroke-dasharray','0,125.66');
@@ -971,19 +905,6 @@ function setPage(p) {
       sec.appendChild(wrap);
       return wrap;
     }
-    // ===== Verified users loader (from /api/verified) =====
-    function parseVerifiedPayload(payload) {
-      if (!payload) return [];
-      if (Array.isArray(payload)) return payload;
-      if (payload.verified_users && Array.isArray(payload.verified_users)) return payload.verified_users;
-      return [];
-    }
-    function normalizeVerifiedItem(item) {
-      const id = item.discord_id || item.id || item.user_id || item.discordId || item.uid || '';
-      const nm = item.habbo_name || item.username || item.display_name || item.name || String(id);
-      return id ? { id: String(id), name: String(nm) } : null;
-    }
-
 // -------------------- OWNERSHIP (teams.json + players.json) --------------------
 
 // ===== Flags helpers =====
@@ -1797,43 +1718,6 @@ async function loadOwnershipPage() {
 // expose globally in case your router looks up window[loaderName]
 window.loadOwnershipPage = loadOwnershipPage;
 
-    // 1) Verified map loader: {id -> display_name}
-    async function fetchVerifiedMap() {
-      try {
-        const res = await fetch('/api/verified', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`verified ${res.status}`);
-        const data = await res.json();
-
-        // Support array or object forms
-        const arr = Array.isArray(data)
-          ? data
-          : (Array.isArray(data.users) ? data.users : []);
-
-        const map = new Map();
-        for (const u of arr) {
-          const id = String(u.discord_id ?? u.id ?? '');
-          const name = (u.display_name && String(u.display_name).trim())
-                    || (u.username && String(u.username).trim())
-                    || '';
-          if (id) map.set(id, name || id);
-        }
-        return map;
-      } catch (e) {
-        console.error('[bets] verified map error:', e);
-        return new Map();
-      }
-    }
-
-    // 2) Resolve display name (prefer nickname)
-    function resolveDisplayName(map, userId, fallbackUserString) {
-      const id = userId ? String(userId) : '';
-      const name = (id && map.get(id)) || '';
-      if (name) return name;
-      if (fallbackUserString) return fallbackUserString;
-      if (id) return `User ${id}`;
-      return 'Unknown';
-    }
-
     async function loadAndRenderBets() {
       const host = document.getElementById('bets');
       if (!host) return;
@@ -2339,44 +2223,6 @@ async function loadSplitHistoryOnce() {
 
 window.loadSplits = loadSplits;
 window.loadSplitHistoryOnce = loadSplitHistoryOnce;
-
-
-/* ---------- small utils ---------- */
-function splitStatusPill(status) {
-  const map = { pending:'pill-warn', approved:'pill-ok', accepted:'pill-ok', resolved:'pill-ok', denied:'pill-off', rejected:'pill-off' };
-  const cls = map[status] || 'pill-off';
-  const label = status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
-  return `<span class="pill ${cls}">${label}</span>`;
-}
-function escapeHTML(s) {
-  if (s == null) return '';
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-}
-function fmtDateTime(x) {
-  let t = x;
-  if (typeof t === 'string' && /^\d+(\.\d+)?$/.test(t)) t = Number(t);
-  if (typeof t === 'number') {
-    // if it's likely seconds (<= 10^12), convert to ms
-    if (t < 1e12) t = t * 1000;
-  }
-  const d = new Date(t);
-  if (Number.isNaN(d.getTime())) return '-';
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
-function shortId(id) {
-  if (!id) return '-';
-  const str = String(id);
-  // simple deterministic hash
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-  }
-  return '#' + (hash % 90000 + 10000); // always 5 digits, range 10000–99999
-}
 
 
     async function loadBackups(){
