@@ -4895,7 +4895,31 @@ async function fetchGoalsData(){
     if (!host) return;
     host.classList.add('results-list');
     if (!Array.isArray(fixtures) || !fixtures.length) {
-      host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
+      host.innerHTML = `
+        <div class="muted">${escAttr(emptyLabel)}</div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('us')}
+            <span class="fixtures-result-name">Example A</span>
+          </div>
+          <div class="fixtures-result-score">2 - 1</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example B</span>
+            ${isoFlagImg('gb')}
+          </div>
+        </div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('fr')}
+            <span class="fixtures-result-name">Example C</span>
+          </div>
+          <div class="fixtures-result-score">0 - 0</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example D</span>
+            ${isoFlagImg('de')}
+          </div>
+        </div>
+      `;
       return;
     }
 
@@ -4920,7 +4944,31 @@ async function fetchGoalsData(){
     });
 
     if (!sorted.length) {
-      host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
+      host.innerHTML = `
+        <div class="muted">${escAttr(emptyLabel)}</div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('us')}
+            <span class="fixtures-result-name">Example A</span>
+          </div>
+          <div class="fixtures-result-score">2 - 1</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example B</span>
+            ${isoFlagImg('gb')}
+          </div>
+        </div>
+        <div class="fixtures-result is-demo">
+          <div class="fixtures-result-team">
+            ${isoFlagImg('fr')}
+            <span class="fixtures-result-name">Example C</span>
+          </div>
+          <div class="fixtures-result-score">0 - 0</div>
+          <div class="fixtures-result-team away">
+            <span class="fixtures-result-name">Example D</span>
+            ${isoFlagImg('de')}
+          </div>
+        </div>
+      `;
       return;
     }
 

@@ -845,6 +845,10 @@ body.user-admin-view .dashboard-grid .card {
     gap: 8px;
 }
 
+.fixtures-result.is-demo {
+    opacity: 0.6;
+}
+
 .fixtures-result-team {
     display: flex;
     align-items: center;
