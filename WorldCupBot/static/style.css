@@ -786,6 +786,7 @@ body.user-admin-view .dashboard-grid .card {
 .summary-list {
     display: grid;
     gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .fixtures-team {
@@ -797,6 +798,11 @@ body.user-admin-view .dashboard-grid .card {
     gap: 8px;
 }
 
+.fixtures-team.compact {
+    padding: 8px 10px;
+    gap: 6px;
+}
+
 .fixtures-team-head {
     display: flex;
     align-items: center;
@@ -804,8 +810,19 @@ body.user-admin-view .dashboard-grid .card {
     gap: 10px;
 }
 
+.fixtures-team-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
 .fixtures-team-name {
     font-weight: 800;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .fixtures-team-record {
@@ -813,52 +830,58 @@ body.user-admin-view .dashboard-grid .card {
     gap: 6px;
 }
 
-.wdl-bar {
+.wdl-form {
     display: flex;
-    height: 8px;
-    border-radius: 999px;
-    overflow: hidden;
-    background: #182233;
+    align-items: center;
+    gap: 10px;
 }
 
-.wdl-bar.is-empty {
+.fixtures-flag {
+    width: 20px;
+    height: 14px;
+    margin-right: 0;
+    border-radius: 2px;
+}
+
+.wdl-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.wdl-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.wdl-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid #2b364a;
     background: #1c2636;
 }
 
-.wdl-seg {
-    display: block;
-    height: 100%;
-}
-
-.wdl-seg.win {
+.wdl-dot.win {
     background: #47d18c;
+    border-color: #47d18c;
 }
 
-.wdl-seg.draw {
-    background: #f0c75e;
+.wdl-dot.draw {
+    background: #9aa4b2;
+    border-color: #9aa4b2;
 }
 
-.wdl-seg.loss {
+.wdl-dot.loss {
     background: #ff6b6b;
+    border-color: #ff6b6b;
 }
 
-.wdl-counts {
-    display: flex;
-    gap: 12px;
-    font-size: 12px;
-    color: var(--muted);
-}
-
-.wdl-count.win {
-    color: #47d18c;
-}
-
-.wdl-count.draw {
-    color: #f0c75e;
-}
-
-.wdl-count.loss {
-    color: #ff6b6b;
+.wdl-dot.empty {
+    background: #1c2636;
+    border-color: #2b364a;
 }
 
 .fixtures-time {

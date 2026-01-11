@@ -4886,6 +4886,42 @@ async function fetchGoalsData(){
     return r.json();
   });
 
+  function normalizeTeamName(name){
+    return String(name || '').trim().toLowerCase();
+  }
+
+  function isoFlagImg(iso){
+    if (!iso) return '';
+    const code = String(iso).trim().toLowerCase();
+    if (!code) return '';
+    const safe = code.replace(/[^a-z0-9-]/g, '');
+    return `<img class="flag-img fixtures-flag" src="https://flagcdn.com/24x18/${safe}.png" alt="${safe} flag" loading="lazy"
+            onerror="this.style.display='none';">`;
+  }
+
+  function buildGroupMap(teamMeta){
+    const out = new Map();
+    if (!teamMeta || typeof teamMeta !== 'object') return out;
+
+    if (teamMeta.groups && typeof teamMeta.groups === 'object') {
+      Object.entries(teamMeta.groups).forEach(([group, entries]) => {
+        if (!Array.isArray(entries)) return;
+        entries.forEach((team) => {
+          const key = normalizeTeamName(team);
+          if (key) out.set(key, String(group || '').toUpperCase());
+        });
+      });
+      return out;
+    }
+
+    Object.entries(teamMeta).forEach(([team, meta]) => {
+      const group = meta && typeof meta === 'object' ? meta.group : null;
+      const key = normalizeTeamName(team);
+      if (key && group) out.set(key, String(group).toUpperCase());
+    });
+    return out;
+  }
+
   function stageRank(stage){
     const label = normalizeStage(stage);
     if (Array.isArray(STAGE_ORDER) && STAGE_ORDER.length) {
@@ -4908,6 +4944,7 @@ async function fetchGoalsData(){
 
   function computeRecords(fixtures, winnersMap){
     const rec = new Map();
+    let seq = 0;
     fixtures.forEach(f => {
       const home = String(f.home || '').trim();
       const away = String(f.away || '').trim();
@@ -4917,47 +4954,70 @@ async function fetchGoalsData(){
 
       if (winnerSide !== 'home' && winnerSide !== 'away' && winnerSide !== 'draw') return;
 
-      const homeRec = rec.get(home) || { w: 0, d: 0, l: 0 };
-      const awayRec = rec.get(away) || { w: 0, d: 0, l: 0 };
+      const homeRec = rec.get(home) || { w: 0, d: 0, l: 0, form: [] };
+      const awayRec = rec.get(away) || { w: 0, d: 0, l: 0, form: [] };
+      const stamp = Number.isFinite(Date.parse(f.utc)) ? Date.parse(f.utc) : null;
+      const order = seq++;
 
       if (winnerSide === 'home') {
         homeRec.w += 1;
         awayRec.l += 1;
+        homeRec.form.push({ result: 'win', stamp, order });
+        awayRec.form.push({ result: 'loss', stamp, order });
       } else if (winnerSide === 'away') {
         homeRec.l += 1;
         awayRec.w += 1;
+        homeRec.form.push({ result: 'loss', stamp, order });
+        awayRec.form.push({ result: 'win', stamp, order });
       } else {
         homeRec.d += 1;
         awayRec.d += 1;
+        homeRec.form.push({ result: 'draw', stamp, order });
+        awayRec.form.push({ result: 'draw', stamp, order });
       }
 
       rec.set(home, homeRec);
       rec.set(away, awayRec);
     });
+    rec.forEach((entry) => {
+      if (!Array.isArray(entry.form)) entry.form = [];
+      entry.form.sort((a, b) => {
+        if (a.stamp !== null && b.stamp !== null && a.stamp !== b.stamp) {
+          return a.stamp - b.stamp;
+        }
+        if (a.stamp !== null && b.stamp === null) return -1;
+        if (a.stamp === null && b.stamp !== null) return 1;
+        return a.order - b.order;
+      });
+      entry.form = entry.form.slice(-5);
+    });
     return rec;
   }
 
   function recordBar(rec){
-    const total = rec.w + rec.d + rec.l;
-    const winPct = total ? (rec.w / total) * 100 : 0;
-    const drawPct = total ? (rec.d / total) * 100 : 0;
-    const lossPct = total ? (rec.l / total) * 100 : 0;
-    const empty = total === 0 ? 'is-empty' : '';
+    const form = Array.isArray(rec.form) ? rec.form : [];
+    const padded = Array.from({ length: 5 }, (_, i) => {
+      const idx = form.length - 5 + i;
+      return idx >= 0 ? form[idx] : null;
+    });
+    const label = padded.map(entry => {
+      if (!entry) return '-';
+      return entry.result === 'win' ? 'W' : entry.result === 'loss' ? 'L' : 'D';
+    }).join(' ');
     return `
-      <div class="wdl-bar ${empty}" role="img" aria-label="Wins ${rec.w}, Draws ${rec.d}, Losses ${rec.l}">
-        <span class="wdl-seg win" style="width:${winPct}%"></span>
-        <span class="wdl-seg draw" style="width:${drawPct}%"></span>
-        <span class="wdl-seg loss" style="width:${lossPct}%"></span>
-      </div>
-      <div class="wdl-counts">
-        <span class="wdl-count win">W ${rec.w}</span>
-        <span class="wdl-count draw">D ${rec.d}</span>
-        <span class="wdl-count loss">L ${rec.l}</span>
+      <div class="wdl-form" role="img" aria-label="Last 5: ${escAttr(label)}">
+        <span class="wdl-label">Last 5</span>
+        <div class="wdl-dots">
+          ${padded.map(entry => {
+            const cls = entry?.result ? entry.result : 'empty';
+            return `<span class="wdl-dot ${cls}"></span>`;
+          }).join('')}
+        </div>
       </div>
     `;
   }
 
-  function renderTeamList(host, teams, records, emptyLabel){
+  function renderTeamList(host, teams, records, emptyLabel, isoByName){
     if (!host) return;
     if (!teams.length) {
       host.innerHTML = `<div class="muted">${escAttr(emptyLabel)}</div>`;
@@ -4966,10 +5026,14 @@ async function fetchGoalsData(){
 
     host.innerHTML = teams.map(({ name, stage }) => {
       const rec = records.get(name) || { w: 0, d: 0, l: 0 };
+      const flag = isoFlagImg(isoByName?.[normalizeTeamName(name)] || '');
       return `
-        <div class="fixtures-team">
+        <div class="fixtures-team compact">
           <div class="fixtures-team-head">
-            <span class="fixtures-team-name">${escAttr(name)}</span>
+            <div class="fixtures-team-meta">
+              ${flag}
+              <span class="fixtures-team-name">${escAttr(name)}</span>
+            </div>
             ${stageBadge(stage)}
           </div>
           <div class="fixtures-team-record">
@@ -5201,6 +5265,7 @@ async function fetchGoalsData(){
     const nextHost = $('#fixtures-next-stage');
     const knockedHost = $('#fixtures-knocked-out');
     const bracketHost = $('#fixtures-bracket');
+    const groupSel = document.getElementById('fixtures-group');
     if (!bracketHost) return;
 
     if (nextHost) nextHost.innerHTML = `<div class="muted">Loading teams…</div>`;
@@ -5211,17 +5276,30 @@ async function fetchGoalsData(){
     let stages = {};
     let winners = {};
     let bracketSlots = {};
+    let isoByName = {};
+    let groupByName = new Map();
+    let activeGroup = String(groupSel?.value || 'ALL').toUpperCase();
     try {
-      const [fx, st, wn, bs] = await Promise.all([
+      const [fx, st, wn, bs, iso, meta] = await Promise.all([
         fetchJSON('/api/fixtures'),
         fetchJSON('/api/team_stage'),
         fetchJSON('/api/fanzone/winners'),
-        fetchJSON('/api/bracket_slots')
+        fetchJSON('/api/bracket_slots'),
+        fetchJSON('/api/team_iso'),
+        fetchJSON('/api/team_meta')
       ]);
       fixtures = (fx && fx.fixtures) || [];
       stages = (st && typeof st === 'object') ? st : {};
       winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
       bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
+      groupByName = buildGroupMap(meta);
+      if (iso && typeof iso === 'object') {
+        Object.entries(iso).forEach(([team, code]) => {
+          const norm = normalizeTeamName(team);
+          const value = String(code || '').trim().toLowerCase();
+          if (norm && value) isoByName[norm] = value;
+        });
+      }
     } catch (err) {
       if (nextHost) nextHost.innerHTML = `<div class="muted">No team data available.</div>`;
       if (knockedHost) knockedHost.innerHTML = `<div class="muted">No team data available.</div>`;
@@ -5241,11 +5319,25 @@ async function fetchGoalsData(){
       return a.name.localeCompare(b.name);
     });
 
-    const nextStageTeams = entries.filter(e => e.stage !== 'Eliminated');
-    const knockedTeams = entries.filter(e => e.stage === 'Eliminated');
+    const withGroup = entries.map((entry) => ({
+      ...entry,
+      group: groupByName.get(normalizeTeamName(entry.name)) || ''
+    }));
+    const byGroup = (list) => {
+      if (!activeGroup || activeGroup === 'ALL') return list;
+      return list.filter((entry) => String(entry.group || '').toUpperCase() === activeGroup);
+    };
+    const nextStageTeams = byGroup(withGroup.filter(e => e.stage !== 'Eliminated'));
+    const knockedTeams = byGroup(withGroup.filter(e => e.stage === 'Eliminated'));
+    const nextEmptyLabel = activeGroup === 'ALL'
+      ? 'No teams have advanced yet.'
+      : `No teams in Group ${activeGroup}.`;
+    const knockedEmptyLabel = activeGroup === 'ALL'
+      ? 'No teams knocked out yet.'
+      : `No knocked out teams in Group ${activeGroup}.`;
 
-    renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.');
-    renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.');
+    renderTeamList(nextHost, nextStageTeams, records, nextEmptyLabel, isoByName);
+    renderTeamList(knockedHost, knockedTeams, records, knockedEmptyLabel, isoByName);
     ensureSummaryToggle();
     renderBracket(bracketHost, fixtures, bracketSlots);
     updateFixturesTimes();
@@ -5261,6 +5353,10 @@ async function fetchGoalsData(){
     if (e.target.id === 'fixtures-refresh') {
       loadFixtures();
     }
+  });
+
+  document.getElementById('fixtures-group')?.addEventListener('change', () => {
+    loadFixtures();
   });
 
   document.addEventListener('click', async (e) => {
