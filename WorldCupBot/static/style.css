@@ -830,6 +830,52 @@ body.user-admin-view .dashboard-grid .card {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
+.summary-list.results-list {
+    grid-template-columns: 1fr;
+}
+
+.fixtures-result {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 10px;
+    background: #111a26;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+
+.fixtures-result.is-demo {
+    opacity: 0.6;
+}
+
+.fixtures-result-team {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.fixtures-result-team.away {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.fixtures-result-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fixtures-result-score {
+    font-weight: 800;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
 .fixtures-team {
     border: 1px solid var(--border);
     border-radius: 12px;
