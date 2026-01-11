@@ -181,11 +181,7 @@ section.page-section.active-section {
 #leaderboards.active-section {
     display: flex;
     min-height: 100%;
-}
-
-#leaderboards.active-section {
-    display: flex;
-    min-height: 100%;
+    padding: 16px 0;
 }
 
 #dashboard.active-section {
@@ -3107,7 +3103,7 @@ select.select-dark:disabled {
 	display: grid;
 	gap: 16px;
 	max-width: 1200px;
-	margin: 16px auto;
+	margin: 0 auto;
 	grid-template-columns: 1fr;
 	grid-auto-rows: minmax(300px, 1fr);
 	align-items: stretch;
