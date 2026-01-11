@@ -1050,6 +1050,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .pill-ok {
+    font-style: bold;
     background: var(--accent);
     color: #08131d;
 }
@@ -3228,7 +3229,7 @@ select.select-dark:disabled {
 
 .pill-win-UP  {
     background:#0dff00;
-    color: var(--accent);
+    color: var(--text);
 }
 .pill-loss-UP {
     background: var(--danger);
