@@ -1050,6 +1050,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 .pill-ok {
+    font-style: bold;
     background: var(--accent);
     color: #08131d;
 }
