@@ -698,15 +698,7 @@ body.user-admin-view .dashboard-grid .card {
     min-width: 120px;
 }
 
-.bracket-match::after {
-    content: "";
-    position: absolute;
-    right: -16px;
-    top: 50%;
-    width: 16px;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.2);
-}
+
 
 .bracket-column.bracket-center .bracket-match::after {
     display: none;
@@ -716,15 +708,7 @@ body.user-admin-view .dashboard-grid .card {
     display: none;
 }
 
-.bracket-column.bracket-right .bracket-match::before {
-    content: "";
-    position: absolute;
-    left: -16px;
-    top: 50%;
-    width: 16px;
-    height: 1px;
-    background: rgba(255, 255, 255, 0.2);
-}
+
 
 .bracket-column.bracket-center {
     align-items: center;
@@ -3013,7 +2997,7 @@ select.select-dark:disabled {
   max-width: 480px;
 }
 #backups p::before {
-  content: "📁 ";
+  content: " 📁 ";
   font-size: 1.2em;
   vertical-align: middle;
   opacity: 0.8;
