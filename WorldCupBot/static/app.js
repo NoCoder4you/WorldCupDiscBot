@@ -5019,6 +5019,41 @@ async function fetchGoalsData(){
     });
   }
 
+  let bracketLinesResizeBound = false;
+
+  function drawBracketLines(host) {
+    if (!host) return;
+    const finalMatch = host.querySelector('.bracket-column.bracket-center .bracket-match');
+    if (!finalMatch) return;
+    const hostRect = host.getBoundingClientRect();
+    if (!hostRect.width || !hostRect.height) return;
+    const existing = host.querySelector('.bracket-lines');
+    if (existing) existing.remove();
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('bracket-lines');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('viewBox', `0 0 ${hostRect.width} ${hostRect.height}`);
+    svg.setAttribute('width', hostRect.width);
+    svg.setAttribute('height', hostRect.height);
+    const finalRect = finalMatch.getBoundingClientRect();
+    const finalX = finalRect.left + (finalRect.width / 2) - hostRect.left;
+    const finalY = finalRect.top + (finalRect.height / 2) - hostRect.top;
+    host.querySelectorAll('.bracket-match').forEach(match => {
+      if (match === finalMatch) return;
+      if (match.closest('.bracket-column.bracket-center')) return;
+      const rect = match.getBoundingClientRect();
+      const startX = rect.left + (rect.width / 2) - hostRect.left;
+      const startY = rect.top + (rect.height / 2) - hostRect.top;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', startX.toFixed(1));
+      line.setAttribute('y1', startY.toFixed(1));
+      line.setAttribute('x2', finalX.toFixed(1));
+      line.setAttribute('y2', finalY.toFixed(1));
+      svg.appendChild(line);
+    });
+    host.appendChild(svg);
+  }
+
   function renderBracket(host, fixtures, slots){
     if (!host) return;
     const r32Slots = slots?.['Round of 32'];
@@ -5096,6 +5131,14 @@ async function fetchGoalsData(){
         </div>
       </div>
     `;
+    requestAnimationFrame(() => drawBracketLines(host));
+    if (!bracketLinesResizeBound) {
+      bracketLinesResizeBound = true;
+      window.addEventListener('resize', () => {
+        const bracketHost = document.querySelector('#fixtures-bracket');
+        if (bracketHost) drawBracketLines(bracketHost);
+      });
+    }
   }
 
   function updateFixturesTimes(){

@@ -645,6 +645,7 @@ body.user-admin-view .dashboard-grid .card {
     gap: 12px;
     overflow-x: hidden;
     padding-bottom: 8px;
+    position: relative;
     --bracket-card: 72px;
     --bracket-gap: 12px;
     --bracket-row: calc(var(--bracket-card) + var(--bracket-gap));
@@ -655,6 +656,7 @@ body.user-admin-view .dashboard-grid .card {
     flex-direction: column;
     gap: 12px;
     position: relative;
+    z-index: 1;
 }
 
 .bracket-title {
@@ -764,6 +766,36 @@ body.user-admin-view .dashboard-grid .card {
 
 .bracket-match.is-placeholder {
     opacity: 0.6;
+}
+
+.bracket-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.bracket-lines line {
+    stroke: rgba(255, 255, 255, 0.25);
+    stroke-width: 1;
+    stroke-linecap: round;
+    stroke-dasharray: 6 10;
+    animation: bracket-line-flow 6s linear infinite;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.25));
+}
+
+@keyframes bracket-line-flow {
+    to {
+        stroke-dashoffset: -32;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bracket-lines line {
+        animation: none;
+    }
 }
 
 .fixtures-summary-card {
