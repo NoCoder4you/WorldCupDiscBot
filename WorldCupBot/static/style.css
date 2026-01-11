@@ -4334,3 +4334,132 @@ body:not(.admin) .settings-rows {
 @media (max-width: 720px) {
   .fz-search { width: 140px; }
 }
+
+/* ===== Responsive polish for tablets/phones ===== */
+@media (max-width: 1024px) {
+  .header-bar {
+    padding: 10px 14px;
+  }
+
+  main {
+    padding: 10px;
+  }
+
+  .menu {
+    gap: 6px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .table-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .table-actions {
+    flex-wrap: wrap;
+  }
+
+  .settings-notifications-column {
+    width: 100%;
+  }
+
+  .settings-notifications-category {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  body,
+  body:not(.admin) {
+    --card-h: auto;
+  }
+
+  .header-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .brand {
+    font-size: 1.05rem;
+  }
+
+  .menu {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+
+  .menu a {
+    width: 100%;
+  }
+
+  .card {
+    height: auto;
+  }
+
+  .dashboard-grid {
+    grid-auto-rows: auto;
+  }
+
+  .card-value {
+    font-size: 28px;
+  }
+
+  .gauges-overlap {
+    width: 220px;
+    height: 100px;
+  }
+
+  .gauge--mem .gauge-svg {
+    width: 200px;
+    height: 120px;
+  }
+
+  .gauge--cpu .gauge-svg {
+    width: 175px;
+    height: 105px;
+  }
+
+  .gauge--disk .gauge-svg {
+    width: 150px;
+    height: 95px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    min-width: 640px;
+  }
+
+  .fixtures-bracket-grid {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .settings-notifications-grid {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-notifications-category {
+    grid-template-columns: 1fr;
+  }
+}
