@@ -1587,6 +1587,40 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     .ownership-table td {
         padding: 10px;
     }
+    .ownership-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .ownership-actions {
+        width: 100%;
+        align-items: flex-start;
+    }
+    .ownership-sorts {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    #ownership .ownership-group-filters {
+        width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        -webkit-overflow-scrolling: touch;
+    }
+    #ownership .ownership-group-filters .btn.sm {
+        flex: 0 0 auto;
+    }
+    #ownership .ownership-table-scroll {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+    }
+    #ownership .ownership-table {
+        min-width: 640px;
+    }
+    #ownership .ownership-table th,
+    #ownership .ownership-table td {
+        font-size: 13px;
+    }
     .ownership-actions {
         gap: 6px;
     }
@@ -4337,4 +4371,216 @@ body:not(.admin) .settings-rows {
 
 @media (max-width: 720px) {
   .fz-search { width: 140px; }
+}
+
+@media (max-width: 720px) {
+  #fanzone .table-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  #fanzone .table-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #fanzone .map-group,
+  #fanzone .fz-search,
+  #fanzone #fanzone-refresh {
+    width: 100%;
+  }
+
+  .fan-list {
+    padding: 10px;
+  }
+
+  .fan-card {
+    padding: 12px;
+  }
+
+  .fan-head {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .fan-team {
+    justify-content: center;
+  }
+
+  .fan-vs {
+    order: 2;
+  }
+
+  .fan-time {
+    text-align: center;
+  }
+
+  .fan-bar {
+    height: 18px;
+  }
+
+  .fan-actions {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .fan-foot {
+    justify-content: space-between;
+  }
+
+  .fan-win-wrap {
+    margin-left: 0;
+  }
+}
+
+/* ===== Responsive polish for tablets/phones ===== */
+@media (max-width: 1024px) {
+  .header-bar {
+    padding: 10px 14px;
+  }
+
+  main {
+    padding: 10px;
+  }
+
+  .menu {
+    gap: 6px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .table-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .table-actions {
+    flex-wrap: wrap;
+  }
+
+  .settings-notifications-column {
+    width: 100%;
+  }
+
+  .settings-notifications-category {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  body,
+  body:not(.admin) {
+    --card-h: auto;
+  }
+
+  .header-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .brand {
+    font-size: 1.05rem;
+  }
+
+  .menu {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+
+  .menu a {
+    width: 100%;
+  }
+
+  .card {
+    height: auto;
+  }
+
+  .dashboard-grid {
+    grid-auto-rows: auto;
+  }
+
+  .card-value {
+    font-size: 28px;
+  }
+
+  .gauges-overlap {
+    width: 220px;
+    height: 100px;
+  }
+
+  .gauge--mem .gauge-svg {
+    width: 200px;
+    height: 120px;
+  }
+
+  .gauge--cpu .gauge-svg {
+    width: 175px;
+    height: 105px;
+  }
+
+  .gauge--disk .gauge-svg {
+    width: 150px;
+    height: 95px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    min-width: 640px;
+  }
+
+  .fixtures-bracket-grid {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .settings-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .settings-head-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .settings-card {
+    width: 100%;
+    margin: 12px auto;
+  }
+
+  .settings-grid,
+  .settings-grid-wide {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-field input,
+  .settings-field select,
+  .settings-field textarea {
+    min-width: 0;
+  }
+
+  .settings-notifications-grid {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-notifications-column,
+  .settings-notifications-category {
+    width: 100%;
+  }
+
+  .settings-notifications-category {
+    grid-template-columns: 1fr;
+  }
 }
