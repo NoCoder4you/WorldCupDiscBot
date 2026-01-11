@@ -646,6 +646,7 @@ body.user-admin-view .dashboard-grid .card {
     overflow-x: hidden;
     padding-bottom: 8px;
     position: relative;
+    isolation: isolate;
     --bracket-card: 72px;
     --bracket-gap: 12px;
     --bracket-row: calc(var(--bracket-card) + var(--bracket-gap));
@@ -656,7 +657,7 @@ body.user-admin-view .dashboard-grid .card {
     flex-direction: column;
     gap: 12px;
     position: relative;
-    z-index: 1;
+    z-index: 2;
 }
 
 .bracket-title {
@@ -717,6 +718,11 @@ body.user-admin-view .dashboard-grid .card {
     width: 100%;
 }
 
+.bracket-column.bracket-left .bracket-list,
+.bracket-column.bracket-right .bracket-list {
+    width: 100%;
+}
+
 .bracket-column.bracket-right {
     align-items: flex-end;
 }
@@ -750,6 +756,11 @@ body.user-admin-view .dashboard-grid .card {
 
 .bracket-match.is-placeholder {
     opacity: 1;
+}
+
+.bracket-match.is-placeholder .bracket-team,
+.bracket-match.is-placeholder .bracket-foot {
+    opacity: 0.6;
 }
 
 .bracket-lines {
