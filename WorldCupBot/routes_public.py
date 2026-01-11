@@ -7,9 +7,6 @@ import requests
 
 from stage_constants import STAGE_CHANNEL_MAP, normalize_stage
 
-TOS_VERSION = "2026.2"
-
-
 # ======================
 # Core helpers
 # ======================
@@ -83,8 +80,6 @@ def _team_stage_notifications_path(base_dir):
     return os.path.join(_json_dir(base_dir), "team_stage_notifications.json")
 def _bracket_slots_path(base_dir):
     return os.path.join(_json_dir(base_dir), "bracket_slots.json")
-def _fanzone_votes_path(base):
-    return os.path.join(_json_dir(base), "fan_votes.json")
 def _fan_zone_results_path(base_dir):
     return os.path.join(_json_dir(base_dir), "fan_zone_results.json")
 def _bet_results_path(base_dir):

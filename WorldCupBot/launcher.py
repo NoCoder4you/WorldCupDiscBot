@@ -21,11 +21,7 @@ try:
 except Exception as e:
     print(f"[launcher] Failed to read config.json: {e}", file=sys.stderr)
 
-# Admin password and Flask secret pulled from env or config (supports both key casings)
-ADMIN_PASSWORD = (
-    os.getenv("ADMIN_PASSWORD") or
-    str(CONFIG.get("admin_password", CONFIG.get("ADMIN_PASSWORD", "")))
-)
+# Flask secret pulled from env or config (supports both key casings)
 FLASK_SECRET = (
     os.getenv("FLASK_SECRET") or
     str(CONFIG.get("flask_secret", CONFIG.get("FLASK_SECRET", "")))
@@ -221,7 +217,6 @@ except Exception as e:
 CTX = {
     "BASE_DIR": str(BASE_DIR),
     "CONFIG": CONFIG,
-    "ADMIN_PASSWORD": ADMIN_PASSWORD,
     "is_bot_running": is_bot_running,
     "start_bot": start_bot,
     "stop_bot": stop_bot,

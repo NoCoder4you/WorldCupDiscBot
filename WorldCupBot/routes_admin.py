@@ -19,14 +19,6 @@ def _base_dir(ctx):
 def _json_dir(ctx):
     return os.path.join(_base_dir(ctx), "JSON")
 
-def _fan_polls_path(base_dir):
-    return os.path.join(_json_dir(base_dir), "fan_polls.json")
-def _fan_votes_path(base_dir):
-    return os.path.join(_json_dir(base_dir), "fan_votes.json")
-
-def _fan_zone_results_path(ctx):
-    return _path(ctx, "fan_zone_results.json")
-
 def _notification_settings_path(ctx):
     return _path(ctx, "notification_settings.json")
 
@@ -76,20 +68,6 @@ def _owners_for_team(ctx, team_name: str):
                             out.add(str(s))
 
     return sorted(out)
-
-def _json_load(path, default):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-def _json_save(path, data):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, path)
 
 def _path(ctx, name):
     return os.path.join(_json_dir(ctx), name)
