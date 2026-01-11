@@ -4971,9 +4971,6 @@ async function fetchGoalsData(){
   }
 
   function matchCard(f, opts = {}){
-    const hs = parseScore(f.home_score);
-    const as = parseScore(f.away_score);
-    const score = (hs !== null && as !== null) ? `${hs} - ${as}` : '—';
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
     const placeholderClass = f._placeholder ? ' is-placeholder' : '';
@@ -4986,7 +4983,6 @@ async function fetchGoalsData(){
         <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
         <div class="bracket-foot">
           <span class="fixtures-time" data-utc="${escAttr(f.utc || '')}">${escAttr(utcLabel)}</span>
-          <span class="bracket-score">${escAttr(score)}</span>
         </div>
       </div>
     `;
