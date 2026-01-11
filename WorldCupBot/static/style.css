@@ -163,7 +163,9 @@ main {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px
+    padding: 12px;
+    display: flex;
+    flex-direction: column
 }
 
 /* Only the active page shows */
@@ -173,6 +175,13 @@ section.page-section {
 
 section.page-section.active-section {
     display: block;
+    flex: 1
+}
+
+#leaderboards.active-section {
+    display: flex;
+    min-height: 100%;
+    padding: 16px 0;
 }
 
 #dashboard.active-section {
@@ -3054,8 +3063,13 @@ select.select-dark:disabled {
 	display: grid;
 	gap: 16px;
 	max-width: 1200px;
-	margin: 16px auto;
-	grid-template-columns: 1fr
+	margin: 0 auto;
+	grid-template-columns: 1fr;
+	grid-auto-rows: minmax(300px, 1fr);
+	align-items: stretch;
+	align-content: stretch;
+	height: 100%;
+	flex: 1
 }
 
 @media(min-width:1100px) {
@@ -3071,7 +3085,8 @@ select.select-dark:disabled {
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	min-height: 300px
+	min-height: 300px;
+	height: 100%
 }
 
 .lb-head {
@@ -3113,7 +3128,8 @@ select.select-dark:disabled {
 .lb-body {
 	padding: 8px 4px;
 	max-height: 68vh;
-	overflow: auto
+	overflow: auto;
+	flex: 1
 }
 
 .lb-foot {
