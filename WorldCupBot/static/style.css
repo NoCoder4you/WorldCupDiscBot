@@ -1611,11 +1611,17 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
         -webkit-overflow-scrolling: touch;
     }
     #ownership .ownership-table {
-        min-width: 640px;
+        min-width: 0;
     }
     #ownership .ownership-table th,
     #ownership .ownership-table td {
         font-size: 13px;
+    }
+    #ownership .ownership-table th:nth-child(4),
+    #ownership .ownership-table td:nth-child(4),
+    #ownership .ownership-table th:nth-child(5),
+    #ownership .ownership-table td:nth-child(5) {
+        display: none;
     }
     .ownership-actions {
         gap: 6px;
