@@ -4899,6 +4899,29 @@ async function fetchGoalsData(){
             onerror="this.style.display='none';">`;
   }
 
+  function buildGroupMap(teamMeta){
+    const out = new Map();
+    if (!teamMeta || typeof teamMeta !== 'object') return out;
+
+    if (teamMeta.groups && typeof teamMeta.groups === 'object') {
+      Object.entries(teamMeta.groups).forEach(([group, entries]) => {
+        if (!Array.isArray(entries)) return;
+        entries.forEach((team) => {
+          const key = normalizeTeamName(team);
+          if (key) out.set(key, String(group || '').toUpperCase());
+        });
+      });
+      return out;
+    }
+
+    Object.entries(teamMeta).forEach(([team, meta]) => {
+      const group = meta && typeof meta === 'object' ? meta.group : null;
+      const key = normalizeTeamName(team);
+      if (key && group) out.set(key, String(group).toUpperCase());
+    });
+    return out;
+  }
+
   function stageRank(stage){
     const label = normalizeStage(stage);
     if (Array.isArray(STAGE_ORDER) && STAGE_ORDER.length) {
@@ -5242,6 +5265,7 @@ async function fetchGoalsData(){
     const nextHost = $('#fixtures-next-stage');
     const knockedHost = $('#fixtures-knocked-out');
     const bracketHost = $('#fixtures-bracket');
+    const groupSel = document.getElementById('fixtures-group');
     if (!bracketHost) return;
 
     if (nextHost) nextHost.innerHTML = `<div class="muted">Loading teams…</div>`;
@@ -5253,18 +5277,22 @@ async function fetchGoalsData(){
     let winners = {};
     let bracketSlots = {};
     let isoByName = {};
+    let groupByName = new Map();
+    let activeGroup = String(groupSel?.value || 'ALL').toUpperCase();
     try {
-      const [fx, st, wn, bs, iso] = await Promise.all([
+      const [fx, st, wn, bs, iso, meta] = await Promise.all([
         fetchJSON('/api/fixtures'),
         fetchJSON('/api/team_stage'),
         fetchJSON('/api/fanzone/winners'),
         fetchJSON('/api/bracket_slots'),
-        fetchJSON('/api/team_iso')
+        fetchJSON('/api/team_iso'),
+        fetchJSON('/api/team_meta')
       ]);
       fixtures = (fx && fx.fixtures) || [];
       stages = (st && typeof st === 'object') ? st : {};
       winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
       bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
+      groupByName = buildGroupMap(meta);
       if (iso && typeof iso === 'object') {
         Object.entries(iso).forEach(([team, code]) => {
           const norm = normalizeTeamName(team);
@@ -5291,11 +5319,25 @@ async function fetchGoalsData(){
       return a.name.localeCompare(b.name);
     });
 
-    const nextStageTeams = entries.filter(e => e.stage !== 'Eliminated');
-    const knockedTeams = entries.filter(e => e.stage === 'Eliminated');
+    const withGroup = entries.map((entry) => ({
+      ...entry,
+      group: groupByName.get(normalizeTeamName(entry.name)) || ''
+    }));
+    const byGroup = (list) => {
+      if (!activeGroup || activeGroup === 'ALL') return list;
+      return list.filter((entry) => String(entry.group || '').toUpperCase() === activeGroup);
+    };
+    const nextStageTeams = byGroup(withGroup.filter(e => e.stage !== 'Eliminated'));
+    const knockedTeams = byGroup(withGroup.filter(e => e.stage === 'Eliminated'));
+    const nextEmptyLabel = activeGroup === 'ALL'
+      ? 'No teams have advanced yet.'
+      : `No teams in Group ${activeGroup}.`;
+    const knockedEmptyLabel = activeGroup === 'ALL'
+      ? 'No teams knocked out yet.'
+      : `No knocked out teams in Group ${activeGroup}.`;
 
-    renderTeamList(nextHost, nextStageTeams, records, 'No teams have advanced yet.', isoByName);
-    renderTeamList(knockedHost, knockedTeams, records, 'No teams knocked out yet.', isoByName);
+    renderTeamList(nextHost, nextStageTeams, records, nextEmptyLabel, isoByName);
+    renderTeamList(knockedHost, knockedTeams, records, knockedEmptyLabel, isoByName);
     ensureSummaryToggle();
     renderBracket(bracketHost, fixtures, bracketSlots);
     updateFixturesTimes();
@@ -5311,6 +5353,10 @@ async function fetchGoalsData(){
     if (e.target.id === 'fixtures-refresh') {
       loadFixtures();
     }
+  });
+
+  document.getElementById('fixtures-group')?.addEventListener('change', () => {
+    loadFixtures();
   });
 
   document.addEventListener('click', async (e) => {
