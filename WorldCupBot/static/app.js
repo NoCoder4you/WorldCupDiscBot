@@ -5019,6 +5019,71 @@ async function fetchGoalsData(){
     });
   }
 
+  let bracketLinesResizeBound = false;
+  let bracketLinesData = null;
+
+  function drawBracketLines(host, bracket) {
+    if (!host || !bracket) return;
+    const hostRect = host.getBoundingClientRect();
+    if (!hostRect.width || !hostRect.height) return;
+    const existing = host.querySelector('.bracket-lines');
+    if (existing) existing.remove();
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('bracket-lines');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('viewBox', `0 0 ${hostRect.width} ${hostRect.height}`);
+    svg.setAttribute('width', hostRect.width);
+    svg.setAttribute('height', hostRect.height);
+
+    const getMatchEl = match => {
+      const slotId = match?._slot_id ? String(match._slot_id) : '';
+      if (!slotId) return null;
+      return host.querySelector(`[data-slot-id="${slotId}"]`);
+    };
+
+    const addConnector = (fromMatch, toMatch) => {
+      const fromEl = getMatchEl(fromMatch);
+      const toEl = getMatchEl(toMatch);
+      if (!fromEl || !toEl) return;
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+      const startX = fromRect.left + (fromRect.width / 2) - hostRect.left;
+      const startY = fromRect.top + (fromRect.height / 2) - hostRect.top;
+      const endX = toRect.left + (toRect.width / 2) - hostRect.left;
+      const endY = toRect.top + (toRect.height / 2) - hostRect.top;
+      const midX = (startX + endX) / 2;
+      const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      polyline.setAttribute('fill', 'none');
+      polyline.setAttribute(
+        'points',
+        `${startX.toFixed(1)},${startY.toFixed(1)} ` +
+        `${midX.toFixed(1)},${startY.toFixed(1)} ` +
+        `${midX.toFixed(1)},${endY.toFixed(1)} ` +
+        `${endX.toFixed(1)},${endY.toFixed(1)}`
+      );
+      svg.appendChild(polyline);
+    };
+
+    const connectPairs = (fromList, toList, groupSize) => {
+      if (!fromList?.length || !toList?.length) return;
+      fromList.forEach((match, idx) => {
+        const target = toList[Math.floor(idx / groupSize)];
+        if (target) addConnector(match, target);
+      });
+    };
+
+    connectPairs(bracket.r32Left, bracket.r16Left, 2);
+    connectPairs(bracket.r16Left, bracket.qfLeft, 2);
+    connectPairs(bracket.qfLeft, bracket.sfLeft, 2);
+    connectPairs(bracket.sfLeft, bracket.finalMatch, 1);
+    connectPairs(bracket.r32Right, bracket.r16Right, 2);
+    connectPairs(bracket.r16Right, bracket.qfRight, 2);
+    connectPairs(bracket.qfRight, bracket.sfRight, 2);
+    connectPairs(bracket.sfRight, bracket.finalMatch, 1);
+
+    host.appendChild(svg);
+  }
+
   function renderBracket(host, fixtures, slots){
     if (!host) return;
     const r32Slots = slots?.['Round of 32'];
@@ -5096,6 +5161,26 @@ async function fetchGoalsData(){
         </div>
       </div>
     `;
+    const bracketData = {
+      r32Left,
+      r16Left,
+      qfLeft,
+      sfLeft,
+      r32Right,
+      r16Right,
+      qfRight,
+      sfRight,
+      finalMatch
+    };
+    bracketLinesData = bracketData;
+    requestAnimationFrame(() => drawBracketLines(host, bracketData));
+    if (!bracketLinesResizeBound) {
+      bracketLinesResizeBound = true;
+      window.addEventListener('resize', () => {
+        const bracketHost = document.querySelector('#fixtures-bracket');
+        if (bracketHost && bracketLinesData) drawBracketLines(bracketHost, bracketLinesData);
+      });
+    }
   }
 
   function updateFixturesTimes(){

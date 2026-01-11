@@ -645,6 +645,7 @@ body.user-admin-view .dashboard-grid .card {
     gap: 12px;
     overflow-x: hidden;
     padding-bottom: 8px;
+    position: relative;
     --bracket-card: 72px;
     --bracket-gap: 12px;
     --bracket-row: calc(var(--bracket-card) + var(--bracket-gap));
@@ -655,6 +656,7 @@ body.user-admin-view .dashboard-grid .card {
     flex-direction: column;
     gap: 12px;
     position: relative;
+    z-index: 1;
 }
 
 .bracket-title {
@@ -764,6 +766,50 @@ body.user-admin-view .dashboard-grid .card {
 
 .bracket-match.is-placeholder {
     opacity: 0.6;
+}
+
+.bracket-lines {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.bracket-lines line,
+.bracket-lines polyline {
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 1;
+    stroke-linecap: round;
+    stroke-dasharray: 6 10;
+    animation: bracket-line-flow 6s linear infinite, bracket-line-pulse 2.6s ease-in-out infinite;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.6));
+}
+
+@keyframes bracket-line-flow {
+    to {
+        stroke-dashoffset: -32;
+    }
+}
+
+@keyframes bracket-line-pulse {
+    0%,
+    100% {
+        stroke-opacity: 0.6;
+        filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.35));
+    }
+    50% {
+        stroke-opacity: 1;
+        filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.85));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bracket-lines line,
+    .bracket-lines polyline {
+        animation: none;
+    }
 }
 
 .fixtures-summary-card {
