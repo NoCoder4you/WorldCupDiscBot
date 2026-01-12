@@ -21,14 +21,15 @@ os.makedirs(COGS_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
-_handlers = [logging.StreamHandler()]
-if os.getenv("BOT_LOG_STDOUT_ONLY") != "1":
-    _handlers.insert(0, logging.FileHandler(LOG_PATH, encoding="utf-8"))
+_file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
+_file_handler.setLevel(logging.INFO)
+_stream_handler = logging.StreamHandler()
+_stream_handler.setLevel(logging.INFO)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    handlers=_handlers
+    handlers=[_file_handler, _stream_handler]
 )
 log = logging.getLogger("WorldCupBot")
 
