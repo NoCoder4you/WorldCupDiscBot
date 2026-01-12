@@ -374,7 +374,7 @@ async def cmd_unload(ctx: commands.Context, name: str):
         await ctx.reply(f"Unload failed: {e}")
         await send_discord_log(ctx.guild, f"Cog unload FAILED by {ctx.author}: {name} -> {e}")
 
-@bot.command(name="reload", help="Reload a cog by name")
+@bot.command(name="rc", help="Reload a cog by name")
 @admin_only_context()
 async def cmd_reload(ctx: commands.Context, name: str):
     if not in_webhook_helpers(ctx):
