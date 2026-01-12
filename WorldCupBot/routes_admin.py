@@ -914,6 +914,12 @@ def create_admin_routes(ctx):
     def _team_stage_notifications_path(ctx):
         return os.path.join(_json_dir(ctx), "team_stage_notifications.json")
 
+    def _stage_notification_body(team: str, stage: str) -> str:
+        stage_norm = normalize_stage(stage)
+        if stage_norm == "Eliminated":
+            return f"{team} was eliminated."
+        return f"{team} advanced to {stage_norm}."
+
     def _append_stage_notifications(discord_ids: list[str], team: str, stage: str, ts: int):
         if not discord_ids:
             return
@@ -921,6 +927,7 @@ def create_admin_routes(ctx):
         stage = str(stage or "").strip()
         if not team or not stage:
             return
+        body = _stage_notification_body(team, stage)
 
         path = _team_stage_notifications_path(ctx)
         data = _read_json(path, {})
@@ -945,7 +952,7 @@ def create_admin_routes(ctx):
                 "team": team,
                 "stage": stage,
                 "title": "Stage update",
-                "body": f"{team} advanced to {stage}.",
+                "body": body,
                 "ts": ts
             })
             existing.add(eid)
@@ -987,8 +994,9 @@ def create_admin_routes(ctx):
         prev_rank = stage_rank(prev_stage_norm)
         next_rank = stage_rank(next_stage_norm)
         progressed = next_rank > prev_rank >= 0
+        eliminated = next_stage_norm == "Eliminated" and prev_stage_norm != "Eliminated"
 
-        if progressed:
+        if progressed or eliminated:
             owner_ids = _owners_for_team(ctx, team)
             now = int(time.time())
             bell_owner_ids = _filter_notification_ids(ctx, owner_ids, "bell", "stages")
