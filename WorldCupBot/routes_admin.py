@@ -1869,6 +1869,7 @@ def create_admin_routes(ctx):
             draw_owner_ids = list(dict.fromkeys(draw_owner_ids))
         dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms", "matches")
         dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms", "matches")
+        dm_draw_owner_ids = _filter_notification_ids(ctx, draw_owner_ids, "dms", "matches")
         bell_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "bell", "matches")
         bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell", "matches")
         bell_draw_owner_ids = _filter_notification_ids(ctx, draw_owner_ids, "bell", "matches")
@@ -1893,6 +1894,7 @@ def create_admin_routes(ctx):
             'loser_iso': '',
             'winner_owner_ids': dm_winner_owner_ids,
             'loser_owner_ids': dm_loser_owner_ids,
+            'draw_owner_ids': dm_draw_owner_ids,
             'channel': channel_name,
             'home_votes': home_votes,
             'away_votes': away_votes,

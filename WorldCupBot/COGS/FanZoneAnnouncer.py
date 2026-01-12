@@ -162,6 +162,20 @@ class FanZoneAnnouncer(commands.Cog):
         e.timestamp = discord.utils.utcnow()
         return e
 
+    def _dm_draw_embed(self, home: str, away: str, thumb_iso: str | None):
+        e = discord.Embed(
+            title="🤝 Match ended in a draw",
+            description=f"**{home}** drew with **{away}**",
+            color=discord.Color.gold()
+        )
+        e.add_field(name="Stats", value="COMING SOON", inline=False)
+        url = self._flag_url(thumb_iso or "")
+        if url:
+            e.set_thumbnail(url=url)
+        e.set_footer(text="World Cup 2026 Match Votes")
+        e.timestamp = discord.utils.utcnow()
+        return e
+
     @tasks.loop(seconds=2.5)
     async def _loop(self):
         if not os.path.isfile(self.queue_path):
@@ -231,6 +245,7 @@ class FanZoneAnnouncer(commands.Cog):
             # DM embeds to owners
             win_owner_ids = data.get("winner_owner_ids") or []
             lose_owner_ids = data.get("loser_owner_ids") or []
+            draw_owner_ids = data.get("draw_owner_ids") or []
 
             if str(data.get("winner_side") or "").strip().lower() != "draw":
                 win_emb = self._dm_embed(True, winner_team, loser_team, winner_iso)
@@ -240,6 +255,10 @@ class FanZoneAnnouncer(commands.Cog):
                     await self._dm_user_embed(uid, win_emb)
                 for uid in lose_owner_ids:
                     await self._dm_user_embed(uid, lose_emb)
+            else:
+                draw_emb = self._dm_draw_embed(home, away, winner_iso or loser_iso)
+                for uid in draw_owner_ids:
+                    await self._dm_user_embed(uid, draw_emb)
 
     @_loop.before_loop
     async def _before_loop(self):
