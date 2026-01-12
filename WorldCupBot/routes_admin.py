@@ -1613,7 +1613,7 @@ def create_admin_routes(ctx):
         return None
 
     def _append_fanzone_results(discord_ids: list[str], result: str, home: str, away: str, winner_team: str, loser_team: str, fixture_id: str):
-        if result not in ('win', 'lose'):
+        if result not in ('win', 'lose', 'draw'):
             return
         path = _path(ctx, 'fan_zone_results.json')
         data = _read_json(path, {})
@@ -1637,8 +1637,10 @@ def create_admin_routes(ctx):
             title = 'Match Votes result'
             if result == 'win':
                 body = f"✅ {winner_team} beat {loser_team} ({home} vs {away})."
-            else:
+            elif result == 'lose':
                 body = f"❌ {loser_team} lost to {winner_team} ({home} vs {away})."
+            else:
+                body = f"🤝 {home} drew with {away}."
 
             events.append({
                 'id': eid,
@@ -1853,10 +1855,15 @@ def create_admin_routes(ctx):
         # Determine owners for DM + site notifications
         winner_owner_ids = _owners_for_team(ctx, winner_team) if side in ('home', 'away') else []
         loser_owner_ids = _owners_for_team(ctx, loser_team) if side in ('home', 'away') else []
+        draw_owner_ids = []
+        if side == 'draw':
+            draw_owner_ids = _owners_for_team(ctx, home) + _owners_for_team(ctx, away)
+            draw_owner_ids = list(dict.fromkeys(draw_owner_ids))
         dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms", "matches")
         dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms", "matches")
         bell_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "bell", "matches")
         bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell", "matches")
+        bell_draw_owner_ids = _filter_notification_ids(ctx, draw_owner_ids, "bell", "matches")
 
         # Queue bot announcement + DMs
         cfg = _read_json(_path(ctx, 'config.json'), {})
@@ -1889,6 +1896,8 @@ def create_admin_routes(ctx):
         if side in ('home', 'away'):
             _append_fanzone_results(bell_winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
             _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
+        elif side == 'draw':
+            _append_fanzone_results(bell_draw_owner_ids, 'draw', home, away, winner_team, loser_team, fixture_id)
         _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters, "matches"), side, winner_team, fixture_id, int(time.time()))
 
         return jsonify({
