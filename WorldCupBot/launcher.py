@@ -28,11 +28,21 @@ FLASK_SECRET = (
 )
 
 # ---------- Logging ----------
+def _resolve_log_level(value: str) -> int:
+    if not value:
+        return logging.INFO
+    upper = value.strip().upper()
+    return logging._nameToLevel.get(upper, logging.INFO)
+
+LOG_LEVEL = _resolve_log_level(os.getenv("LOG_LEVEL") or str(CONFIG.get("LOG_LEVEL", "")))
+
 def _mk_logger(name, fname):
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(LOG_LEVEL)
     fh = RotatingFileHandler(LOG_DIR / fname, maxBytes=1_000_000, backupCount=3)
-    fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    fmt = logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s %(module)s.%(funcName)s:%(lineno)d: %(message)s"
+    )
     fh.setFormatter(fmt)
     logger.addHandler(fh)
     sh = logging.StreamHandler(sys.stdout)

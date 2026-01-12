@@ -1,11 +1,14 @@
 from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for, make_response
 import os, time, json, shutil, zipfile, datetime, glob, re
+import logging
 import psutil
 import secrets
 import urllib.parse
 import requests
 
 from stage_constants import STAGE_CHANNEL_MAP, normalize_stage
+
+log = logging.getLogger("launcher")
 
 # ======================
 # Core helpers
@@ -1105,6 +1108,7 @@ def create_public_routes(ctx):
     def backups_create():
         base = ctx.get("BASE_DIR","")
         name = _create_backup(base)
+        log.info("Backup created via API (name=%s)", name)
         return jsonify({"ok": True, "created": name})
 
     @api.post("/backups/restore")
@@ -1118,6 +1122,7 @@ def create_public_routes(ctx):
             return jsonify({"ok": False, "error": "backup not found"}), 404
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
+        log.info("Backup restored via API (name=%s)", name)
         return jsonify({"ok": True, "restored": name})
 
     # =====================
@@ -1196,10 +1201,21 @@ def create_public_routes(ctx):
             "avatar": avatar,
             "ts": int(time.time())
         }
+        log.info(
+            "User login via Discord OAuth (discord_id=%s username=%s)",
+            session[_session_key()].get("discord_id"),
+            session[_session_key()].get("username"),
+        )
         return redirect(url_for("root_public.index"))
 
     @auth.post("/logout")
     def discord_logout():
+        user = session.get(_session_key()) or {}
+        log.info(
+            "User logout via Discord OAuth (discord_id=%s username=%s)",
+            user.get("discord_id"),
+            user.get("username"),
+        )
         session.pop(_session_key(), None)
         return jsonify({"ok": True})
 
@@ -2032,6 +2048,13 @@ def create_public_routes(ctx):
             fx["draw"] = int(fx.get("draw") or 0) + 1
 
         _json_save(votes_path, votes_blob)
+        log.info(
+            "Fan zone vote recorded (fixture_id=%s choice=%s fan_id=%s discord_id=%s)",
+            fixture_id,
+            choice,
+            fan_id,
+            uid or "anonymous",
+        )
         return resp
 
     @api.post("/fanzone/declare")
@@ -2054,6 +2077,13 @@ def create_public_routes(ctx):
 
         if not fixture_id or winner_side not in ("home", "away", "draw"):
             return jsonify({"ok": False, "error": "invalid_request"}), 400
+        log.info(
+            "Fan zone declare requested via public API (discord_id=%s fixture_id=%s winner_side=%s winner_team=%s)",
+            uid,
+            fixture_id,
+            winner_side,
+            winner_team,
+        )
 
         # ----------------------------
         # Resolve fixture teams from matches.json (robust schema support)

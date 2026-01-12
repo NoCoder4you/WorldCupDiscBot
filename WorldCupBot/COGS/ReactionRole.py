@@ -1,11 +1,13 @@
 import discord
 from discord.ext import commands
 import json
+from pathlib import Path
 
 MESSAGE_ID = 1394475178611966106
 ROLE_ID = 1394431170707456111  # Unverified role
 GREEN_TICK = "✅"
-VERIFIED_FILE = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON/verified.json"
+BASE_DIR = Path(__file__).resolve().parents[1]
+VERIFIED_FILE = str(BASE_DIR / "JSON" / "verified.json")
 
 def is_verified(user_id):
     try:

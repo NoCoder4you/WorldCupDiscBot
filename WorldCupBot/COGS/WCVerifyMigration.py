@@ -5,8 +5,10 @@ import discord
 from discord.ext import commands
 import json
 import os
+from pathlib import Path
 
-VERIFIED_PATH = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON/verified.json"
+BASE_DIR = Path(__file__).resolve().parents[1]
+VERIFIED_PATH = str(BASE_DIR / "JSON" / "verified.json")
 
 
 # ---------- JSON HELPERS ----------
