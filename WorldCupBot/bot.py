@@ -1,10 +1,11 @@
 import os
 import json
 import logging
-from typing import List
+import asyncio
+from typing import List, Tuple
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 # -------------------- Paths & Config --------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -12,6 +13,9 @@ COGS_DIR = os.path.join(BASE_DIR, "COGS")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_DIR = os.path.join(BASE_DIR, "LOGS")
 LOG_PATH = os.path.join(LOG_DIR, "bot.log")
+RUNTIME_DIR = os.path.join(BASE_DIR, "runtime")
+COMMANDS_PATH = os.path.join(RUNTIME_DIR, "bot_commands.jsonl")
+COMMANDS_STATE_PATH = os.path.join(RUNTIME_DIR, "bot_commands_state.json")
 
 JSON_DIR = os.path.join(BASE_DIR, "JSON")
 COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
@@ -19,17 +23,31 @@ COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
 os.makedirs(JSON_DIR, exist_ok=True)
 os.makedirs(COGS_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(RUNTIME_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
-_file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
-_file_handler.setLevel(logging.INFO)
+def _resolve_log_level(value: str) -> int:
+    if not value:
+        return logging.INFO
+    upper = value.strip().upper()
+    return logging._nameToLevel.get(upper, logging.INFO)
+
+LOG_LEVEL = _resolve_log_level(os.getenv("LOG_LEVEL", ""))
+
+_handlers = []
+_stdout_only = bool(os.getenv("BOT_LOG_STDOUT_ONLY"))
 _stream_handler = logging.StreamHandler()
-_stream_handler.setLevel(logging.INFO)
+_stream_handler.setLevel(LOG_LEVEL)
+_handlers.append(_stream_handler)
+if not _stdout_only:
+    _file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
+    _file_handler.setLevel(LOG_LEVEL)
+    _handlers.append(_file_handler)
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    handlers=[_file_handler, _stream_handler]
+    level=LOG_LEVEL,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(module)s.%(funcName)s:%(lineno)d | %(message)s",
+    handlers=_handlers
 )
 log = logging.getLogger("WorldCupBot")
 
@@ -69,9 +87,12 @@ class WorldCupBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="wc ", intents=intents, help_command=None)
         self.loaded_exts: List[str] = []
+        self._commands_offset = 0
 
     async def setup_hook(self):
         await self.load_all_cogs()
+        self._load_commands_state()
+        self._command_watcher.start()
         log.info("setup_hook completed.")
 
     async def on_ready(self):
@@ -128,19 +149,87 @@ class WorldCupBot(commands.Bot):
             pass
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
+        log.info("Reloaded cog: %s", ext)
         return f"Reloaded {short_name}"
 
     async def load_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
+        log.info("Loaded cog: %s", ext)
         return f"Loaded {short_name}"
 
     async def unload_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.unload_extension(ext)
         self._mark_cog_loaded(short_name, False)
+        log.info("Unloaded cog: %s", ext)
         return f"Unloaded {short_name}"
+
+    # --------------- Runtime Command Queue ---------------
+    def _load_commands_state(self):
+        try:
+            if os.path.isfile(COMMANDS_STATE_PATH):
+                with open(COMMANDS_STATE_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self._commands_offset = int(data.get("offset") or 0)
+        except Exception:
+            self._commands_offset = 0
+
+    def _save_commands_state(self):
+        try:
+            with open(COMMANDS_STATE_PATH, "w", encoding="utf-8") as f:
+                json.dump({"offset": int(self._commands_offset)}, f)
+        except Exception:
+            pass
+
+    async def _read_new_commands(self) -> Tuple[List[str], int]:
+        def _read():
+            if not os.path.isfile(COMMANDS_PATH):
+                return [], self._commands_offset
+            with open(COMMANDS_PATH, "r", encoding="utf-8") as f:
+                f.seek(self._commands_offset)
+                lines = f.read().splitlines()
+                return lines, f.tell()
+        return await asyncio.to_thread(_read)
+
+    async def _handle_cog_action(self, action: str, name: str):
+        if not name:
+            return
+        action = action.lower()
+        try:
+            if action == "load":
+                await self.load_cog(name)
+            elif action == "unload":
+                await self.unload_cog(name)
+            elif action == "reload":
+                await self.reload_cog(name)
+        except Exception as e:
+            log.exception("Cog %s failed for %s: %s", action, name, e)
+
+    @tasks.loop(seconds=1.0)
+    async def _command_watcher(self):
+        lines, new_offset = await self._read_new_commands()
+        if not lines:
+            return
+        for raw in lines:
+            try:
+                cmd = json.loads(raw)
+            except Exception:
+                continue
+            kind = str(cmd.get("kind") or "").strip()
+            data = cmd.get("data") or {}
+            if kind.startswith("cog_"):
+                await self._handle_cog_action(kind.replace("cog_", "", 1), str(data.get("name") or ""))
+                continue
+            if kind == "cog":
+                await self._handle_cog_action(str(data.get("action") or ""), str(data.get("cog") or ""))
+        self._commands_offset = new_offset
+        self._save_commands_state()
+
+    @_command_watcher.before_loop
+    async def _wait_for_ready(self):
+        await self.wait_until_ready()
 
     # --- JSON status tracking (shared with Flask) ---
     def _write_cogs_status(self, loaded_exts):

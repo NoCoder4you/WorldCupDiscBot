@@ -3,13 +3,17 @@ from discord.ext import commands
 from discord import app_commands
 import json
 from pathlib import Path
+import logging
 
-JSON_DIR = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON")
+BASE_DIR = Path(__file__).resolve().parents[1]
+JSON_DIR = BASE_DIR / "JSON"
 PLAYERS_FILE = JSON_DIR / "players.json"
 TRACKER_FILE = JSON_DIR / "entries_tracker.json"
 
 ADMIN_CATEGORY = "world cup admin"
 ENTRIES_CHANNEL = "entries"
+
+log = logging.getLogger(__name__)
 
 def load_json(path):
     if not path.exists():
@@ -65,6 +69,7 @@ class EntriesTracker(commands.Cog):
         # Create a new embed if not found
         embed = self.build_embed()
         msg = await entries_channel.send(embed=embed)
+        log.info("Entries tracker embed posted (guild_id=%s channel_id=%s message_id=%s)", guild.id, entries_channel.id, msg.id)
         tracker[guild_id] = {
             "message_id": msg.id,
             "channel_id": entries_channel.id
@@ -93,6 +98,7 @@ class EntriesTracker(commands.Cog):
         msg, channel = await self.ensure_embed(guild)
         if msg:
             await msg.edit(embed=self.build_embed())
+            log.info("Entries tracker embed updated (guild_id=%s channel_id=%s message_id=%s)", guild.id, channel.id, msg.id)
 
     @app_commands.command(
         name="updateentries",
@@ -109,6 +115,7 @@ class EntriesTracker(commands.Cog):
 
         await self.update_entries_embed(interaction.guild)
         await interaction.response.send_message("Entries tracker updated.", ephemeral=True)
+        log.info("Entries tracker updated by %s (guild_id=%s)", interaction.user.id, interaction.guild.id if interaction.guild else "unknown")
 
 async def setup(bot):
     await bot.add_cog(EntriesTracker(bot))
@@ -126,10 +133,8 @@ async def post_country_assignments_embed(bot, guild):
     Posts embeds in the entries channel listing all countries and their assigned users, 16 per embed.
     Import and call from TeamsDistribution.py (after reveal).
     """
-    from pathlib import Path
-
-    PLAYERS_FILE = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON/players.json")
-    TEAMS_FILE = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON/teams.json")
+    PLAYERS_FILE = JSON_DIR / "players.json"
+    TEAMS_FILE = JSON_DIR / "teams.json"
 
     def load_json(path):
         if not path.exists():
@@ -185,3 +190,4 @@ async def post_country_assignments_embed(bot, guild):
         embed.add_field(name="Countries", value="\n".join(chunk), inline=False)
         embed.set_footer(text="World Cup 2026 • Team Assignments")
         await entries_channel.send(embed=embed)
+        log.info("Country assignments embed posted (guild_id=%s channel_id=%s range=%s-%s)", guild.id, entries_channel.id, i + 1, min(i + batch_size, len(lines)))
