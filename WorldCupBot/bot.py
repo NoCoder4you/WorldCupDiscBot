@@ -34,15 +34,20 @@ def _resolve_log_level(value: str) -> int:
 
 LOG_LEVEL = _resolve_log_level(os.getenv("LOG_LEVEL", ""))
 
-_file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
-_file_handler.setLevel(LOG_LEVEL)
+_handlers = []
+_stdout_only = bool(os.getenv("BOT_LOG_STDOUT_ONLY"))
 _stream_handler = logging.StreamHandler()
 _stream_handler.setLevel(LOG_LEVEL)
+_handlers.append(_stream_handler)
+if not _stdout_only:
+    _file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
+    _file_handler.setLevel(LOG_LEVEL)
+    _handlers.append(_file_handler)
 
 logging.basicConfig(
     level=LOG_LEVEL,
     format="%(asctime)s | %(levelname)s | %(name)s | %(module)s.%(funcName)s:%(lineno)d | %(message)s",
-    handlers=[_file_handler, _stream_handler]
+    handlers=_handlers
 )
 log = logging.getLogger("WorldCupBot")
 
