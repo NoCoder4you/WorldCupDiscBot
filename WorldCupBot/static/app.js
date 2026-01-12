@@ -2979,28 +2979,6 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
       }[c]));
     }
 
-// --- helpers (keep once in your file) ---
-let _wcWebhookUrl = null;
-
-async function resolveWebhook() {
-  if (_wcWebhookUrl !== null) return _wcWebhookUrl;
-  try {
-    const cfg = await fetchJSON('/admin/config');
-    _wcWebhookUrl = cfg?.DISCORD_WEBHOOK_URL || null;
-  } catch {
-    _wcWebhookUrl = null;
-  }
-  return _wcWebhookUrl;
-}
-
-async function postWebhookMessage(text){
-  try{
-    const url = await resolveWebhook();
-    if(!url) return; // silently skip if not exposed
-    await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ content: text }) });
-  }catch{/* non-fatal */}
-}
-
 async function loadCogs(){
   try{
     let data;
@@ -3069,7 +3047,6 @@ async function loadCogs(){
                 method:'POST', body: JSON.stringify({})
               });
               notify(`${action} queued for ${name}`);
-              postWebhookMessage(`wc ${action} ${name}`);
               setTimeout(async () => {
                 const v = await getCogStatus(name);
                 if (typeof v === 'boolean') setPill(v);
