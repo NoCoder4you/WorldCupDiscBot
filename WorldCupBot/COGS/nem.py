@@ -1,10 +1,13 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+import logging
 
 AUTHORIZED_USER_ID = 298121351871594497  # Change to your user ID
 
 WHITE = discord.Color.from_rgb(255, 255, 255)  # True white
+
+log = logging.getLogger(__name__)
 
 class EmbedModal(discord.ui.Modal, title="Create/Edit an Embed"):
     def __init__(self, bot: commands.Bot):
@@ -44,6 +47,12 @@ class EmbedModal(discord.ui.Modal, title="Create/Edit an Embed"):
                 await message.edit(embed=embed)
                 await interaction.response.send_message(f"Embed **updated**! (Message ID: {message_id})", ephemeral=True)
                 self.bot.embed_manager[message.id] = embed
+                log.info(
+                    "Embed updated (actor_id=%s channel_id=%s message_id=%s)",
+                    interaction.user.id,
+                    interaction.channel_id,
+                    message_id,
+                )
                 return
             except (discord.NotFound, AttributeError):
                 embed = discord.Embed(
@@ -57,6 +66,12 @@ class EmbedModal(discord.ui.Modal, title="Create/Edit an Embed"):
                 msg = await interaction.channel.send(embed=embed)
                 self.bot.embed_manager[msg.id] = embed
                 await interaction.response.send_message(f"Embed **created**! (Message ID: {msg.id})", ephemeral=True)
+                log.info(
+                    "Embed created (actor_id=%s channel_id=%s message_id=%s)",
+                    interaction.user.id,
+                    interaction.channel_id,
+                    msg.id,
+                )
                 return
             except discord.HTTPException:
                 return await interaction.response.send_message("Failed to edit the embed.", ephemeral=True)
@@ -72,6 +87,12 @@ class EmbedModal(discord.ui.Modal, title="Create/Edit an Embed"):
             msg = await interaction.channel.send(embed=embed)
             self.bot.embed_manager[msg.id] = embed
             await interaction.response.send_message(f"Embed **created**! (Message ID: {msg.id})", ephemeral=True)
+            log.info(
+                "Embed created (actor_id=%s channel_id=%s message_id=%s)",
+                interaction.user.id,
+                interaction.channel_id,
+                msg.id,
+            )
 
 class EmbedManager(commands.Cog):
     def __init__(self, bot: commands.Bot):

@@ -1,8 +1,10 @@
 from discord.ext import commands
 import os
 import json
+from pathlib import Path
 
-COGS_STATUS_FILE = '/home/pi/WorldCupDiscBot/WorldCupBot/JSON/cogs_status.json'  # Adjust path as needed
+BASE_DIR = Path(__file__).resolve().parents[1]
+COGS_STATUS_FILE = str(BASE_DIR / "JSON" / "cogs_status.json")
 
 def update_cogs_status(bot):
     status = {

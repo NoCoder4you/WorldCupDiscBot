@@ -7,12 +7,14 @@ import os
 import time
 import random
 import string
+from pathlib import Path
 
 SPECTATORS_ROLE_ID = 1388690743782146178
 UNVERIFIED_ROLE_ID = 1394431170707456111
 
-VERIFIED_PATH = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON/verified.json"
-VERIFICATION_CODES_PATH = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON/verification_codes.json"
+BASE_DIR = Path(__file__).resolve().parents[1]
+VERIFIED_PATH = str(BASE_DIR / "JSON" / "verified.json")
+VERIFICATION_CODES_PATH = str(BASE_DIR / "JSON" / "verification_codes.json")
 VERIFICATION_LOG_CHANNEL_ID = 1394481766739218554
 
 def ensure_json_file(path, default):
