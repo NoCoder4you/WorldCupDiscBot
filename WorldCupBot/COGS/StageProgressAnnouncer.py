@@ -13,6 +13,7 @@ class StageProgressAnnouncer(commands.Cog):
         self.state_path = os.path.join(self.runtime_dir, "stage_queue_state.json")
 
         self.team_iso_path = os.path.join(self.base_dir, "team_iso.json")
+        self.country_roles_path = os.path.join(self.base_dir, "JSON", "countryroles.json")
         self.team_iso = self._load_team_iso()
 
         self._offset = 0
@@ -37,6 +38,17 @@ class StageProgressAnnouncer(commands.Cog):
                             continue
                         out[str(k).strip().lower()] = str(v).strip().lower()
                     return out
+        except Exception:
+            pass
+        return {}
+
+    def _load_country_roles(self) -> dict:
+        try:
+            if os.path.isfile(self.country_roles_path):
+                with open(self.country_roles_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    return data
         except Exception:
             pass
         return {}
@@ -117,6 +129,18 @@ class StageProgressAnnouncer(commands.Cog):
                 return ch
         return None
 
+    def _get_team_role(self, guild: discord.Guild | None, team: str) -> discord.Role | None:
+        if not guild:
+            return None
+        roles = self._load_country_roles()
+        role_id = roles.get(team)
+        if not role_id:
+            return None
+        try:
+            return guild.get_role(int(role_id))
+        except Exception:
+            return None
+
     async def _dm_user_embed(self, user_id: str, embed: discord.Embed):
         try:
             uid = int(str(user_id))
@@ -130,11 +154,24 @@ class StageProgressAnnouncer(commands.Cog):
         except Exception:
             return
 
+    def _stage_line(self, team: str, stage: str) -> str:
+        stage = str(stage or "").strip()
+        if stage == "Eliminated":
+            return f"**{team}** was eliminated."
+        return f"**{team}** advanced to **{stage}**."
+
     def _public_embed(self, team: str, stage: str, thumb_iso: str | None):
+        stage = str(stage or "").strip()
+        if stage == "Eliminated":
+            title = "Stage Update"
+            color = discord.Color.red()
+        else:
+            title = "Stage Update"
+            color = discord.Color.blue()
         e = discord.Embed(
-            title="Stage Update",
-            description=f"**{team}** advanced to **{stage}**.",
-            color=discord.Color.blue()
+            title=title,
+            description=self._stage_line(team, stage),
+            color=color
         )
         url = self._flag_url(thumb_iso or "")
         if url:
@@ -144,10 +181,19 @@ class StageProgressAnnouncer(commands.Cog):
         return e
 
     def _dm_embed(self, team: str, stage: str, thumb_iso: str | None):
+        stage = str(stage or "").strip()
+        if stage == "Eliminated":
+            title = "🚫 Your team was eliminated"
+            color = discord.Color.red()
+            description = f"**{team}** was eliminated."
+        else:
+            title = "🏟️ Your team advanced"
+            color = discord.Color.green()
+            description = f"**{team}** moved on to **{stage}**."
         e = discord.Embed(
-            title="🏟️ Your team advanced",
-            description=f"**{team}** moved on to **{stage}**.",
-            color=discord.Color.green()
+            title=title,
+            description=description,
+            color=color
         )
         url = self._flag_url(thumb_iso or "")
         if url:
@@ -214,7 +260,13 @@ class StageProgressAnnouncer(commands.Cog):
             if ch:
                 try:
                     emb = self._public_embed(team, stage, thumb_iso)
-                    await ch.send(embed=emb)
+                    role = self._get_team_role(guild, team)
+                    content = role.mention if role else None
+                    await ch.send(
+                        content=content,
+                        embed=emb,
+                        allowed_mentions=discord.AllowedMentions(roles=True)
+                    )
                 except Exception:
                     pass
 
