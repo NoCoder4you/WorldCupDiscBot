@@ -2,11 +2,16 @@ import discord
 from discord.ext import commands, tasks
 import os
 import shutil
+import logging
 from datetime import datetime
+from pathlib import Path
 
-JSON_DIR = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON"
-BACKUP_DIR = "/home/pi/WorldCupDiscBot/WorldCupBot/BACKUPS"
+BASE_DIR = Path(__file__).resolve().parents[1]
+JSON_DIR = BASE_DIR / "JSON"
+BACKUP_DIR = BASE_DIR / "BACKUPS"
 MAX_BACKUPS = 25 
+
+log = logging.getLogger(__name__)
 
 def ensure_backup_dir():
     os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -25,6 +30,7 @@ def backup_all_json():
         shutil.copy2(src, dst)
         backup_paths.append(dst)
     cleanup_old_backups()
+    log.info("Backup created (count=%s timestamp=%s)", len(backup_paths), timestamp)
     return backup_paths
 
 def cleanup_old_backups():
@@ -62,11 +68,13 @@ class BackupRestore(commands.Cog):
     @tasks.loop(hours=6)
     async def auto_backup(self):
         backup_all_json()
+        log.info("Auto backup completed")
 
     @commands.command(name="backup", help="Manually backup all JSON files to the BACKUPS folder.")
     @commands.is_owner()
     async def manual_backup(self, ctx):
         files = backup_all_json()
+        log.info("Manual backup requested by %s (count=%s)", ctx.author, len(files))
         await ctx.send(f"Backed up {len(files)} JSON files to BACKUPS folder.", delete_after=10)
 
     @commands.command(name="restore", help="Restore a JSON file from latest backup. Usage: wc restore players.json")
@@ -77,6 +85,7 @@ class BackupRestore(commands.Cog):
             return
         result = restore_json(filename)
         if result:
+            log.info("Manual restore requested by %s (file=%s)", ctx.author, filename)
             await ctx.send(f"Restored `{filename}` from backup.", delete_after=10)
         else:
             await ctx.send(f"No backups found for `{filename}`.", delete_after=10)
