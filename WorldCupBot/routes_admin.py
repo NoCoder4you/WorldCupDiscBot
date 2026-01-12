@@ -1,6 +1,7 @@
 import os, json, time, glob, sys, re
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
+import logging
 
 from stage_constants import (
     STAGE_ALLOWED,
@@ -302,6 +303,13 @@ def _current_user():
         return u
     return None
 
+def _user_label():
+    u = _current_user()
+    if not u:
+        return "unknown"
+    uname = u.get("username") or u.get("global_name") or "unknown"
+    return f"{uname} ({u.get('discord_id')})"
+
 def _is_admin(ctx):
     u = _current_user()
     if not u:
@@ -381,6 +389,7 @@ def create_admin_routes(ctx):
         resp = require_admin()
         if resp is not None: return resp
         ok = _run_or_queue("start")
+        log.info("Bot start requested by %s (ok=%s)", _user_label(), ok)
         return jsonify({"ok": ok, "action": "start"})
 
     @bp.post("/bot/stop")
@@ -388,6 +397,7 @@ def create_admin_routes(ctx):
         resp = require_admin()
         if resp is not None: return resp
         ok = _run_or_queue("stop")
+        log.info("Bot stop requested by %s (ok=%s)", _user_label(), ok)
         return jsonify({"ok": ok, "action": "stop"})
 
     @bp.post("/bot/restart")
@@ -395,6 +405,7 @@ def create_admin_routes(ctx):
         resp = require_admin()
         if resp is not None: return resp
         ok = _run_or_queue("restart")
+        log.info("Bot restart requested by %s (ok=%s)", _user_label(), ok)
         return jsonify({"ok": ok, "action": "restart"})
 
     # ---------- Ownership (reassign) ----------
@@ -408,6 +419,7 @@ def create_admin_routes(ctx):
         new_owner_id = str(data.get("new_owner_id") or "").strip()
         if not team or not new_owner_id:
             return jsonify({"ok": False, "error": "missing team or new_owner_id"}), 400
+        log.info("Ownership reassignment requested by %s (team=%s new_owner_id=%s)", _user_label(), team, new_owner_id)
 
         players = _read_json(_players_path(ctx), {})
         if not isinstance(players, dict):
@@ -499,6 +511,7 @@ def create_admin_routes(ctx):
 
     def _enqueue_cog(cog, action):
         _enqueue_command(ctx, f"cog_{action}", {"name": cog})
+        log.info("Cog %s requested by %s (cog=%s)", action, _user_label(), cog)
 
     @bp.post("/cogs/<cog>/load")
     def cogs_load(cog):
@@ -673,6 +686,7 @@ def create_admin_routes(ctx):
 
         # optional: still enqueue for bot-side notifications or embeds
         _enqueue_command(ctx, "split_accept", {"id": sid, "reason": reason})
+        log.info("Split accepted by %s (team=%s requester_id=%s main_owner_id=%s reason=%s)", _user_label(), team, req_id, own_id, reason)
 
         return jsonify({"ok": True, "event": event})
 
@@ -703,6 +717,7 @@ def create_admin_routes(ctx):
         }
         _append_split_history(event)
         _enqueue_command(ctx, "split_decline", {"id": sid, "reason": reason})
+        log.info("Split declined by %s (team=%s requester_id=%s main_owner_id=%s reason=%s)", _user_label(), entry.get("team"), req_id, own_id, reason)
         return jsonify({"ok": True, "event": event})
 
     @bp.get("/splits/history")
@@ -864,6 +879,7 @@ def create_admin_routes(ctx):
         _write_json_atomic(_bets_path(), bets)
         _enqueue_command(ctx, "bet_winner_declared", {"bet_id": bet_id, "winner": found["winner"]})
         _append_bet_results(found)
+        log.info("Bet winner declared by %s (bet_id=%s winner=%s)", _user_label(), bet_id, found["winner"])
         return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
 
     # ---------- LOGS ----------
@@ -1787,6 +1803,7 @@ def create_admin_routes(ctx):
             for aid in alias_ids:
                 winners.pop(aid, None)
             _write_json_atomic(winners_path, winners)
+            log.info("Fan zone winner cleared by %s (fixture_id=%s)", _user_label(), fixture_id)
             return jsonify({'ok': True, 'cleared': True, 'fixture_id': fixture_id})
 
         rec = {
@@ -1910,6 +1927,17 @@ def create_admin_routes(ctx):
             _append_fanzone_results(bell_draw_owner_ids, 'draw', home, away, winner_team, loser_team, fixture_id)
         _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters, "matches"), side, winner_team, fixture_id, int(time.time()))
 
+        log.info(
+            "Fan zone winner declared by %s (fixture_id=%s winner_side=%s winner_team=%s home_votes=%s away_votes=%s draw_votes=%s)",
+            _user_label(),
+            fixture_id,
+            side,
+            winner_team,
+            home_votes,
+            away_votes,
+            draw_votes,
+        )
+
         return jsonify({
             'ok': True,
             'fixture_id': fixture_id,
@@ -1926,3 +1954,4 @@ def create_admin_routes(ctx):
 
 
     return bp
+log = logging.getLogger("launcher")

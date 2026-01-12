@@ -136,18 +136,21 @@ class WorldCupBot(commands.Bot):
             pass
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
+        log.info("Reloaded cog: %s", ext)
         return f"Reloaded {short_name}"
 
     async def load_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
+        log.info("Loaded cog: %s", ext)
         return f"Loaded {short_name}"
 
     async def unload_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.unload_extension(ext)
         self._mark_cog_loaded(short_name, False)
+        log.info("Unloaded cog: %s", ext)
         return f"Unloaded {short_name}"
 
     # --- JSON status tracking (shared with Flask) ---

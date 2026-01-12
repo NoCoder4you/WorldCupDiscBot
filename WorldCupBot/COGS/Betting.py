@@ -7,8 +7,11 @@ import asyncio
 import tempfile
 import shutil
 import random
+import logging
 
 BETS_FILE = "/home/pi/WorldCupDiscBot/WorldCupBot/JSON/bets.json"
+
+log = logging.getLogger(__name__)
 
 def ensure_bets_file():
     os.makedirs(os.path.dirname(BETS_FILE), exist_ok=True)
@@ -138,6 +141,7 @@ class ClaimBetButton(discord.ui.View):
         embed.set_footer(text=f"{interaction.client.user.display_name} • All bets claimed are final.")
         await interaction.message.edit(embed=embed, view=None)
         await interaction.followup.send(f'You have claimed: **{bet["option2"]}**', ephemeral=True)
+        log.info("Bet claimed (bet_id=%s claimer_id=%s)", self.bet_id, user_id)
 
 class BettingCog(commands.Cog):
     def __init__(self, bot):
@@ -201,6 +205,13 @@ class BettingCog(commands.Cog):
         }
         bets.append(bet_data)
         await write_bets(bets)
+        log.info(
+            "Bet created (bet_id=%s creator_id=%s channel_id=%s title=%s)",
+            bet_id,
+            user_id,
+            channel_id,
+            modal.bet_title.value,
+        )
 
 async def setup(bot):
     await bot.add_cog(BettingCog(bot))

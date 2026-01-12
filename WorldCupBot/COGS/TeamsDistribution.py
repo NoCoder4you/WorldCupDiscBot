@@ -4,6 +4,7 @@ from pathlib import Path
 import discord
 from discord import app_commands
 from discord.ext import commands
+import logging
 from COGS.role_utils import (
     check_root_interaction, check_referee_interaction
 )
@@ -13,6 +14,8 @@ TEAMS_FILE = JSON_DIR / "teams.json"
 PLAYERS_FILE = JSON_DIR / "players.json"
 ISO_FILE = JSON_DIR / "team_iso.json"
 COUNTRYROLES_FILE = JSON_DIR / "countryroles.json"
+
+log = logging.getLogger(__name__)
 
 def load_json(path):
     if not path.exists():
@@ -124,7 +127,14 @@ class TeamsDistribution(commands.Cog):
                     break
 
         if confirm_channel:
-            await confirm_channel.send(embed=confirm_embed)
+            msg = await confirm_channel.send(embed=confirm_embed)
+            log.info(
+                "Player add embed posted (actor_id=%s target_id=%s channel_id=%s message_id=%s)",
+                interaction.user.id,
+                user.id,
+                confirm_channel.id,
+                msg.id,
+            )
 
         dm_embed = discord.Embed(
             title="World Cup 2026",
@@ -147,6 +157,7 @@ class TeamsDistribution(commands.Cog):
         await interaction.followup.send(
             f"{user.mention} has been added to the pool.", ephemeral=True
         )
+        log.info("Player added (actor_id=%s target_id=%s)", interaction.user.id, user.id)
 
     @app_commands.command(
         name="randomiseteams",
@@ -207,6 +218,7 @@ class TeamsDistribution(commands.Cog):
         await interaction.followup.send(
             f"Assigned teams to {len(pending_entries)} pending entry(ies).", ephemeral=True
         )
+        log.info("Teams randomly assigned (actor_id=%s count=%s)", interaction.user.id, len(pending_entries))
 
         if sum(
             1 for pdata in players.values() for entry in pdata.get("teams", [])
@@ -307,6 +319,13 @@ class TeamsDistribution(commands.Cog):
             if flag:
                 public_embed.set_image(url=flag)
             msg = await public_channel.send(embed=public_embed)
+            log.info(
+                "Team reveal embed posted (actor_id=%s team=%s channel_id=%s message_id=%s)",
+                interaction.user.id,
+                country,
+                public_channel.id,
+                msg.id,
+            )
 
             if isinstance(entry, dict):
                 entry["public_message_id"] = msg.id

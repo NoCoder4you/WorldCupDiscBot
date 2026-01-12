@@ -5,12 +5,15 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import logging
 
 JSON_DIR = Path("/home/pi/WorldCupDiscBot/WorldCupBot/JSON")
 ISO_FILE = JSON_DIR / "team_iso.json"
 PLAYERS_FILE = JSON_DIR / "players.json"
 REQUESTS_FILE = JSON_DIR / "split_requests.json"
 SPLIT_REQUESTS_LOG_FILE = JSON_DIR / "split_requests_log.json"
+
+log = logging.getLogger(__name__)
 
 def load_json(path):
     if not path.exists():
@@ -168,6 +171,7 @@ async def update_public_embed(bot, guild, team, players):
         if flag:
             embed.set_image(url=flag)
         await msg.edit(embed=embed)
+        log.info("Split public embed updated (team=%s message_id=%s)", team, msg_id)
     except Exception as e:
         print(f"Failed to update public embed for {team}: {e}")
         
@@ -401,6 +405,13 @@ class SplitOwnership(commands.Cog):
                     "requester_id": req["requester_id"],
                     "expires_at": req["expires_at"]
                 })
+                log.info(
+                    "Split request expired (request_id=%s team=%s requester_id=%s main_owner_id=%s)",
+                    req_id,
+                    req.get("team"),
+                    req.get("requester_id"),
+                    req.get("main_owner_id"),
+                )
                 main_owner = self.bot.get_user(req["main_owner_id"])
                 requester = self.bot.get_user(int(req["requester_id"]))
                 embed = discord.Embed(
@@ -456,6 +467,14 @@ class SplitOwnership(commands.Cog):
             "expires_at": req.get("expires_at")
         }
         append_log(log_item)
+        log.info(
+            "Split request resolved (request_id=%s team=%s status=%s requester_id=%s main_owner_id=%s)",
+            request_id,
+            team,
+            status,
+            req.get("requester_id"),
+            req.get("main_owner_id"),
+        )
 
         del requests[request_id]
         save_json(REQUESTS_FILE, requests)
@@ -654,6 +673,14 @@ class SplitOwnership(commands.Cog):
             "requested_percentage": requested_percentage
         }
         save_json(REQUESTS_FILE, requests)
+        log.info(
+            "Split request created (request_id=%s team=%s requester_id=%s main_owner_id=%s requested_percentage=%s)",
+            request_id,
+            team,
+            requester_id,
+            main_owner_id,
+            requested_percentage,
+        )
 
         flag_url = get_flag_url(team)
         embed = discord.Embed(
