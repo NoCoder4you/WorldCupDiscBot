@@ -21,14 +21,22 @@ os.makedirs(COGS_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
+def _resolve_log_level(value: str) -> int:
+    if not value:
+        return logging.INFO
+    upper = value.strip().upper()
+    return logging._nameToLevel.get(upper, logging.INFO)
+
+LOG_LEVEL = _resolve_log_level(os.getenv("LOG_LEVEL", ""))
+
 _file_handler = logging.FileHandler(LOG_PATH, encoding="utf-8")
-_file_handler.setLevel(logging.INFO)
+_file_handler.setLevel(LOG_LEVEL)
 _stream_handler = logging.StreamHandler()
-_stream_handler.setLevel(logging.INFO)
+_stream_handler.setLevel(LOG_LEVEL)
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    level=LOG_LEVEL,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(module)s.%(funcName)s:%(lineno)d | %(message)s",
     handlers=[_file_handler, _stream_handler]
 )
 log = logging.getLogger("WorldCupBot")
@@ -128,18 +136,21 @@ class WorldCupBot(commands.Bot):
             pass
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
+        log.info("Reloaded cog: %s", ext)
         return f"Reloaded {short_name}"
 
     async def load_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.load_extension(ext)
         self._mark_cog_loaded(short_name, True)
+        log.info("Loaded cog: %s", ext)
         return f"Loaded {short_name}"
 
     async def unload_cog(self, short_name: str):
         ext = f"COGS.{short_name}"
         await self.unload_extension(ext)
         self._mark_cog_loaded(short_name, False)
+        log.info("Unloaded cog: %s", ext)
         return f"Unloaded {short_name}"
 
     # --- JSON status tracking (shared with Flask) ---
