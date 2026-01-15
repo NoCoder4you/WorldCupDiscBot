@@ -61,6 +61,7 @@
   });
 
   let currentIndex = -1;
+  let acceptedAlready = false;
 
   const MIN_GESTURE_PX = 120;
   const BOTTOM_TOL = 10;
@@ -106,6 +107,12 @@
   }
 
   function updateUI() {
+    if (acceptedAlready) {
+      btnAccept.disabled = false;
+      msg.textContent = 'You already accepted these terms.';
+      return;
+    }
+
     const done = sections.filter(s => state[s.id].read).length;
     const total = sections.length;
 
@@ -165,6 +172,15 @@
 
     const done = sections.filter(x => state[x.id].read).length;
     msg.textContent = `Section completed. Click the next section. (${done}/${sections.length})`;
+  }
+
+  function unlockAllSections() {
+    sections.forEach(s => {
+      state[s.id].read = true;
+      state[s.id].opened = true;
+    });
+    updateTocUI();
+    updateUI();
   }
 
   function maybeCompleteByScroll() {
@@ -230,7 +246,10 @@
     if (ver) ver.textContent = 'v' + (st.version || '?');
 
     if (st && st.connected && st.accepted) {
-      // Stay on the terms page so users can re-read after acceptance.
+      acceptedAlready = true;
+      if (chkAccept) chkAccept.checked = true;
+      if (welcome) welcome.style.display = 'none';
+      unlockAllSections();
     }
   } catch (e) { /* ignore */ }
 
