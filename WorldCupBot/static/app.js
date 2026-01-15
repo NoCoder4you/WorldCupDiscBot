@@ -2532,7 +2532,6 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         const channelSelect = document.getElementById('settings-channel-select');
         if (status) status.textContent = '';
 
-        const data = await fetchJSON('/admin/settings');
         const maintenanceToggle = document.getElementById('settings-maintenance-toggle');
         const maintenanceStatus = document.getElementById('settings-maintenance-status');
         const maintenanceBackdrop = document.getElementById('maintenance-backdrop');
@@ -2541,6 +2540,21 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         const maintenanceConfirm = document.getElementById('maintenance-confirm');
         const maintenanceCancel = document.getElementById('maintenance-cancel');
         const maintenanceClose = document.getElementById('maintenance-close');
+
+        let data;
+        try {
+          data = await fetchJSON('/admin/settings');
+        } catch (e) {
+          if (maintenanceStatus) {
+            maintenanceStatus.textContent = `Failed to load maintenance settings: ${e.message}`;
+          }
+          if (maintenanceToggle) {
+            maintenanceToggle.disabled = true;
+            maintenanceToggle.textContent = 'Unavailable';
+          }
+          if (status) status.textContent = '';
+          return;
+        }
 
         const setMaintenanceState = (enabled) => {
           if (maintenanceToggle) {
