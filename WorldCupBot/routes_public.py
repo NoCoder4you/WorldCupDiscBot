@@ -1326,19 +1326,6 @@ def create_public_routes(ctx):
         uid = _effective_uid() or str(user.get("discord_id") or "")
         uid = str(uid).strip()
 
-        preference = _notification_channel_preference(base, uid)
-        if preference in ("dms", "none"):
-            resp = make_response(jsonify({
-                "ok": True,
-                "connected": True,
-                "items": [],
-                "unread": 0
-            }))
-            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-            resp.headers["Pragma"] = "no-cache"
-            resp.headers["Expires"] = "0"
-            return resp
-
         now = int(time.time())
         items = []
 
@@ -1385,6 +1372,23 @@ def create_public_routes(ctx):
                     "action": {"kind": "page", "page": "terms"},
                     "ts": now
                 })
+
+        preference = _notification_channel_preference(base, uid)
+        if preference in ("dms", "none"):
+            for it in items:
+                it["read"] = str(it.get("id") or "") in read_ids
+            items.sort(key=lambda x: int(x.get("ts") or 0), reverse=True)
+            unread = sum(1 for it in items if not it.get("read"))
+            resp = make_response(jsonify({
+                "ok": True,
+                "connected": True,
+                "items": items,
+                "unread": unread
+            }))
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
         # ----------------------------
         # Split requests requiring action (main owner only)
