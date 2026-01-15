@@ -1067,6 +1067,7 @@ def create_admin_routes(ctx):
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),
             "selected_guild_id": str(cfg.get("SELECTED_GUILD_ID") or "").strip(),
             "primary_guild_id": _load_primary_guild_id(ctx),
+            "maintenance_mode": bool(cfg.get("MAINTENANCE_MODE")),
         })
 
     @bp.post("/settings")
@@ -1077,6 +1078,7 @@ def create_admin_routes(ctx):
         body = request.get_json(silent=True) or {}
         channel = str(body.get("stage_announce_channel") or "").strip()
         selected_guild_id = str(body.get("selected_guild_id") or "").strip()
+        maintenance_raw = body.get("maintenance_mode", None)
 
         cfg = _load_settings(ctx)
         cfg["STAGE_ANNOUNCE_CHANNEL"] = channel
@@ -1084,12 +1086,15 @@ def create_admin_routes(ctx):
             cfg["SELECTED_GUILD_ID"] = selected_guild_id
         else:
             cfg.pop("SELECTED_GUILD_ID", None)
+        if maintenance_raw is not None:
+            cfg["MAINTENANCE_MODE"] = bool(maintenance_raw)
         if not _save_settings(ctx, cfg):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
         return jsonify({
             "ok": True,
             "stage_announce_channel": channel,
-            "selected_guild_id": selected_guild_id
+            "selected_guild_id": selected_guild_id,
+            "maintenance_mode": bool(cfg.get("MAINTENANCE_MODE")),
         })
 
     def _load_matches_payload():
