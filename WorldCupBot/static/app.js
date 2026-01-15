@@ -2533,6 +2533,52 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         if (status) status.textContent = '';
 
         const data = await fetchJSON('/admin/settings');
+        const maintenanceToggle = document.getElementById('settings-maintenance-toggle');
+        const maintenanceStatus = document.getElementById('settings-maintenance-status');
+        const maintenanceBackdrop = document.getElementById('maintenance-backdrop');
+        const maintenanceTitle = document.getElementById('maintenance-title');
+        const maintenanceMessage = document.getElementById('maintenance-message');
+        const maintenanceConfirm = document.getElementById('maintenance-confirm');
+        const maintenanceCancel = document.getElementById('maintenance-cancel');
+        const maintenanceClose = document.getElementById('maintenance-close');
+
+        const setMaintenanceState = (enabled) => {
+          if (maintenanceToggle) {
+            maintenanceToggle.dataset.enabled = enabled ? '1' : '0';
+            maintenanceToggle.textContent = enabled ? 'Disable maintenance mode' : 'Enable maintenance mode';
+            maintenanceToggle.classList.toggle('btn-stop', enabled);
+            maintenanceToggle.classList.toggle('btn-outline', !enabled);
+          }
+          if (maintenanceStatus) {
+            maintenanceStatus.textContent = enabled
+              ? 'Enabled — non-admins will see the maintenance page.'
+              : 'Disabled';
+          }
+        };
+
+        const closeMaintenanceModal = () => {
+          if (maintenanceBackdrop) maintenanceBackdrop.style.display = 'none';
+        };
+
+        const openMaintenanceModal = (enable) => {
+          if (!maintenanceBackdrop) return;
+          if (maintenanceTitle) {
+            maintenanceTitle.textContent = enable ? 'Enable maintenance mode' : 'Disable maintenance mode';
+          }
+          if (maintenanceMessage) {
+            maintenanceMessage.textContent = enable
+              ? 'Enabling maintenance mode will make the site unavailable to everyone except admins. Visitors will see: "We\'re working on the site right now."'
+              : 'Disabling maintenance mode will restore public access to the site.';
+          }
+          if (maintenanceConfirm) {
+            maintenanceConfirm.textContent = enable ? 'Enable' : 'Disable';
+            maintenanceConfirm.dataset.nextState = enable ? '1' : '0';
+            maintenanceConfirm.classList.toggle('btn-stop', enable);
+          }
+          maintenanceBackdrop.style.display = 'flex';
+        };
+
+        setMaintenanceState(Boolean(data?.maintenance_mode));
         const savedChannel = data?.stage_announce_channel || '';
         const primaryGuildId = data?.primary_guild_id || '';
         if (guildSelect) guildSelect.value = data?.selected_guild_id || '';
@@ -2690,6 +2736,42 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         if (channelSelect && !channelSelect.dataset.bound) {
           channelSelect.dataset.bound = '1';
           channelSelect.addEventListener('change', scheduleAutoSave);
+        }
+
+        if (maintenanceToggle && !maintenanceToggle.dataset.bound) {
+          maintenanceToggle.dataset.bound = '1';
+          maintenanceToggle.addEventListener('click', () => {
+            const enabled = maintenanceToggle.dataset.enabled === '1';
+            openMaintenanceModal(!enabled);
+          });
+        }
+
+        if (maintenanceConfirm && !maintenanceConfirm.dataset.bound) {
+          maintenanceConfirm.dataset.bound = '1';
+          maintenanceConfirm.addEventListener('click', async () => {
+            const nextState = maintenanceConfirm.dataset.nextState === '1';
+            try {
+              await fetchJSON('/admin/settings', {
+                method: 'POST',
+                body: JSON.stringify({ maintenance_mode: nextState })
+              });
+              setMaintenanceState(nextState);
+              closeMaintenanceModal();
+              notify(nextState ? 'Maintenance mode enabled' : 'Maintenance mode disabled');
+            } catch (e) {
+              notify(`Failed to update maintenance mode: ${e.message}`, false);
+            }
+          });
+        }
+
+        if (maintenanceCancel && !maintenanceCancel.dataset.bound) {
+          maintenanceCancel.dataset.bound = '1';
+          maintenanceCancel.addEventListener('click', closeMaintenanceModal);
+        }
+
+        if (maintenanceClose && !maintenanceClose.dataset.bound) {
+          maintenanceClose.dataset.bound = '1';
+          maintenanceClose.addEventListener('click', closeMaintenanceModal);
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);

@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Deque, TextIO
 import psutil
-from flask import Flask
+from flask import Flask, jsonify, make_response, request, send_from_directory, session
 
 # ---------- Paths & Config ----------
 HERE = Path(__file__).resolve().parent
@@ -248,6 +248,52 @@ CTX = {
 for bp in create_public_routes(CTX):
     app.register_blueprint(bp)
 app.register_blueprint(create_admin_routes(CTX))
+
+def _maintenance_enabled() -> bool:
+    try:
+        settings_path = BASE_DIR / "JSON" / "admin_settings.json"
+        if settings_path.is_file():
+            data = json.loads(settings_path.read_text(encoding="utf-8")) or {}
+            return bool(data.get("MAINTENANCE_MODE"))
+    except Exception:
+        pass
+    return False
+
+def _is_admin_user() -> bool:
+    user = session.get("wc_user")
+    if not isinstance(user, dict):
+        return False
+    uid = str(user.get("discord_id") or "").strip()
+    if not uid:
+        return False
+    admin_ids = CONFIG.get("ADMIN_IDS") or CONFIG.get("ADMIN_IDs") or CONFIG.get("admins") or []
+    admin_ids = {str(x).strip() for x in admin_ids if str(x).strip()}
+    return uid in admin_ids
+
+@app.before_request
+def maintenance_guard():
+    if not _maintenance_enabled():
+        return None
+    if _is_admin_user():
+        return None
+    message = "We're working on the site right now."
+    if request.path.startswith(("/api", "/admin", "/debug")):
+        return jsonify({"ok": False, "error": "maintenance", "message": message}), 503
+    static_folder = app.static_folder or str(STATIC_DIR)
+    maintenance_path = os.path.join(static_folder, "maintenance.html")
+    if os.path.exists(maintenance_path):
+        resp = send_from_directory(static_folder, "maintenance.html")
+        resp.status_code = 503
+    else:
+        resp = make_response(
+            f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Maintenance</title></head>
+<body><h1>{message}</h1><p>Please check back soon.</p></body></html>""",
+            503,
+        )
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 @app.get("/debug/routes")
 def debug_routes():

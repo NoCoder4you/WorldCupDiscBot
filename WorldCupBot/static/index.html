@@ -151,6 +151,17 @@
                           </div>
                       </div>
                       <div class="settings-divider admin-only"></div>
+                      <div class="settings-row admin-only">
+                          <div class="settings-row-title">Maintenance mode</div>
+                          <div class="settings-maintenance">
+                              <div class="settings-maintenance-info">
+                                  <div class="settings-label">Site access</div>
+                                  <div id="settings-maintenance-status" class="settings-status">Loading...</div>
+                              </div>
+                              <button id="settings-maintenance-toggle" class="btn btn-outline">Enable</button>
+                          </div>
+                      </div>
+                      <div class="settings-divider admin-only"></div>
                       <div class="settings-row">
                           <div class="settings-row-title">Notifications</div>
                           <div class="settings-notifications-grid">
@@ -493,6 +504,25 @@
                   <div class="modal-foot">
                       <button class="btn btn-outline" id="fixtures-slot-cancel">Cancel</button>
                       <button class="btn" id="fixtures-slot-save">Save</button>
+                  </div>
+              </div>
+          </div>
+
+          <div id="maintenance-backdrop" style="display:none;">
+              <div id="maintenance-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="maintenance-title">
+                  <div class="modal-head">
+                      <h3 id="maintenance-title">Enable maintenance mode</h3>
+                      <button class="modal-close" id="maintenance-close" aria-label="Close">×</button>
+                  </div>
+                  <div class="modal-body">
+                      <p id="maintenance-message">
+                          Enabling maintenance mode will make the site unavailable to everyone except admins.
+                          Visitors will see: "We're working on the site right now."
+                      </p>
+                  </div>
+                  <div class="modal-foot">
+                      <button class="btn btn-outline" id="maintenance-cancel">Cancel</button>
+                      <button class="btn" id="maintenance-confirm">Enable</button>
                   </div>
               </div>
           </div>
