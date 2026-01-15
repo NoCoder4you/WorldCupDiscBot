@@ -67,3 +67,4 @@ token_test.py
 config.json
 *.txt
 JSON/
+/WorldCupBot/JSON/
