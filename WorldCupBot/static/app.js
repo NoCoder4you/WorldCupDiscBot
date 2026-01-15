@@ -2767,7 +2767,11 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
             try {
               await fetchJSON('/admin/settings', {
                 method: 'POST',
-                body: JSON.stringify({ maintenance_mode: nextState })
+                body: JSON.stringify({
+                  maintenance_mode: nextState,
+                  stage_announce_channel: (channelSelect?.value || '').trim(),
+                  selected_guild_id: (guildSelect?.value || '').trim()
+                })
               });
               setMaintenanceState(nextState);
               closeMaintenanceModal();
