@@ -42,7 +42,7 @@ def _ensure_dir(p):
     os.makedirs(p, exist_ok=True)
     return p
 
-def _backup_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "Backups"))
+def _backup_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
 def _json_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "JSON"))
 def _runtime_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "runtime"))
 def _cmd_queue_path(base_dir):
@@ -1060,7 +1060,7 @@ def create_public_routes(ctx):
         _enqueue_command(base, {"kind": "split_force", "request_id": req_id, "action": action})
         return jsonify({"ok": True, "msg": "queued"})
 
-    # ---------- Cogs + Backups ----------
+    # ---------- Cogs + BACKUPS ----------
     @api.get("/cogs")
     def cogs_list():
         base = ctx.get("BASE_DIR","")

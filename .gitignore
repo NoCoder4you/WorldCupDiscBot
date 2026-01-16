@@ -22,7 +22,7 @@ health.log
 WC.log
 
 # Local backups and archives
-Backups/
+WorldCupBot/BACKUPS/
 *.bak/
 *.tar.gz
 *.zip
@@ -67,3 +67,4 @@ token_test.py
 config.json
 *.txt
 JSON/
+/WorldCupBot/JSON/
