@@ -5,6 +5,8 @@ PROJECT_DIR="${PROJECT_DIR:-/home/pi/WorldCupDiscBot}"
 BRANCH="${BRANCH:-main}"
 VENV_DIR="${VENV_DIR:-/home/pi/WorldCupDiscBot/WCenv}"
 PYBIN="$VENV_DIR/bin/python"
+JSON_DIR="$PROJECT_DIR/JSON"
+JSON_BACKUP_DIR=""
 
 echo "[updater] Project: $PROJECT_DIR"
 echo "[updater] Branch:  $BRANCH"
@@ -19,10 +21,22 @@ cd "$PROJECT_DIR"
 
 echo "[updater] Fetch..."
 git fetch --all --prune
+if [[ -d "$JSON_DIR" ]]; then
+  JSON_BACKUP_DIR="$(mktemp -d)"
+  echo "[updater] Backup JSON dir -> $JSON_BACKUP_DIR"
+  rsync -a --exclude "backup/" "$JSON_DIR/" "$JSON_BACKUP_DIR/"
+fi
 echo "[updater] Reset to origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
 echo "[updater] Pull..."
 git pull origin "$BRANCH" --ff-only || true
+if [[ -n "$JSON_BACKUP_DIR" ]]; then
+  echo "[updater] Restore JSON dir from backup"
+  rm -rf "$JSON_DIR"
+  mkdir -p "$JSON_DIR"
+  rsync -a --exclude "backup/" "$JSON_BACKUP_DIR/" "$JSON_DIR/"
+  rm -rf "$JSON_BACKUP_DIR"
+fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "[updater] Creating venv at $VENV_DIR"
