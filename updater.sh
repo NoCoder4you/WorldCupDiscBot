@@ -7,6 +7,7 @@ VENV_DIR="${VENV_DIR:-/home/pi/WorldCupDiscBot/WCenv}"
 PYBIN="$VENV_DIR/bin/python"
 JSON_DIR="$PROJECT_DIR/JSON"
 JSON_BACKUP_DIR=""
+CONFIG_PATH="$PROJECT_DIR/WorldCupBot/config.json"
 
 echo "[updater] Project: $PROJECT_DIR"
 echo "[updater] Branch:  $BRANCH"
@@ -21,6 +22,14 @@ cd "$PROJECT_DIR"
 
 echo "[updater] Fetch..."
 git fetch --all --prune
+if [[ -f "$CONFIG_PATH" ]]; then
+  if git ls-files --error-unmatch "$CONFIG_PATH" >/dev/null 2>&1; then
+    echo "[updater] Preserve local config: $CONFIG_PATH"
+    git update-index --skip-worktree -- "$CONFIG_PATH"
+  else
+    echo "[updater] Preserve local config (untracked): $CONFIG_PATH"
+  fi
+fi
 if [[ -d "$JSON_DIR" ]]; then
   JSON_BACKUP_DIR="$(mktemp -d)"
   echo "[updater] Backup JSON dir -> $JSON_BACKUP_DIR"
