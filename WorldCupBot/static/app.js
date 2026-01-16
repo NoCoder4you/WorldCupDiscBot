@@ -2541,23 +2541,35 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         const maintenanceCancel = document.getElementById('maintenance-cancel');
         const maintenanceClose = document.getElementById('maintenance-close');
 
+        const setMaintenanceUnavailable = (message, buttonLabel = 'Unavailable') => {
+          if (maintenanceStatus) maintenanceStatus.textContent = message;
+          if (maintenanceToggle) {
+            maintenanceToggle.disabled = true;
+            maintenanceToggle.textContent = buttonLabel;
+          }
+        };
+
+        if (!state.admin) {
+          setMaintenanceUnavailable('Admin login required to change maintenance mode.', 'Admin only');
+          return;
+        }
+        if (!getAdminView()) {
+          setMaintenanceUnavailable('Enable Admin View to edit maintenance mode.', 'Admin View required');
+          return;
+        }
+
         let data;
         try {
           data = await fetchJSON('/admin/settings');
         } catch (e) {
-          if (maintenanceStatus) {
-            maintenanceStatus.textContent = `Failed to load maintenance settings: ${e.message}`;
-          }
-          if (maintenanceToggle) {
-            maintenanceToggle.disabled = true;
-            maintenanceToggle.textContent = 'Unavailable';
-          }
+          setMaintenanceUnavailable(`Failed to load maintenance settings: ${e.message}`);
           if (status) status.textContent = '';
           return;
         }
 
         const setMaintenanceState = (enabled) => {
           if (maintenanceToggle) {
+            maintenanceToggle.disabled = false;
             maintenanceToggle.dataset.enabled = enabled ? '1' : '0';
             maintenanceToggle.textContent = enabled ? 'Disable maintenance mode' : 'Enable maintenance mode';
             maintenanceToggle.classList.toggle('btn-stop', enabled);
