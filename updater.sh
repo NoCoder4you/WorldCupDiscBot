@@ -24,7 +24,7 @@ git fetch --all --prune
 if [[ -d "$JSON_DIR" ]]; then
   JSON_BACKUP_DIR="$(mktemp -d)"
   echo "[updater] Backup JSON dir -> $JSON_BACKUP_DIR"
-  rsync -a "$JSON_DIR/" "$JSON_BACKUP_DIR/"
+  rsync -a --exclude "backup/" "$JSON_DIR/" "$JSON_BACKUP_DIR/"
 fi
 echo "[updater] Reset to origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
@@ -34,7 +34,7 @@ if [[ -n "$JSON_BACKUP_DIR" ]]; then
   echo "[updater] Restore JSON dir from backup"
   rm -rf "$JSON_DIR"
   mkdir -p "$JSON_DIR"
-  rsync -a "$JSON_BACKUP_DIR/" "$JSON_DIR/"
+  rsync -a --exclude "backup/" "$JSON_BACKUP_DIR/" "$JSON_DIR/"
   rm -rf "$JSON_BACKUP_DIR"
 fi
 
