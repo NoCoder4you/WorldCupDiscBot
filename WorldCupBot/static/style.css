@@ -4112,6 +4112,14 @@ body:not(.admin) .settings-rows {
   gap: 6px;
 }
 
+.settings-maintenance-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .settings-row-title {
   font-weight: 700;
   color: var(--accent);
