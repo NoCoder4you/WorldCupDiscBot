@@ -2523,8 +2523,6 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
           });
         }
 
-        if (!isAdminUI()) return;
-
         const status = document.getElementById('settings-status');
         const channelStatus = document.getElementById('settings-channels-status');
         const guildSelect = document.getElementById('settings-guild-select');
@@ -2534,6 +2532,7 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
 
         const maintenanceToggle = document.getElementById('settings-maintenance-toggle');
         const maintenanceStatus = document.getElementById('settings-maintenance-status');
+        const maintenanceLogin = document.getElementById('settings-maintenance-login');
         const maintenanceBackdrop = document.getElementById('maintenance-backdrop');
         const maintenanceTitle = document.getElementById('maintenance-title');
         const maintenanceMessage = document.getElementById('maintenance-message');
@@ -2548,6 +2547,17 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
             maintenanceToggle.textContent = buttonLabel;
           }
         };
+
+        if (maintenanceLogin && !maintenanceLogin.dataset.bound) {
+          maintenanceLogin.dataset.bound = '1';
+          maintenanceLogin.addEventListener('click', () => {
+            window.location.href = '/auth/discord/login';
+          });
+        }
+
+        if (maintenanceLogin) {
+          maintenanceLogin.style.display = state.admin ? 'none' : '';
+        }
 
         if (!state.admin) {
           setMaintenanceUnavailable('Admin login required to change maintenance mode.', 'Admin only');
@@ -2580,7 +2590,12 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
               ? 'Enabled — non-admins will see the maintenance page.'
               : 'Disabled';
           }
+          if (maintenanceLogin) {
+            maintenanceLogin.style.display = state.admin ? 'none' : '';
+          }
         };
+
+        if (!isAdminUI()) return;
 
         const closeMaintenanceModal = () => {
           if (maintenanceBackdrop) maintenanceBackdrop.style.display = 'none';
