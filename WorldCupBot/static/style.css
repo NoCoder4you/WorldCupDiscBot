@@ -2211,6 +2211,83 @@ body.user-admin-view #ownership .ownership-card {
     color: #93a6b9;
 }
 
+#maintenance-backdrop {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(3px);
+    z-index: 9999;
+    padding: 12px;
+}
+
+#maintenance-backdrop .modal-card {
+    max-width: 520px;
+    width: min(92vw, 520px);
+    background: linear-gradient(160deg, rgba(20, 32, 51, 0.98), rgba(12, 18, 29, 0.98));
+    border: 1px solid rgba(125, 160, 200, 0.22);
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    color: #dfe8f1;
+}
+
+#maintenance-backdrop .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#maintenance-backdrop .modal-head h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    letter-spacing: 0.2px;
+    color: #bde3ff;
+}
+
+#maintenance-close {
+    appearance: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: #d5deea;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 120ms ease, filter 150ms ease, border-color 150ms ease;
+}
+
+#maintenance-close:hover {
+    filter: brightness(1.08);
+    border-color: rgba(125, 170, 220, 0.4);
+}
+
+#maintenance-close:active {
+    transform: scale(0.98);
+}
+
+#maintenance-backdrop .modal-body {
+    padding: 18px 20px;
+    display: grid;
+    gap: 14px;
+    color: #c6d2de;
+    line-height: 1.6;
+}
+
+#maintenance-backdrop .modal-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px 18px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 12, 20, 0.35);
+    border-radius: 0 0 14px 14px;
+}
+
 /* Make the select and inputs breathe on very small screens */
 @media (max-width: 520px) {
     #reassign-backdrop .modal-head {
@@ -4030,6 +4107,30 @@ body:not(.admin) .settings-rows {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.settings-maintenance {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(14, 18, 30, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.settings-maintenance-info {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-maintenance-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .settings-row-title {
