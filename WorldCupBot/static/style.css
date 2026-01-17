@@ -2226,8 +2226,8 @@ body.user-admin-view #ownership .ownership-card {
 #maintenance-backdrop .modal-card {
     max-width: 520px;
     width: min(92vw, 520px);
-    background: var(--card, #0f1622);
-    border: 1px solid var(--border, #213040);
+    background: linear-gradient(160deg, rgba(20, 32, 51, 0.98), rgba(12, 18, 29, 0.98));
+    border: 1px solid rgba(125, 160, 200, 0.22);
     border-radius: 14px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     color: #dfe8f1;
@@ -2237,8 +2237,8 @@ body.user-admin-view #ownership .ownership-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 18px 8px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 16px 20px 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 #maintenance-backdrop .modal-head h3 {
@@ -2250,20 +2250,31 @@ body.user-admin-view #ownership .ownership-card {
 
 #maintenance-close {
     appearance: none;
-    border: 1px solid var(--border, #213040);
-    background: rgba(255, 255, 255, 0.05);
-    color: #cbd6e2;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.08);
+    color: #d5deea;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
     cursor: pointer;
+    transition: transform 120ms ease, filter 150ms ease, border-color 150ms ease;
+}
+
+#maintenance-close:hover {
+    filter: brightness(1.08);
+    border-color: rgba(125, 170, 220, 0.4);
+}
+
+#maintenance-close:active {
+    transform: scale(0.98);
 }
 
 #maintenance-backdrop .modal-body {
-    padding: 16px 18px;
+    padding: 18px 20px;
     display: grid;
-    gap: 12px;
+    gap: 14px;
     color: #c6d2de;
+    line-height: 1.6;
 }
 
 #maintenance-backdrop .modal-foot {
@@ -2271,8 +2282,10 @@ body.user-admin-view #ownership .ownership-card {
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
-    padding: 12px 18px 16px 18px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 14px 20px 18px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 12, 20, 0.35);
+    border-radius: 0 0 14px 14px;
 }
 
 /* Make the select and inputs breathe on very small screens */
@@ -4110,6 +4123,14 @@ body:not(.admin) .settings-rows {
 .settings-maintenance-info {
   display: grid;
   gap: 6px;
+}
+
+.settings-maintenance-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .settings-row-title {

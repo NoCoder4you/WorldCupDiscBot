@@ -274,10 +274,13 @@ def _is_admin_user() -> bool:
 def maintenance_guard():
     if not _maintenance_enabled():
         return None
+    path = request.path or ""
+    if path.startswith(("/auth/discord", "/maintenance.css")):
+        return None
     if _is_admin_user():
         return None
     message = "We're working on the site right now."
-    if request.path.startswith(("/api", "/admin", "/debug")):
+    if path.startswith(("/api", "/admin", "/debug")):
         return jsonify({"ok": False, "error": "maintenance", "message": message}), 503
     static_folder = app.static_folder or str(STATIC_DIR)
     maintenance_path = os.path.join(static_folder, "maintenance.html")

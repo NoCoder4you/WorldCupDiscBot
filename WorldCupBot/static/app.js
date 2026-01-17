@@ -2523,8 +2523,6 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
           });
         }
 
-        if (!isAdminUI()) return;
-
         const status = document.getElementById('settings-status');
         const channelStatus = document.getElementById('settings-channels-status');
         const guildSelect = document.getElementById('settings-guild-select');
@@ -2581,6 +2579,8 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
               : 'Disabled';
           }
         };
+
+        if (!isAdminUI()) return;
 
         const closeMaintenanceModal = () => {
           if (maintenanceBackdrop) maintenanceBackdrop.style.display = 'none';
