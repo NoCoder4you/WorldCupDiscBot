@@ -9,9 +9,9 @@ BOT_DIR="$PROJECT_DIR/WorldCupBot"
 JSON_DIR="$BOT_DIR/JSON"
 BACKUPS_DIR="$BOT_DIR/BACKUPS"
 CONFIG_PATH="$BOT_DIR/config.json"
-JSON_BACKUP_DIR=""
-BACKUPS_BACKUP_DIR=""
-CONFIG_BACKUP_PATH=""
+JSON_BACKUP_DIR=""    # temp dir for JSON backup (set when JSON exists)
+BACKUPS_BACKUP_DIR="" # temp dir for BACKUPS backup (set when BACKUPS exists)
+CONFIG_BACKUP_PATH="" # temp file for config.json backup (set when config exists)
 
 echo "[updater] Project: $PROJECT_DIR"
 echo "[updater] Branch:  $BRANCH"
