@@ -17,7 +17,7 @@ def ensure_backup_dir():
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
 def get_timestamp():
-    return datetime.now().strftime("%Y%m%d-%H%M%S")
+    return datetime.now().strftime("%d-%m_%H-%M")
 
 def backup_all_json():
     ensure_backup_dir()
