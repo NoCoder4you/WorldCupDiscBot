@@ -1,5 +1,14 @@
 :root {
   color-scheme: dark;
+  --bg: #0f141a;
+  --card: #182231;
+  --text: #eaf1ff;
+  --muted: #93a4bd;
+  --accent: #00ffd5;
+  --accent-2: #2aa8ff;
+  --border: #273247;
+  --btn: #223145;
+  --btn-hover: #2a3b55;
 }
 
 * {
@@ -8,11 +17,9 @@
 
 body {
   margin: 0;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(circle at top, rgba(35, 56, 88, 0.6), rgba(9, 12, 20, 0.95) 55%),
-    #0b0f18;
-  color: #e3ecf7;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Arial;
+  background: var(--bg);
+  color: var(--text);
   min-height: 100vh;
 }
 
@@ -26,8 +33,8 @@ body {
 .maintenance-card {
   max-width: 560px;
   width: 100%;
-  background: rgba(15, 24, 38, 0.92);
-  border: 1px solid rgba(125, 170, 220, 0.28);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 18px;
   padding: 36px;
   box-shadow: 0 26px 60px rgba(0, 0, 0, 0.45);
@@ -35,65 +42,64 @@ body {
 }
 
 .maintenance-badge {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(98, 132, 199, 0.2);
-  border: 1px solid rgba(98, 132, 199, 0.4);
+  background: var(--btn);
+  border: 1px solid var(--border);
   font-size: 0.8rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #bde3ff;
-  margin-bottom: 18px;
+  color: var(--accent);
+  margin: 0 auto 18px;
+  width: fit-content;
 }
 
 h1 {
   margin: 0 0 14px;
   font-size: 1.9rem;
-  color: #bde3ff;
+  color: var(--text);
 }
 
 p {
   margin: 0;
   font-size: 1rem;
   line-height: 1.6;
-  color: #c6d2de;
+  color: var(--text);
 }
 
 .maintenance-note {
   margin-top: 16px;
-  color: #97a7ba;
+  color: var(--muted);
 }
 
 .maintenance-actions {
   margin-top: 26px;
+  display: flex;
+  justify-content: center;
 }
 
 .maintenance-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 18px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4d89ff, #2f6bff);
-  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--btn);
+  color: var(--text);
   text-decoration: none;
-  font-weight: 600;
-  box-shadow: 0 10px 24px rgba(77, 137, 255, 0.35);
-  transition: transform 120ms ease, box-shadow 120ms ease, filter 150ms ease;
+  font-weight: 800;
+  transition: background-color 150ms ease;
 }
 
 .maintenance-btn:hover {
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-  box-shadow: 0 14px 26px rgba(77, 137, 255, 0.45);
+  background: var(--btn-hover);
 }
 
 .maintenance-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 8px 16px rgba(77, 137, 255, 0.35);
+  background: var(--btn);
 }
 
 @media (max-width: 600px) {
