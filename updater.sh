@@ -12,6 +12,10 @@ JSON_DIR="$BOT_DIR/JSON/"
 BACKUPS_DIR="$BOT_DIR/BACKUPS/"
 CONFIG_PATH="$BOT_DIR/config.json"
 
+VENV_DIR="$TARGET/WCenv"
+PYBIN="$VENV_DIR/bin/python"
+REQUIREMENTS_PATH="$TARGET/$BOT_DIR/requirements.txt"
+
 echo "[Updater] Cache:  $CACHE"
 echo "[Updater] Target: $TARGET"
 echo "[Updater] Repo:   $REPO_URL"
@@ -58,3 +62,17 @@ rsync -a --delete \
   "$CACHE/" "$TARGET/"
 
 echo "[Updater] Sync complete -> $TARGET"
+
+echo "----------------------------------"
+if [[ ! -d "$VENV_DIR" ]]; then
+  echo "[Updater] Creating venv at $VENV_DIR"
+  python3 -m venv "$VENV_DIR"
+fi
+
+echo "[Updater] Upgrade pip"
+"$PYBIN" -m pip install --upgrade pip wheel setuptools
+
+if [[ -f "$REQUIREMENTS_PATH" ]]; then
+  echo "[Updater] Installing requirements"
+  "$PYBIN" -m pip install -r "$REQUIREMENTS_PATH"
+fi
