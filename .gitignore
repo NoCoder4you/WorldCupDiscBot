@@ -22,7 +22,7 @@ health.log
 WC.log
 
 # Local backups and archives
-Backups/
+WorldCupBot/BACKUPS/
 *.bak/
 *.tar.gz
 *.zip

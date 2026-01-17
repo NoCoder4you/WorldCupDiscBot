@@ -5,6 +5,10 @@ PROJECT_DIR="${PROJECT_DIR:-/home/pi/WorldCupDiscBot}"
 BRANCH="${BRANCH:-main}"
 VENV_DIR="${VENV_DIR:-/home/pi/WorldCupDiscBot/WCenv}"
 PYBIN="$VENV_DIR/bin/python"
+BOT_DIR="$PROJECT_DIR/WorldCupBot"
+JSON_DIR="$BOT_DIR/JSON"
+BACKUPS_DIR="$BOT_DIR/BACKUPS"
+CONFIG_PATH="$BOT_DIR/config.json"
 
 BOT_DIR="$PROJECT_DIR/WorldCupBot"
 JSON_DIR="$BOT_DIR/JSON"
@@ -38,6 +42,26 @@ git reset --hard "origin/$BRANCH"
 
 echo "[updater] Pull..."
 git pull origin "$BRANCH" --ff-only || true
+if [[ -n "${JSON_BACKUP_DIR:-}" ]]; then
+  echo "[updater] Restore JSON dir from backup"
+  rm -rf "$JSON_DIR"
+  mkdir -p "$JSON_DIR"
+  rsync -a --exclude "backup/" "$JSON_BACKUP_DIR/" "$JSON_DIR/"
+  rm -rf "$JSON_BACKUP_DIR"
+fi
+if [[ -n "${BACKUPS_BACKUP_DIR:-}" ]]; then
+  echo "[updater] Restore BACKUPS dir from backup"
+  rm -rf "$BACKUPS_DIR"
+  mkdir -p "$BACKUPS_DIR"
+  rsync -a "$BACKUPS_BACKUP_DIR/" "$BACKUPS_DIR/"
+  rm -rf "$BACKUPS_BACKUP_DIR"
+fi
+if [[ -n "${CONFIG_BACKUP_PATH:-}" ]]; then
+  echo "[updater] Restore config from backup"
+  mkdir -p "$(dirname "$CONFIG_PATH")"
+  cp -a "$CONFIG_BACKUP_PATH" "$CONFIG_PATH"
+  rm -f "$CONFIG_BACKUP_PATH"
+fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
   echo "[updater] Creating venv at $VENV_DIR"
