@@ -1,80 +1,149 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_DIR="${PROJECT_DIR:-/home/pi/WorldCupDiscBot}"
-BRANCH="${BRANCH:-main}"
-VENV_DIR="${VENV_DIR:-/home/pi/WorldCupDiscBot/WCenv}"
+REPO_URL="https://github.com/NoCoder4you/WorldCupDiscBot.git"
+
+TARGET="/home/pi/WorldCupDiscBot"
+CACHE_BASE="/home/pi/.repo_cache"
+CACHE="$CACHE_BASE/WorldCupDiscBot"
+
+BOT_DIR="WorldCupBot"
+JSON_DIR="$BOT_DIR/JSON/"
+BACKUPS_DIR="$BOT_DIR/BACKUPS/"
+CONFIG_PATH="$BOT_DIR/config.json"
+
+VENV_DIR="$TARGET/WCenv"
 PYBIN="$VENV_DIR/bin/python"
-BOT_DIR="$PROJECT_DIR/WorldCupBot"
-JSON_DIR="$BOT_DIR/JSON"
-BACKUPS_DIR="$BOT_DIR/BACKUPS"
-CONFIG_PATH="$BOT_DIR/config.json"
+REQUIREMENTS_PATH="$TARGET/$BOT_DIR/requirements.txt"
+VENV_REL="WCenv/"
 
-BOT_DIR="$PROJECT_DIR/WorldCupBot"
-JSON_DIR="$BOT_DIR/JSON"
-BACKUPS_DIR="$BOT_DIR/BACKUPS"
-CONFIG_PATH="$BOT_DIR/config.json"
+LAST_SYNC_FILE="$TARGET/.last_update_commit"
 
-echo "[updater] Project: $PROJECT_DIR"
-echo "[updater] Branch:  $BRANCH"
-echo "[updater] Venv:    $VENV_DIR"
+EXCLUDE_PATHS=(
+  ".git"
+  ".repo_cache"
+  "$JSON_DIR"
+  "$BACKUPS_DIR"
+  "$CONFIG_PATH"
+  "$VENV_REL"
+  "updater.sh"
+)
 
-if [[ ! -d "$PROJECT_DIR/.git" ]]; then
-  echo "[updater] ERROR: $PROJECT_DIR is not a git repo."
-  exit 1
+echo "[Updater] Cache:  $CACHE"
+echo "[Updater] Target: $TARGET"
+echo "[Updater] Repo:   $REPO_URL"
+echo "----------------------------------"
+
+mkdir -p "$TARGET" "$CACHE_BASE"
+
+if [[ ! -d "$CACHE/.git" ]]; then
+  echo "[Updater] Creating cache..."
+  rm -rf "$CACHE"
+  git clone "$REPO_URL" "$CACHE"
+else
+  echo "[Updater] Updating cache..."
+  git -C "$CACHE" fetch --all --prune
 fi
 
-cd "$PROJECT_DIR"
-
-echo "[updater] Fetch..."
-git fetch --all --prune
-
-echo "[updater] Preserve runtime data under $BOT_DIR"
-if git ls-files --error-unmatch "$CONFIG_PATH" >/dev/null 2>&1; then
-  git update-index --skip-worktree -- "$CONFIG_PATH"
+# Determine default branch robustly
+BRANCH="$(git -C "$CACHE" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@' || true)"
+if [[ -z "${BRANCH:-}" ]]; then
+  # fallback if origin/HEAD isn't set
+  if git -C "$CACHE" show-ref --verify --quiet refs/remotes/origin/main; then
+    BRANCH="main"
+  elif git -C "$CACHE" show-ref --verify --quiet refs/remotes/origin/master; then
+    BRANCH="master"
+  else
+    BRANCH="main"
+  fi
 fi
 
-git ls-files -z "$JSON_DIR/" | xargs -0 -r git update-index --skip-worktree --
-git ls-files -z "$BACKUPS_DIR/" | xargs -0 -r git update-index --skip-worktree --
+echo "[Updater] Branch: $BRANCH"
 
-echo "[updater] Reset to origin/$BRANCH"
-git reset --hard "origin/$BRANCH"
+git -C "$CACHE" reset --hard "origin/$BRANCH"
+git -C "$CACHE" submodule update --init --recursive
 
-echo "[updater] Pull..."
-git pull origin "$BRANCH" --ff-only || true
-if [[ -n "${JSON_BACKUP_DIR:-}" ]]; then
-  echo "[updater] Restore JSON dir from backup"
-  rm -rf "$JSON_DIR"
-  mkdir -p "$JSON_DIR"
-  rsync -a --exclude "backup/" "$JSON_BACKUP_DIR/" "$JSON_DIR/"
-  rm -rf "$JSON_BACKUP_DIR"
-fi
-if [[ -n "${BACKUPS_BACKUP_DIR:-}" ]]; then
-  echo "[updater] Restore BACKUPS dir from backup"
-  rm -rf "$BACKUPS_DIR"
-  mkdir -p "$BACKUPS_DIR"
-  rsync -a "$BACKUPS_BACKUP_DIR/" "$BACKUPS_DIR/"
-  rm -rf "$BACKUPS_BACKUP_DIR"
-fi
-if [[ -n "${CONFIG_BACKUP_PATH:-}" ]]; then
-  echo "[updater] Restore config from backup"
-  mkdir -p "$(dirname "$CONFIG_PATH")"
-  cp -a "$CONFIG_BACKUP_PATH" "$CONFIG_PATH"
-  rm -f "$CONFIG_BACKUP_PATH"
+NEW_COMMIT="$(git -C "$CACHE" rev-parse "origin/$BRANCH")"
+LAST_COMMIT=""
+if [[ -f "$LAST_SYNC_FILE" ]]; then
+  LAST_COMMIT="$(<"$LAST_SYNC_FILE")"
 fi
 
+echo "----------------------------------"
+if [[ -n "$LAST_COMMIT" ]] && git -C "$CACHE" cat-file -e "$LAST_COMMIT^{commit}" 2>/dev/null; then
+  echo "[Updater] Syncing changed files since $LAST_COMMIT..."
+  TMP_LIST="$(mktemp)"
+  git -C "$CACHE" diff --name-only -z "$LAST_COMMIT" "$NEW_COMMIT" \
+    | while IFS= read -r -d '' path; do
+        case "$path" in
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"$VENV_REL"*|"updater.sh")
+            continue
+            ;;
+        esac
+        printf '%s\0' "$path" >> "$TMP_LIST"
+      done
+
+  if [[ -s "$TMP_LIST" ]]; then
+    rsync -a --from0 --files-from="$TMP_LIST" "$CACHE/" "$TARGET/"
+  else
+    echo "[Updater] No tracked changes to sync."
+  fi
+
+  while IFS= read -r -d '' status; do
+    case "$status" in
+      D*)
+        IFS= read -r -d '' path
+        case "$path" in
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"$VENV_REL"*|"updater.sh")
+            continue
+            ;;
+        esac
+        rm -f "$TARGET/$path"
+        ;;
+      R*|C*)
+        IFS= read -r -d '' old_path
+        IFS= read -r -d '' new_path
+        case "$old_path" in
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"$VENV_REL"*|"updater.sh")
+            continue
+            ;;
+        esac
+        rm -f "$TARGET/$old_path"
+        ;;
+      *)
+        IFS= read -r -d '' _path
+        ;;
+    esac
+  done < <(git -C "$CACHE" diff --name-status -z "$LAST_COMMIT" "$NEW_COMMIT")
+
+  rm -f "$TMP_LIST"
+else
+  echo "[Updater] Syncing all files..."
+  rsync -a --delete \
+    --exclude='.git' \
+    --exclude='.repo_cache' \
+    --exclude="$JSON_DIR" \
+    --exclude="$BACKUPS_DIR" \
+    --exclude="$CONFIG_PATH" \
+    --exclude="$VENV_REL" \
+    --exclude='updater.sh' \
+    "$CACHE/" "$TARGET/"
+fi
+
+echo "$NEW_COMMIT" > "$LAST_SYNC_FILE"
+
+echo "[Updater] Sync complete -> $TARGET"
+
+echo "----------------------------------"
 if [[ ! -d "$VENV_DIR" ]]; then
-  echo "[updater] Creating venv at $VENV_DIR"
+  echo "[Updater] Creating venv at $VENV_DIR"
   python3 -m venv "$VENV_DIR"
 fi
 
-echo "[updater] Upgrade pip"
+echo "[Updater] Upgrade pip"
 "$PYBIN" -m pip install --upgrade pip wheel setuptools
 
-if [[ -f "$PROJECT_DIR/requirements.txt" ]]; then
-  echo "[updater] Installing requirements"
-  "$PYBIN" -m pip install -r "$PROJECT_DIR/requirements.txt"
+if [[ -f "$REQUIREMENTS_PATH" ]]; then
+  echo "[Updater] Installing requirements"
+  "$PYBIN" -m pip install -r "$REQUIREMENTS_PATH"
 fi
-
-echo "[updater] Exec launcher.py (no git in launcher)"
-exec "$PYBIN" "$PROJECT_DIR/launcher.py"
