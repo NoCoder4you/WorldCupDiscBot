@@ -186,14 +186,21 @@ def _list_backups(base_dir):
     for name in sorted(os.listdir(bdir)):
         fp = os.path.join(bdir, name)
         if os.path.isfile(fp):
-            out.append({"name": name, "size": os.path.getsize(fp), "ts": int(os.path.getmtime(fp)), "rel": name})
+            title, _ = os.path.splitext(name)
+            out.append({
+                "name": name,
+                "title": title,
+                "size": os.path.getsize(fp),
+                "ts": int(os.path.getmtime(fp)),
+                "rel": name,
+            })
     return sorted(out, key=lambda x: x["ts"], reverse=True)
 
 def _create_backup(base_dir):
     bdir = _backup_dir(base_dir)
     jdir = _json_dir(base_dir)
-    ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    outname = f"json-backup-{ts}.zip"
+    ts = datetime.datetime.now().strftime("%d-%m_%H-%M")
+    outname = f"{ts}.zip"
     outpath = os.path.join(bdir, outname)
     with zipfile.ZipFile(outpath, "w", compression=zipfile.ZIP_DEFLATED) as z:
         if os.path.isdir(jdir):

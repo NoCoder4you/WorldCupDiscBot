@@ -2248,7 +2248,7 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         } else {
           const t = document.createElement('table');
           t.className = 'table';
-          t.innerHTML = '<thead><tr><th>Name</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>';
+          t.innerHTML = '<thead><tr><th>Title (DD-MM_HH-MM)</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>';
           const tb = t.querySelector('tbody');
 
           files.forEach(f => {
@@ -2256,11 +2256,13 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
             const sizeBytes = (f.bytes || f.size) || 0;
             const ts   = f.mtime || f.ts;
             const dt   = ts ? new Date(ts * 1000).toLocaleString() : '';
+            const title = f.title || (f.name ? f.name.replace(/\.[^/.]+$/, '') : '');
 
             const a = document.createElement('a');
             a.href = `/api/backups/download?rel=${encodeURIComponent(f.rel || f.name)}`;
             a.className = 'download-link';
-            a.innerHTML = `<span class="file-name">${escapeHtml(f.name)}</span>`;
+            a.title = f.name || '';
+            a.innerHTML = `<span class="file-name">${escapeHtml(title || f.name)}</span>`;
 
             tr.innerHTML = `
               <td>${a.outerHTML}</td>

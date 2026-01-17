@@ -19,6 +19,7 @@ REQUIREMENTS_PATH="$TARGET/$BOT_DIR/requirements.txt"
 echo "[Updater] Cache:  $CACHE"
 echo "[Updater] Target: $TARGET"
 echo "[Updater] Repo:   $REPO_URL"
+echo "[Updater] Backups: DD-MM_HH-MM.zip in $BACKUPS_DIR"
 echo "----------------------------------"
 
 mkdir -p "$TARGET" "$CACHE_BASE"
