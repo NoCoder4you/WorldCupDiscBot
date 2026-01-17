@@ -5,9 +5,10 @@ PROJECT_DIR="${PROJECT_DIR:-/home/pi/WorldCupDiscBot}"
 BRANCH="${BRANCH:-main}"
 VENV_DIR="${VENV_DIR:-/home/pi/WorldCupDiscBot/WCenv}"
 PYBIN="$VENV_DIR/bin/python"
-JSON_DIR="$PROJECT_DIR/JSON"
-JSON_BACKUP_DIR=""
-CONFIG_PATH="$PROJECT_DIR/WorldCupBot/config.json"
+BOT_DIR="$PROJECT_DIR/WorldCupBot"
+JSON_DIR="$BOT_DIR/JSON"
+BACKUPS_DIR="$BOT_DIR/BACKUPS"
+CONFIG_PATH="$BOT_DIR/config.json"
 
 echo "[updater] Project: $PROJECT_DIR"
 echo "[updater] Branch:  $BRANCH"
@@ -22,29 +23,44 @@ cd "$PROJECT_DIR"
 
 echo "[updater] Fetch..."
 git fetch --all --prune
-if [[ -f "$CONFIG_PATH" ]]; then
-  if git ls-files --error-unmatch "$CONFIG_PATH" >/dev/null 2>&1; then
-    echo "[updater] Preserve local config: $CONFIG_PATH"
-    git update-index --skip-worktree -- "$CONFIG_PATH"
-  else
-    echo "[updater] Preserve local config (untracked): $CONFIG_PATH"
-  fi
-fi
 if [[ -d "$JSON_DIR" ]]; then
   JSON_BACKUP_DIR="$(mktemp -d)"
   echo "[updater] Backup JSON dir -> $JSON_BACKUP_DIR"
   rsync -a --exclude "backup/" "$JSON_DIR/" "$JSON_BACKUP_DIR/"
 fi
+if [[ -d "$BACKUPS_DIR" ]]; then
+  BACKUPS_BACKUP_DIR="$(mktemp -d)"
+  echo "[updater] Backup BACKUPS dir -> $BACKUPS_BACKUP_DIR"
+  rsync -a "$BACKUPS_DIR/" "$BACKUPS_BACKUP_DIR/"
+fi
+if [[ -f "$CONFIG_PATH" ]]; then
+  CONFIG_BACKUP_PATH="$(mktemp)"
+  echo "[updater] Backup config -> $CONFIG_BACKUP_PATH"
+  cp -a "$CONFIG_PATH" "$CONFIG_BACKUP_PATH"
+fi
 echo "[updater] Reset to origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
 echo "[updater] Pull..."
 git pull origin "$BRANCH" --ff-only || true
-if [[ -n "$JSON_BACKUP_DIR" ]]; then
+if [[ -n "${JSON_BACKUP_DIR:-}" ]]; then
   echo "[updater] Restore JSON dir from backup"
   rm -rf "$JSON_DIR"
   mkdir -p "$JSON_DIR"
   rsync -a --exclude "backup/" "$JSON_BACKUP_DIR/" "$JSON_DIR/"
   rm -rf "$JSON_BACKUP_DIR"
+fi
+if [[ -n "${BACKUPS_BACKUP_DIR:-}" ]]; then
+  echo "[updater] Restore BACKUPS dir from backup"
+  rm -rf "$BACKUPS_DIR"
+  mkdir -p "$BACKUPS_DIR"
+  rsync -a "$BACKUPS_BACKUP_DIR/" "$BACKUPS_DIR/"
+  rm -rf "$BACKUPS_BACKUP_DIR"
+fi
+if [[ -n "${CONFIG_BACKUP_PATH:-}" ]]; then
+  echo "[updater] Restore config from backup"
+  mkdir -p "$(dirname "$CONFIG_PATH")"
+  cp -a "$CONFIG_BACKUP_PATH" "$CONFIG_PATH"
+  rm -f "$CONFIG_BACKUP_PATH"
 fi
 
 if [[ ! -d "$VENV_DIR" ]]; then
