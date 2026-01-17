@@ -10,6 +10,11 @@ JSON_DIR="$BOT_DIR/JSON"
 BACKUPS_DIR="$BOT_DIR/BACKUPS"
 CONFIG_PATH="$BOT_DIR/config.json"
 
+BOT_DIR="$PROJECT_DIR/WorldCupBot"
+JSON_DIR="$BOT_DIR/JSON"
+BACKUPS_DIR="$BOT_DIR/BACKUPS"
+CONFIG_PATH="$BOT_DIR/config.json"
+
 echo "[updater] Project: $PROJECT_DIR"
 echo "[updater] Branch:  $BRANCH"
 echo "[updater] Venv:    $VENV_DIR"
@@ -23,23 +28,18 @@ cd "$PROJECT_DIR"
 
 echo "[updater] Fetch..."
 git fetch --all --prune
-if [[ -d "$JSON_DIR" ]]; then
-  JSON_BACKUP_DIR="$(mktemp -d)"
-  echo "[updater] Backup JSON dir -> $JSON_BACKUP_DIR"
-  rsync -a --exclude "backup/" "$JSON_DIR/" "$JSON_BACKUP_DIR/"
+
+echo "[updater] Preserve runtime data under $BOT_DIR"
+if git ls-files --error-unmatch "$CONFIG_PATH" >/dev/null 2>&1; then
+  git update-index --skip-worktree -- "$CONFIG_PATH"
 fi
-if [[ -d "$BACKUPS_DIR" ]]; then
-  BACKUPS_BACKUP_DIR="$(mktemp -d)"
-  echo "[updater] Backup BACKUPS dir -> $BACKUPS_BACKUP_DIR"
-  rsync -a "$BACKUPS_DIR/" "$BACKUPS_BACKUP_DIR/"
-fi
-if [[ -f "$CONFIG_PATH" ]]; then
-  CONFIG_BACKUP_PATH="$(mktemp)"
-  echo "[updater] Backup config -> $CONFIG_BACKUP_PATH"
-  cp -a "$CONFIG_PATH" "$CONFIG_BACKUP_PATH"
-fi
+
+git ls-files -z "$JSON_DIR/" | xargs -0 -r git update-index --skip-worktree --
+git ls-files -z "$BACKUPS_DIR/" | xargs -0 -r git update-index --skip-worktree --
+
 echo "[updater] Reset to origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
+
 echo "[updater] Pull..."
 git pull origin "$BRANCH" --ff-only || true
 if [[ -n "${JSON_BACKUP_DIR:-}" ]]; then
