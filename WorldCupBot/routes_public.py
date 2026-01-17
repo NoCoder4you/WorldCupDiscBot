@@ -1151,6 +1151,13 @@ def create_public_routes(ctx):
 
     @auth.get("/callback")
     def discord_callback():
+        err = request.args.get("error", "")
+        err_desc = request.args.get("error_description", "")
+        if err:
+            session.pop("oauth_state", None)
+            log.info("Discord OAuth canceled/failed (error=%s desc=%s)", err, err_desc)
+            return redirect(url_for("root_public.index", discord_error=err))
+
         code = request.args.get("code","")
         state = request.args.get("state","")
         if not code or state != session.get("oauth_state"):
