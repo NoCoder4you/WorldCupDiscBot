@@ -16,10 +16,20 @@ VENV_DIR="$TARGET/WCenv"
 PYBIN="$VENV_DIR/bin/python"
 REQUIREMENTS_PATH="$TARGET/$BOT_DIR/requirements.txt"
 
+LAST_SYNC_FILE="$TARGET/.last_update_commit"
+
+EXCLUDE_PATHS=(
+  ".git"
+  ".repo_cache"
+  "$JSON_DIR"
+  "$BACKUPS_DIR"
+  "$CONFIG_PATH"
+  "updater.sh"
+)
+
 echo "[Updater] Cache:  $CACHE"
 echo "[Updater] Target: $TARGET"
 echo "[Updater] Repo:   $REPO_URL"
-echo "[Updater] Backups: DD-MM_HH-MM.zip in $BACKUPS_DIR"
 echo "----------------------------------"
 
 mkdir -p "$TARGET" "$CACHE_BASE"
@@ -51,16 +61,73 @@ echo "[Updater] Branch: $BRANCH"
 git -C "$CACHE" reset --hard "origin/$BRANCH"
 git -C "$CACHE" submodule update --init --recursive
 
-echo "----------------------------------"
-echo "[Updater] Syncing files..."
+NEW_COMMIT="$(git -C "$CACHE" rev-parse "origin/$BRANCH")"
+LAST_COMMIT=""
+if [[ -f "$LAST_SYNC_FILE" ]]; then
+  LAST_COMMIT="$(<"$LAST_SYNC_FILE")"
+fi
 
-rsync -a --delete \
-  --exclude='.git' \
-  --exclude='.repo_cache' \
-  --exclude="$JSON_DIR" \
-  --exclude="$BACKUPS_DIR" \
-  --exclude="$CONFIG_PATH" \
-  "$CACHE/" "$TARGET/"
+echo "----------------------------------"
+if [[ -n "$LAST_COMMIT" ]] && git -C "$CACHE" cat-file -e "$LAST_COMMIT^{commit}" 2>/dev/null; then
+  echo "[Updater] Syncing changed files since $LAST_COMMIT..."
+  TMP_LIST="$(mktemp)"
+  git -C "$CACHE" diff --name-only -z "$LAST_COMMIT" "$NEW_COMMIT" \
+    | while IFS= read -r -d '' path; do
+        case "$path" in
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"updater.sh")
+            continue
+            ;;
+        esac
+        printf '%s\0' "$path" >> "$TMP_LIST"
+      done
+
+  if [[ -s "$TMP_LIST" ]]; then
+    rsync -a --from0 --files-from="$TMP_LIST" "$CACHE/" "$TARGET/"
+  else
+    echo "[Updater] No tracked changes to sync."
+  fi
+
+  while IFS= read -r -d '' status; do
+    case "$status" in
+      D*)
+        IFS= read -r -d '' path
+        case "$path" in
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"updater.sh")
+            continue
+            ;;
+        esac
+        rm -f "$TARGET/$path"
+        ;;
+      R*|C*)
+        IFS= read -r -d '' old_path
+        IFS= read -r -d '' new_path
+        case "$old_path" in
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"updater.sh")
+            continue
+            ;;
+        esac
+        rm -f "$TARGET/$old_path"
+        ;;
+      *)
+        IFS= read -r -d '' _path
+        ;;
+    esac
+  done < <(git -C "$CACHE" diff --name-status -z "$LAST_COMMIT" "$NEW_COMMIT")
+
+  rm -f "$TMP_LIST"
+else
+  echo "[Updater] Syncing all files..."
+  rsync -a --delete \
+    --exclude='.git' \
+    --exclude='.repo_cache' \
+    --exclude="$JSON_DIR" \
+    --exclude="$BACKUPS_DIR" \
+    --exclude="$CONFIG_PATH" \
+    --exclude='updater.sh' \
+    "$CACHE/" "$TARGET/"
+fi
+
+echo "$NEW_COMMIT" > "$LAST_SYNC_FILE"
 
 echo "[Updater] Sync complete -> $TARGET"
 
