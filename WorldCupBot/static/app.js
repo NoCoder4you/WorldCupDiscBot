@@ -4189,13 +4189,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadTeamStages(),
         loadFixtures()
       ]);
-      console.debug('team_iso ok:', Object.keys(iso || {}).length, 'entries');
-      console.debug('ownership_merged ok:', (merged?.rows?.length || 0), 'rows');
-      console.debug('team_meta:', meta ? 'loaded' : 'absent');
-      console.debug('self ownership:', selfTeams ? selfTeams.size : 0, 'teams');
-      console.debug('team_stage entries:', stages ? Object.keys(stages).length : 0);
-      console.debug('fixtures count:', fixtures ? fixtures.length : 0);
-      console.timeEnd('worldmap:fetch');
 
       const svg = await inlineSVG('world.svg');
 
