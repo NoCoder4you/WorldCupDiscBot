@@ -15,6 +15,7 @@ CONFIG_PATH="$BOT_DIR/config.json"
 VENV_DIR="$TARGET/WCenv"
 PYBIN="$VENV_DIR/bin/python"
 REQUIREMENTS_PATH="$TARGET/$BOT_DIR/requirements.txt"
+VENV_REL="WCenv/"
 
 LAST_SYNC_FILE="$TARGET/.last_update_commit"
 
@@ -24,6 +25,7 @@ EXCLUDE_PATHS=(
   "$JSON_DIR"
   "$BACKUPS_DIR"
   "$CONFIG_PATH"
+  "$VENV_REL"
   "updater.sh"
 )
 
@@ -74,7 +76,7 @@ if [[ -n "$LAST_COMMIT" ]] && git -C "$CACHE" cat-file -e "$LAST_COMMIT^{commit}
   git -C "$CACHE" diff --name-only -z "$LAST_COMMIT" "$NEW_COMMIT" \
     | while IFS= read -r -d '' path; do
         case "$path" in
-          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"updater.sh")
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"$VENV_REL"*|"updater.sh")
             continue
             ;;
         esac
@@ -92,7 +94,7 @@ if [[ -n "$LAST_COMMIT" ]] && git -C "$CACHE" cat-file -e "$LAST_COMMIT^{commit}
       D*)
         IFS= read -r -d '' path
         case "$path" in
-          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"updater.sh")
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"$VENV_REL"*|"updater.sh")
             continue
             ;;
         esac
@@ -102,7 +104,7 @@ if [[ -n "$LAST_COMMIT" ]] && git -C "$CACHE" cat-file -e "$LAST_COMMIT^{commit}
         IFS= read -r -d '' old_path
         IFS= read -r -d '' new_path
         case "$old_path" in
-          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"updater.sh")
+          "$JSON_DIR"*|"$BACKUPS_DIR"*|"$CONFIG_PATH"|"$VENV_REL"*|"updater.sh")
             continue
             ;;
         esac
@@ -123,6 +125,7 @@ else
     --exclude="$JSON_DIR" \
     --exclude="$BACKUPS_DIR" \
     --exclude="$CONFIG_PATH" \
+    --exclude="$VENV_REL" \
     --exclude='updater.sh' \
     "$CACHE/" "$TARGET/"
 fi
