@@ -37,7 +37,10 @@ body {
   border: 1px solid var(--border);
   border-radius: 18px;
   padding: 36px;
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 20px #00ffd5,
+    0 0 50px #00ffd5,
+    0 26px 60px rgba(0, 0, 0, 0.45);
   text-align: left;
 }
 
