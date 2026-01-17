@@ -9,9 +9,6 @@ BOT_DIR="$PROJECT_DIR/WorldCupBot"
 JSON_DIR="$BOT_DIR/JSON"
 BACKUPS_DIR="$BOT_DIR/BACKUPS"
 CONFIG_PATH="$BOT_DIR/config.json"
-JSON_BACKUP_DIR=""    # temp dir for JSON backup (set when JSON exists)
-BACKUPS_BACKUP_DIR="" # temp dir for BACKUPS backup (set when BACKUPS exists)
-CONFIG_BACKUP_PATH="" # temp file for config.json backup (set when config exists)
 
 echo "[updater] Project: $PROJECT_DIR"
 echo "[updater] Branch:  $BRANCH"
@@ -45,21 +42,21 @@ echo "[updater] Reset to origin/$BRANCH"
 git reset --hard "origin/$BRANCH"
 echo "[updater] Pull..."
 git pull origin "$BRANCH" --ff-only || true
-if [[ -n "$JSON_BACKUP_DIR" ]]; then
+if [[ -n "${JSON_BACKUP_DIR:-}" ]]; then
   echo "[updater] Restore JSON dir from backup"
   rm -rf "$JSON_DIR"
   mkdir -p "$JSON_DIR"
   rsync -a --exclude "backup/" "$JSON_BACKUP_DIR/" "$JSON_DIR/"
   rm -rf "$JSON_BACKUP_DIR"
 fi
-if [[ -n "$BACKUPS_BACKUP_DIR" ]]; then
+if [[ -n "${BACKUPS_BACKUP_DIR:-}" ]]; then
   echo "[updater] Restore BACKUPS dir from backup"
   rm -rf "$BACKUPS_DIR"
   mkdir -p "$BACKUPS_DIR"
   rsync -a "$BACKUPS_BACKUP_DIR/" "$BACKUPS_DIR/"
   rm -rf "$BACKUPS_BACKUP_DIR"
 fi
-if [[ -n "$CONFIG_BACKUP_PATH" ]]; then
+if [[ -n "${CONFIG_BACKUP_PATH:-}" ]]; then
   echo "[updater] Restore config from backup"
   mkdir -p "$(dirname "$CONFIG_PATH")"
   cp -a "$CONFIG_BACKUP_PATH" "$CONFIG_PATH"
