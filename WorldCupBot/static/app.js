@@ -3063,7 +3063,8 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         tb.innerHTML = `<tr><td colspan="2" class="muted">No log lines yet.</td></tr>`;
         return;
       }
-      for (const raw of lines){
+      const ordered = [...lines].reverse();
+      for (const raw of ordered){
         const [time, msg] = splitTimeMsg(raw);
         const tr = document.createElement('tr');
         tr.dataset.text = raw.toLowerCase();

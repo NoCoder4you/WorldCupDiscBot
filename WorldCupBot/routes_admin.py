@@ -1006,6 +1006,13 @@ def create_admin_routes(ctx):
         next_stage_norm = normalize_stage(stage)
         data[team] = stage
         _write_json_atomic(path, data)
+        log.info(
+            "Team stage updated by %s (team=%s stage=%s previous_stage=%s)",
+            _user_label(),
+            team,
+            stage,
+            prev_stage,
+        )
 
         prev_rank = stage_rank(prev_stage_norm)
         next_rank = stage_rank(next_stage_norm)
@@ -1079,6 +1086,7 @@ def create_admin_routes(ctx):
         maintenance_raw = body.get("maintenance_mode", None)
 
         cfg = _load_settings(ctx)
+        prev_maintenance = bool(cfg.get("MAINTENANCE_MODE"))
         if "stage_announce_channel" in body:
             channel = str(body.get("stage_announce_channel") or "").strip()
             cfg["STAGE_ANNOUNCE_CHANNEL"] = channel
@@ -1092,6 +1100,14 @@ def create_admin_routes(ctx):
             cfg["MAINTENANCE_MODE"] = bool(maintenance_raw)
         if not _save_settings(ctx, cfg):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
+        if maintenance_raw is not None:
+            next_maintenance = bool(cfg.get("MAINTENANCE_MODE"))
+            if next_maintenance != prev_maintenance:
+                log.info(
+                    "Maintenance mode updated by %s (enabled=%s)",
+                    _user_label(),
+                    next_maintenance,
+                )
         return jsonify({
             "ok": True,
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),
