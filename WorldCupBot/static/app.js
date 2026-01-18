@@ -3057,6 +3057,21 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
     }
 
 
+    function orderLogLines(lines){
+      if (!lines.length){
+        return lines;
+      }
+      if (lines.length < 2){
+        return [...lines].reverse();
+      }
+      const [firstTime] = splitTimeMsg(lines[0]);
+      const [lastTime] = splitTimeMsg(lines[lines.length - 1]);
+      if (firstTime && lastTime && firstTime > lastTime){
+        return lines;
+      }
+      return [...lines].reverse();
+    }
+
     function renderLogLines(lines){
       const tb = document.getElementById('log-tbody');
       tb.innerHTML = '';
@@ -3064,7 +3079,7 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
         tb.innerHTML = `<tr><td colspan="2" class="muted">No log lines yet.</td></tr>`;
         return;
       }
-      const ordered = [...lines].reverse();
+      const ordered = orderLogLines(lines);
       for (const raw of ordered){
         const [time, msg] = splitTimeMsg(raw);
         const tr = document.createElement('tr');
