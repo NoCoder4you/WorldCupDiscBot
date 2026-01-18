@@ -1065,6 +1065,7 @@ def create_public_routes(ctx):
         if action not in ("forceaccept", "forcedecline", "delete"):
             return jsonify({"ok": False, "error": "invalid action"}), 400
         _enqueue_command(base, {"kind": "split_force", "request_id": req_id, "action": action})
+        log.info("Split force requested via API (request_id=%s action=%s)", req_id, action)
         return jsonify({"ok": True, "msg": "queued"})
 
     # ---------- Cogs + BACKUPS ----------
@@ -1115,7 +1116,13 @@ def create_public_routes(ctx):
     def backups_create():
         base = ctx.get("BASE_DIR","")
         name = _create_backup(base)
-        log.info("Backup created via API (name=%s)", name)
+        user = session.get(_session_key()) or {}
+        log.info(
+            "Backup created via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid() or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
         return jsonify({"ok": True, "created": name})
 
     @api.post("/backups/restore")
@@ -1129,7 +1136,13 @@ def create_public_routes(ctx):
             return jsonify({"ok": False, "error": "backup not found"}), 404
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
-        log.info("Backup restored via API (name=%s)", name)
+        user = session.get(_session_key()) or {}
+        log.info(
+            "Backup restored via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid() or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
         return jsonify({"ok": True, "restored": name})
 
     # =====================
@@ -1144,6 +1157,7 @@ def create_public_routes(ctx):
 
         state = secrets.token_urlsafe(20)
         session["oauth_state"] = state
+        log.info("User login initiated via Discord OAuth (state=%s)", state)
 
         params = {
             "response_type": "code",
@@ -2067,7 +2081,7 @@ def create_public_routes(ctx):
 
         _json_save(votes_path, votes_blob)
         log.info(
-            "Fan zone vote recorded (fixture_id=%s choice=%s fan_id=%s discord_id=%s)",
+            "Match vote recorded (fixture_id=%s choice=%s fan_id=%s discord_id=%s)",
             fixture_id,
             choice,
             fan_id,
@@ -2350,6 +2364,15 @@ def create_public_routes(ctx):
                 "channel": channel_name,
             }
         })
+        log.info(
+            "Match declared via public API (fixture_id=%s winner_side=%s winner_team=%s loser_team=%s notified_voters=%s notified_owners=%s)",
+            fixture_id,
+            winner_side,
+            resolved_winner_team,
+            resolved_loser_team,
+            len(dv),
+            len(all_owners),
+        )
 
         return jsonify({
             "ok": True,

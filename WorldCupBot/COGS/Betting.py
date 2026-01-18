@@ -143,7 +143,13 @@ class ClaimBetButton(discord.ui.View):
         embed.set_footer(text=f"{interaction.client.user.display_name} • All bets claimed are final.")
         await interaction.message.edit(embed=embed, view=None)
         await interaction.followup.send(f'You have claimed: **{bet["option2"]}**', ephemeral=True)
-        log.info("Bet claimed (bet_id=%s claimer_id=%s)", self.bet_id, user_id)
+        log.info(
+            "Bet claimed (bet_id=%s claimer_id=%s creator_id=%s option=%s)",
+            self.bet_id,
+            user_id,
+            self.bet_creator_id,
+            bet.get("option2"),
+        )
 
 class BettingCog(commands.Cog):
     def __init__(self, bot):
@@ -208,11 +214,13 @@ class BettingCog(commands.Cog):
         bets.append(bet_data)
         await write_bets(bets)
         log.info(
-            "Bet created (bet_id=%s creator_id=%s channel_id=%s title=%s)",
+            "Bet created (bet_id=%s creator_id=%s channel_id=%s title=%s option1=%s option2=%s)",
             bet_id,
             user_id,
             channel_id,
             modal.bet_title.value,
+            modal.option1.value,
+            modal.option2.value,
         )
 
 async def setup(bot):

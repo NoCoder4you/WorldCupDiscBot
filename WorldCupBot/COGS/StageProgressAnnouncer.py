@@ -1,6 +1,8 @@
-import os, json
+import os, json, logging
 import discord
 from discord.ext import commands, tasks
+
+log = logging.getLogger(__name__)
 
 class StageProgressAnnouncer(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -248,6 +250,14 @@ class StageProgressAnnouncer(commands.Cog):
             team = str(data.get("team") or "")
             stage = str(data.get("stage") or "")
             channel_name = str(data.get("channel") or "announcements")
+            owner_ids = data.get("owner_ids") or []
+            log.info(
+                "Country stage announcement queued (team=%s stage=%s channel=%s owners=%s)",
+                team,
+                stage,
+                channel_name,
+                len(owner_ids),
+            )
 
             thumb_iso = self._iso_for_team(team, data.get("team_iso"))
 
@@ -270,7 +280,6 @@ class StageProgressAnnouncer(commands.Cog):
                 except Exception:
                     pass
 
-            owner_ids = data.get("owner_ids") or []
             if owner_ids:
                 dm_emb = self._dm_embed(team, stage, thumb_iso)
                 for uid in owner_ids:
