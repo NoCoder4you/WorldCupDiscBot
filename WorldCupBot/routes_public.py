@@ -2081,7 +2081,7 @@ def create_public_routes(ctx):
 
         _json_save(votes_path, votes_blob)
         log.info(
-            "Fan zone vote recorded (fixture_id=%s choice=%s fan_id=%s discord_id=%s)",
+            "Match vote recorded (fixture_id=%s choice=%s fan_id=%s discord_id=%s)",
             fixture_id,
             choice,
             fan_id,
@@ -2364,6 +2364,15 @@ def create_public_routes(ctx):
                 "channel": channel_name,
             }
         })
+        log.info(
+            "Match declared via public API (fixture_id=%s winner_side=%s winner_team=%s loser_team=%s notified_voters=%s notified_owners=%s)",
+            fixture_id,
+            winner_side,
+            resolved_winner_team,
+            resolved_loser_team,
+            len(dv),
+            len(all_owners),
+        )
 
         return jsonify({
             "ok": True,
