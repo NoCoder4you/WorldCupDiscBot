@@ -110,7 +110,7 @@ RULE_PAGES: List[Tuple[str, str]] = [
 ]
 
 def _is_authorised(member: discord.Member) -> bool:
-    return role_utils.has_root(member) or role_utils.has_referee(member)
+    return role_utils.has_referee(member)
 
 
 class RulesCog(commands.Cog):
