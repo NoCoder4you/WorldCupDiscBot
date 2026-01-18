@@ -7,7 +7,7 @@ from discord.ext import commands
 
 RULES_SECTIONS = [
     (
-        "# World Cup 2026 - Server Rules (Aligned with Terms & Conditions)",
+        "# World Cup 2026 - Server Rules",
         """This sweepstake is for entertainment only and involves no real-world financial stakes.
 
 By joining the server or interacting with the bot, you agree to comply with the Terms and Conditions, the server rules, and Habbo's community code of conduct (The Habbo Way).""",
