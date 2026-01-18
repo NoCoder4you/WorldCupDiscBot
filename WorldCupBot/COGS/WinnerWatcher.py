@@ -2,8 +2,11 @@ import os
 import json
 import time
 from typing import List, Dict, Any, Optional
+import logging
 import discord
 from discord.ext import commands, tasks
+
+log = logging.getLogger(__name__)
 
 # ---------- File helpers ----------
 def _read_json(path: str) -> Any:
@@ -261,7 +264,7 @@ class WinnerWatcher(commands.Cog):
         await self.bot.wait_until_ready()
         bets = _read_bets()
         if not isinstance(bets, list):
-            print("[WinnerWatcher] bets.json malformed or empty")
+            log.warning("bets.json malformed or empty")
             return
 
         for bet in bets:
@@ -284,22 +287,29 @@ class WinnerWatcher(commands.Cog):
                         await msg.edit(embed=_rebuild_bet_embed(bet, self.bot.user))
                         msg_url = msg.jump_url
                     except Exception as e:
-                        print(f"[WinnerWatcher] edit failed for bet {bet_id}: {e}")
+                        log.warning("Bet message edit failed (bet_id=%s error=%s)", bet_id, e)
                 elif not msg_url:
                     msg_url = await _message_url(self.bot, chan_id, msg_id)
 
             if changed_now and winner in ("option1", "option2"):
+                log.info(
+                    "Bet settled (bet_id=%s winner=%s option1_user_id=%s option2_user_id=%s)",
+                    bet_id,
+                    winner,
+                    bet.get("option1_user_id"),
+                    bet.get("option2_user_id"),
+                )
                 admin_embed = _build_dm_embed(bet, msg_url)
                 if admin_embed:
                     admin_chan = await _resolve_admin_channel(self.bot, self._admin_bet_channel, self._admin_category)
                     if admin_chan:
                         try:
                             await admin_chan.send(embed=admin_embed)
-                            print(f"[WinnerWatcher] Admin embed posted in #{admin_chan.name} for bet {bet_id}")
+                            log.info("Bet winner embed posted (bet_id=%s channel=%s)", bet_id, admin_chan.name)
                         except Exception as e:
-                            print(f"[WinnerWatcher] failed to send admin embed for bet {bet_id}: {e}")
+                            log.warning("Bet winner embed send failed (bet_id=%s error=%s)", bet_id, e)
                     else:
-                        print("[WinnerWatcher] admin channel not found — check ADMIN_BET_CHANNEL in config.json")
+                        log.warning("Admin bet channel not found (bet_id=%s)", bet_id)
 
                 opt1_id = str(bet.get("option1_user_id") or "").strip()
                 opt2_id = str(bet.get("option2_user_id") or "").strip()
