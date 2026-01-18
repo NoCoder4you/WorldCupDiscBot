@@ -875,6 +875,12 @@ def create_admin_routes(ctx):
         if not found:
             return jsonify({"ok": False, "error": "bet_not_found"}), 404
 
+        log.info(
+            "Bet settlement requested by %s (bet_id=%s winner=%s)",
+            _user_label(),
+            bet_id,
+            winner or "clear",
+        )
         found["winner"] = winner or None
         _write_json_atomic(_bets_path(), bets)
         _enqueue_command(ctx, "bet_winner_declared", {"bet_id": bet_id, "winner": found["winner"]})
