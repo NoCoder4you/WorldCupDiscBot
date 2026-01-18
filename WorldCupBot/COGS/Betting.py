@@ -214,11 +214,13 @@ class BettingCog(commands.Cog):
         bets.append(bet_data)
         await write_bets(bets)
         log.info(
-            "Bet created (bet_id=%s creator_id=%s channel_id=%s title=%s)",
+            "Bet created (bet_id=%s creator_id=%s channel_id=%s title=%s option1=%s option2=%s)",
             bet_id,
             user_id,
             channel_id,
             modal.bet_title.value,
+            modal.option1.value,
+            modal.option2.value,
         )
 
 async def setup(bot):
