@@ -1116,7 +1116,13 @@ def create_public_routes(ctx):
     def backups_create():
         base = ctx.get("BASE_DIR","")
         name = _create_backup(base)
-        log.info("Backup created via API (name=%s)", name)
+        user = session.get(_session_key()) or {}
+        log.info(
+            "Backup created via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid() or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
         return jsonify({"ok": True, "created": name})
 
     @api.post("/backups/restore")
@@ -1130,7 +1136,13 @@ def create_public_routes(ctx):
             return jsonify({"ok": False, "error": "backup not found"}), 404
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
-        log.info("Backup restored via API (name=%s)", name)
+        user = session.get(_session_key()) or {}
+        log.info(
+            "Backup restored via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid() or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
         return jsonify({"ok": True, "restored": name})
 
     # =====================
