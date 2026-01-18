@@ -1145,6 +1145,7 @@ def create_public_routes(ctx):
 
         state = secrets.token_urlsafe(20)
         session["oauth_state"] = state
+        log.info("User login initiated via Discord OAuth (state=%s)", state)
 
         params = {
             "response_type": "code",
