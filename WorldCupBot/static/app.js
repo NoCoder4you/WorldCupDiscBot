@@ -2968,6 +2968,7 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
           <div class="chip-group" role="tablist" aria-label="Log kind">
             <button id="log-kind-bot" class="btn btn-chip" data-kind="bot">Bot</button>
             <button id="log-kind-health" class="btn btn-chip" data-kind="health">Health</button>
+            <button id="log-kind-launcher" class="btn btn-chip" data-kind="launcher">Launcher</button>
           </div>
           <button id="log-refresh" class="btn">Refresh</button>
           <button id="log-clear" class="btn">Clear</button>
