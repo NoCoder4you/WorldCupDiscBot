@@ -1065,6 +1065,7 @@ def create_public_routes(ctx):
         if action not in ("forceaccept", "forcedecline", "delete"):
             return jsonify({"ok": False, "error": "invalid action"}), 400
         _enqueue_command(base, {"kind": "split_force", "request_id": req_id, "action": action})
+        log.info("Split force requested via API (request_id=%s action=%s)", req_id, action)
         return jsonify({"ok": True, "msg": "queued"})
 
     # ---------- Cogs + BACKUPS ----------
