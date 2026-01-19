@@ -25,7 +25,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     ),
 
     (
-        "## 2. Respect and Conduct (Zero Ambiguity)",
+        "## 2. Respect and Conduct",
         "- Harassment, discrimination, hate speech, racism, bigotry, threats, bullying, stalking, and targeted abuse are forbidden.\n"
         "- No personal attacks, flaming, baiting, dogpiling, or intimidation. Critique ideas, not people.\n"
         "- No spam, flooding, excessive reactions, or repeated pings. Do not disrupt channels or voice.\n"
@@ -74,7 +74,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     ),
 
     (
-        "## 7. Split Ownership (Strict)",
+        "## 7. Split Ownership",
         "- Only the current main owner may offer a split. Pressuring, coercing, or harassing someone to split is forbidden.\n"
         "- Splits must be processed through the official bot workflow. Off-platform agreements do not override the record.\n"
         "- Default splits are equal between registered co-owners. If equal division is impossible, the main owner receives the extra share.\n"
@@ -93,7 +93,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     ),
 
     (
-        "## 9. Betting Rules (Virtual Items Only)",
+        "## 9. Betting Rules",
         "- No real-money gambling. No cash, crypto, gift cards, or real-world goods or services.\n"
         "- Bets may only involve virtual items with no real-world value, including Habbo credits and permitted in-server perks.\n"
         "- Bets are binding once both parties accept or claim in the official workflow.\n"
@@ -112,7 +112,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     ),
 
     (
-        "## 11. Bot and Automation (Hands Off)",
+        "## 11. Bot and Automation",
         "- Do not exploit, crash, reverse-engineer, probe, or interfere with bot operation or services.\n"
         "- Do not spam bot interactions, brute-force inputs, or attempt unauthorised usage or bypass safeguards.\n"
         "- Bugs must be reported promptly. Deliberate exploitation results in forfeiture and removal.\n"
