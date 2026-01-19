@@ -2257,6 +2257,12 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
             const ts   = f.mtime || f.ts;
             const dt   = ts ? new Date(ts * 1000).toLocaleString() : '';
             const title = f.title || (f.name ? f.name.replace(/\.[^/.]+$/, '') : '');
+            let sizeLabel = `${sizeBytes} B`;
+            if (sizeBytes >= 1024 * 1024) {
+              sizeLabel = `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+            } else if (sizeBytes >= 1024) {
+              sizeLabel = `${Math.round(sizeBytes / 1024)} KB`;
+            }
 
             const a = document.createElement('a');
             a.href = `/api/backups/download?rel=${encodeURIComponent(f.rel || f.name)}`;
@@ -2266,7 +2272,7 @@ window.loadSplitHistoryOnce = loadSplitHistoryOnce;
 
             tr.innerHTML = `
               <td>${a.outerHTML}</td>
-              <td>${Math.round(sizeBytes/1024/1024)} MB</td>
+              <td>${sizeLabel}</td>
               <td>${escapeHtml(dt)}</td>
               <td><a href="${a.href}" class="download-link">Download</a></td>
             `;
