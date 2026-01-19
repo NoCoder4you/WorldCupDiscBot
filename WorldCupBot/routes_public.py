@@ -186,7 +186,9 @@ def _list_backups(base_dir):
     for name in sorted(os.listdir(bdir)):
         fp = os.path.join(bdir, name)
         if os.path.isfile(fp):
-            title, _ = os.path.splitext(name)
+            title, ext = os.path.splitext(name)
+            if ext.lower() == ".zip":
+                title = name
             out.append({
                 "name": name,
                 "title": title,
