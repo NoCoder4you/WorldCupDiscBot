@@ -4238,14 +4238,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function refreshWorldMap(){
+    localStorage.removeItem('wc:ownership_merged');
+    localStorage.removeItem('wc:team_iso');
+    localStorage.removeItem('wc:team_meta');
+    localStorage.removeItem('wc:team_stage');
+    render();
+  }
+
   if (btnRefresh){
-    btnRefresh.addEventListener('click', ()=>{
-      localStorage.removeItem('wc:ownership_merged');
-      localStorage.removeItem('wc:team_iso');
-      localStorage.removeItem('wc:team_meta');
-      localStorage.removeItem('wc:team_stage');
-      render();
-    });
+    btnRefresh.addEventListener('click', refreshWorldMap);
   }
 
   const menu = document.getElementById('main-menu');
@@ -4254,7 +4256,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const a = e.target.closest('a[data-page]');
       if (!a) return;
       if (a.getAttribute('data-page') === 'worldmap'){
-        setTimeout(render, 10);
+        setTimeout(refreshWorldMap, 10);
       }
     });
   }
