@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import os
 import shutil
 import logging
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -26,8 +27,9 @@ def backup_all_json():
     backup_paths = []
     for file in json_files:
         src = os.path.join(JSON_DIR, file)
-        dst = os.path.join(BACKUP_DIR, f"{file.rsplit('.', 1)[0]}_{timestamp}.json")
-        shutil.copy2(src, dst)
+        dst = os.path.join(BACKUP_DIR, f"{file.rsplit('.', 1)[0]}_{timestamp}.zip")
+        with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.write(src, arcname=file)
         backup_paths.append(dst)
     cleanup_old_backups()
     log.info("Backup created (count=%s timestamp=%s)", len(backup_paths), timestamp)
@@ -36,7 +38,7 @@ def backup_all_json():
 def cleanup_old_backups():
     all_backups = sorted([
         os.path.join(BACKUP_DIR, f)
-        for f in os.listdir(BACKUP_DIR) if f.endswith(".json")
+        for f in os.listdir(BACKUP_DIR) if f.endswith(".zip")
     ], key=os.path.getmtime)
     if len(all_backups) > MAX_BACKUPS:
         for file in all_backups[:-MAX_BACKUPS]:
@@ -50,14 +52,16 @@ def restore_json(filename: str):
     base = filename.rsplit('.', 1)[0]
     backups = [
         f for f in os.listdir(BACKUP_DIR)
-        if f.startswith(base) and f.endswith(".json")
+        if f.startswith(base) and f.endswith(".zip")
     ]
     if not backups:
         return None
     latest_backup = sorted(backups, reverse=True)[0]
     src = os.path.join(BACKUP_DIR, latest_backup)
     dst = os.path.join(JSON_DIR, filename)
-    shutil.copy2(src, dst)
+    with zipfile.ZipFile(src, "r") as zf:
+        with zf.open(filename) as zipped_file, open(dst, "wb") as out:
+            shutil.copyfileobj(zipped_file, out)
     return src
 
 class BackupRestore(commands.Cog):
