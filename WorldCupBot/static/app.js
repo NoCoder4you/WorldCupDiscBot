@@ -503,6 +503,9 @@ function setPage(p) {
         }
         setPage(p);
         await routePage();
+        if (p === 'ownership') {
+          try { await refreshOwnershipPage(); } catch (_) {}
+        }
       });
     }
 
@@ -1612,13 +1615,18 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
     document.getElementById('reassign-backdrop').style.display = 'none';
     notify('Team reassigned', true);
 
-    try { await refreshOwnershipOnce?.(data.row); } catch (_) {}
+    try { await refreshOwnershipPage(); } catch (_) {}
   } catch (e) {
     notify('Failed to reassign', false);
   }
 });
 
 // ---- Ownership Table ----
+async function refreshOwnershipPage() {
+  ownershipState.loaded = false;
+  await initOwnership();
+}
+
 async function refreshOwnershipNow() {
   try {
     // Disable buttons briefly to avoid double clicks
@@ -4238,14 +4246,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function refreshWorldMap(){
+    localStorage.removeItem('wc:ownership_merged');
+    localStorage.removeItem('wc:team_iso');
+    localStorage.removeItem('wc:team_meta');
+    localStorage.removeItem('wc:team_stage');
+    render();
+  }
+
   if (btnRefresh){
-    btnRefresh.addEventListener('click', ()=>{
-      localStorage.removeItem('wc:ownership_merged');
-      localStorage.removeItem('wc:team_iso');
-      localStorage.removeItem('wc:team_meta');
-      localStorage.removeItem('wc:team_stage');
-      render();
-    });
+    btnRefresh.addEventListener('click', refreshWorldMap);
   }
 
   const menu = document.getElementById('main-menu');
@@ -4254,7 +4264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const a = e.target.closest('a[data-page]');
       if (!a) return;
       if (a.getAttribute('data-page') === 'worldmap'){
-        setTimeout(render, 10);
+        setTimeout(refreshWorldMap, 10);
       }
     });
   }
