@@ -4,7 +4,7 @@ import os
 import shutil
 import logging
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -67,11 +67,17 @@ def restore_json(filename: str):
 class BackupRestore(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.next_backup_at = datetime.utcnow() + timedelta(hours=6)
         self.auto_backup.start()
 
     @tasks.loop(hours=6)
     async def auto_backup(self):
+        now = datetime.utcnow()
+        if now < self.next_backup_at:
+            log.info("Auto backup skipped; next scheduled at %s", self.next_backup_at)
+            return
         backup_all_json()
+        self.next_backup_at = datetime.utcnow() + timedelta(hours=6)
         log.info("Auto backup completed")
 
     @commands.command(name="backup", help="Manually backup all JSON files to the BACKUPS folder.")
