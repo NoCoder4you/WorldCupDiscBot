@@ -142,6 +142,31 @@ body:not(.admin) li.admin-only {
     opacity: 0.85;
 }
 
+.menu a.offline-warning {
+    color: var(--danger);
+    animation: dangerFlash 1s infinite;
+}
+
+.menu a.offline-warning::after {
+    content: " --danger";
+    margin-left: 4px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.card-subtext {
+    margin-top: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    text-align: center;
+    min-height: 16px;
+}
+
+@keyframes dangerFlash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
 .nav-wrap {
     flex: 1;
     display: flex;

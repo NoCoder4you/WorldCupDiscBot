@@ -36,6 +36,8 @@
   const $offlineStatus = qs('#offline-status');
   const $offlineDetail = qs('#offline-detail');
   const $offlineSync = qs('#offline-sync');
+  const $dashboardLink = qs('#main-menu a[data-page="dashboard"]');
+  const $botStatusReason = qs('#bot-status-reason');
 
   const DASH_CACHE_KEY = 'wc:dashboardCache';
 
@@ -81,6 +83,16 @@
     }
     if ($offlineDetail && detail) $offlineDetail.textContent = detail;
     if ($offlineSync && syncText) $offlineSync.textContent = syncText;
+  }
+
+  function setDashboardWarning(active){
+    if (!$dashboardLink) return;
+    $dashboardLink.classList.toggle('offline-warning', !!active);
+  }
+
+  function setBotStatusReason(text){
+    if (!$botStatusReason) return;
+    $botStatusReason.textContent = text || '';
   }
 
 // === Global Admin View toggle (persists) ===
@@ -214,15 +226,20 @@ function stagePill(stage){
       if (page === 'settings') loadSettings().catch(()=>{});
     }
 
-function setPage(p) {
-  const adminPages = new Set(['splits','backups','log','cogs']);
-  if (adminPages.has(p) && !isAdminUI()) {
-    notify('That page requires admin login.', false);
-    p = 'dashboard';
-  }
+  function setPage(p) {
+    const adminPages = new Set(['splits','backups','log','cogs']);
+    if (adminPages.has(p) && !isAdminUI()) {
+      notify('That page requires admin login.', false);
+      p = 'dashboard';
+    }
 
-  // remember
-  state.currentPage = p;
+    if (p !== 'dashboard') {
+      setOfflineBanner({ mode: 'hidden' });
+      setDashboardWarning(false);
+    }
+
+    // remember
+    state.currentPage = p;
   localStorage.setItem('wc:lastPage', p);
 
   // nav highlight
@@ -731,20 +748,35 @@ function setPage(p) {
 
       if (!running) {
         const cachedAt = cached?.ts ? formatTime(cached.ts) : formatTime(nowMs());
-        setOfflineBanner({
-          mode: 'offline',
-          detail: `Bot is offline. Showing cached data from ${cachedAt}.`,
-          syncText: 'Waiting for bot to start…'
-        });
+        const detail = `Bot is offline. Showing cached data from ${cachedAt}.`;
+        if (state.currentPage === 'dashboard') {
+          setOfflineBanner({
+            mode: 'offline',
+            detail,
+            syncText: 'Waiting for bot to start…'
+          });
+        } else {
+          setOfflineBanner({ mode: 'hidden' });
+        }
+        setDashboardWarning(true);
+        setBotStatusReason(detail);
       } else if (state.lastBotRunning === false) {
-        setOfflineBanner({
-          mode: 'syncing',
-          detail: 'Bot is back online. Syncing dashboard data…',
-          syncText: 'Updating live data…'
-        });
-        setTimeout(() => setOfflineBanner({ mode: 'hidden' }), 3000);
+        if (state.currentPage === 'dashboard') {
+          setOfflineBanner({
+            mode: 'syncing',
+            detail: 'Bot is back online. Syncing dashboard data…',
+            syncText: 'Updating live data…'
+          });
+          setTimeout(() => setOfflineBanner({ mode: 'hidden' }), 3000);
+        } else {
+          setOfflineBanner({ mode: 'hidden' });
+        }
+        setDashboardWarning(false);
+        setBotStatusReason('');
       } else {
         setOfflineBanner({ mode: 'hidden' });
+        setDashboardWarning(false);
+        setBotStatusReason('');
       }
 
       state.offlineMode = false;
@@ -783,11 +815,18 @@ function setPage(p) {
         clearSystem();
       }
       const cachedAt = cached?.ts ? formatTime(cached.ts) : 'unknown time';
-      setOfflineBanner({
-        mode: 'offline',
-        detail: `Connection lost. Showing cached data from ${cachedAt}.`,
-        syncText: 'Waiting for bot to start…'
-      });
+      const detail = `Connection lost. Showing cached data from ${cachedAt}.`;
+      if (state.currentPage === 'dashboard') {
+        setOfflineBanner({
+          mode: 'offline',
+          detail,
+          syncText: 'Waiting for bot to start…'
+        });
+      } else {
+        setOfflineBanner({ mode: 'hidden' });
+      }
+      setDashboardWarning(true);
+      setBotStatusReason(detail);
       state.offlineMode = true;
       notify(`Dashboard error: ${e.message}`, false);
     }
