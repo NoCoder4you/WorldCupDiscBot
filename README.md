@@ -117,6 +117,27 @@ python WorldCupBot/launcher.py
 
 ---
 
+## ✅ Testing & Load Harness
+
+### Automated tests (pytest)
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+### Load testing the Flask API
+```bash
+python scripts/load_test.py --base-url http://localhost:5000 --duration 60 --concurrency 20
+```
+
+### Offline UI behavior
+The web panel now supports **offline mode** when the bot or API is unavailable. It will:
+- Show a banner when the bot is offline or the panel loses connection.
+- Render cached dashboard data while offline.
+- Display a short “syncing” indicator when the bot reconnects.
+
+--- 
+
 ## 📸 Screenshot
 
 If you want a preview on GitHub, place the admin panel screenshot at:
