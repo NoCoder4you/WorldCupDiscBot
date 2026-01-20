@@ -294,6 +294,17 @@ def _discord_default_avatar_url(user_id: str) -> str:
         idx = 0
     return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
 
+def _extract_client_ip(req) -> str:
+    headers = req.headers
+    for key in ("CF-Connecting-IP", "X-Real-IP"):
+        value = str(headers.get(key) or "").strip()
+        if value:
+            return value
+    xff = str(headers.get("X-Forwarded-For") or "").strip()
+    if xff:
+        return xff.split(",")[0].strip()
+    return str(req.remote_addr or "").strip()
+
 def _ip_match_key(raw_ip: str) -> str:
     if not raw_ip:
         return ""
@@ -574,37 +585,16 @@ def create_public_routes(ctx):
                 did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
                 if not did:
                     continue
-                tos_ip = ""
-                tos_rec = tos_map.get(did)
-                if isinstance(tos_rec, dict):
-                    tos_ip = str(tos_rec.get("ip") or "").strip()
-                ip = str(v.get("ip") or v.get("ip_address") or tos_ip or "").strip()
-                key = _ip_match_key(ip)
-                if key:
-                    ip_counts[key] = ip_counts.get(key, 0) + 1
-
-            for v in raw:
-                if not isinstance(v, dict):
-                    continue
-                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
-                if not did:
-                    continue
                 tos_rec = tos_map.get(did) if isinstance(tos_map.get(did), dict) else {}
-                ips = []
-                for item in (
-                    v.get("ip"),
-                    v.get("ip_address"),
-                    tos_rec.get("ip"),
-                ):
-                    if item:
-                        ips.append(str(item).strip())
-                for bucket in (v.get("ips"), tos_rec.get("ips")):
-                    if isinstance(bucket, list):
-                        for item in bucket:
-                            if item:
-                                ips.append(str(item).strip())
-
-                keys = {k for k in (_ip_match_key(ip) for ip in ips) if k}
+                ip = str(
+                    v.get("ip")
+                    or v.get("ip_address")
+                    or tos_rec.get("ip_client")
+                    or tos_rec.get("ip")
+                    or ""
+                ).strip()
+                key = _ip_match_key(ip) if ip else ""
+                keys = {key} if key else set()
                 user_keys[did] = keys
                 for key in keys:
                     ip_counts[key] = ip_counts.get(key, 0) + 1
@@ -1798,23 +1788,8 @@ def create_public_routes(ctx):
         uid = str(user["discord_id"])
         disp = user.get("global_name") or user.get("username") or uid
 
-        # --- capture IPs from request ---
-        ips = []
-        def add_ip(value):
-            value = str(value or "").strip()
-            if value and value not in ips:
-                ips.append(value)
-
-        xff_raw = request.headers.get("X-Forwarded-For") or ""
-        for item in xff_raw.split(","):
-            add_ip(item)
-        add_ip(request.headers.get("CF-Connecting-IP"))
-        add_ip(request.headers.get("X-Real-IP"))
-        for item in (request.access_route or []):
-            add_ip(item)
-        add_ip(request.remote_addr)
-
-        ip = ips[0] if ips else ""
+        # --- capture client IP from request ---
+        ip = _extract_client_ip(request)
 
         # --- store acceptance in tos.json (unchanged, plus ip) ---
         path = _tos_path(base)
@@ -1826,7 +1801,7 @@ def create_public_routes(ctx):
             "ts": int(time.time()),
             "display_name": disp,
             "ip": ip,
-            "ips": ips,
+            "ip_client": ip,
         }
         _json_save(path, data)
 
