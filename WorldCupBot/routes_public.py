@@ -67,6 +67,8 @@ def _split_requests_path(base_dir):
     return os.path.join(_json_dir(base_dir), "split_requests.json")
 def _split_requests_log_path(base_dir):
     return os.path.join(_json_dir(base_dir), "split_requests_log.json")
+def _login_ips_path(base_dir):
+    return os.path.join(_json_dir(base_dir), "login_ips.json")
 def _players_path(base_dir):
     return os.path.join(_json_dir(base_dir), "players.json")
 def _teams_path(base_dir):
@@ -565,6 +567,9 @@ def create_public_routes(ctx):
         base = ctx.get("BASE_DIR", "")
         blob = _json_load(_verified_path(base), {})
         raw = blob.get("verified_users") if isinstance(blob, dict) else blob
+        login_map = _json_load(_login_ips_path(base), {})
+        if not isinstance(login_map, dict):
+            login_map = {}
         tos_map = _json_load(_tos_path(base), {})
         if not isinstance(tos_map, dict):
             tos_map = {}
@@ -588,6 +593,29 @@ def create_public_routes(ctx):
                 tos_rec = tos_map.get(did) if isinstance(tos_map.get(did), dict) else {}
                 ip = str(
                     v.get("ip")
+                    or v.get("ip_address")
+                    or tos_rec.get("ip_client")
+                    or tos_rec.get("ip")
+                    or ""
+                ).strip()
+                key = _ip_match_key(ip) if ip else ""
+                keys = {key} if key else set()
+                user_keys[did] = keys
+                for key in keys:
+                    ip_counts[key] = ip_counts.get(key, 0) + 1
+
+            for v in raw:
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                if not did:
+                    continue
+                login_rec = login_map.get(did) if isinstance(login_map.get(did), dict) else {}
+                tos_rec = tos_map.get(did) if isinstance(tos_map.get(did), dict) else {}
+                ip = str(
+                    login_rec.get("ip_client")
+                    or login_rec.get("ip")
+                    or v.get("ip")
                     or v.get("ip_address")
                     or tos_rec.get("ip_client")
                     or tos_rec.get("ip")
@@ -1289,6 +1317,17 @@ def create_public_routes(ctx):
             "avatar": avatar,
             "ts": int(time.time())
         }
+        ip = _extract_client_ip(request)
+        if session[_session_key()].get("discord_id"):
+            ip_path = _login_ips_path(ctx.get("BASE_DIR", ""))
+            ip_data = _json_load(ip_path, {})
+            if not isinstance(ip_data, dict):
+                ip_data = {}
+            ip_data[session[_session_key()]["discord_id"]] = {
+                "ip_client": ip,
+                "ts": int(time.time()),
+            }
+            _json_save(ip_path, ip_data)
         log.info(
             "User login via Discord OAuth (discord_id=%s username=%s)",
             session[_session_key()].get("discord_id"),
