@@ -564,6 +564,28 @@ def create_public_routes(ctx):
             for v in raw:
                 if not isinstance(v, dict):
                     continue
+                ip = str(v.get("ip") or v.get("ip_address") or "").strip()
+                if ip:
+                    ip_counts[ip] = ip_counts.get(ip, 0) + 1
+
+            for v in raw:
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                if not did:
+                    continue
+                tos_ip = ""
+                tos_rec = tos_map.get(did)
+                if isinstance(tos_rec, dict):
+                    tos_ip = str(tos_rec.get("ip") or "").strip()
+                ip = str(v.get("ip") or v.get("ip_address") or tos_ip or "").strip()
+                key = _ip_match_key(ip)
+                if key:
+                    ip_counts[key] = ip_counts.get(key, 0) + 1
+
+            for v in raw:
+                if not isinstance(v, dict):
+                    continue
                 did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
                 if not did:
                     continue
