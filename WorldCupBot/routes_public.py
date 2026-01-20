@@ -301,15 +301,11 @@ def _ip_match_key(raw_ip: str) -> str:
         addr = ipaddress.ip_address(raw_ip)
     except ValueError:
         return ""
+    if not addr.is_global:
+        return ""
     if addr.version == 4:
-        if addr.is_private:
-            net = ipaddress.ip_network(f"{addr}/24", strict=False)
-            return f"v4-private:{net.network_address}/24"
         return f"v4:{addr.compressed}"
     if addr.version == 6:
-        if addr.is_private:
-            net = ipaddress.ip_network(f"{addr}/64", strict=False)
-            return f"v6-private:{net.network_address}/64"
         return f"v6:{addr.compressed}"
     return ""
 
