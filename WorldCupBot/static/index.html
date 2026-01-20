@@ -13,7 +13,7 @@
           <input type="checkbox" id="menu-toggle">
           <label class="menu-icon" for="menu-toggle">&#9776;</label>
           <ul class="menu" id="main-menu">
-              <li><a href="#" data-page="dashboard" class="active">Dashboard</a></li>
+              <li><a href="#" id="dashboard-link" data-page="dashboard" class="active">Dashboard</a></li>
               <li><a href="#" data-page="bets">Bets</a></li>
               <li><a href="#" data-page="ownership">Ownership</a></li>
               <li><a href="#" data-page="worldmap">World Map</a></li>
@@ -31,6 +31,14 @@
           </ul>
         </nav>
       </header>
+      <div id="offline-banner" class="offline-banner" role="status" aria-live="polite">
+          <span class="offline-dot" aria-hidden="true"></span>
+          <div class="offline-text">
+              <div id="offline-status" class="offline-title">Offline mode</div>
+              <div id="offline-detail" class="offline-detail">Showing cached data.</div>
+          </div>
+          <div id="offline-sync" class="offline-sync">Waiting for bot to start…</div>
+      </div>
 
       <main id="app-main">
           <!-- DASHBOARD -->
@@ -53,6 +61,7 @@
                   <div class="card card-c">
                       <div class="card-title">Bot Process</div>
                       <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
+                      <div class="card-subtext" id="bot-status-reason"></div>
                   </div>
 
                   <!-- D - admin-only -->
