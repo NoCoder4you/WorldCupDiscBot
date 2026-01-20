@@ -70,7 +70,7 @@ class BackupRestore(commands.Cog):
         self.next_backup_at = datetime.utcnow() + timedelta(hours=6)
         self.auto_backup.start()
 
-    @tasks.loop(hours=6)
+    @tasks.loop(minutes=3)
     async def auto_backup(self):
         now = datetime.utcnow()
         if now < self.next_backup_at:
