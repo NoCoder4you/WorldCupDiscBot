@@ -67,7 +67,7 @@ def restore_json(filename: str):
 class BackupRestore(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.next_backup_at = datetime.now() + timedelta(hours=6)
+        self.next_backup_at = datetime.now() + timedelta(minutes=3)
         self.auto_backup.start()
 
     @tasks.loop(minutes=3)
@@ -77,7 +77,7 @@ class BackupRestore(commands.Cog):
             log.info("Auto backup skipped; next scheduled at %s", self.next_backup_at)
             return
         backup_all_json()
-        self.next_backup_at = datetime.now() + timedelta(hours=6)
+        self.next_backup_at = datetime.now() + timedelta(minutes=3)
         log.info("Auto backup completed")
 
     @commands.command(name="backup", help="Manually backup all JSON files to the BACKUPS folder.")
