@@ -540,7 +540,15 @@ def create_public_routes(ctx):
         blob = _json_load(_verified_path(base), {})
         raw = blob.get("verified_users") if isinstance(blob, dict) else blob
         out = []
+        ip_counts = {}
         if isinstance(raw, list):
+            for v in raw:
+                if not isinstance(v, dict):
+                    continue
+                ip = str(v.get("ip") or v.get("ip_address") or "").strip()
+                if ip:
+                    ip_counts[ip] = ip_counts.get(ip, 0) + 1
+
             for v in raw:
                 if not isinstance(v, dict):
                     continue
@@ -548,6 +556,7 @@ def create_public_routes(ctx):
                 if not did:
                     continue
 
+                ip = str(v.get("ip") or v.get("ip_address") or "").strip()
                 avatar_field = (
                     v.get("avatar_url")
                     or v.get("avatarUrl")
@@ -576,8 +585,7 @@ def create_public_routes(ctx):
                     "habbo_name": v.get("habbo_name") or "",
                     "avatar_hash": avatar_hash,
                     "avatar_url": avatar_url,
-                    # IP info - adjust keys if your JSON uses a different name
-                    "ip": v.get("ip") or v.get("ip_address") or "",
+                    "ip_match": bool(ip and ip_counts.get(ip, 0) > 1),
                 }
                 out.append(user)
         return jsonify(out)
