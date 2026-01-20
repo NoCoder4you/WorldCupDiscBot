@@ -81,6 +81,67 @@ body:not(.admin) li.admin-only {
     color: var(--accent)
 }
 
+.offline-banner {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    background: rgba(249, 149, 74, 0.16);
+    border-bottom: 1px solid rgba(249, 149, 74, 0.35);
+    color: #f7d7b7;
+    position: sticky;
+    top: 56px;
+    z-index: 45;
+    backdrop-filter: blur(6px);
+}
+
+.offline-banner.is-visible {
+    display: flex;
+}
+
+.offline-banner.is-syncing {
+    background: rgba(46, 173, 120, 0.18);
+    border-bottom-color: rgba(46, 173, 120, 0.4);
+    color: #d2f5e6;
+}
+
+.offline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #f9954a;
+    box-shadow: 0 0 8px rgba(249, 149, 74, 0.8);
+    flex-shrink: 0;
+}
+
+.offline-banner.is-syncing .offline-dot {
+    background: #2ead78;
+    box-shadow: 0 0 8px rgba(46, 173, 120, 0.8);
+}
+
+.offline-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.offline-title {
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.offline-detail {
+    font-size: 12px;
+    opacity: 0.85;
+}
+
+.offline-sync {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.85;
+}
+
 .nav-wrap {
     flex: 1;
     display: flex;

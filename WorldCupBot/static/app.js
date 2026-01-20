@@ -18,6 +18,8 @@
     logsKind: 'bot',
     logsInit: false,
     userId: null,
+    lastBotRunning: null,
+    offlineMode: false,
   };
 
   const {
@@ -30,6 +32,56 @@
   const $backdrop = qs('#auth-backdrop');
   const $btnCancel = qs('#auth-cancel');
   const $btnSubmit = qs('#auth-submit');
+  const $offlineBanner = qs('#offline-banner');
+  const $offlineStatus = qs('#offline-status');
+  const $offlineDetail = qs('#offline-detail');
+  const $offlineSync = qs('#offline-sync');
+
+  const DASH_CACHE_KEY = 'wc:dashboardCache';
+
+  function nowMs(){ return Date.now(); }
+
+  function formatTime(ts){
+    if (!ts) return 'unknown time';
+    try{
+      return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }catch{
+      return 'unknown time';
+    }
+  }
+
+  function readDashCache(){
+    try{
+      const raw = localStorage.getItem(DASH_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return parsed;
+    }catch{
+      return null;
+    }
+  }
+
+  function writeDashCache(payload){
+    try{
+      localStorage.setItem(DASH_CACHE_KEY, JSON.stringify({ ...payload, ts: nowMs() }));
+    }catch{}
+  }
+
+  function setOfflineBanner({mode, detail, syncText} = {}){
+    if (!$offlineBanner) return;
+    if (mode === 'hidden') {
+      $offlineBanner.classList.remove('is-visible', 'is-syncing');
+      return;
+    }
+    $offlineBanner.classList.add('is-visible');
+    $offlineBanner.classList.toggle('is-syncing', mode === 'syncing');
+    if ($offlineStatus) {
+      $offlineStatus.textContent = mode === 'syncing' ? 'Syncing data' : 'Offline mode';
+    }
+    if ($offlineDetail && detail) $offlineDetail.textContent = detail;
+    if ($offlineSync && syncText) $offlineSync.textContent = syncText;
+  }
 
 // === Global Admin View toggle (persists) ===
 const ADMIN_VIEW_KEY = 'wc:adminView';
@@ -659,6 +711,7 @@ function setPage(p) {
 
   // --- DASHBOARD ---
   async function loadDash(){
+    const cached = readDashCache();
     try{
       const upP = fetchJSON('/api/uptime');
       const t0 = performance.now();
@@ -674,6 +727,28 @@ function setPage(p) {
       renderUptime(up, running);
       renderPing(ping, latency);
       if(isAdminUI() && sys) renderSystem(sys); else clearSystem();
+      writeDashCache({ up, ping, sys, running, latencyMs: latency });
+
+      if (!running) {
+        const cachedAt = cached?.ts ? formatTime(cached.ts) : formatTime(nowMs());
+        setOfflineBanner({
+          mode: 'offline',
+          detail: `Bot is offline. Showing cached data from ${cachedAt}.`,
+          syncText: 'Waiting for bot to start…'
+        });
+      } else if (state.lastBotRunning === false) {
+        setOfflineBanner({
+          mode: 'syncing',
+          detail: 'Bot is back online. Syncing dashboard data…',
+          syncText: 'Updating live data…'
+        });
+        setTimeout(() => setOfflineBanner({ mode: 'hidden' }), 3000);
+      } else {
+        setOfflineBanner({ mode: 'hidden' });
+      }
+
+      state.offlineMode = false;
+      state.lastBotRunning = running;
 
       // Bot Actions (admin only). Buttons are not admin-gated, so JS fully controls them
       const $actions = qs('#bot-actions');
@@ -695,7 +770,27 @@ function setPage(p) {
           $actions.style.gridTemplateColumns = '1fr';
         }
       }
-    }catch(e){ notify(`Dashboard error: ${e.message}`, false); }
+    }catch(e){
+      if (cached?.up) {
+        renderUptime(cached.up, cached.running);
+      }
+      if (cached?.ping) {
+        renderPing(cached.ping, cached.latencyMs || 0);
+      }
+      if (isAdminUI() && cached?.sys) {
+        renderSystem(cached.sys);
+      } else {
+        clearSystem();
+      }
+      const cachedAt = cached?.ts ? formatTime(cached.ts) : 'unknown time';
+      setOfflineBanner({
+        mode: 'offline',
+        detail: `Connection lost. Showing cached data from ${cachedAt}.`,
+        syncText: 'Waiting for bot to start…'
+      });
+      state.offlineMode = true;
+      notify(`Dashboard error: ${e.message}`, false);
+    }
   }
 
   function clearSystem(){
