@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for, make_response
-import os, time, json, shutil, zipfile, datetime, glob, re
+import os, time, json, shutil, zipfile, datetime, glob, re, ipaddress
 import logging
 import psutil
 import secrets
@@ -294,6 +294,25 @@ def _discord_default_avatar_url(user_id: str) -> str:
         idx = 0
     return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
 
+def _ip_match_key(raw_ip: str) -> str:
+    if not raw_ip:
+        return ""
+    try:
+        addr = ipaddress.ip_address(raw_ip)
+    except ValueError:
+        return ""
+    if addr.version == 4:
+        if addr.is_private:
+            net = ipaddress.ip_network(f"{addr}/24", strict=False)
+            return f"v4-private:{net.network_address}/24"
+        return f"v4:{addr.compressed}"
+    if addr.version == 6:
+        if addr.is_private:
+            net = ipaddress.ip_network(f"{addr}/64", strict=False)
+            return f"v6-private:{net.network_address}/64"
+        return f"v6:{addr.compressed}"
+    return ""
+
 # ---------- Masquerade helper ----------
 def _effective_uid():
     """Return actual logged-in user OR masqueraded user id."""
@@ -539,6 +558,9 @@ def create_public_routes(ctx):
         base = ctx.get("BASE_DIR", "")
         blob = _json_load(_verified_path(base), {})
         raw = blob.get("verified_users") if isinstance(blob, dict) else blob
+        tos_map = _json_load(_tos_path(base), {})
+        if not isinstance(tos_map, dict):
+            tos_map = {}
         out = []
         ip_counts = {}
         if isinstance(raw, list):
@@ -555,8 +577,28 @@ def create_public_routes(ctx):
                 did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
                 if not did:
                     continue
+                tos_ip = ""
+                tos_rec = tos_map.get(did)
+                if isinstance(tos_rec, dict):
+                    tos_ip = str(tos_rec.get("ip") or "").strip()
+                ip = str(v.get("ip") or v.get("ip_address") or tos_ip or "").strip()
+                key = _ip_match_key(ip)
+                if key:
+                    ip_counts[key] = ip_counts.get(key, 0) + 1
 
-                ip = str(v.get("ip") or v.get("ip_address") or "").strip()
+            for v in raw:
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                if not did:
+                    continue
+
+                tos_ip = ""
+                tos_rec = tos_map.get(did)
+                if isinstance(tos_rec, dict):
+                    tos_ip = str(tos_rec.get("ip") or "").strip()
+                ip = str(v.get("ip") or v.get("ip_address") or tos_ip or "").strip()
+                key = _ip_match_key(ip)
                 avatar_field = (
                     v.get("avatar_url")
                     or v.get("avatarUrl")
@@ -585,7 +627,7 @@ def create_public_routes(ctx):
                     "habbo_name": v.get("habbo_name") or "",
                     "avatar_hash": avatar_hash,
                     "avatar_url": avatar_url,
-                    "ip_match": bool(ip and ip_counts.get(ip, 0) > 1),
+                    "ip_match": bool(key and ip_counts.get(key, 0) > 1),
                 }
                 out.append(user)
         return jsonify(out)
