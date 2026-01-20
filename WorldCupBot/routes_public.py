@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, send_from_directory, current_app, abort, request, send_file, session, redirect, url_for, make_response
-import os, time, json, shutil, zipfile, datetime, glob, re
+import os, time, json, shutil, zipfile, datetime, glob, re, ipaddress
 import logging
 import psutil
 import secrets
@@ -294,6 +294,21 @@ def _discord_default_avatar_url(user_id: str) -> str:
         idx = 0
     return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
 
+def _ip_match_key(raw_ip: str) -> str:
+    if not raw_ip:
+        return ""
+    try:
+        addr = ipaddress.ip_address(raw_ip)
+    except ValueError:
+        return ""
+    if not addr.is_global:
+        return ""
+    if addr.version == 4:
+        return f"v4:{addr.compressed}"
+    if addr.version == 6:
+        return f"v6:{addr.compressed}"
+    return ""
+
 # ---------- Masquerade helper ----------
 def _effective_uid():
     """Return actual logged-in user OR masqueraded user id."""
@@ -539,7 +554,12 @@ def create_public_routes(ctx):
         base = ctx.get("BASE_DIR", "")
         blob = _json_load(_verified_path(base), {})
         raw = blob.get("verified_users") if isinstance(blob, dict) else blob
+        tos_map = _json_load(_tos_path(base), {})
+        if not isinstance(tos_map, dict):
+            tos_map = {}
         out = []
+        ip_counts = {}
+        user_keys = {}
         if isinstance(raw, list):
             for v in raw:
                 if not isinstance(v, dict):
@@ -547,7 +567,34 @@ def create_public_routes(ctx):
                 did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
                 if not did:
                     continue
+                tos_rec = tos_map.get(did) if isinstance(tos_map.get(did), dict) else {}
+                ips = []
+                for item in (
+                    v.get("ip"),
+                    v.get("ip_address"),
+                    tos_rec.get("ip"),
+                ):
+                    if item:
+                        ips.append(str(item).strip())
+                for bucket in (v.get("ips"), tos_rec.get("ips")):
+                    if isinstance(bucket, list):
+                        for item in bucket:
+                            if item:
+                                ips.append(str(item).strip())
 
+                keys = {k for k in (_ip_match_key(ip) for ip in ips) if k}
+                user_keys[did] = keys
+                for key in keys:
+                    ip_counts[key] = ip_counts.get(key, 0) + 1
+
+            for v in raw:
+                if not isinstance(v, dict):
+                    continue
+                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+                if not did:
+                    continue
+
+                keys = user_keys.get(did, set())
                 avatar_field = (
                     v.get("avatar_url")
                     or v.get("avatarUrl")
@@ -576,8 +623,7 @@ def create_public_routes(ctx):
                     "habbo_name": v.get("habbo_name") or "",
                     "avatar_hash": avatar_hash,
                     "avatar_url": avatar_url,
-                    # IP info - adjust keys if your JSON uses a different name
-                    "ip": v.get("ip") or v.get("ip_address") or "",
+                    "ip_match": any(ip_counts.get(key, 0) > 1 for key in keys),
                 }
                 out.append(user)
         return jsonify(out)
@@ -1730,9 +1776,23 @@ def create_public_routes(ctx):
         uid = str(user["discord_id"])
         disp = user.get("global_name") or user.get("username") or uid
 
-        # --- capture IP from request ---
-        xff = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
-        ip = xff or (request.remote_addr or "")
+        # --- capture IPs from request ---
+        ips = []
+        def add_ip(value):
+            value = str(value or "").strip()
+            if value and value not in ips:
+                ips.append(value)
+
+        xff_raw = request.headers.get("X-Forwarded-For") or ""
+        for item in xff_raw.split(","):
+            add_ip(item)
+        add_ip(request.headers.get("CF-Connecting-IP"))
+        add_ip(request.headers.get("X-Real-IP"))
+        for item in (request.access_route or []):
+            add_ip(item)
+        add_ip(request.remote_addr)
+
+        ip = ips[0] if ips else ""
 
         # --- store acceptance in tos.json (unchanged, plus ip) ---
         path = _tos_path(base)
@@ -1744,6 +1804,7 @@ def create_public_routes(ctx):
             "ts": int(time.time()),
             "display_name": disp,
             "ip": ip,
+            "ips": ips,
         }
         _json_save(path, data)
 
