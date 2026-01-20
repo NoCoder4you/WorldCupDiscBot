@@ -24,16 +24,14 @@ def backup_all_json():
     ensure_backup_dir()
     json_files = [f for f in os.listdir(JSON_DIR) if f.endswith(".json")]
     timestamp = get_timestamp()
-    backup_paths = []
-    for file in json_files:
-        src = os.path.join(JSON_DIR, file)
-        dst = os.path.join(BACKUP_DIR, f"{file.rsplit('.', 1)[0]}_{timestamp}.zip")
-        with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    dst = os.path.join(BACKUP_DIR, f"{timestamp}.zip")
+    with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for file in json_files:
+            src = os.path.join(JSON_DIR, file)
             zf.write(src, arcname=file)
-        backup_paths.append(dst)
     cleanup_old_backups()
-    log.info("Backup created (count=%s timestamp=%s)", len(backup_paths), timestamp)
-    return backup_paths
+    log.info("Backup created (count=%s timestamp=%s)", len(json_files), timestamp)
+    return [dst]
 
 def cleanup_old_backups():
     all_backups = sorted([
@@ -49,19 +47,21 @@ def cleanup_old_backups():
 
 def restore_json(filename: str):
     """Restore a specific file from the most recent backup."""
-    base = filename.rsplit('.', 1)[0]
     backups = [
-        f for f in os.listdir(BACKUP_DIR)
-        if f.startswith(base) and f.endswith(".zip")
+        os.path.join(BACKUP_DIR, f)
+        for f in os.listdir(BACKUP_DIR)
+        if f.endswith(".zip")
     ]
     if not backups:
         return None
-    latest_backup = sorted(backups, reverse=True)[0]
-    src = os.path.join(BACKUP_DIR, latest_backup)
+    src = max(backups, key=os.path.getmtime)
     dst = os.path.join(JSON_DIR, filename)
     with zipfile.ZipFile(src, "r") as zf:
-        with zf.open(filename) as zipped_file, open(dst, "wb") as out:
-            shutil.copyfileobj(zipped_file, out)
+        try:
+            with zf.open(filename) as zipped_file, open(dst, "wb") as out:
+                shutil.copyfileobj(zipped_file, out)
+        except KeyError:
+            return None
     return src
 
 class BackupRestore(commands.Cog):
