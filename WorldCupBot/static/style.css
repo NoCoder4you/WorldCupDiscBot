@@ -142,14 +142,14 @@ body:not(.admin) li.admin-only {
     opacity: 0.85;
 }
 
-.menu a.offline-warning,
-.menu a.offline-warning.active {
+#dashboard-link.offline-warning,
+#dashboard-link.offline-warning.active {
     color: var(--danger) !important;
     background: rgba(235, 87, 87, 0.18);
     animation: dangerFlash 1s infinite;
 }
 
-.menu a.offline-warning::after {
+#dashboard-link.offline-warning::after {
     content: " --danger";
     margin-left: 4px;
     font-weight: 800;

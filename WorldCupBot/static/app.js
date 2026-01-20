@@ -36,7 +36,7 @@
   const $offlineStatus = qs('#offline-status');
   const $offlineDetail = qs('#offline-detail');
   const $offlineSync = qs('#offline-sync');
-  const $dashboardLink = qs('#main-menu a[data-page="dashboard"]');
+  const $dashboardLink = qs('#dashboard-link');
   const $botStatusReason = qs('#bot-status-reason');
 
   const DASH_CACHE_KEY = 'wc:dashboardCache';
