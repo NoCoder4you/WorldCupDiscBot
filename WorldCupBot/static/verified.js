@@ -58,14 +58,14 @@
       const discordName = esc(v.display_name || v.username || '(unknown)');
       const discordId   = esc(v.discord_id || '');
       const habbo       = esc(v.habbo_name || '');
-      const ip          = esc(v.ip || '');
+      const ipMatch     = v.ip_match ? '⚠️ Shared' : '—';
 
       return `
         <tr>
           <td>${discordName}</td>
           <td>${discordId}</td>
           <td>${habbo}</td>
-          <td>${ip}</td>
+          <td>${ipMatch}</td>
         </tr>
       `;
     }).join('');
@@ -77,7 +77,7 @@
             <th>Discord</th>
             <th>Discord ID</th>
             <th>Habbo</th>
-            <th>IP</th>
+            <th>IP Match</th>
           </tr>
         </thead>
         <tbody>
