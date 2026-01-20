@@ -36,7 +36,7 @@
   const $offlineStatus = qs('#offline-status');
   const $offlineDetail = qs('#offline-detail');
   const $offlineSync = qs('#offline-sync');
-  const $dashboardLink = qs('#dashboard-link');
+  const $dashboardLink = qs('#dashboard-link') || qs('#main-menu a[data-page="dashboard"]');
   const $botStatusReason = qs('#bot-status-reason');
 
   const DASH_CACHE_KEY = 'wc:dashboardCache';
@@ -93,6 +93,19 @@
   function setBotStatusReason(text){
     if (!$botStatusReason) return;
     $botStatusReason.textContent = text || '';
+  }
+
+  function applyDashboardWarningState(){
+    if (state.lastBotRunning === false || state.offlineMode) {
+      setDashboardWarning(true);
+      return;
+    }
+    const cached = readDashCache();
+    if (cached && cached.running === false) {
+      setDashboardWarning(true);
+      return;
+    }
+    setDashboardWarning(false);
   }
 
 // === Global Admin View toggle (persists) ===
@@ -235,7 +248,7 @@ function stagePill(stage){
 
     if (p !== 'dashboard') {
       setOfflineBanner({ mode: 'hidden' });
-      setDashboardWarning(false);
+      applyDashboardWarningState();
     }
 
     // remember
@@ -758,7 +771,8 @@ function stagePill(stage){
         } else {
           setOfflineBanner({ mode: 'hidden' });
         }
-        setDashboardWarning(true);
+        state.offlineMode = true;
+        applyDashboardWarningState();
         setBotStatusReason(detail);
       } else if (state.lastBotRunning === false) {
         if (state.currentPage === 'dashboard') {
@@ -771,15 +785,16 @@ function stagePill(stage){
         } else {
           setOfflineBanner({ mode: 'hidden' });
         }
-        setDashboardWarning(false);
+        state.offlineMode = false;
+        applyDashboardWarningState();
         setBotStatusReason('');
       } else {
         setOfflineBanner({ mode: 'hidden' });
-        setDashboardWarning(false);
+        state.offlineMode = false;
+        applyDashboardWarningState();
         setBotStatusReason('');
       }
 
-      state.offlineMode = false;
       state.lastBotRunning = running;
 
       // Bot Actions (admin only). Buttons are not admin-gated, so JS fully controls them
@@ -825,9 +840,9 @@ function stagePill(stage){
       } else {
         setOfflineBanner({ mode: 'hidden' });
       }
-      setDashboardWarning(true);
-      setBotStatusReason(detail);
       state.offlineMode = true;
+      applyDashboardWarningState();
+      setBotStatusReason(detail);
       notify(`Dashboard error: ${e.message}`, false);
     }
   }
@@ -3411,7 +3426,7 @@ async function getCogStatus(name){
   }
   function stopPolling(){ if(state.pollingId) clearInterval(state.pollingId); state.pollingId=null; }
 
-    async function init(){
+  async function init(){
       await refreshAuth();
       ensureAdminToggleButton();
       applyAdminView();
@@ -3421,6 +3436,7 @@ async function getCogStatus(name){
       startNotifPolling();
       wireBotButtons();
       setPage(state.currentPage);
+      applyDashboardWarningState();
       await routePage();
       startPolling();
     }
