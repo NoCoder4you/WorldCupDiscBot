@@ -137,6 +137,10 @@
   }
 
   function applyDashboardWarningState(){
+    if (!isAdminUI()) {
+      setDashboardWarning(false);
+      return;
+    }
     if (state.lastBotRunning === false || state.offlineMode) {
       setDashboardWarning(true);
       return;
@@ -3467,7 +3471,9 @@ async function getCogStatus(name){
 
   async function routePage(){
     switch(state.currentPage){
-      case 'dashboard': await loadDash(); break;
+      case 'dashboard':
+        await loadDash();
+        break;
       case 'bets': await loadAndRenderBets(); break;
       case 'ownership': await loadOwnershipPage(); break;
       case 'settings': await loadSettings(); break;
