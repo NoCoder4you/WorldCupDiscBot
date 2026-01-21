@@ -1089,8 +1089,21 @@ def create_public_routes(ctx):
     @api.get("/split_requests")
     def split_requests_get():
         base = ctx.get("BASE_DIR","")
-        data = _json_load(_split_requests_path(base), {"pending": [], "resolved": []})
-        data.setdefault("pending", []); data.setdefault("resolved", [])
+        raw = _json_load(_split_requests_path(base), {})
+        pending = []
+        if isinstance(raw, dict):
+            if "pending" in raw or "resolved" in raw:
+                pending = raw.get("pending") if isinstance(raw.get("pending"), list) else []
+            else:
+                for req_id, entry in raw.items():
+                    if isinstance(entry, dict):
+                        merged = {"id": req_id}
+                        merged.update(entry)
+                        pending.append(merged)
+        split_log = _json_load(_split_requests_log_path(base), [])
+        events = split_log.get("events") if isinstance(split_log, dict) else split_log
+        resolved = events if isinstance(events, list) else []
+        data = {"pending": pending, "resolved": resolved}
         return jsonify(data)
 
     @api.post("/split_requests/force")
