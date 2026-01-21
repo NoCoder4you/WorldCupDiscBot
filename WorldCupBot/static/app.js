@@ -3477,7 +3477,7 @@ async function getCogStatus(name){
   function startPolling(){
     stopPolling();
     state.pollingId = setInterval(async ()=>{
-      if(state.currentPage==='dashboard') await loadDash();
+      await loadDash();
     }, 5000);
   }
   function stopPolling(){ if(state.pollingId) clearInterval(state.pollingId); state.pollingId=null; }
@@ -3494,6 +3494,9 @@ async function getCogStatus(name){
       setPage(state.currentPage);
       applyDashboardWarningState();
       await routePage();
+      if (state.currentPage !== 'dashboard') {
+        await loadDash();
+      }
       startPolling();
     }
   window.addEventListener('load', init);
