@@ -1266,19 +1266,20 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .splits-layout {
     display: grid;
     gap: 16px;
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .splits-panel {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
 }
 
-@media (min-width: 1100px) {
-    .splits-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        align-items: start;
-    }
+#splits .table-wrap {
+    max-width: 1200px;
+    width: 100%;
+    margin: 16px auto;
 }
 
 .split-section {
