@@ -1276,6 +1276,12 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     width: 100%;
 }
 
+#splits .table-wrap {
+    max-width: 100%;
+    width: 100%;
+    margin: 16px 0;
+}
+
 @media (min-width: 1100px) {
     .splits-layout {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
