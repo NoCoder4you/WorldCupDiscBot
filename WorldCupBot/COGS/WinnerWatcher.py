@@ -98,7 +98,11 @@ def _rebuild_bet_embed(bet: Dict[str, Any], bot_user: Optional[discord.User]) ->
     return embed
 
 # ---------- DM embed ----------
-def _build_dm_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[discord.Embed]:
+def _build_admin_bet_settled_embed(
+    bet: Dict[str, Any],
+    msg_url: Optional[str],
+    channel_id: int,
+) -> Optional[discord.Embed]:
     winner = bet.get("winner")
     if winner not in ("option1", "option2"):
         return None
@@ -108,15 +112,40 @@ def _build_dm_embed(bet: Dict[str, Any], msg_url: Optional[str]) -> Optional[dis
     option2 = bet.get("option2") or "Option 2"
     opt1_user = f"<@{bet['option1_user_id']}>" if bet.get("option1_user_id") else (bet.get("option1_user_name") or "Unclaimed")
     opt2_user = f"<@{bet['option2_user_id']}>" if bet.get("option2_user_id") else (bet.get("option2_user_name") or "Unclaimed")
+    wager = bet.get("wager") or "-"
+    now = int(time.time())
+    winner_name = option1 if winner == "option1" else option2
+    loser_name = option2 if winner == "option1" else option1
+    winner_user = opt1_user if winner == "option1" else opt2_user
+    loser_user = opt2_user if winner == "option1" else opt1_user
     emb = discord.Embed(
-        title=f"Bet {bet_id}: {bet_title}",
+        title=f"Bet Settled: {bet_title}",
         color=discord.Color.gold(),
-        timestamp=discord.utils.utcnow()
+        timestamp=discord.utils.utcnow(),
     )
-    emb.add_field(name=option1, value=f"Claimed by: {opt1_user}", inline=False)
-    emb.add_field(name=option2, value=f"Claimed by: {opt2_user}", inline=False)
+    emb.add_field(
+        name="Who",
+        value=(
+            f"Winner: {winner_user} ({winner_name})\n"
+            f"Loser: {loser_user} ({loser_name})"
+        ),
+        inline=False,
+    )
+    emb.add_field(
+        name="What",
+        value=f"Bet ID: {bet_id}\nWager: {wager}\nOutcome: {winner_name}",
+        inline=False,
+    )
     if msg_url:
-        emb.add_field(name="Jump to bet", value=f"[Open message]({msg_url})", inline=False)
+        location = f"[Open bet message]({msg_url})"
+        if channel_id:
+            location = f"{location} in <#{channel_id}>"
+    elif channel_id:
+        location = f"Bet channel: <#{channel_id}>"
+    else:
+        location = "Bet message unavailable"
+    emb.add_field(name="Where", value=location, inline=False)
+    emb.add_field(name="When", value=f"<t:{now}:F>", inline=False)
     emb.set_footer(text="World Cup 2026")
     return emb
 
@@ -241,7 +270,7 @@ async def _resolve_admin_channel(bot: commands.Bot, pref: Any, admin_category: s
     for guild in bot.guilds:
         cat = discord.utils.get(guild.categories, name=admin_category)
         if cat:
-            chan = discord.utils.get(cat.text_channels, name="bets-winner")
+            chan = discord.utils.get(cat.text_channels, name="bet-settled")
             if isinstance(chan, discord.TextChannel):
                 return chan
     return None
@@ -253,7 +282,7 @@ class WinnerWatcher(commands.Cog):
         self._last_winner: Dict[str, Optional[str]] = {}
         self._config = _read_config()
         self._admin_category = self._config.get("ADMIN_CATEGORY_NAME", "World Cup Admin")
-        self._admin_bet_channel = self._config.get("ADMIN_BET_CHANNEL") or "bets-winner"
+        self._admin_bet_channel = self._config.get("ADMIN_BET_CHANNEL") or "bet-settled"
         self.poll.start()
 
     def cog_unload(self):
@@ -299,7 +328,7 @@ class WinnerWatcher(commands.Cog):
                     bet.get("option1_user_id"),
                     bet.get("option2_user_id"),
                 )
-                admin_embed = _build_dm_embed(bet, msg_url)
+                admin_embed = _build_admin_bet_settled_embed(bet, msg_url, chan_id)
                 if admin_embed:
                     admin_chan = await _resolve_admin_channel(self.bot, self._admin_bet_channel, self._admin_category)
                     if admin_chan:
