@@ -352,8 +352,16 @@
     `;
   }
 
+  const formatMatchTime = (isoString) => {
+    const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime;
+    if (typeof formatter === 'function') {
+      return formatter(isoString || '');
+    }
+    return (isoString || '').replace('T', ' ').replace('Z', ' UTC');
+  };
+
   const matchRows = (matches || []).map(m => {
-    const when = (m.utc || '').replace('T', ' ').replace('Z', ' UTC');
+    const when = formatMatchTime(m.utc || m.kickoff || m.time || '');
     return `<tr><td>${when}</td><td>${m.home || ''}</td><td>${m.away || ''}</td><td>${m.stadium || ''}</td></tr>`;
   }).join('');
 
