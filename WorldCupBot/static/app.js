@@ -2218,6 +2218,31 @@ function fmtDateTime(x) {
   const pad = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+async function getVerifiedMap() {
+  if (state.verifiedMap instanceof Map) return state.verifiedMap;
+  try {
+    const verified = await fetchJSON('/api/verified');
+    const list = Array.isArray(verified) ? verified : (verified.users || verified.verified_users || []);
+    state.verifiedMap = new Map(list.map(u => [
+      String(u.discord_id ?? u.id ?? ''),
+      (u.display_name && String(u.display_name).trim()) ||
+      (u.username && String(u.username).trim()) || ''
+    ]));
+  } catch {
+    state.verifiedMap = new Map();
+  }
+  return state.verifiedMap;
+}
+function normalizeNameFallback(value) {
+  if (value == null) return '';
+  const str = String(value).trim();
+  return /^\d+$/.test(str) ? '' : str;
+}
+function resolveVerifiedName(id, fallback, verifiedMap) {
+  const key = id ? String(id) : '';
+  const mapped = key && verifiedMap ? verifiedMap.get(key) : '';
+  return mapped || normalizeNameFallback(fallback) || '-';
+}
 function formatPercentage(value) {
   const num = typeof value === 'string' ? Number(value) : value;
   if (typeof num !== 'number' || Number.isNaN(num)) return '-';
@@ -2256,19 +2281,20 @@ async function loadPublicSplits() {
     const data = await fetchJSON('/api/split_requests');
     const pending = Array.isArray(data?.pending) ? data.pending : [];
     const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
-    renderPublicPendingSplits(pending);
-    renderPublicSplitHistory(resolved);
+    const verifiedMap = await getVerifiedMap();
+    renderPublicPendingSplits(pending, verifiedMap);
+    renderPublicSplitHistory(resolved, verifiedMap);
   } catch (e) {
     notify(`Public splits error: ${e.message || e}`, false);
   }
 }
 
 /* Public Requests table */
-function renderPublicPendingSplits(rows){
+function renderPublicPendingSplits(rows, verifiedMap){
   const body = document.getElementById('splits-pending');
   if (!body) return;
   body.innerHTML = '';
-  const isAdminView = !!state.admin;
+  const isAdminView = typeof isAdminUI === 'function' ? isAdminUI() : !!state.admin;
 
   if (!Array.isArray(rows) || rows.length === 0) {
     const empty = document.createElement('div');
@@ -2306,8 +2332,10 @@ function renderPublicPendingSplits(rows){
     const realId = r.id ?? '-';
     const idShort = shortId(realId);
     const team = r.team ?? '-';
-    const from = r.from_username ?? r.requester_id ?? '-';
-    const to = r.to_username ?? r.main_owner_id ?? '-';
+    const fromId = r.requester_id ?? r.from_id ?? r.from;
+    const toId = r.main_owner_id ?? r.to_id ?? r.to;
+    const from = resolveVerifiedName(fromId, r.from_username ?? r.requester_username ?? r.from, verifiedMap);
+    const to = resolveVerifiedName(toId, r.to_username ?? r.main_owner_username ?? r.to, verifiedMap);
     const pct = r.requested_percentage ?? r.requested_percent ?? r.percentage ?? null;
     const when = r.expires_at ?? r.timestamp ?? null;
 
@@ -2394,7 +2422,7 @@ function renderPublicPendingSplits(rows){
 }
 
 /* Public History table */
-function renderPublicSplitHistory(rows) {
+function renderPublicSplitHistory(rows, verifiedMap) {
   const body = document.getElementById('splits-history-body');
   if (!body) return;
 
@@ -2426,11 +2454,15 @@ function renderPublicSplitHistory(rows) {
   `;
   const tbody = table.querySelector('tbody');
 
+  const isAdminView = typeof isAdminUI === 'function' ? isAdminUI() : !!state.admin;
+
   for (const ev of sorted) {
     const id = ev.id ?? ev.request_id ?? '';
     const team = ev.team || ev.country || ev.country_name || '-';
-    const fromUser = ev.from_username || ev.requester_username || ev.from || ev.requester_id || '-';
-    const toUser = ev.to_username || ev.receiver_username || ev.to || ev.main_owner_id || '-';
+    const fromId = ev.requester_id ?? ev.from_id ?? ev.from;
+    const toId = ev.main_owner_id ?? ev.to_id ?? ev.to ?? ev.receiver_id;
+    const fromUser = resolveVerifiedName(fromId, ev.from_username || ev.requester_username || ev.from, verifiedMap);
+    const toUser = resolveVerifiedName(toId, ev.to_username || ev.receiver_username || ev.to, verifiedMap);
     const when = ev.created_at || ev.time || ev.timestamp || null;
     const actionRaw = (ev.action || ev.status || 'resolved').toString().toLowerCase();
 
@@ -2441,7 +2473,7 @@ function renderPublicSplitHistory(rows) {
       <td class="col-user"><span class="clip" title="${escapeHTML(String(fromUser))}">${escapeHTML(String(fromUser))}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(toUser))}">${escapeHTML(String(toUser))}</span></td>
       <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
-      <td class="col-status">${splitStatusPill(actionRaw, state.admin ? 'admin' : 'public')}</td>
+      <td class="col-status">${splitStatusPill(actionRaw, isAdminView ? 'admin' : 'public')}</td>
     `;
     tbody.appendChild(tr);
   }
