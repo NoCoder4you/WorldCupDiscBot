@@ -2234,6 +2234,30 @@ async function getVerifiedMap() {
   }
   return state.verifiedMap;
 }
+async function getPlayerNamesMap() {
+  if (state.playerNamesMap instanceof Map) return state.playerNamesMap;
+  try {
+    const names = await fetchJSON('/api/player_names');
+    if (names && typeof names === 'object') {
+      state.playerNamesMap = new Map(Object.entries(names));
+    } else {
+      state.playerNamesMap = new Map();
+    }
+  } catch {
+    state.playerNamesMap = new Map();
+  }
+  return state.playerNamesMap;
+}
+function mergeNameMaps(primary, secondary) {
+  const merged = new Map();
+  if (secondary instanceof Map) {
+    for (const [key, value] of secondary.entries()) merged.set(key, value);
+  }
+  if (primary instanceof Map) {
+    for (const [key, value] of primary.entries()) merged.set(key, value);
+  }
+  return merged;
+}
 function normalizeNameFallback(value) {
   if (value == null) return '';
   const str = String(value).trim();
@@ -2282,9 +2306,13 @@ async function loadPublicSplits() {
     const data = await fetchJSON('/api/split_requests');
     const pending = Array.isArray(data?.pending) ? data.pending : [];
     const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
-    const verifiedMap = await getVerifiedMap();
-    renderPublicPendingSplits(pending, verifiedMap);
-    renderPublicSplitHistory(resolved, verifiedMap);
+    const [verifiedMap, playerNamesMap] = await Promise.all([
+      getVerifiedMap(),
+      getPlayerNamesMap()
+    ]);
+    const nameMap = mergeNameMaps(verifiedMap, playerNamesMap);
+    renderPublicPendingSplits(pending, nameMap);
+    renderPublicSplitHistory(resolved, nameMap);
   } catch (e) {
     notify(`Public splits error: ${e.message || e}`, false);
   }
