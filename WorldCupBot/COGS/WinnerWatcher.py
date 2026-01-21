@@ -26,6 +26,17 @@ def _read_bets() -> List[Dict[str, Any]]:
     except Exception:
         return []
 
+def _bets_path() -> str:
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.normpath(os.path.join(base, "..", "JSON", "bets.json"))
+
+def _write_bets(bets: List[Dict[str, Any]]) -> None:
+    try:
+        with open(_bets_path(), "w", encoding="utf-8") as f:
+            json.dump(bets, f, indent=2, ensure_ascii=False)
+    except Exception:
+        return
+
 def _bet_results_path() -> str:
     base = os.path.dirname(os.path.abspath(__file__))
     return os.path.normpath(os.path.join(base, "..", "JSON", "bet_results.json"))
@@ -304,6 +315,8 @@ class WinnerWatcher(commands.Cog):
             winner = bet.get("winner")
             prev_winner = self._last_winner.get(bet_id)
             changed_now = (winner != prev_winner)
+            notified_for = str(bet.get("admin_notified") or "").strip().lower()
+            already_notified = winner in ("option1", "option2") and notified_for == winner
 
             chan_id = int(bet.get("channel_id") or 0)
             msg_id = int(bet.get("message_id") or 0)
@@ -320,7 +333,7 @@ class WinnerWatcher(commands.Cog):
                 elif not msg_url:
                     msg_url = await _message_url(self.bot, chan_id, msg_id)
 
-            if changed_now and winner in ("option1", "option2"):
+            if changed_now and winner in ("option1", "option2") and not already_notified:
                 log.info(
                     "Bet settled (bet_id=%s winner=%s option1_user_id=%s option2_user_id=%s)",
                     bet_id,
@@ -352,6 +365,8 @@ class WinnerWatcher(commands.Cog):
                 _append_bet_results(bet)
 
                 _append_bet_results(bet)
+                bet["admin_notified"] = winner
+                _write_bets(bets)
 
             self._last_winner[bet_id] = winner
 
