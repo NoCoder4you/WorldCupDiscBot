@@ -85,7 +85,7 @@ def _send_offline_alert(now: float, since_ts: Optional[float]) -> None:
         return
     since_val = int(since_ts or now)
     content = (
-        f"<@&{REFEREE_ROLE_ID}> Bot has been offline since <t:{since_val}:R> "
+        f"-# <@&{REFEREE_ROLE_ID}>\nBot has been offline since: <t:{since_val}:R> "
         f"(started <t:{since_val}:f>)."
     )
     payload = {
