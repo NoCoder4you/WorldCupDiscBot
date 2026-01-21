@@ -1091,6 +1091,10 @@ def create_public_routes(ctx):
         base = ctx.get("BASE_DIR","")
         data = _json_load(_split_requests_path(base), {"pending": [], "resolved": []})
         data.setdefault("pending", []); data.setdefault("resolved", [])
+        split_log = _json_load(_split_requests_log_path(base), [])
+        events = split_log.get("events") if isinstance(split_log, dict) else split_log
+        if isinstance(events, list):
+            data["resolved"] = events
         return jsonify(data)
 
     @api.post("/split_requests/force")
