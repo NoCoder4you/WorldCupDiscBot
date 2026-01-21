@@ -94,6 +94,40 @@ def _notifications_read_path(base_dir):
 def _notification_settings_path(base_dir):
     return os.path.join(_json_dir(base_dir), "notification_settings.json")
 
+def _player_names_map(base_dir):
+    verified_blob = _json_load(_verified_path(base_dir), {})
+    players_blob = _json_load(_players_path(base_dir), {})
+
+    out = {}
+    vlist = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
+    if isinstance(vlist, list):
+        for v in vlist:
+            if not isinstance(v, dict):
+                continue
+            did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
+            disp = (v.get("display_name")
+                    or v.get("discord_display_name")
+                    or v.get("discord_global_name")
+                    or v.get("discord_username")
+                    or v.get("username")
+                    or v.get("name")
+                    or "").strip()
+            if did:
+                out[did] = disp or did
+
+    if isinstance(players_blob, dict):
+        for uid, pdata in players_blob.items():
+            did = str(uid).strip()
+            if not did or did in out:
+                continue
+            if isinstance(pdata, dict):
+                disp = (pdata.get("display_name") or pdata.get("username") or pdata.get("name") or "").strip()
+            else:
+                disp = did
+            out[did] = disp or did
+
+    return out
+
 NOTIFICATION_CATEGORIES = (
     "splits",
     "matches",
@@ -646,40 +680,7 @@ def create_public_routes(ctx):
     @api.get("/player_names")
     def api_player_names():
         base = ctx.get("BASE_DIR", "")
-        verified_blob = _json_load(_verified_path(base), {})
-        players_blob = _json_load(_players_path(base), {})
-
-        # Build { discord_id: display_name }
-        out = {}
-
-        # 1) verified.json (preferred)
-        vlist = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
-        if isinstance(vlist, list):
-            for v in vlist:
-                if not isinstance(v, dict):
-                    continue
-                did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
-                disp = (v.get("display_name")
-                        or v.get("discord_display_name")
-                        or v.get("discord_global_name")
-                        or v.get("discord_username")
-                        or v.get("username")
-                        or v.get("name")
-                        or "").strip()
-                if did:
-                    out[did] = disp or did
-
-        # 2) players.json fallback for any IDs not in verified.json
-        if isinstance(players_blob, dict):
-            for uid, pdata in players_blob.items():
-                did = str(uid).strip()
-                if not did or did in out:
-                    continue
-                if isinstance(pdata, dict):
-                    disp = (pdata.get("display_name") or pdata.get("username") or pdata.get("name") or "").strip()
-                else:
-                    disp = did
-                out[did] = disp or did
+        out = _player_names_map(base)
 
         # no-cache so UI always sees freshest names
         resp = make_response(jsonify(out))
@@ -1091,6 +1092,7 @@ def create_public_routes(ctx):
         base = ctx.get("BASE_DIR","")
         raw = _json_load(_split_requests_path(base), {})
         pending = []
+        id_bucket = set()
         if isinstance(raw, dict):
             if "pending" in raw or "resolved" in raw:
                 pending = raw.get("pending") if isinstance(raw.get("pending"), list) else []
@@ -1100,6 +1102,28 @@ def create_public_routes(ctx):
                         merged = {"id": req_id}
                         merged.update(entry)
                         pending.append(merged)
+        for entry in pending:
+            if not isinstance(entry, dict):
+                continue
+            req_id = entry.get("requester_id") or entry.get("from_id") or entry.get("from")
+            own_id = entry.get("main_owner_id") or entry.get("to_id") or entry.get("to")
+            if req_id:
+                id_bucket.add(str(req_id))
+            if own_id:
+                id_bucket.add(str(own_id))
+        if id_bucket:
+            names = _player_names_map(base)
+            for entry in pending:
+                if not isinstance(entry, dict):
+                    continue
+                req_id = str(entry.get("requester_id") or entry.get("from_id") or entry.get("from") or "")
+                own_id = str(entry.get("main_owner_id") or entry.get("to_id") or entry.get("to") or "")
+                if req_id:
+                    entry["from_username"] = names.get(req_id, req_id)
+                    entry["from"] = entry["from_username"]
+                if own_id:
+                    entry["to_username"] = names.get(own_id, own_id)
+                    entry["to"] = entry["to_username"]
         split_log = _json_load(_split_requests_log_path(base), [])
         events = split_log.get("events") if isinstance(split_log, dict) else split_log
         resolved = events if isinstance(events, list) else []
