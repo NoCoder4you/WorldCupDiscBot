@@ -188,7 +188,7 @@ class FanZoneAnnouncer(commands.Cog):
         try:
             size = os.path.getsize(self.queue_path)
             if self._offset > size:
-                self._offset = 0
+                self._offset = size
         except Exception:
             return
 
