@@ -216,7 +216,7 @@ class StageProgressAnnouncer(commands.Cog):
         try:
             size = os.path.getsize(self.queue_path)
             if self._offset > size:
-                self._offset = size
+                self._offset = 0
         except Exception:
             return
 
