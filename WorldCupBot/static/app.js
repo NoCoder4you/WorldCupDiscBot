@@ -2159,27 +2159,27 @@ function buildSplitsShell(){
 
   sec.innerHTML = `
     <div class="splits-layout">
-      <div class="splits-panel splits-panel--public">
-        <div class="table-wrap" id="splits-public-requests-card">
+      <div class="splits-panel splits-public">
+        <div class="table-wrap" id="splits-requests">
           <div class="table-head">
             <div class="table-title">Split Requests</div>
             <div class="table-actions">
               <button id="splits-public-refresh" class="btn">Refresh</button>
             </div>
           </div>
-          <div class="table-scroll" id="splits-public-pending-body">
+          <div class="table-scroll" id="splits-pending">
             <div class="split-empty">Loading…</div>
           </div>
         </div>
 
-        <div class="table-wrap" id="splits-public-history-card" style="margin-top:16px">
+        <div class="table-wrap" id="splits-history" style="margin-top:16px">
           <div class="table-head">
             <div class="table-title">History</div>
             <div class="table-actions">
               <button id="splits-public-history-refresh" class="btn">Refresh</button>
             </div>
           </div>
-          <div class="table-scroll" id="splits-public-history-body">
+          <div class="table-scroll" id="splits-history-body">
             <div class="split-empty">Loading…</div>
           </div>
         </div>
@@ -2242,8 +2242,8 @@ function splitStatusPill(status, variant = 'admin') {
 }
 
 async function loadPublicSplits() {
-  const pendingBody = document.getElementById('splits-public-pending-body');
-  const historyBody = document.getElementById('splits-public-history-body');
+  const pendingBody = document.getElementById('splits-pending');
+  const historyBody = document.getElementById('splits-history-body');
   if (!pendingBody || !historyBody) return;
 
   try {
@@ -2259,7 +2259,7 @@ async function loadPublicSplits() {
 
 /* Public Requests table */
 function renderPublicPendingSplits(rows){
-  const body = document.getElementById('splits-public-pending-body');
+  const body = document.getElementById('splits-pending');
   if (!body) return;
   body.innerHTML = '';
   const isAdminView = !!state.admin;
@@ -2386,7 +2386,7 @@ function renderPublicPendingSplits(rows){
 
 /* Public History table */
 function renderPublicSplitHistory(rows) {
-  const body = document.getElementById('splits-public-history-body');
+  const body = document.getElementById('splits-history-body');
   if (!body) return;
 
   if (!Array.isArray(rows) || rows.length === 0) {
