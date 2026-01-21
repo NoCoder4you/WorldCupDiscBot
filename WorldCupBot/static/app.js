@@ -125,7 +125,10 @@
   function setDashboardWarning(active){
     const links = $dashboardLinks();
     if (!links.length) return;
-    links.forEach(link => link.classList.toggle('offline-warning', !!active));
+    links.forEach(link => {
+      link.classList.toggle('offline-warning', !!active);
+      link.parentElement?.classList.toggle('offline-warning', !!active);
+    });
   }
 
   function setBotStatusReason(text){
