@@ -357,7 +357,7 @@ body.admin li.admin-only {
 .dashboard-grid {
     display: grid;
     gap: 16px;
-    max-width: 1200px;
+    max-width: 1320px;
     margin: 40px auto;
     grid-template-columns: repeat(3, minmax(220px, 1fr));
     grid-auto-rows: var(--card-h);
@@ -375,7 +375,7 @@ body.admin li.admin-only {
 
 /* Admin dice-5 grid */
 body.user-admin-view .dashboard-grid {
-    max-width: 1200px;
+    max-width: 1320px;
     margin: 16px auto;
     gap: 22px;
     grid-template-columns: 1fr 1fr 1fr;
@@ -655,7 +655,7 @@ body.user-admin-view .dashboard-grid .card {
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 0;
-    max-width: 1200px;
+    max-width: 1320px;
     margin: 16px auto;
     overflow: hidden;
 }
@@ -1277,7 +1277,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 #splits .table-wrap {
-    max-width: 1200px;
+    max-width: 1320px;
     width: 100%;
     margin: 16px auto;
 }
@@ -1560,7 +1560,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 0;
-    max-width: 1200px;
+    max-width: 1320px;
     margin: 16px auto;
     overflow: hidden;
 }
@@ -3308,7 +3308,7 @@ select.select-dark:disabled {
 .lb-grid {
 	display: grid;
 	gap: 16px;
-	max-width: 1200px;
+	max-width: 1320px;
 	margin: 0 auto;
 	grid-template-columns: 1fr;
 	grid-auto-rows: minmax(300px, 1fr);
@@ -3634,7 +3634,7 @@ select.select-dark:disabled {
 
 /* ===== FAN ZONE ===== */
 .fan-list {
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 16px auto;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4173,7 +4173,7 @@ body .notify-panel{ right: 90px; }
 
 /* Settings */
 .settings-card {
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 16px auto;
   height: auto;
 }
