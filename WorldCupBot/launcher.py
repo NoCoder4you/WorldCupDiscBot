@@ -105,11 +105,11 @@ def _send_recovery_alert(now: float, since_ts: Optional[float]) -> None:
     if since_ts:
         content = (
             f"-# <@&{REFEREE_ROLE_ID}>\nBot is back online."
-            f"\n## Outage started <t:{int(since_ts)}:f> (<t:{int(since_ts)}:R>), "
-            f"recovered <t:{int(now)}:f>."
+            f"\n## Outage started: <t:{int(since_ts)}:f> (<t:{int(since_ts)}:R>)"
+            f"\nRecovered at: <t:{int(now)}:f>"
         )
     else:
-        content = f"<@&{REFEREE_ROLE_ID}> Bot is back online."
+        content = f"-# <@&{REFEREE_ROLE_ID}> \nBot is back online."
     payload = {
         "content": content,
         "allowed_mentions": {"roles": [REFEREE_ROLE_ID]},
