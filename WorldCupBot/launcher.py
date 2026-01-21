@@ -85,8 +85,8 @@ def _send_offline_alert(now: float, since_ts: Optional[float]) -> None:
         return
     since_val = int(since_ts or now)
     content = (
-        f"-# <@&{REFEREE_ROLE_ID}>\nBot has been offline since: <t:{since_val}:R> "
-        f"(started <t:{since_val}:f>)."
+        f"-# <@&{REFEREE_ROLE_ID}>\n## Bot has been offline since: <t:{since_val}:R>\n"
+        f"Started <t:{since_val}:f>."
     )
     payload = {
         "content": content,
@@ -104,8 +104,8 @@ def _send_recovery_alert(now: float, since_ts: Optional[float]) -> None:
         return
     if since_ts:
         content = (
-            f"<@&{REFEREE_ROLE_ID}> Bot is back online. "
-            f"Outage started <t:{int(since_ts)}:f> (<t:{int(since_ts)}:R>), "
+            f"-# <@&{REFEREE_ROLE_ID}>\nBot is back online."
+            f"\n## Outage started <t:{int(since_ts)}:f> (<t:{int(since_ts)}:R>), "
             f"recovered <t:{int(now)}:f>."
         )
     else:
