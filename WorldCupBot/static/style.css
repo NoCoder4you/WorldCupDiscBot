@@ -1277,9 +1277,9 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 }
 
 #splits .table-wrap {
-    max-width: 100%;
+    max-width: 1200px;
     width: 100%;
-    margin: 16px 0;
+    margin: 16px auto;
 }
 
 .split-section {
