@@ -2218,6 +2218,12 @@ function fmtDateTime(x) {
   const pad = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
+function formatPercentage(value) {
+  const num = typeof value === 'string' ? Number(value) : value;
+  if (typeof num !== 'number' || Number.isNaN(num)) return '-';
+  const fixed = Number.isInteger(num) ? num.toString() : num.toFixed(1);
+  return `${fixed}%`;
+}
 function shortId(id) {
   if (!id) return '-';
   const str = String(id);
@@ -2281,6 +2287,7 @@ function renderPublicPendingSplits(rows){
         <th class="col-team">TEAM</th>
         <th class="col-user">FROM</th>
         <th class="col-user">TO</th>
+        <th class="col-pct">PCT</th>
         <th class="col-when">EXPIRES</th>
         <th class="col-status">${isAdminView ? 'ACTION' : 'STATUS'}</th>
       </tr>
@@ -2301,6 +2308,7 @@ function renderPublicPendingSplits(rows){
     const team = r.team ?? '-';
     const from = r.from_username ?? r.requester_id ?? '-';
     const to = r.to_username ?? r.main_owner_id ?? '-';
+    const pct = r.requested_percentage ?? r.requested_percent ?? r.percentage ?? null;
     const when = r.expires_at ?? r.timestamp ?? null;
 
     const tr = document.createElement('tr');
@@ -2309,6 +2317,7 @@ function renderPublicPendingSplits(rows){
       <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(from))}">${escapeHTML(String(from))}</span></td>
       <td class="col-user"><span class="clip" title="${escapeHTML(String(to))}">${escapeHTML(String(to))}</span></td>
+      <td class="col-pct">${formatPercentage(pct)}</td>
       <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
       <td class="col-status">
         ${
