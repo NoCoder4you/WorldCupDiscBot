@@ -137,6 +137,10 @@
   }
 
   function applyDashboardWarningState(){
+    if (!isAdminUI()) {
+      setDashboardWarning(false);
+      return;
+    }
     if (state.lastBotRunning === false || state.offlineMode) {
       setDashboardWarning(true);
       return;
@@ -270,13 +274,11 @@ function stagePill(stage){
   // === PAGE SWITCHER ===
     function showPage(page) {
       // admin-only pages
-      const adminPages = new Set(['dashboard','splits','backups','log','cogs']);
+      const adminPages = new Set(['splits','backups','log','cogs']);
 
       // block admin pages when not logged in
       if (adminPages.has(page) && !isAdminUI()) {
-        if (page !== 'dashboard') {
-          notify('That page requires admin login.', false);
-        }
+        notify('That page requires admin login.', false);
         return;
       }
 
@@ -297,12 +299,10 @@ function stagePill(stage){
     }
 
   function setPage(p) {
-    const adminPages = new Set(['dashboard','splits','backups','log','cogs']);
+    const adminPages = new Set(['splits','backups','log','cogs']);
     if (adminPages.has(p) && !isAdminUI()) {
-      if (p !== 'dashboard') {
-        notify('That page requires admin login.', false);
-      }
-      p = 'bets';
+      notify('That page requires admin login.', false);
+      p = 'dashboard';
     }
 
     if (p !== 'dashboard') {
@@ -3472,19 +3472,15 @@ async function getCogStatus(name){
   async function routePage(){
     switch(state.currentPage){
       case 'dashboard':
-        if (isAdminUI()) {
-          await loadDash();
-        } else {
-          setPage('bets');
-        }
+        await loadDash();
         break;
       case 'bets': await loadAndRenderBets(); break;
       case 'ownership': await loadOwnershipPage(); break;
       case 'settings': await loadSettings(); break;
-      case 'splits': if(isAdminUI()) await loadSplits(); else setPage('bets'); break;
-      case 'backups': if(isAdminUI()) await loadBackups(); else setPage('bets'); break;
-      case 'log': if(isAdminUI()) await loadLogs('bot'); else setPage('bets'); break;
-      case 'cogs': if(isAdminUI()) await loadCogs(); else setPage('bets'); break;
+      case 'splits': if(isAdminUI()) await loadSplits(); else setPage('dashboard'); break;
+      case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
+      case 'log': if(isAdminUI()) await loadLogs('bot'); else setPage('dashboard'); break;
+      case 'cogs': if(isAdminUI()) await loadCogs(); else setPage('dashboard'); break;
     }
   }
 
