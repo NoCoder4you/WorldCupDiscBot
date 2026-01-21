@@ -19,6 +19,7 @@
     logsInit: false,
     userId: null,
     lastBotRunning: null,
+    lastHealth: null,
     offlineMode: false,
   };
 
@@ -135,6 +136,20 @@
     if (state.lastBotRunning === false || state.offlineMode) {
       setDashboardWarning(true);
       return;
+    }
+    if (state.lastHealth) {
+      const { cooldown_active, crash_count, max_crashes } = state.lastHealth;
+      if (cooldown_active) {
+        setDashboardWarning(true);
+        return;
+      }
+      if (Number.isFinite(crash_count)
+          && Number.isFinite(max_crashes)
+          && max_crashes > 0
+          && crash_count >= max_crashes) {
+        setDashboardWarning(true);
+        return;
+      }
     }
     const cached = readDashCache();
     if (cached && cached.running === false) {
@@ -791,6 +806,7 @@ function stagePill(stage){
         ? up.bot_running
         : !!(sys && sys.bot && typeof sys.bot.running === 'boolean' && sys.bot.running);
 
+      state.lastHealth = health;
       renderUptime(up, running);
       renderPing(ping, latency);
       if(isAdminUI() && sys) renderSystem(sys); else clearSystem();
@@ -867,6 +883,7 @@ function stagePill(stage){
       } else {
         clearSystem();
       }
+      state.lastHealth = cached?.health || null;
       const cachedAt = cached?.ts ? formatTime(cached.ts) : 'unknown time';
       const detail = `Connection lost. Showing cached data from ${cachedAt}.`;
       const reason = buildBotOfflineReason(cached?.health) || detail;
