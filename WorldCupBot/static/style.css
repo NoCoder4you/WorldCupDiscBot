@@ -1282,13 +1282,6 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     margin: 16px 0;
 }
 
-@media (min-width: 1100px) {
-    .splits-layout {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        align-items: start;
-    }
-}
-
 .split-section {
     background: var(--card);
     border: 1px solid var(--border);
