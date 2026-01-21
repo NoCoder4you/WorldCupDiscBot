@@ -99,6 +99,28 @@ def _send_offline_alert(now: float, since_ts: Optional[float]) -> None:
     except requests.RequestException as exc:
         log.warning("Offline webhook error: %s", exc)
 
+def _send_recovery_alert(now: float, since_ts: Optional[float]) -> None:
+    if not OFFLINE_WEBHOOK_URL:
+        return
+    if since_ts:
+        content = (
+            f"<@&{REFEREE_ROLE_ID}> Bot is back online. "
+            f"Outage started <t:{int(since_ts)}:f> (<t:{int(since_ts)}:R>), "
+            f"recovered <t:{int(now)}:f>."
+        )
+    else:
+        content = f"<@&{REFEREE_ROLE_ID}> Bot is back online."
+    payload = {
+        "content": content,
+        "allowed_mentions": {"roles": [REFEREE_ROLE_ID]},
+    }
+    try:
+        resp = requests.post(OFFLINE_WEBHOOK_URL, json=payload, timeout=10)
+        if resp.status_code >= 400:
+            log.warning("Recovery webhook failed: %s %s", resp.status_code, resp.text[:200])
+    except requests.RequestException as exc:
+        log.warning("Recovery webhook error: %s", exc)
+
 def _record_crash(ts=None):
     global _cooldown_until
     t = ts or time.time()
@@ -348,6 +370,8 @@ def _watchdog_loop():
             running = is_bot_running()
             now = time.time()
             if running:
+                if _offline_since is not None:
+                    _send_recovery_alert(now, _offline_since)
                 _offline_since = None
                 _next_offline_alert_ts = 0.0
                 continue
