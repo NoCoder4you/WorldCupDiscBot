@@ -2226,7 +2226,8 @@ async function getVerifiedMap() {
     state.verifiedMap = new Map(list.map(u => [
       String(u.discord_id ?? u.id ?? ''),
       (u.display_name && String(u.display_name).trim()) ||
-      (u.username && String(u.username).trim()) || ''
+      (u.username && String(u.username).trim()) ||
+      (u.habbo_name && String(u.habbo_name).trim()) || ''
     ]));
   } catch {
     state.verifiedMap = new Map();
@@ -2313,7 +2314,7 @@ function renderPublicPendingSplits(rows, verifiedMap){
         <th class="col-team">TEAM</th>
         <th class="col-user">FROM</th>
         <th class="col-user">TO</th>
-        <th class="col-pct">PCT</th>
+        <th class="col-pct">%</th>
         <th class="col-when">EXPIRES</th>
         <th class="col-status">${isAdminView ? 'ACTION' : 'STATUS'}</th>
       </tr>
@@ -2334,8 +2335,13 @@ function renderPublicPendingSplits(rows, verifiedMap){
     const team = r.team ?? '-';
     const fromId = r.requester_id ?? r.from_id ?? r.from;
     const toId = r.main_owner_id ?? r.to_id ?? r.to;
-    const from = resolveVerifiedName(fromId, r.from_username ?? r.requester_username ?? r.from, verifiedMap);
-    const to = resolveVerifiedName(toId, r.to_username ?? r.main_owner_username ?? r.to, verifiedMap);
+    const fromFallback =
+      r.from_username ?? r.requester_username ?? r.from_name ?? r.requester_name ?? r.from;
+    const toFallback =
+      r.main_owner_username ?? r.main_owner_name ?? r.main_owner_display_name ??
+      r.to_username ?? r.to_name ?? r.to_display_name ?? r.to;
+    const from = resolveVerifiedName(fromId, fromFallback, verifiedMap);
+    const to = resolveVerifiedName(toId, toFallback, verifiedMap);
     const pct = r.requested_percentage ?? r.requested_percent ?? r.percentage ?? null;
     const when = r.expires_at ?? r.timestamp ?? null;
 
@@ -2461,8 +2467,11 @@ function renderPublicSplitHistory(rows, verifiedMap) {
     const team = ev.team || ev.country || ev.country_name || '-';
     const fromId = ev.requester_id ?? ev.from_id ?? ev.from;
     const toId = ev.main_owner_id ?? ev.to_id ?? ev.to ?? ev.receiver_id;
-    const fromUser = resolveVerifiedName(fromId, ev.from_username || ev.requester_username || ev.from, verifiedMap);
-    const toUser = resolveVerifiedName(toId, ev.to_username || ev.receiver_username || ev.to, verifiedMap);
+    const fromFallback = ev.from_username || ev.requester_username || ev.from_name || ev.requester_name || ev.from;
+    const toFallback = ev.main_owner_username || ev.main_owner_name || ev.main_owner_display_name ||
+      ev.to_username || ev.receiver_username || ev.receiver_name || ev.to_name || ev.to_display_name || ev.to;
+    const fromUser = resolveVerifiedName(fromId, fromFallback, verifiedMap);
+    const toUser = resolveVerifiedName(toId, toFallback, verifiedMap);
     const when = ev.created_at || ev.time || ev.timestamp || null;
     const actionRaw = (ev.action || ev.status || 'resolved').toString().toLowerCase();
 
