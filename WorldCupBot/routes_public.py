@@ -569,10 +569,17 @@ def create_public_routes(ctx):
                 if not avatar_url:
                     avatar_url = _discord_default_avatar_url(did)
 
+                display_name = (v.get("display_name")
+                                or v.get("discord_display_name")
+                                or v.get("discord_global_name")
+                                or v.get("discord_username")
+                                or v.get("username")
+                                or v.get("name")
+                                or "")
                 user = {
                     "discord_id": did,
                     "username": v.get("username") or v.get("name") or "",
-                    "display_name": (v.get("display_name") or v.get("username") or ""),
+                    "display_name": display_name,
                     "habbo_name": v.get("habbo_name") or "",
                     "avatar_hash": avatar_hash,
                     "avatar_url": avatar_url,
@@ -652,7 +659,13 @@ def create_public_routes(ctx):
                 if not isinstance(v, dict):
                     continue
                 did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
-                disp = (v.get("display_name") or v.get("username") or v.get("name") or "").strip()
+                disp = (v.get("display_name")
+                        or v.get("discord_display_name")
+                        or v.get("discord_global_name")
+                        or v.get("discord_username")
+                        or v.get("username")
+                        or v.get("name")
+                        or "").strip()
                 if did:
                     out[did] = disp or did
 
@@ -688,7 +701,12 @@ def create_public_routes(ctx):
             for v in verified:
                 if isinstance(v, dict):
                     did = str(v.get("discord_id") or v.get("id") or "").strip()
-                    dname = (v.get("display_name") or v.get("username") or "").strip()
+                    dname = (v.get("display_name")
+                             or v.get("discord_display_name")
+                             or v.get("discord_global_name")
+                             or v.get("discord_username")
+                             or v.get("username")
+                             or "").strip()
                     if did:
                         id_to_disp[did] = dname
 
@@ -805,7 +823,13 @@ def create_public_routes(ctx):
                     if not isinstance(v, dict):
                         continue
                     did = str(v.get("discord_id") or v.get("id") or v.get("user_id") or "").strip()
-                    dnm = (v.get("display_name") or v.get("username") or v.get("name") or "").strip()
+                    dnm = (v.get("display_name")
+                           or v.get("discord_display_name")
+                           or v.get("discord_global_name")
+                           or v.get("discord_username")
+                           or v.get("username")
+                           or v.get("name")
+                           or "").strip()
                     if did:
                         id_to_name[did] = dnm or did
 
@@ -953,7 +977,13 @@ def create_public_routes(ctx):
             for u in vlist:
                 if isinstance(u, dict):
                     did = str(u.get("discord_id") or u.get("id") or u.get("user_id") or "").strip()
-                    dnm = (u.get("display_name") or u.get("username") or u.get("name") or "").strip()
+                    dnm = (u.get("display_name")
+                           or u.get("discord_display_name")
+                           or u.get("discord_global_name")
+                           or u.get("discord_username")
+                           or u.get("username")
+                           or u.get("name")
+                           or "").strip()
                     if did:
                         id_to_display[did] = dnm or did
 
@@ -962,7 +992,13 @@ def create_public_routes(ctx):
                 return ""
             if isinstance(x, dict):
                 did = str(x.get("discord_id") or x.get("id") or x.get("user_id") or "").strip()
-                disp = (x.get("display_name") or x.get("username") or x.get("name") or "").strip()
+                disp = (x.get("display_name")
+                        or x.get("discord_display_name")
+                        or x.get("discord_global_name")
+                        or x.get("discord_username")
+                        or x.get("username")
+                        or x.get("name")
+                        or "").strip()
                 if did and id_to_display.get(did):
                     return id_to_display[did]
                 return disp or did
