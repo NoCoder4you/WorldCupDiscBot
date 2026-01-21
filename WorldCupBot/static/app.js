@@ -45,11 +45,47 @@
 
   function formatTime(ts){
     if (!ts) return 'unknown time';
+    const num = Number(ts);
+    const normalized = Number.isFinite(num) && num < 1000000000000 ? num * 1000 : ts;
     try{
-      return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      return new Date(normalized).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     }catch{
       return 'unknown time';
     }
+  }
+
+  function formatDuration(seconds){
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const hrs = Math.floor(total / 3600);
+    const mins = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    const parts = [];
+    if (hrs) parts.push(`${hrs}h`);
+    if (mins || (hrs && secs)) parts.push(`${mins}m`);
+    if (!hrs && secs) parts.push(`${secs}s`);
+    return parts.join(' ');
+  }
+
+  function buildBotOfflineReason(health){
+    if (!health || typeof health !== 'object') return '';
+    if (health.cooldown_active) {
+      const remaining = formatDuration(health.seconds_until_restart);
+      return remaining
+        ? `Restart cooldown active. Next restart attempt in ${remaining}.`
+        : 'Restart cooldown active.';
+    }
+    if (Number.isFinite(health.crash_count)
+        && Number.isFinite(health.max_crashes)
+        && health.max_crashes > 0
+        && health.crash_count >= health.max_crashes) {
+      const window = formatDuration(health.window_seconds);
+      const windowText = window ? `within ${window}` : 'recently';
+      return `Bot stopped after ${health.crash_count} crashes ${windowText}.`;
+    }
+    if (health.last_stop) {
+      return `Bot stopped at ${formatTime(health.last_stop)}.`;
+    }
+    return '';
   }
 
   function readDashCache(){
@@ -747,7 +783,8 @@ function stagePill(stage){
       const t0 = performance.now();
       const pingP = fetchJSON('/api/ping');
       const sysP = isAdminUI() ? fetchJSON('/api/system') : Promise.resolve(null);
-      const [up, ping, sys] = await Promise.all([upP, pingP, sysP]);
+      const healthP = fetchJSON('/api/health').catch(() => null);
+      const [up, ping, sys, health] = await Promise.all([upP, pingP, sysP, healthP]);
       const latency = Math.max(0, Math.round(performance.now() - t0));
 
       const running = (up && typeof up.bot_running === 'boolean')
@@ -757,11 +794,12 @@ function stagePill(stage){
       renderUptime(up, running);
       renderPing(ping, latency);
       if(isAdminUI() && sys) renderSystem(sys); else clearSystem();
-      writeDashCache({ up, ping, sys, running, latencyMs: latency });
+      writeDashCache({ up, ping, sys, health, running, latencyMs: latency });
 
       if (!running) {
         const cachedAt = cached?.ts ? formatTime(cached.ts) : formatTime(nowMs());
         const detail = `Bot is offline. Showing cached data from ${cachedAt}.`;
+        const reason = buildBotOfflineReason(health) || detail;
         if (state.currentPage === 'dashboard') {
           setOfflineBanner({
             mode: 'offline',
@@ -773,7 +811,7 @@ function stagePill(stage){
         }
         state.offlineMode = true;
         applyDashboardWarningState();
-        setBotStatusReason(detail);
+        setBotStatusReason(reason);
       } else if (state.lastBotRunning === false) {
         if (state.currentPage === 'dashboard') {
           setOfflineBanner({
@@ -831,6 +869,7 @@ function stagePill(stage){
       }
       const cachedAt = cached?.ts ? formatTime(cached.ts) : 'unknown time';
       const detail = `Connection lost. Showing cached data from ${cachedAt}.`;
+      const reason = buildBotOfflineReason(cached?.health) || detail;
       if (state.currentPage === 'dashboard') {
         setOfflineBanner({
           mode: 'offline',
@@ -842,7 +881,7 @@ function stagePill(stage){
       }
       state.offlineMode = true;
       applyDashboardWarningState();
-      setBotStatusReason(detail);
+      setBotStatusReason(reason);
       notify(`Dashboard error: ${e.message}`, false);
     }
   }
