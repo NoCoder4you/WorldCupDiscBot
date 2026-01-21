@@ -191,9 +191,6 @@ class WorldCupBot(commands.Bot):
         def _read():
             if not os.path.isfile(COMMANDS_PATH):
                 return [], self._commands_offset
-            size = os.path.getsize(COMMANDS_PATH)
-            if self._commands_offset > size:
-                self._commands_offset = size
             with open(COMMANDS_PATH, "r", encoding="utf-8") as f:
                 f.seek(self._commands_offset)
                 lines = f.read().splitlines()
