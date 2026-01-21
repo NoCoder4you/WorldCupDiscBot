@@ -37,7 +37,7 @@
   const $offlineStatus = qs('#offline-status');
   const $offlineDetail = qs('#offline-detail');
   const $offlineSync = qs('#offline-sync');
-  const $dashboardLink = qs('#dashboard-link') || qs('#main-menu a[data-page="dashboard"]');
+  const $dashboardLinks = () => qsa('#dashboard-link, #main-menu a[data-page="dashboard"]');
   const $botStatusReason = qs('#bot-status-reason');
 
   const DASH_CACHE_KEY = 'wc:dashboardCache';
@@ -123,8 +123,9 @@
   }
 
   function setDashboardWarning(active){
-    if (!$dashboardLink) return;
-    $dashboardLink.classList.toggle('offline-warning', !!active);
+    const links = $dashboardLinks();
+    if (!links.length) return;
+    links.forEach(link => link.classList.toggle('offline-warning', !!active));
   }
 
   function setBotStatusReason(text){
