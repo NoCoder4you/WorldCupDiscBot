@@ -153,7 +153,6 @@ li.offline-warning > a[data-page="dashboard"] {
 
 a[data-page="dashboard"].offline-warning::after,
 li.offline-warning > a[data-page="dashboard"]::after {
-    content: " --danger";
     margin-left: 4px;
     font-weight: 800;
     text-transform: uppercase;
