@@ -7,6 +7,8 @@ from typing import List, Tuple
 import discord
 from discord.ext import commands, tasks
 
+from queue_utils import compact_command_queue
+
 # -------------------- Paths & Config --------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 COGS_DIR = os.path.join(BASE_DIR, "COGS")
@@ -16,6 +18,8 @@ LOG_PATH = os.path.join(LOG_DIR, "bot.log")
 RUNTIME_DIR = os.path.join(BASE_DIR, "runtime")
 COMMANDS_PATH = os.path.join(RUNTIME_DIR, "bot_commands.jsonl")
 COMMANDS_STATE_PATH = os.path.join(RUNTIME_DIR, "bot_commands_state.json")
+FANZONE_STATE_PATH = os.path.join(RUNTIME_DIR, "fanzone_queue_state.json")
+STAGE_STATE_PATH = os.path.join(RUNTIME_DIR, "stage_queue_state.json")
 
 JSON_DIR = os.path.join(BASE_DIR, "JSON")
 COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
@@ -226,6 +230,10 @@ class WorldCupBot(commands.Bot):
                 await self._handle_cog_action(str(data.get("action") or ""), str(data.get("cog") or ""))
         self._commands_offset = new_offset
         self._save_commands_state()
+        compact_command_queue(
+            COMMANDS_PATH,
+            [COMMANDS_STATE_PATH, FANZONE_STATE_PATH, STAGE_STATE_PATH],
+        )
 
     @_command_watcher.before_loop
     async def _wait_for_ready(self):

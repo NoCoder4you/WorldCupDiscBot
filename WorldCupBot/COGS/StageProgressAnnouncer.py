@@ -2,6 +2,8 @@ import os, json, logging
 import discord
 from discord.ext import commands, tasks
 
+from queue_utils import compact_command_queue
+
 log = logging.getLogger(__name__)
 
 class StageProgressAnnouncer(commands.Cog):
@@ -13,6 +15,8 @@ class StageProgressAnnouncer(commands.Cog):
 
         self.queue_path = os.path.join(self.runtime_dir, "bot_commands.jsonl")
         self.state_path = os.path.join(self.runtime_dir, "stage_queue_state.json")
+        self.commands_state_path = os.path.join(self.runtime_dir, "bot_commands_state.json")
+        self.fanzone_state_path = os.path.join(self.runtime_dir, "fanzone_queue_state.json")
 
         self.team_iso_path = os.path.join(self.base_dir, "team_iso.json")
         self.country_roles_path = os.path.join(self.base_dir, "JSON", "countryroles.json")
@@ -284,6 +288,11 @@ class StageProgressAnnouncer(commands.Cog):
                 dm_emb = self._dm_embed(team, stage, thumb_iso)
                 for uid in owner_ids:
                     await self._dm_user_embed(uid, dm_emb)
+
+        compact_command_queue(
+            self.queue_path,
+            [self.state_path, self.commands_state_path, self.fanzone_state_path],
+        )
 
     @_loop.before_loop
     async def _before_loop(self):
