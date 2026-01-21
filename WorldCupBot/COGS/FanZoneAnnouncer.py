@@ -2,6 +2,8 @@ import os, json
 import discord
 from discord.ext import commands, tasks
 
+from queue_utils import compact_command_queue
+
 class FanZoneAnnouncer(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -11,6 +13,8 @@ class FanZoneAnnouncer(commands.Cog):
 
         self.queue_path = os.path.join(self.runtime_dir, "bot_commands.jsonl")
         self.state_path = os.path.join(self.runtime_dir, "fanzone_queue_state.json")
+        self.commands_state_path = os.path.join(self.runtime_dir, "bot_commands_state.json")
+        self.stage_state_path = os.path.join(self.runtime_dir, "stage_queue_state.json")
 
         self.team_iso_path = os.path.join(self.base_dir, "team_iso.json")
         self.team_iso = self._load_team_iso()
@@ -259,6 +263,11 @@ class FanZoneAnnouncer(commands.Cog):
                 draw_emb = self._dm_draw_embed(home, away, winner_iso or loser_iso)
                 for uid in draw_owner_ids:
                     await self._dm_user_embed(uid, draw_emb)
+
+        compact_command_queue(
+            self.queue_path,
+            [self.state_path, self.commands_state_path, self.stage_state_path],
+        )
 
     @_loop.before_loop
     async def _before_loop(self):
