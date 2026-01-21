@@ -274,7 +274,7 @@ function stagePill(stage){
   // === PAGE SWITCHER ===
     function showPage(page) {
       // admin-only pages
-      const adminPages = new Set(['splits','backups','log','cogs']);
+      const adminPages = new Set(['backups','log','cogs']);
 
       // block admin pages when not logged in
       if (adminPages.has(page) && !isAdminUI()) {
@@ -294,12 +294,12 @@ function stagePill(stage){
       if (page === 'log' && state.admin) loadLogs().catch(()=>{});
       if (page === 'cogs' && state.admin) loadCogs().catch(()=>{});
       if (page === 'backups' && state.admin) loadBackups().catch(()=>{});
-      if (page === 'splits' && state.admin) loadSplits().catch(()=>{});
+      if (page === 'splits') loadSplits().catch(()=>{});
       if (page === 'settings') loadSettings().catch(()=>{});
     }
 
   function setPage(p) {
-    const adminPages = new Set(['splits','backups','log','cogs']);
+    const adminPages = new Set(['backups','log','cogs']);
     if (adminPages.has(p) && !isAdminUI()) {
       notify('That page requires admin login.', false);
       p = 'dashboard';
@@ -2123,8 +2123,10 @@ window.loadOwnershipPage = loadOwnershipPage;
 
 
 /* -----------------------------
-   Splits page (Requests + History)
-   Reads:
+   Splits page (Public + Admin)
+   Public reads:
+     /api/split_requests           -> JSON/split_requests.json (pending + resolved)
+   Admin reads:
      /admin/splits                 -> JSON/split_requests.json normalized
      /admin/splits/history?limit=N -> JSON/split_requests_log.json normalized
    ----------------------------- */
@@ -2141,17 +2143,12 @@ state.splitsBuilt = false;
 
 // entry point called by router
 async function loadSplits(){
-  if (!state.admin) { notify('Admin required', false); return; }
   try {
     if (!state.splitsBuilt) buildSplitsShell();
-
-    // GET pending requests
-    const data = await fetchJSON('/admin/splits'); // { pending:[...] } or []
-    const pending = Array.isArray(data) ? data : (data.pending || []);
-    renderPendingSplits(pending);
-
-    // load history below
-    await loadSplitHistoryOnce();
+    await loadPublicSplits();
+    if (state.admin) {
+      await loadAdminSplits();
+    }
   } catch(e){
     notify(`Splits error: ${e.message || e}`, false);
   }
@@ -2164,43 +2161,82 @@ function buildSplitsShell(){
   if (!sec) return;
 
   sec.innerHTML = `
-    <div class="table-wrap" id="splits-requests-card">
-      <div class="table-head">
-        <div class="table-title">Split Requests</div>
-        <div class="table-actions">
-          <button id="splits-refresh" class="btn">Refresh</button>
+    <div class="splits-layout">
+      <div class="splits-panel splits-panel--public">
+        <div class="table-wrap" id="splits-public-requests-card">
+          <div class="table-head">
+            <div class="table-title">Split Requests</div>
+            <div class="table-actions">
+              <button id="splits-public-refresh" class="btn">Refresh</button>
+            </div>
+          </div>
+          <div class="table-scroll" id="splits-public-pending-body">
+            <div class="split-empty">Loading…</div>
+          </div>
         </div>
-      </div>
-      <div class="table-scroll" id="splits-pending-body">
-        <div class="split-empty">Loading…</div>
-      </div>
-    </div>
 
-    <div class="table-wrap" id="splits-history-card" style="margin-top:16px">
-      <div class="table-head">
-        <div class="table-title">
-          History
-        </div>
-        <div class="table-actions">
-          <button id="splits-history-refresh" class="btn">Refresh</button>
+        <div class="table-wrap" id="splits-public-history-card" style="margin-top:16px">
+          <div class="table-head">
+            <div class="table-title">History</div>
+            <div class="table-actions">
+              <button id="splits-public-history-refresh" class="btn">Refresh</button>
+            </div>
+          </div>
+          <div class="table-scroll" id="splits-public-history-body">
+            <div class="split-empty">Loading…</div>
+          </div>
         </div>
       </div>
-      <div class="table-scroll" id="split-history-body">
-        <div class="split-empty">Loading…</div>
+
+      <div class="splits-panel splits-panel--admin admin-only">
+        <div class="table-wrap" id="splits-admin-requests-card">
+          <div class="table-head">
+            <div class="table-title">Admin Split Controls</div>
+            <div class="table-actions">
+              <button id="splits-admin-refresh" class="btn">Refresh</button>
+            </div>
+          </div>
+          <div class="table-scroll" id="splits-admin-pending-body">
+            <div class="split-empty">Loading…</div>
+          </div>
+        </div>
+
+        <div class="table-wrap" id="splits-admin-history-card" style="margin-top:16px">
+          <div class="table-head">
+            <div class="table-title">Admin History</div>
+            <div class="table-actions">
+              <button id="splits-admin-history-refresh" class="btn">Refresh</button>
+            </div>
+          </div>
+          <div class="table-scroll" id="splits-admin-history-body">
+            <div class="split-empty">Loading…</div>
+          </div>
+        </div>
       </div>
     </div>
   `;
 
   // wire refresh buttons
-  const btnReq = document.getElementById('splits-refresh');
-  if (btnReq && !btnReq._wired) {
-    btnReq._wired = true;
-    btnReq.addEventListener('click', loadSplits);
+  const btnPublic = document.getElementById('splits-public-refresh');
+  if (btnPublic && !btnPublic._wired) {
+    btnPublic._wired = true;
+    btnPublic.addEventListener('click', loadPublicSplits);
   }
-  const btnHist = document.getElementById('splits-history-refresh');
-  if (btnHist && !btnHist._wired) {
-    btnHist._wired = true;
-    btnHist.addEventListener('click', loadSplitHistoryOnce);
+  const btnPublicHist = document.getElementById('splits-public-history-refresh');
+  if (btnPublicHist && !btnPublicHist._wired) {
+    btnPublicHist._wired = true;
+    btnPublicHist.addEventListener('click', loadPublicSplits);
+  }
+
+  const btnAdmin = document.getElementById('splits-admin-refresh');
+  if (btnAdmin && !btnAdmin._wired) {
+    btnAdmin._wired = true;
+    btnAdmin.addEventListener('click', loadAdminSplits);
+  }
+  const btnAdminHist = document.getElementById('splits-admin-history-refresh');
+  if (btnAdminHist && !btnAdminHist._wired) {
+    btnAdminHist._wired = true;
+    btnAdminHist.addEventListener('click', loadAdminSplitHistory);
   }
 
   state.splitsBuilt = true;
@@ -2229,16 +2265,173 @@ function shortId(id) {
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
   return '#' + (hash % 90000 + 10000); // 5 digits
 }
-function splitStatusPill(status) {
-  const map = { pending:'pill-warn', approved:'pill-ok', accepted:'pill-ok', resolved:'pill-ok', denied:'pill-off', rejected:'pill-off' };
+function splitStatusPill(status, variant = 'admin') {
+  const pendingClass = variant === 'public' ? 'pill-pending-public' : 'pill-pending-admin';
+  const map = {
+    pending: pendingClass,
+    approved: 'pill-ok',
+    accepted: 'pill-ok',
+    resolved: 'pill-ok',
+    denied: 'pill-off',
+    rejected: 'pill-off',
+    declined: 'pill-off'
+  };
   const cls = map[status] || 'pill-off';
   const label = status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
   return `<span class="pill ${cls}">${label}</span>`;
 }
 
-/* Requests table */
-function renderPendingSplits(rows){
-  const body = document.getElementById('splits-pending-body');
+async function loadPublicSplits() {
+  const pendingBody = document.getElementById('splits-public-pending-body');
+  const historyBody = document.getElementById('splits-public-history-body');
+  if (!pendingBody || !historyBody) return;
+
+  try {
+    const data = await fetchJSON('/api/split_requests');
+    const pending = Array.isArray(data?.pending) ? data.pending : [];
+    const resolved = Array.isArray(data?.resolved) ? data.resolved : [];
+    renderPublicPendingSplits(pending);
+    renderPublicSplitHistory(resolved);
+  } catch (e) {
+    notify(`Public splits error: ${e.message || e}`, false);
+  }
+}
+
+async function loadAdminSplits() {
+  if (!state.admin) return;
+  const body = document.getElementById('splits-admin-pending-body');
+  if (!body) return;
+
+  try {
+    const data = await fetchJSON('/admin/splits'); // { pending:[...] } or []
+    const pending = Array.isArray(data) ? data : (data.pending || []);
+    renderAdminPendingSplits(pending);
+    await loadAdminSplitHistory();
+  } catch (e) {
+    notify(`Splits error: ${e.message || e}`, false);
+  }
+}
+
+/* Public Requests table */
+function renderPublicPendingSplits(rows){
+  const body = document.getElementById('splits-public-pending-body');
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'split-empty';
+    empty.textContent = 'No pending split requests.';
+    body.appendChild(empty);
+    return;
+  }
+
+  const table = document.createElement('table');
+  table.className = 'table splits';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-id">ID</th>
+        <th class="col-team">TEAM</th>
+        <th class="col-user">FROM</th>
+        <th class="col-user">TO</th>
+        <th class="col-when">EXPIRES</th>
+        <th class="col-status">STATUS</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+
+  const sorted = rows.slice().sort((a, b) => {
+    const ta = +new Date(a?.expires_at || a?.timestamp || 0);
+    const tb = +new Date(b?.expires_at || b?.timestamp || 0);
+    return tb - ta;
+  });
+
+  for (const r of sorted) {
+    const realId = r.id ?? '-';
+    const idShort = shortId(realId);
+    const team = r.team ?? '-';
+    const from = r.from_username ?? r.requester_id ?? '-';
+    const to = r.to_username ?? r.main_owner_id ?? '-';
+    const when = r.expires_at ?? r.timestamp ?? null;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="col-id" title="${escapeHTML(realId)}">${idShort}</td>
+      <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
+      <td class="col-user"><span class="clip" title="${escapeHTML(String(from))}">${escapeHTML(String(from))}</span></td>
+      <td class="col-user"><span class="clip" title="${escapeHTML(String(to))}">${escapeHTML(String(to))}</span></td>
+      <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
+      <td class="col-status">${splitStatusPill('pending', 'public')}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  body.appendChild(table);
+}
+
+/* Public History table */
+function renderPublicSplitHistory(rows) {
+  const body = document.getElementById('splits-public-history-body');
+  if (!body) return;
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    body.innerHTML = `<div class="split-empty">No history recorded yet.</div>`;
+    return;
+  }
+
+  const sorted = rows.slice().sort((a, b) => {
+    const ta = +new Date(a?.created_at || a?.time || a?.timestamp || 0);
+    const tb = +new Date(b?.created_at || b?.time || b?.timestamp || 0);
+    return tb - ta;
+  });
+
+  const table = document.createElement('table');
+  table.className = 'table splits';
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-id">ID</th>
+        <th class="col-team">TEAM</th>
+        <th class="col-user">FROM</th>
+        <th class="col-user">TO</th>
+        <th class="col-when">WHEN</th>
+        <th class="col-status">STATUS</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+
+  for (const ev of sorted) {
+    const id = ev.id ?? ev.request_id ?? '';
+    const team = ev.team || ev.country || ev.country_name || '-';
+    const fromUser = ev.from_username || ev.requester_username || ev.from || ev.requester_id || '-';
+    const toUser = ev.to_username || ev.receiver_username || ev.to || ev.main_owner_id || '-';
+    const when = ev.created_at || ev.time || ev.timestamp || null;
+    const actionRaw = (ev.action || ev.status || 'resolved').toString().toLowerCase();
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="col-id" title="${escapeHTML(String(id))}">${shortId(id)}</td>
+      <td class="col-team"><span class="clip" title="${escapeHTML(team)}">${escapeHTML(team)}</span></td>
+      <td class="col-user"><span class="clip" title="${escapeHTML(String(fromUser))}">${escapeHTML(String(fromUser))}</span></td>
+      <td class="col-user"><span class="clip" title="${escapeHTML(String(toUser))}">${escapeHTML(String(toUser))}</span></td>
+      <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
+      <td class="col-status">${splitStatusPill(actionRaw, 'public')}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  body.innerHTML = '';
+  body.appendChild(table);
+}
+
+/* Admin Requests table */
+function renderAdminPendingSplits(rows){
+  const body = document.getElementById('splits-admin-pending-body');
   if (!body) return;
   body.innerHTML = '';
 
@@ -2291,7 +2484,7 @@ function renderPendingSplits(rows){
       <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
       <td class="col-status">
         <div class="action-cell">
-          <button type="button" class="pill pill-warn pill-click">Pending</button>
+          <button type="button" class="pill pill-pending-admin pill-click">Pending</button>
             <div class="chip-group--split hidden">
               <button type="button" class="btn-split split-accept"  data-action="accept"  data-id="${escapeHTML(realId)}">Accept</button>
               <button type="button" class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
@@ -2344,8 +2537,8 @@ function renderPendingSplits(rows){
           body.innerHTML = '<div class="split-empty">No pending split requests.</div>';
         }
         // refresh both panels so UI is in sync with files
-        await loadSplits();
-        await loadSplitHistoryOnce();
+        await loadPublicSplits();
+        await loadAdminSplits();
         try { await loadOwnership(); } catch(_) {}
         notify(`Split ${action}ed`, true);
       } catch (err) {
@@ -2375,17 +2568,14 @@ async function submitSplitAction(action, requestId) {
   return await res.json();
 }
 
-/* History table */
-async function loadSplitHistoryOnce() {
+/* Admin History table */
+async function loadAdminSplitHistory() {
   if (!state.admin) return;
-  const body = document.getElementById('split-history-body');
-  const countEl = document.getElementById('split-hist-count');
+  const body = document.getElementById('splits-admin-history-body');
   if (!body) return;
 
   try {
     const { events = [] } = await fetchJSON('/admin/splits/history?limit=200');
-
-    countEl && (countEl.textContent = events.length);
 
     if (!events.length) {
       body.innerHTML = `<div class="split-empty">No history recorded yet.</div>`;
@@ -2430,7 +2620,7 @@ async function loadSplitHistoryOnce() {
         <td class="col-user"><span class="clip" title="${escapeHTML(String(fromUser))}">${escapeHTML(String(fromUser))}</span></td>
         <td class="col-user"><span class="clip" title="${escapeHTML(String(toUser))}">${escapeHTML(String(toUser))}</span></td>
         <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
-        <td class="col-status">${splitStatusPill(actionRaw)}</td>
+        <td class="col-status">${splitStatusPill(actionRaw, 'admin')}</td>
       `;
       tbody.appendChild(tr);
     }
@@ -2443,7 +2633,7 @@ async function loadSplitHistoryOnce() {
 }
 
 window.loadSplits = loadSplits;
-window.loadSplitHistoryOnce = loadSplitHistoryOnce;
+window.loadAdminSplitHistory = loadAdminSplitHistory;
 
 
     async function loadBackups(){
@@ -3477,7 +3667,7 @@ async function getCogStatus(name){
       case 'bets': await loadAndRenderBets(); break;
       case 'ownership': await loadOwnershipPage(); break;
       case 'settings': await loadSettings(); break;
-      case 'splits': if(isAdminUI()) await loadSplits(); else setPage('dashboard'); break;
+      case 'splits': await loadSplits(); break;
       case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
       case 'log': if(isAdminUI()) await loadLogs('bot'); else setPage('dashboard'); break;
       case 'cogs': if(isAdminUI()) await loadCogs(); else setPage('dashboard'); break;
