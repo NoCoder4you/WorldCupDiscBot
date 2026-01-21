@@ -4,6 +4,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional, Deque, TextIO
 import psutil
+import requests
 from flask import Flask, jsonify, make_response, request, send_from_directory, session
 
 # ---------- Paths & Config ----------
@@ -62,12 +63,41 @@ bot_last_stop_ref = {"value": None}
 _manual_stop_flag = False  # True when stop_bot() intentionally stops the process
 AUTO_START = bool(CONFIG.get("auto_start_bot", True))
 
+# Offline alert settings
+OFFLINE_WEBHOOK_URL = os.getenv(
+    "OFFLINE_WEBHOOK_URL",
+    "https://discord.com/api/webhooks/1463334906154455176/cvsoM5_OogGOXuY3vreOTuMTvFlvoIN_7gnSvtg-pFghGQxjq1YQpTM6FpruOW-T-JKG",
+)
+REFEREE_ROLE_ID = str(CONFIG.get("REFEREE_ROLE_ID") or os.getenv("REFEREE_ROLE_ID") or "1388286661158502515")
+OFFLINE_ALERT_INTERVAL_SEC = 15 * 60
+
 # Crash policy
 CRASH_WINDOW_SEC = int(CONFIG.get("crash_window_seconds", 60))
 MAX_CRASHES_IN_WINDOW = int(CONFIG.get("max_crashes_in_window", 3))
 RETRY_COOLDOWN_SEC = int(CONFIG.get("retry_cooldown_seconds", 60))
 _crash_times: Deque[float] = collections.deque(maxlen=100)
 _cooldown_until = 0.0
+_offline_since: Optional[float] = None
+_next_offline_alert_ts = 0.0
+
+def _send_offline_alert(now: float, since_ts: Optional[float]) -> None:
+    if not OFFLINE_WEBHOOK_URL:
+        return
+    since_val = int(since_ts or now)
+    content = (
+        f"<@&{REFEREE_ROLE_ID}> Bot has been offline since <t:{since_val}:R> "
+        f"(started <t:{since_val}:f>)."
+    )
+    payload = {
+        "content": content,
+        "allowed_mentions": {"roles": [REFEREE_ROLE_ID]},
+    }
+    try:
+        resp = requests.post(OFFLINE_WEBHOOK_URL, json=payload, timeout=10)
+        if resp.status_code >= 400:
+            log.warning("Offline webhook failed: %s %s", resp.status_code, resp.text[:200])
+    except requests.RequestException as exc:
+        log.warning("Offline webhook error: %s", exc)
 
 def _record_crash(ts=None):
     global _cooldown_until
@@ -308,6 +338,7 @@ def debug_routes():
 # ---------- Watchdog ----------
 def _watchdog_loop():
     global bot_process
+    global _offline_since, _next_offline_alert_ts
     # Auto start if configured
     if AUTO_START:
         start_bot()
@@ -315,12 +346,20 @@ def _watchdog_loop():
         try:
             time.sleep(2.0)
             running = is_bot_running()
+            now = time.time()
             if running:
+                _offline_since = None
+                _next_offline_alert_ts = 0.0
                 continue
             # not running
+            if _offline_since is None:
+                _offline_since = now
+                _next_offline_alert_ts = 0.0
+            if now >= _next_offline_alert_ts:
+                _send_offline_alert(now, _offline_since)
+                _next_offline_alert_ts = now + OFFLINE_ALERT_INTERVAL_SEC
             # attempt restart if not manual stop and not in cooldown
             if not _manual_stop_flag:
-                now = time.time()
                 if now >= _cooldown_until:
                     log.warning("Bot not running - attempting restart")
                     ok = start_bot()
