@@ -1674,6 +1674,16 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     margin-left: 6px;
 }
 
+#ownership .ownership-table .owner-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#ownership .ownership-table .owner-cell .muted {
+    margin-left: 0;
+}
+
 /* Unassigned cue */
 .row-unassigned td {
     color: var(--muted);

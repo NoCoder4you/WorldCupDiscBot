@@ -1280,10 +1280,11 @@ function formatOwnershipPercent(value) {
         const label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
         const showId = !!(window.adminUnlocked && idVal && label !== idVal);
         const ownerShareLabel = getShareLabel(idVal);
-        const ownerShare = ownerShareLabel ? ` <span class="muted">(${ownerShareLabel})</span>` : '';
+        const ownerShare = ownerShareLabel ? `<span class="muted">(${ownerShareLabel})</span>` : '';
         const ownerCell = row.main_owner
-          ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? ' <span class="muted">(' + idVal + ')</span>' : ''}${ownerShare}`
-          : 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
+          ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? '<span class="muted">(' + idVal + ')</span>' : ''}${ownerShare}`
+          : '<span class="owner-name">Unassigned</span><span class="warn-icon" title="No owner">⚠️</span>';
+        const ownerCellMarkup = `<span class="owner-cell">${ownerCell}</span>`;
 
         // Split cell
         const splitStr = (row.split_with && row.split_with.length)
@@ -1316,7 +1317,7 @@ function formatOwnershipPercent(value) {
         tr.innerHTML = `
           <td id="country">${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
           <td><span class="ownership-group">${groupLabel}</span></td>
-          <td>${ownerCell}</td>
+          <td>${ownerCellMarkup}</td>
           <td>${splitStr}</td>
           <td>${stageCell}</td>
           <td class="admin-col" data-admin="true">
