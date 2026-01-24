@@ -19,6 +19,7 @@
     --btn-hover: #2a3b55;
     --card-h: 220px;
     --warn: #f6c343;
+    --ownedelse: #00FF9D;
 
     /* Gauge colors */
     --mem-c: #0096C8;
@@ -2853,7 +2854,7 @@ select.select-dark:disabled {
 
 /* Owned by others */
 .map-legend .key.box.owned {
-    background: var(--accent);
+    background: var(--ownedelse);
 }
 
 .map-legend .key.box.split {
