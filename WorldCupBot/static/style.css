@@ -2985,14 +2985,12 @@ select.select-dark:disabled {
 .country.owned,
 .country.owned * {
     fill: var(--ownedelse)
-    opacity: 1;
 }
 
 /* Split ownership */
 .country.split,
 .country.split * {
     fill: var(--accent-2);
-    opacity: 1;
 }
 
 /* Unassigned but qualified */
@@ -3005,7 +3003,6 @@ select.select-dark:disabled {
 .country-owned-self,
 .country-owned-self * {
     fill: #00F8FF;
-    opacity: 1;
 }
 
 .country-owned-self.active,
