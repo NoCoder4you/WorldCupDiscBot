@@ -1,8 +1,7 @@
-import os, json, time, glob, sys, re, threading, atexit
+import os, json, time, glob, sys, re, threading, atexit, shutil, zipfile, datetime
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
 import logging
-from routes_public import _create_backup
 
 from stage_constants import (
     STAGE_ALLOWED,
@@ -16,6 +15,7 @@ ADMIN_IDS_KEY    = "ADMIN_IDS"
 AUTO_BACKUP_INTERVAL_SECONDS = 6 * 60 * 60
 _auto_backup_thread = None
 _auto_backup_stop = None
+MAX_BACKUPS = 25
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -23,6 +23,13 @@ def _base_dir(ctx):
 
 def _json_dir(ctx):
     return os.path.join(_base_dir(ctx), "JSON")
+
+def _ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def _backup_dir(base_dir):
+    return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
 
 def _auto_backup_loop(base_dir: str, stop_event: threading.Event):
     while not stop_event.wait(AUTO_BACKUP_INTERVAL_SECONDS):
@@ -50,6 +57,83 @@ def _stop_auto_backup():
     global _auto_backup_stop
     if _auto_backup_stop:
         _auto_backup_stop.set()
+
+def _list_backups(base_dir):
+    bdir = _backup_dir(base_dir)
+    out = []
+    for name in sorted(os.listdir(bdir)):
+        fp = os.path.join(bdir, name)
+        if os.path.isfile(fp):
+            title, ext = os.path.splitext(name)
+            if ext.lower() == ".zip":
+                title = name
+            out.append({
+                "name": name,
+                "title": title,
+                "size": os.path.getsize(fp),
+                "ts": int(os.path.getmtime(fp)),
+                "rel": name,
+            })
+    return sorted(out, key=lambda x: x["ts"], reverse=True)
+
+def _unique_backup_path(bdir: str, timestamp: str) -> tuple[str, str]:
+    base_name = f"{timestamp}.zip"
+    base_path = os.path.join(bdir, base_name)
+    if not os.path.exists(base_path):
+        return base_name, base_path
+    suffix = 1
+    while True:
+        candidate_name = f"{timestamp}_{suffix:02d}.zip"
+        candidate_path = os.path.join(bdir, candidate_name)
+        if not os.path.exists(candidate_path):
+            return candidate_name, candidate_path
+        suffix += 1
+
+def _cleanup_old_backups(base_dir: str):
+    bdir = _backup_dir(base_dir)
+    backups = sorted(
+        [
+            os.path.join(bdir, name)
+            for name in os.listdir(bdir)
+            if name.endswith(".zip") and os.path.isfile(os.path.join(bdir, name))
+        ],
+        key=os.path.getmtime,
+    )
+    if len(backups) <= MAX_BACKUPS:
+        return
+    for path in backups[:-MAX_BACKUPS]:
+        try:
+            os.remove(path)
+        except OSError:
+            log.warning("Failed to remove old backup: %s", path)
+
+def _create_backup(base_dir):
+    bdir = _backup_dir(base_dir)
+    jdir = os.path.join(base_dir, "JSON")
+    ts = datetime.datetime.now().strftime("%d-%m_%H-%M-%S")
+    outname, outpath = _unique_backup_path(bdir, ts)
+    with zipfile.ZipFile(outpath, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        if os.path.isdir(jdir):
+            for root, _, files in os.walk(jdir):
+                for fn in files:
+                    fp = os.path.join(root, fn)
+                    arc = os.path.relpath(fp, jdir)
+                    z.write(fp, arcname=arc)
+    _cleanup_old_backups(base_dir)
+    return outname
+
+def _restore_backup(base_dir, name):
+    bdir = _backup_dir(base_dir)
+    jdir = os.path.join(base_dir, "JSON")
+    src = os.path.join(bdir, name)
+    if not (os.path.isfile(src) and src.endswith(".zip")):
+        raise FileNotFoundError("Backup not found")
+    if os.path.isdir(jdir):
+        shutil.copytree(jdir, jdir + ".bak.restore", dirs_exist_ok=True)
+    with zipfile.ZipFile(src, "r") as z:
+        _ensure_dir(jdir)
+        z.extractall(jdir)
+    return True
 
 def _notification_settings_path(ctx):
     return _path(ctx, "notification_settings.json")
@@ -334,6 +418,20 @@ def _current_user():
         return u
     return None
 
+def _effective_uid(ctx):
+    user = session.get(USER_SESSION_KEY)
+    if not user:
+        return None
+
+    real_id = str(user.get("discord_id") or "")
+    masquerade_id = session.get("wc_masquerade_id")
+
+    cfg = _load_config(ctx)
+    admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
+    if masquerade_id and real_id in admin_ids:
+        return str(masquerade_id)
+    return real_id
+
 def _user_label():
     u = _current_user()
     if not u:
@@ -355,14 +453,14 @@ def _is_admin(ctx):
 
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
-    bp = Blueprint("admin", __name__, url_prefix="/admin")
+    bp = Blueprint("admin", __name__)
     base_dir = _base_dir(ctx)
     if base_dir:
         _start_auto_backup(base_dir)
         atexit.register(_stop_auto_backup)
 
     # ---------- Auth endpoints (Discord-session based) ----------
-    @bp.get("/auth/status")
+    @bp.get("/admin/auth/status")
     def auth_status():
         u = _current_user()
         return jsonify({
@@ -380,6 +478,61 @@ def create_admin_routes(ctx):
         if _is_admin(ctx):
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    @bp.get("/api/backups")
+    def backups_list():
+        base = ctx.get("BASE_DIR", "")
+        files = _list_backups(base)
+        folders = [{
+            "display": "JSON snapshots",
+            "count": len(files),
+            "files": [{"name": f["name"], "bytes": f["size"], "mtime": f["ts"], "rel": f["rel"]} for f in files],
+        }]
+        return jsonify({"folders": folders, "backups": files})
+
+    @bp.get("/api/backups/download")
+    def backups_download():
+        base = ctx.get("BASE_DIR", "")
+        rel = request.args.get("rel", "")
+        if not rel:
+            return jsonify({"ok": False, "error": "missing rel"}), 400
+        fp = os.path.join(_backup_dir(base), rel)
+        if not os.path.isfile(fp):
+            return jsonify({"ok": False, "error": "not found"}), 404
+        return send_file(fp, as_attachment=True, download_name=os.path.basename(fp))
+
+    @bp.post("/api/backups/create")
+    def backups_create():
+        base = ctx.get("BASE_DIR", "")
+        name = _create_backup(base)
+        user = session.get(USER_SESSION_KEY) or {}
+        log.info(
+            "Backup created via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid(ctx) or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
+        return jsonify({"ok": True, "created": name})
+
+    @bp.post("/api/backups/restore")
+    def backups_restore():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        name = body.get("name", "")
+        try:
+            _restore_backup(base, name)
+        except FileNotFoundError:
+            return jsonify({"ok": False, "error": "backup not found"}), 404
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        user = session.get(USER_SESSION_KEY) or {}
+        log.info(
+            "Backup restored via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid(ctx) or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
+        return jsonify({"ok": True, "restored": name})
 
     # ---------- Bot controls ----------
     def _callable(fn):
@@ -406,7 +559,7 @@ def create_admin_routes(ctx):
             ok = True
         return ok
 
-    @bp.get("/bot/status")
+    @bp.get("/admin/bot/status")
     def bot_status():
         fn = ctx.get("is_bot_running")
         running = False
@@ -419,7 +572,7 @@ def create_admin_routes(ctx):
         last_stop  = (ctx.get("bot_last_stop_ref")  or {}).get("value")
         return jsonify({"ok": True, "running": running, "last_start": last_start, "last_stop": last_stop})
 
-    @bp.post("/bot/start")
+    @bp.post("/admin/bot/start")
     def bot_start():
         resp = require_admin()
         if resp is not None: return resp
@@ -427,7 +580,7 @@ def create_admin_routes(ctx):
         log.info("Bot start requested by %s (ok=%s)", _user_label(), ok)
         return jsonify({"ok": ok, "action": "start"})
 
-    @bp.post("/bot/stop")
+    @bp.post("/admin/bot/stop")
     def bot_stop():
         resp = require_admin()
         if resp is not None: return resp
@@ -435,7 +588,7 @@ def create_admin_routes(ctx):
         log.info("Bot stop requested by %s (ok=%s)", _user_label(), ok)
         return jsonify({"ok": ok, "action": "stop"})
 
-    @bp.post("/bot/restart")
+    @bp.post("/admin/bot/restart")
     def bot_restart():
         resp = require_admin()
         if resp is not None: return resp
@@ -444,7 +597,7 @@ def create_admin_routes(ctx):
         return jsonify({"ok": ok, "action": "restart"})
 
     # ---------- Ownership (reassign) ----------
-    @bp.post("/ownership/reassign")
+    @bp.post("/admin/ownership/reassign")
     def ownership_reassign():
         resp = require_admin()
         if resp is not None: return resp
@@ -538,7 +691,7 @@ def create_admin_routes(ctx):
             results.append({"name": name, "loaded": bool(is_loaded)})
         return results
 
-    @bp.get("/cogs")
+    @bp.get("/admin/cogs")
     def cogs_list():
         resp = require_admin()
         if resp is not None: return resp
@@ -548,21 +701,21 @@ def create_admin_routes(ctx):
         _enqueue_command(ctx, f"cog_{action}", {"name": cog})
         log.info("Cog %s requested by %s (cog=%s)", action, _user_label(), cog)
 
-    @bp.post("/cogs/<cog>/load")
+    @bp.post("/admin/cogs/<cog>/load")
     def cogs_load(cog):
         resp = require_admin()
         if resp is not None: return resp
         _enqueue_cog(cog, "load")
         return jsonify({"ok": True})
 
-    @bp.post("/cogs/<cog>/unload")
+    @bp.post("/admin/cogs/<cog>/unload")
     def cogs_unload(cog):
         resp = require_admin()
         if resp is not None: return resp
         _enqueue_cog(cog, "unload")
         return jsonify({"ok": True})
 
-    @bp.post("/cogs/<cog>/reload")
+    @bp.post("/admin/cogs/<cog>/reload")
     def cogs_reload(cog):
         resp = require_admin()
         if resp is not None: return resp
@@ -591,7 +744,7 @@ def create_admin_routes(ctx):
         m = _verified_map(ctx)
         return {str(x): m.get(str(x), str(x)) for x in {str(i) for i in ids if i is not None}}
 
-    @bp.get("/splits")
+    @bp.get("/admin/splits")
     def splits_get():
         resp = require_admin()
         if resp is not None:
@@ -628,7 +781,7 @@ def create_admin_routes(ctx):
 
         return jsonify({"pending": pending})
 
-    @bp.post("/splits/accept")
+    @bp.post("/admin/splits/accept")
     def splits_accept():
         resp = require_admin()
         if resp is not None:
@@ -725,7 +878,7 @@ def create_admin_routes(ctx):
 
         return jsonify({"ok": True, "event": event})
 
-    @bp.post("/splits/decline")
+    @bp.post("/admin/splits/decline")
     def splits_decline():
         resp = require_admin()
         if resp is not None: return resp
@@ -755,7 +908,7 @@ def create_admin_routes(ctx):
         log.info("Split declined by %s (team=%s requester_id=%s main_owner_id=%s reason=%s)", _user_label(), entry.get("team"), req_id, own_id, reason)
         return jsonify({"ok": True, "event": event})
 
-    @bp.get("/splits/history")
+    @bp.get("/admin/splits/history")
     def splits_history():
         resp = require_admin()
         if resp is not None:
@@ -892,7 +1045,7 @@ def create_admin_routes(ctx):
         data["events"] = events[:500]
         _write_json_atomic(path, data)
 
-    @bp.post("/bets/<bet_id>/winner")
+    @bp.post("/admin/bets/<bet_id>/winner")
     def bets_declare_winner(bet_id):
         resp = require_admin()
         if resp is not None: return resp
@@ -924,7 +1077,7 @@ def create_admin_routes(ctx):
         return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
 
     # ---------- LOGS ----------
-    @bp.get("/log/<kind>")
+    @bp.get("/admin/log/<kind>")
     def admin_log_get(kind):
         resp = require_admin()
         if resp is not None:
@@ -939,7 +1092,7 @@ def create_admin_routes(ctx):
             lines = []
         return jsonify({"lines": lines})
 
-    @bp.post("/log/<kind>/clear")
+    @bp.post("/admin/log/<kind>/clear")
     def admin_log_clear(kind):
         resp = require_admin()
         if resp is not None:
@@ -954,7 +1107,7 @@ def create_admin_routes(ctx):
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
 
-    @bp.get("/log/<kind>/download")
+    @bp.get("/admin/log/<kind>/download")
     def admin_log_download(kind):
         resp = require_admin()
         if resp is not None:
@@ -1018,7 +1171,7 @@ def create_admin_routes(ctx):
         data["events"] = events[:500]
         _write_json_atomic(path, data)
 
-    @bp.get("/teams/stage")
+    @bp.get("/admin/teams/stage")
     def admin_team_stage_get():
         resp = require_admin()
         if resp is not None: return resp
@@ -1026,7 +1179,7 @@ def create_admin_routes(ctx):
         if not isinstance(data, dict): data = {}
         return jsonify({"ok": True, "stages": data})
 
-    @bp.post("/teams/stage")
+    @bp.post("/admin/teams/stage")
     def admin_team_stage_set():
         resp = require_admin()
         if resp is not None: return resp
@@ -1080,7 +1233,7 @@ def create_admin_routes(ctx):
         return jsonify({"ok": True, "team": team, "stage": stage})
 
     # ---------- Masquerade Mode ----------
-    @bp.post("/masquerade/start")
+    @bp.post("/admin/masquerade/start")
     def admin_masquerade_start():
         resp = require_admin()
         if resp is not None:
@@ -1094,7 +1247,7 @@ def create_admin_routes(ctx):
         session["wc_masquerade_id"] = target
         return jsonify({"ok": True, "masquerading_as": target})
 
-    @bp.post("/masquerade/stop")
+    @bp.post("/admin/masquerade/stop")
     def admin_masquerade_stop():
         resp = require_admin()
         if resp is not None:
@@ -1104,7 +1257,7 @@ def create_admin_routes(ctx):
         return jsonify({"ok": True, "masquerading_as": None})
 
     # ---------- Settings ----------
-    @bp.get("/settings")
+    @bp.get("/admin/settings")
     def admin_settings_get():
         resp = require_admin()
         if resp is not None:
@@ -1118,7 +1271,7 @@ def create_admin_routes(ctx):
             "maintenance_mode": bool(cfg.get("MAINTENANCE_MODE")),
         })
 
-    @bp.post("/settings")
+    @bp.post("/admin/settings")
     def admin_settings_set():
         resp = require_admin()
         if resp is not None:
@@ -1171,7 +1324,7 @@ def create_admin_routes(ctx):
     def _valid_utc(utc: str) -> bool:
         return bool(re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", utc or ""))
 
-    @bp.get("/fixtures")
+    @bp.get("/admin/fixtures")
     def admin_fixtures_get():
         resp = require_admin()
         if resp is not None:
@@ -1196,7 +1349,7 @@ def create_admin_routes(ctx):
             })
         return jsonify({"ok": True, "fixtures": out})
 
-    @bp.post("/fixtures")
+    @bp.post("/admin/fixtures")
     def admin_fixtures_set():
         resp = require_admin()
         if resp is not None:
@@ -1235,7 +1388,7 @@ def create_admin_routes(ctx):
             _write_json_atomic(_matches_path(ctx), container)
         return jsonify({"ok": True, "id": match_id, "utc": utc})
 
-    @bp.post("/fixtures/slot")
+    @bp.post("/admin/fixtures/slot")
     def admin_fixture_slot_set():
         resp = require_admin()
         if resp is not None:
@@ -1281,7 +1434,7 @@ def create_admin_routes(ctx):
             _write_json_atomic(_matches_path(ctx), container)
         return jsonify({"ok": True, "id": match_id, "bracket_slot": slot_val})
 
-    @bp.post("/bracket_slots")
+    @bp.post("/admin/bracket_slots")
     def admin_bracket_slots_set():
         resp = require_admin()
         if resp is not None:
@@ -1413,7 +1566,7 @@ def create_admin_routes(ctx):
 
         return jsonify({"ok": True, "stage": stage, "slot": slot_val})
 
-    @bp.get("/discord/channels")
+    @bp.get("/admin/discord/channels")
     def admin_discord_channels():
         resp = require_admin()
         if resp is not None:
@@ -1485,7 +1638,7 @@ def create_admin_routes(ctx):
         cleaned = [{"category": r["category"], "channel": r["channel"], "id": r.get("id") or ""} for r in rows]
         return jsonify({"ok": True, "channels": cleaned})
 
-    @bp.get("/discord/guilds")
+    @bp.get("/admin/discord/guilds")
     def admin_discord_guilds():
         resp = require_admin()
         if resp is not None:
@@ -1537,7 +1690,7 @@ def create_admin_routes(ctx):
         except Exception:
             return None
 
-    @bp.post("/embed")
+    @bp.post("/admin/embed")
     def admin_embed_post():
         resp = require_admin()
         if resp is not None:
@@ -1795,7 +1948,7 @@ def create_admin_routes(ctx):
     def _runtime_path(ctx, name):
         return os.path.join(_runtime_dir(ctx), name)
 
-    @bp.post('/fanzone/declare')
+    @bp.post("/admin/fanzone/declare")
     def fanzone_declare_winner():
         resp = require_admin()
         if resp is not None:
