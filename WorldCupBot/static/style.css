@@ -1022,14 +1022,14 @@ body.user-admin-view .dashboard-grid .card {
 
 .fixtures-team-stage {
     align-self: flex-start;
+    color: var(--muted)
 }
 
 .fixtures-team-name {
     font-weight: 800;
     font-size: 13px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: center;
 }
 
 .fixtures-team-record {
