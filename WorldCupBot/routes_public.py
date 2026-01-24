@@ -7,6 +7,7 @@ import urllib.parse
 import requests
 
 from stage_constants import STAGE_CHANNEL_MAP, normalize_stage
+from backup_utils import create_backup
 
 log = logging.getLogger("launcher")
 
@@ -45,6 +46,7 @@ def _ensure_dir(p):
 def _backup_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
 def _json_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "JSON"))
 def _runtime_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "runtime"))
+
 def _cmd_queue_path(base_dir):
     return os.path.join(_runtime_dir(base_dir), "bot_commands.jsonl")
 
@@ -231,21 +233,6 @@ def _list_backups(base_dir):
                 "rel": name,
             })
     return sorted(out, key=lambda x: x["ts"], reverse=True)
-
-def _create_backup(base_dir):
-    bdir = _backup_dir(base_dir)
-    jdir = _json_dir(base_dir)
-    ts = datetime.datetime.now().strftime("%d-%m_%H-%M")
-    outname = f"{ts}.zip"
-    outpath = os.path.join(bdir, outname)
-    with zipfile.ZipFile(outpath, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        if os.path.isdir(jdir):
-            for root, _, files in os.walk(jdir):
-                for fn in files:
-                    fp = os.path.join(root, fn)
-                    arc = os.path.relpath(fp, jdir)
-                    z.write(fp, arcname=arc)
-    return outname
 
 def _restore_backup(base_dir, name):
     bdir = _backup_dir(base_dir)
@@ -1188,7 +1175,7 @@ def create_public_routes(ctx):
     @api.post("/backups/create")
     def backups_create():
         base = ctx.get("BASE_DIR","")
-        name = _create_backup(base)
+        name = create_backup(base)
         user = session.get(_session_key()) or {}
         log.info(
             "Backup created via API (name=%s discord_id=%s username=%s)",
