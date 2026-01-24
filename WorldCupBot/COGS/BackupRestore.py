@@ -4,13 +4,13 @@ import os
 import shutil
 import logging
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 JSON_DIR = BASE_DIR / "JSON"
 BACKUP_DIR = BASE_DIR / "BACKUPS"
-MAX_BACKUPS = 25 
+MAX_BACKUPS = 25
 
 log = logging.getLogger(__name__)
 
@@ -18,13 +18,26 @@ def ensure_backup_dir():
     os.makedirs(BACKUP_DIR, exist_ok=True)
 
 def get_timestamp():
-    return datetime.now().strftime("%d-%m_%H-%M")
+    return datetime.now().strftime("%d-%m_%H-%M-%S")
+
+def unique_backup_path(timestamp: str) -> str:
+    """Return a non-colliding backup path for the given timestamp."""
+    ensure_backup_dir()
+    base = BACKUP_DIR / f"{timestamp}.zip"
+    if not base.exists():
+        return str(base)
+    suffix = 1
+    while True:
+        candidate = BACKUP_DIR / f"{timestamp}_{suffix:02d}.zip"
+        if not candidate.exists():
+            return str(candidate)
+        suffix += 1
 
 def backup_all_json():
     ensure_backup_dir()
     json_files = [f for f in os.listdir(JSON_DIR) if f.endswith(".json")]
     timestamp = get_timestamp()
-    dst = os.path.join(BACKUP_DIR, f"{timestamp}.zip")
+    dst = unique_backup_path(timestamp)
     with zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for file in json_files:
             src = os.path.join(JSON_DIR, file)
@@ -34,6 +47,8 @@ def backup_all_json():
     return [dst]
 
 def cleanup_old_backups():
+    if not BACKUP_DIR.exists():
+        return
     all_backups = sorted([
         os.path.join(BACKUP_DIR, f)
         for f in os.listdir(BACKUP_DIR) if f.endswith(".zip")
@@ -67,18 +82,16 @@ def restore_json(filename: str):
 class BackupRestore(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.next_backup_at = datetime.now() + timedelta(hours=6)
         self.auto_backup.start()
 
     @tasks.loop(hours=6)
     async def auto_backup(self):
-        now = datetime.now()
-        if now < self.next_backup_at:
-            log.info("Auto backup skipped; next scheduled at %s", self.next_backup_at)
-            return
         backup_all_json()
-        self.next_backup_at = datetime.now() + timedelta(hours=6)
         log.info("Auto backup completed")
+
+    @auto_backup.before_loop
+    async def before_auto_backup(self):
+        await self.bot.wait_until_ready()
 
     @commands.command(name="backup", help="Manually backup all JSON files to the BACKUPS folder.")
     @commands.is_owner()
