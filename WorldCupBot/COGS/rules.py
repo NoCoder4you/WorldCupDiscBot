@@ -164,6 +164,28 @@ class RulesCog(commands.Cog):
             await ctx.send(msg)
             await asyncio.sleep(1)  # gentle rate-limit protection
 
+        thumbnail_url = None
+        if self.bot.user and self.bot.user.display_avatar:
+            thumbnail_url = self.bot.user.display_avatar.url
+
+        embed = discord.Embed(
+            title="Server Rules",
+            description=(
+                "By reacting to this message with the green tick, you confirm that you agree to all of "
+                "the rules outlined above and acknowledge that these rules may be subject to change."
+            ),
+            color=discord.Color.blue(),
+        )
+        if thumbnail_url:
+            embed.set_thumbnail(url=thumbnail_url)
+        embed.set_footer(text="World Cup 2026 - Server Rules")
+
+        rules_message = await ctx.send(embed=embed)
+        try:
+            await rules_message.add_reaction("✅")
+        except discord.HTTPException:
+            pass
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(RulesCog(bot))
