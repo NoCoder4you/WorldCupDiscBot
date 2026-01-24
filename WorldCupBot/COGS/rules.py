@@ -7,7 +7,7 @@ import discord
 from discord.ext import commands
 
 
-ROLE_ID = 1394431170707456111  # Unverified role
+ROLE_NAME = "Unverified"
 GREEN_TICK = "✅"
 RULES_EMBED_TITLE = "Server Rules"
 RULES_EMBED_FOOTER = "World Cup 2026 - Server Rules"
@@ -246,7 +246,7 @@ class RulesCog(commands.Cog):
             return
 
         # Not verified: Add role, then remove reaction
-        role = guild.get_role(ROLE_ID)
+        role = discord.utils.get(guild.roles, name=ROLE_NAME)
         if not role:
             return
         try:
