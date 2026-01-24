@@ -299,7 +299,12 @@ CTX = {
 # Register routes
 for bp in create_public_routes(CTX):
     app.register_blueprint(bp)
-app.register_blueprint(create_admin_routes(CTX))
+admin_blueprints = create_admin_routes(CTX)
+if isinstance(admin_blueprints, (list, tuple)):
+    for bp in admin_blueprints:
+        app.register_blueprint(bp)
+else:
+    app.register_blueprint(admin_blueprints)
 
 def _maintenance_enabled() -> bool:
     try:
