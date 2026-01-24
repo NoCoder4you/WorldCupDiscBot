@@ -2170,5 +2170,5 @@ def create_admin_routes(ctx):
         })
 
 
-    return bp, api
+    return bp
 log = logging.getLogger("launcher")
