@@ -1013,6 +1013,17 @@ body.user-admin-view .dashboard-grid .card {
     min-width: 0;
 }
 
+.fixtures-team-meta-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.fixtures-team-stage {
+    align-self: flex-start;
+}
+
 .fixtures-team-name {
     font-weight: 800;
     font-size: 13px;
