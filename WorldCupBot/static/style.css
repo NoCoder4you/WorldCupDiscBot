@@ -2984,7 +2984,7 @@ select.select-dark:disabled {
 /* Owned */
 .country.owned,
 .country.owned * {
-    fill: #00FF9D;
+    fill: var(--ownedelse)
     opacity: 1;
 }
 
