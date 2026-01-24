@@ -1,8 +1,7 @@
-import os, json, time, glob, sys, re, threading, atexit
+import os, json, time, glob, sys, re, threading, atexit, shutil, zipfile, datetime
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
 import logging
-from routes_public import _create_backup
 
 from stage_constants import (
     STAGE_ALLOWED,
@@ -16,6 +15,7 @@ ADMIN_IDS_KEY    = "ADMIN_IDS"
 AUTO_BACKUP_INTERVAL_SECONDS = 6 * 60 * 60
 _auto_backup_thread = None
 _auto_backup_stop = None
+MAX_BACKUPS = 25
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -23,6 +23,13 @@ def _base_dir(ctx):
 
 def _json_dir(ctx):
     return os.path.join(_base_dir(ctx), "JSON")
+
+def _ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def _backup_dir(base_dir):
+    return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
 
 def _auto_backup_loop(base_dir: str, stop_event: threading.Event):
     while not stop_event.wait(AUTO_BACKUP_INTERVAL_SECONDS):
@@ -50,6 +57,83 @@ def _stop_auto_backup():
     global _auto_backup_stop
     if _auto_backup_stop:
         _auto_backup_stop.set()
+
+def _list_backups(base_dir):
+    bdir = _backup_dir(base_dir)
+    out = []
+    for name in sorted(os.listdir(bdir)):
+        fp = os.path.join(bdir, name)
+        if os.path.isfile(fp):
+            title, ext = os.path.splitext(name)
+            if ext.lower() == ".zip":
+                title = name
+            out.append({
+                "name": name,
+                "title": title,
+                "size": os.path.getsize(fp),
+                "ts": int(os.path.getmtime(fp)),
+                "rel": name,
+            })
+    return sorted(out, key=lambda x: x["ts"], reverse=True)
+
+def _unique_backup_path(bdir: str, timestamp: str) -> tuple[str, str]:
+    base_name = f"{timestamp}.zip"
+    base_path = os.path.join(bdir, base_name)
+    if not os.path.exists(base_path):
+        return base_name, base_path
+    suffix = 1
+    while True:
+        candidate_name = f"{timestamp}_{suffix:02d}.zip"
+        candidate_path = os.path.join(bdir, candidate_name)
+        if not os.path.exists(candidate_path):
+            return candidate_name, candidate_path
+        suffix += 1
+
+def _cleanup_old_backups(base_dir: str):
+    bdir = _backup_dir(base_dir)
+    backups = sorted(
+        [
+            os.path.join(bdir, name)
+            for name in os.listdir(bdir)
+            if name.endswith(".zip") and os.path.isfile(os.path.join(bdir, name))
+        ],
+        key=os.path.getmtime,
+    )
+    if len(backups) <= MAX_BACKUPS:
+        return
+    for path in backups[:-MAX_BACKUPS]:
+        try:
+            os.remove(path)
+        except OSError:
+            log.warning("Failed to remove old backup: %s", path)
+
+def _create_backup(base_dir):
+    bdir = _backup_dir(base_dir)
+    jdir = os.path.join(base_dir, "JSON")
+    ts = datetime.datetime.now().strftime("%d-%m_%H-%M-%S")
+    outname, outpath = _unique_backup_path(bdir, ts)
+    with zipfile.ZipFile(outpath, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        if os.path.isdir(jdir):
+            for root, _, files in os.walk(jdir):
+                for fn in files:
+                    fp = os.path.join(root, fn)
+                    arc = os.path.relpath(fp, jdir)
+                    z.write(fp, arcname=arc)
+    _cleanup_old_backups(base_dir)
+    return outname
+
+def _restore_backup(base_dir, name):
+    bdir = _backup_dir(base_dir)
+    jdir = os.path.join(base_dir, "JSON")
+    src = os.path.join(bdir, name)
+    if not (os.path.isfile(src) and src.endswith(".zip")):
+        raise FileNotFoundError("Backup not found")
+    if os.path.isdir(jdir):
+        shutil.copytree(jdir, jdir + ".bak.restore", dirs_exist_ok=True)
+    with zipfile.ZipFile(src, "r") as z:
+        _ensure_dir(jdir)
+        z.extractall(jdir)
+    return True
 
 def _notification_settings_path(ctx):
     return _path(ctx, "notification_settings.json")
@@ -334,6 +418,20 @@ def _current_user():
         return u
     return None
 
+def _effective_uid(ctx):
+    user = session.get(USER_SESSION_KEY)
+    if not user:
+        return None
+
+    real_id = str(user.get("discord_id") or "")
+    masquerade_id = session.get("wc_masquerade_id")
+
+    cfg = _load_config(ctx)
+    admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
+    if masquerade_id and real_id in admin_ids:
+        return str(masquerade_id)
+    return real_id
+
 def _user_label():
     u = _current_user()
     if not u:
@@ -356,6 +454,7 @@ def _is_admin(ctx):
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
+    api = Blueprint("admin_api", __name__, url_prefix="/api")
     base_dir = _base_dir(ctx)
     if base_dir:
         _start_auto_backup(base_dir)
@@ -380,6 +479,61 @@ def create_admin_routes(ctx):
         if _is_admin(ctx):
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    @api.get("/backups")
+    def backups_list():
+        base = ctx.get("BASE_DIR", "")
+        files = _list_backups(base)
+        folders = [{
+            "display": "JSON snapshots",
+            "count": len(files),
+            "files": [{"name": f["name"], "bytes": f["size"], "mtime": f["ts"], "rel": f["rel"]} for f in files],
+        }]
+        return jsonify({"folders": folders, "backups": files})
+
+    @api.get("/backups/download")
+    def backups_download():
+        base = ctx.get("BASE_DIR", "")
+        rel = request.args.get("rel", "")
+        if not rel:
+            return jsonify({"ok": False, "error": "missing rel"}), 400
+        fp = os.path.join(_backup_dir(base), rel)
+        if not os.path.isfile(fp):
+            return jsonify({"ok": False, "error": "not found"}), 404
+        return send_file(fp, as_attachment=True, download_name=os.path.basename(fp))
+
+    @api.post("/backups/create")
+    def backups_create():
+        base = ctx.get("BASE_DIR", "")
+        name = _create_backup(base)
+        user = session.get(USER_SESSION_KEY) or {}
+        log.info(
+            "Backup created via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid(ctx) or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
+        return jsonify({"ok": True, "created": name})
+
+    @api.post("/backups/restore")
+    def backups_restore():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        name = body.get("name", "")
+        try:
+            _restore_backup(base, name)
+        except FileNotFoundError:
+            return jsonify({"ok": False, "error": "backup not found"}), 404
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+        user = session.get(USER_SESSION_KEY) or {}
+        log.info(
+            "Backup restored via API (name=%s discord_id=%s username=%s)",
+            name,
+            _effective_uid(ctx) or user.get("discord_id") or "anonymous",
+            user.get("username") or "unknown",
+        )
+        return jsonify({"ok": True, "restored": name})
 
     # ---------- Bot controls ----------
     def _callable(fn):
@@ -2017,5 +2171,5 @@ def create_admin_routes(ctx):
         })
 
 
-    return bp
+    return bp, api
 log = logging.getLogger("launcher")
