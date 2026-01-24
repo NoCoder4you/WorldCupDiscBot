@@ -1,9 +1,18 @@
 import asyncio
+import json
+from pathlib import Path
 from typing import List, Tuple
 
 import discord
 from discord.ext import commands
 
+
+ROLE_NAME = "Unverified"
+GREEN_TICK = "✅"
+RULES_EMBED_TITLE = "Server Rules"
+RULES_EMBED_FOOTER = "World Cup 2026 - Server Rules"
+BASE_DIR = Path(__file__).resolve().parents[1]
+VERIFIED_FILE = str(BASE_DIR / "JSON" / "verified.json")
 
 
 RULES_SECTIONS: List[Tuple[str, str]] = [
@@ -152,6 +161,14 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     ),
 ]
 
+def is_verified(user_id):
+    try:
+        with open(VERIFIED_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return str(user_id) in {str(u["discord_id"]) for u in data.get("verified_users", [])}
+    except Exception:
+        return False
+
 
 class RulesCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -164,6 +181,82 @@ class RulesCog(commands.Cog):
             await ctx.send(msg)
             await asyncio.sleep(1)  # gentle rate-limit protection
 
+        thumbnail_url = None
+        if self.bot.user and self.bot.user.display_avatar:
+            thumbnail_url = self.bot.user.display_avatar.url
+
+        embed = discord.Embed(
+            title=RULES_EMBED_TITLE,
+            description=(
+                "By reacting to this message with the green tick, you confirm that you agree to all of "
+                "the rules outlined above and acknowledge that these rules may be subject to change."
+            ),
+            color=discord.Color.blue(),
+        )
+        if thumbnail_url:
+            embed.set_thumbnail(url=thumbnail_url)
+        embed.set_footer(text=RULES_EMBED_FOOTER)
+
+        rules_message = await ctx.send(embed=embed)
+        try:
+            await rules_message.add_reaction(GREEN_TICK)
+        except discord.HTTPException:
+            pass
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload):
+        if str(payload.emoji) != GREEN_TICK:
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+
+        channel = guild.get_channel(payload.channel_id)
+        if not channel:
+            return
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except Exception:
+            return
+
+        if not message.embeds:
+            return
+        embed = message.embeds[0]
+        footer_text = embed.footer.text if embed.footer else None
+        if embed.title != RULES_EMBED_TITLE or footer_text != RULES_EMBED_FOOTER:
+            return
+
+        # Ensure member object (sometimes not cached)
+        member = guild.get_member(payload.user_id)
+        if not member:
+            try:
+                member = await guild.fetch_member(payload.user_id)
+            except Exception:
+                return
+        if member.bot:
+            return
+
+        # Verified check
+        if is_verified(payload.user_id):
+            try:
+                await message.remove_reaction(GREEN_TICK, member)
+            except Exception as e:
+                print(f"Could not remove reaction for verified user: {e}")
+            return
+
+        # Not verified: Add role, then remove reaction
+        role = discord.utils.get(guild.roles, name=ROLE_NAME)
+        if not role:
+            return
+        try:
+            await member.add_roles(role, reason="Reacted with ✅ for World Cup")
+        except Exception as e:
+            print(f"Error adding role: {e}")
+        try:
+            await message.remove_reaction(GREEN_TICK, member)
+        except Exception as e:
+            print(f"Could not remove reaction: {e}")
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(RulesCog(bot))
