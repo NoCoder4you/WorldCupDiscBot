@@ -1000,6 +1000,7 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .fixtures-team-head {
+    display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
@@ -1032,8 +1033,8 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .fixtures-flag {
-    width: 20px;
-    height: 14px;
+    width: 22px;
+    height: 16px;
     margin-right: 0;
     border-radius: 2px;
 }
