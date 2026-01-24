@@ -288,11 +288,31 @@ section.page-section.active-section {
 #dashboard.active-section {
     min-height: 100%;
     display: flex;
+    flex-direction: column;
     align-items: center;
 }
 
 #dashboard.active-section .dashboard-grid {
-    margin: 0 auto;
+    margin: 40px auto 24px;
+}
+
+.dashboard-banner {
+    width: min(1200px, 100%);
+    margin: 0 auto 40px;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 255, 255, .08);
+}
+
+.dashboard-banner img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+body.user-admin-view .dashboard-banner {
+    display: none;
 }
 
 /* Admin gating */
@@ -359,7 +379,7 @@ body.admin li.admin-only {
     display: grid;
     gap: 16px;
     max-width: 1320px;
-    margin: 40px auto;
+    margin: 40px auto 24px;
     grid-template-columns: repeat(3, minmax(220px, 1fr));
     grid-auto-rows: var(--card-h);
     justify-content: center;
