@@ -1000,6 +1000,7 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .fixtures-team-head {
+    display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
@@ -1010,6 +1011,17 @@ body.user-admin-view .dashboard-grid .card {
     align-items: center;
     gap: 6px;
     min-width: 0;
+}
+
+.fixtures-team-meta-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.fixtures-team-stage {
+    align-self: flex-start;
 }
 
 .fixtures-team-name {
@@ -1032,8 +1044,8 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .fixtures-flag {
-    width: 20px;
-    height: 14px;
+    width: 22px;
+    height: 16px;
     margin-right: 0;
     border-radius: 2px;
 }

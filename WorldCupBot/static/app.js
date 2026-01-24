@@ -5231,9 +5231,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="fixtures-team-head">
             <div class="fixtures-team-meta">
               ${flag}
-              <span class="fixtures-team-name">${escAttr(name)}</span>
+              <div class="fixtures-team-meta-text">
+                <span class="fixtures-team-name">${escAttr(name)}</span>
+                <span class="fixtures-team-stage">${stageBadge(stage)}</span>
+              </div>
             </div>
-            ${stageBadge(stage)}
           </div>
           <div class="fixtures-team-record">
             ${recordBar(rec)}
