@@ -1809,6 +1809,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 #ownership .ownership-table th:nth-child(5),
 #ownership .ownership-table td:nth-child(5) {
     width: 14%;
+    text-align: center;
 }
 #ownership .ownership-table th:nth-child(6),
 #ownership .ownership-table td:nth-child(6) {
