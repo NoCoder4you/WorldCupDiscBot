@@ -1,7 +1,8 @@
-import os, json, time, glob, sys, re
+import os, json, time, glob, sys, re, threading, atexit
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
 import logging
+from routes_public import _create_backup
 
 from stage_constants import (
     STAGE_ALLOWED,
@@ -12,6 +13,9 @@ from stage_constants import (
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
+AUTO_BACKUP_INTERVAL_SECONDS = 6 * 60 * 60
+_auto_backup_thread = None
+_auto_backup_stop = None
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -19,6 +23,33 @@ def _base_dir(ctx):
 
 def _json_dir(ctx):
     return os.path.join(_base_dir(ctx), "JSON")
+
+def _auto_backup_loop(base_dir: str, stop_event: threading.Event):
+    while not stop_event.wait(AUTO_BACKUP_INTERVAL_SECONDS):
+        try:
+            name = _create_backup(base_dir)
+            log.info("Auto backup completed: %s", name)
+        except Exception:
+            log.exception("Auto backup failed")
+
+def _start_auto_backup(base_dir: str):
+    global _auto_backup_thread, _auto_backup_stop
+    if _auto_backup_thread and _auto_backup_thread.is_alive():
+        return
+    _auto_backup_stop = threading.Event()
+    _auto_backup_thread = threading.Thread(
+        target=_auto_backup_loop,
+        args=(base_dir, _auto_backup_stop),
+        name="auto-backup-loop",
+        daemon=True,
+    )
+    _auto_backup_thread.start()
+    log.info("Auto backup loop started (interval=%ss)", AUTO_BACKUP_INTERVAL_SECONDS)
+
+def _stop_auto_backup():
+    global _auto_backup_stop
+    if _auto_backup_stop:
+        _auto_backup_stop.set()
 
 def _notification_settings_path(ctx):
     return _path(ctx, "notification_settings.json")
@@ -325,6 +356,10 @@ def _is_admin(ctx):
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__, url_prefix="/admin")
+    base_dir = _base_dir(ctx)
+    if base_dir:
+        _start_auto_backup(base_dir)
+        atexit.register(_stop_auto_backup)
 
     # ---------- Auth endpoints (Discord-session based) ----------
     @bp.get("/auth/status")
