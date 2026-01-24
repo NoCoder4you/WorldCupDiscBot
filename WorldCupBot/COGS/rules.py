@@ -258,17 +258,5 @@ class RulesCog(commands.Cog):
         except Exception as e:
             print(f"Could not remove reaction: {e}")
 
-    @commands.command(name="react", help="Make the bot react to a message with a green tick.")
-    @commands.is_owner()
-    async def react(self, ctx, message_id: int):
-        try:
-            message = await ctx.channel.fetch_message(message_id)
-            await message.add_reaction(GREEN_TICK)
-            await ctx.send(f"Reacted with ✅ to message {message_id}", delete_after=3)
-        except discord.NotFound:
-            await ctx.send("Message not found.", delete_after=3)
-        except Exception as e:
-            await ctx.send(f"Error: {e}", delete_after=3)
-
 async def setup(bot: commands.Bot):
     await bot.add_cog(RulesCog(bot))
