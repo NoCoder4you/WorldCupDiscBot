@@ -237,8 +237,15 @@ class RulesCog(commands.Cog):
         if member.bot:
             return
 
+        role = discord.utils.get(guild.roles, name=ROLE_NAME)
+
         # Verified check
         if is_verified(payload.user_id):
+            if role and role in member.roles:
+                try:
+                    await member.remove_roles(role, reason="Already verified; remove Unverified role")
+                except Exception as e:
+                    print(f"Error removing Unverified role from verified user: {e}")
             try:
                 await message.remove_reaction(GREEN_TICK, member)
             except Exception as e:
@@ -246,7 +253,6 @@ class RulesCog(commands.Cog):
             return
 
         # Not verified: Add role, then remove reaction
-        role = discord.utils.get(guild.roles, name=ROLE_NAME)
         if not role:
             return
         try:
