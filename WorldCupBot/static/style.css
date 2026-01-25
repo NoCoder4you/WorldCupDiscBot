@@ -3320,8 +3320,8 @@ select.select-dark:disabled {
   margin: 12px 0 16px;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(14, 18, 30, 0.55);
+  border: 1px solid #ffffff1f;
+  background: #0e121e8c;
 }
 
 #backups .backup-settings-row {
@@ -3352,8 +3352,8 @@ select.select-dark:disabled {
 
 #backups .backup-settings-interval input {
   width: 110px;
-  background: rgba(14, 18, 30, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0e121e99;
+  border: 1px solid #ffffff1f;
   color: #f2f4ff;
   border-radius: 10px;
   padding: 8px 10px;
@@ -3364,7 +3364,7 @@ select.select-dark:disabled {
   flex-wrap: wrap;
   gap: 12px;
   font-size: 0.9rem;
-  color: rgba(242, 244, 255, 0.75);
+  color: #f2f4ffbf;
 }
 
 #backups p {
