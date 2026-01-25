@@ -4291,6 +4291,69 @@ body:not(.admin) .settings-rows {
   justify-content: flex-end;
 }
 
+.settings-auto-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #ffffff1f;
+  background: #0e121e8c;
+}
+
+.settings-auto-backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-auto-backup-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.settings-auto-backup-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-auto-backup-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-auto-backup-interval input {
+  width: 110px;
+  background: #0e121e99;
+  border: 1px solid #ffffff1f;
+  color: #f2f4ff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.settings-auto-backup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: #f2f4ffbf;
+}
+
+.settings-auto-backup-meta span {
+  white-space: nowrap;
+}
+
+.settings-auto-backup-meta span:last-child {
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .settings-row-title {
   font-weight: 700;
   color: var(--accent);
