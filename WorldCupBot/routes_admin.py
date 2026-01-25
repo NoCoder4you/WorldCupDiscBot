@@ -12,7 +12,10 @@ from stage_constants import (
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
-AUTO_BACKUP_INTERVAL_SECONDS = 6 * 60 * 60
+AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS = 4 * 60 * 60
+AUTO_BACKUP_RETRY_SECONDS = 5 * 60
+AUTO_BACKUP_DISABLED_POLL_SECONDS = 60
+AUTO_BACKUP_SETTINGS_POLL_SECONDS = 60
 _auto_backup_thread = None
 _auto_backup_stop = None
 MAX_BACKUPS = 25
@@ -31,27 +34,99 @@ def _ensure_dir(path):
 def _backup_dir(base_dir):
     return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
 
-def _auto_backup_loop(base_dir: str, stop_event: threading.Event):
-    while not stop_event.wait(AUTO_BACKUP_INTERVAL_SECONDS):
+def _infer_last_backup_ts(base_dir: str):
+    bdir = _backup_dir(base_dir)
+    backups = [
+        os.path.join(bdir, name)
+        for name in os.listdir(bdir)
+        if name.endswith(".zip") and os.path.isfile(os.path.join(bdir, name))
+    ]
+    if not backups:
+        return None
+    return int(max(os.path.getmtime(path) for path in backups))
+
+def _normalize_backup_interval(raw) -> int:
+    try:
+        interval = int(float(raw))
+    except (TypeError, ValueError):
+        interval = AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS
+    return max(60, interval)
+
+def _load_backup_settings(ctx) -> dict:
+    settings = _load_settings(ctx)
+    enabled = settings.get("AUTO_BACKUP_ENABLED", True)
+    interval = _normalize_backup_interval(
+        settings.get("AUTO_BACKUP_INTERVAL_SECONDS", AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS)
+    )
+    last_ts = settings.get("AUTO_BACKUP_LAST_TS")
+    try:
+        last_ts = int(last_ts)
+    except (TypeError, ValueError):
+        last_ts = None
+    return {
+        "enabled": bool(enabled),
+        "interval_seconds": interval,
+        "last_ts": last_ts,
+    }
+
+def _save_backup_settings(ctx, updates: dict) -> bool:
+    cfg = _load_settings(ctx)
+    cfg.update(updates)
+    return _save_settings(ctx, cfg)
+
+def _record_backup_success(ctx, backup_ts: int | None = None) -> None:
+    ts = int(backup_ts or time.time())
+    _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": ts})
+
+def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
+    inferred_last_ts = None
+    while not stop_event.is_set():
+        settings = _load_backup_settings(ctx)
+        if not settings["enabled"]:
+            stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
+            continue
+
+        interval = settings["interval_seconds"]
+        last_ts = settings["last_ts"]
+        if last_ts is None:
+            if inferred_last_ts is None:
+                inferred_last_ts = _infer_last_backup_ts(base_dir)
+            last_ts = inferred_last_ts
+            if last_ts is not None:
+                _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
+
+        if last_ts is None:
+            due_in = interval
+        else:
+            due_in = interval - (time.time() - last_ts)
+
+        if due_in > 0:
+            stop_event.wait(min(due_in, AUTO_BACKUP_SETTINGS_POLL_SECONDS))
+            continue
+
         try:
             name = _create_backup(base_dir)
+            _record_backup_success(ctx)
+            inferred_last_ts = int(time.time())
             log.info("Auto backup completed: %s", name)
         except Exception:
             log.exception("Auto backup failed")
+            stop_event.wait(AUTO_BACKUP_RETRY_SECONDS)
+            continue
 
-def _start_auto_backup(base_dir: str):
+def _start_auto_backup(ctx, base_dir: str):
     global _auto_backup_thread, _auto_backup_stop
     if _auto_backup_thread and _auto_backup_thread.is_alive():
         return
     _auto_backup_stop = threading.Event()
     _auto_backup_thread = threading.Thread(
         target=_auto_backup_loop,
-        args=(base_dir, _auto_backup_stop),
+        args=(ctx, base_dir, _auto_backup_stop),
         name="auto-backup-loop",
         daemon=True,
     )
     _auto_backup_thread.start()
-    log.info("Auto backup loop started (interval=%ss)", AUTO_BACKUP_INTERVAL_SECONDS)
+    log.info("Auto backup loop started (default interval=%ss)", AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS)
 
 def _stop_auto_backup():
     global _auto_backup_stop
@@ -75,6 +150,17 @@ def _list_backups(base_dir):
                 "rel": name,
             })
     return sorted(out, key=lambda x: x["ts"], reverse=True)
+
+def _effective_backup_status(ctx, base_dir: str) -> dict:
+    settings = _load_backup_settings(ctx)
+    last_ts = settings.get("last_ts")
+    if last_ts is None:
+        last_ts = _infer_last_backup_ts(base_dir)
+    return {
+        "enabled": settings["enabled"],
+        "interval_seconds": settings["interval_seconds"],
+        "last_backup_ts": last_ts,
+    }
 
 def _unique_backup_path(bdir: str, timestamp: str) -> tuple[str, str]:
     base_name = f"{timestamp}.zip"
@@ -455,7 +541,7 @@ def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__)
     base_dir = _base_dir(ctx)
     if base_dir:
-        _start_auto_backup(base_dir)
+        _start_auto_backup(ctx, base_dir)
         atexit.register(_stop_auto_backup)
 
     # ---------- Auth endpoints (Discord-session based) ----------
@@ -487,7 +573,11 @@ def create_admin_routes(ctx):
             "count": len(files),
             "files": [{"name": f["name"], "bytes": f["size"], "mtime": f["ts"], "rel": f["rel"]} for f in files],
         }]
-        return jsonify({"folders": folders, "backups": files})
+        return jsonify({
+            "folders": folders,
+            "backups": files,
+            "auto_backup": _effective_backup_status(ctx, base),
+        })
 
     @bp.get("/api/backups/download")
     def backups_download():
@@ -504,6 +594,7 @@ def create_admin_routes(ctx):
     def backups_create():
         base = ctx.get("BASE_DIR", "")
         name = _create_backup(base)
+        _record_backup_success(ctx)
         user = session.get(USER_SESSION_KEY) or {}
         log.info(
             "Backup created via API (name=%s discord_id=%s username=%s)",
@@ -512,6 +603,19 @@ def create_admin_routes(ctx):
             user.get("username") or "unknown",
         )
         return jsonify({"ok": True, "created": name})
+
+    @bp.post("/api/backups/settings")
+    def backups_settings():
+        base = ctx.get("BASE_DIR", "")
+        body = request.get_json(silent=True) or {}
+        updates = {}
+        if "enabled" in body:
+            updates["AUTO_BACKUP_ENABLED"] = bool(body.get("enabled"))
+        if "interval_seconds" in body:
+            updates["AUTO_BACKUP_INTERVAL_SECONDS"] = _normalize_backup_interval(body.get("interval_seconds"))
+        if updates and not _save_backup_settings(ctx, updates):
+            return jsonify({"ok": False, "error": "failed_to_save"}), 500
+        return jsonify({"ok": True, "auto_backup": _effective_backup_status(ctx, base)})
 
     @bp.post("/api/backups/restore")
     def backups_restore():
