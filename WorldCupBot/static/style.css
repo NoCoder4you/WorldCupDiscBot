@@ -3313,6 +3313,60 @@ select.select-dark:disabled {
 #backups .table-actions .btn:active {
   transform: translateY(1px);
 }
+#backups .backup-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #ffffff1f;
+  background: #0e121e8c;
+}
+
+#backups .backup-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#backups .backup-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+#backups .backup-settings-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+#backups .backup-settings-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#backups .backup-settings-interval input {
+  width: 110px;
+  background: #0e121e99;
+  border: 1px solid #ffffff1f;
+  color: #f2f4ff;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+#backups .backup-settings-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.9rem;
+  color: #f2f4ffbf;
+}
+
 #backups p {
   text-align: center;
   font-weight: 700;
