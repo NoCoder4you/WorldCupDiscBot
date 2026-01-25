@@ -43,10 +43,9 @@ def _ensure_dir(p):
     return p
 
 def _json_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "JSON"))
-def _runtime_dir(base_dir): return _ensure_dir(os.path.join(base_dir, "runtime"))
 
 def _cmd_queue_path(base_dir):
-    return os.path.join(_runtime_dir(base_dir), "bot_commands.jsonl")
+    return os.path.join(_json_dir(base_dir), "bot_commands.jsonl")
 
 def _enqueue_command(base_dir, cmd: dict):
     cmd = dict(cmd); cmd["ts"] = int(time.time())
@@ -1837,10 +1836,10 @@ def create_public_routes(ctx):
     # ======================
 
     def _fz_votes_path(base_dir):
-        return os.path.join(_runtime_dir(base_dir), "fan_votes.json")
+        return os.path.join(_json_dir(base_dir), "fan_votes.json")
 
     def _fz_winners_path(base_dir):
-        return os.path.join(_runtime_dir(base_dir), "fan_winners.json")
+        return os.path.join(_json_dir(base_dir), "fan_winners.json")
 
     def _get_fan_id():
         fid = request.cookies.get("wc_fan_id")

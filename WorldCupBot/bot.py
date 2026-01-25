@@ -15,19 +15,16 @@ COGS_DIR = os.path.join(BASE_DIR, "COGS")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 LOG_DIR = os.path.join(BASE_DIR, "LOGS")
 LOG_PATH = os.path.join(LOG_DIR, "bot.log")
-RUNTIME_DIR = os.path.join(BASE_DIR, "runtime")
-COMMANDS_PATH = os.path.join(RUNTIME_DIR, "bot_commands.jsonl")
-COMMANDS_STATE_PATH = os.path.join(RUNTIME_DIR, "bot_commands_state.json")
-FANZONE_STATE_PATH = os.path.join(RUNTIME_DIR, "fanzone_queue_state.json")
-STAGE_STATE_PATH = os.path.join(RUNTIME_DIR, "stage_queue_state.json")
-
 JSON_DIR = os.path.join(BASE_DIR, "JSON")
+COMMANDS_PATH = os.path.join(JSON_DIR, "bot_commands.jsonl")
+COMMANDS_STATE_PATH = os.path.join(JSON_DIR, "bot_commands_state.json")
+FANZONE_STATE_PATH = os.path.join(JSON_DIR, "fanzone_queue_state.json")
+STAGE_STATE_PATH = os.path.join(JSON_DIR, "stage_queue_state.json")
 COGS_STATUS_PATH = os.path.join(JSON_DIR, "cogs_status.json")
 
 os.makedirs(JSON_DIR, exist_ok=True)
 os.makedirs(COGS_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs(RUNTIME_DIR, exist_ok=True)
 
 # -------------------- Logging --------------------
 def _resolve_log_level(value: str) -> int:
