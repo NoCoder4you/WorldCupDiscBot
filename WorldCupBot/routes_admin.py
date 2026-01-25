@@ -301,8 +301,7 @@ def _matches_path(ctx):
     return _path(ctx, "matches.json")
 
 def _commands_path(ctx):
-    rd = os.path.join(_base_dir(ctx), "runtime")
-    os.makedirs(rd, exist_ok=True)
+    rd = _ensure_dir(_json_dir(ctx))
     return os.path.join(rd, "bot_commands.jsonl")
 
 def _enqueue_command(ctx, kind, payload=None):
@@ -1940,14 +1939,6 @@ def create_admin_routes(ctx):
         data['events'] = events[:500]
         _write_json_atomic(path, data)
 
-    def _runtime_dir(ctx):
-        rd = os.path.join(_base_dir(ctx), "runtime")
-        os.makedirs(rd, exist_ok=True)
-        return rd
-
-    def _runtime_path(ctx, name):
-        return os.path.join(_runtime_dir(ctx), name)
-
     @bp.post("/admin/fanzone/declare")
     def fanzone_declare_winner():
         resp = require_admin()
@@ -2009,8 +2000,8 @@ def create_admin_routes(ctx):
         else:
             return jsonify({'ok': False, 'error': 'invalid_winner'}), 400
 
-        # Save winner record + lock voting (runtime path matches routes_public.py)
-        winners_path = _runtime_path(ctx, 'fan_winners.json')
+        # Save winner record + lock voting (JSON path matches routes_public.py)
+        winners_path = _path(ctx, 'fan_winners.json')
         winners = _read_json(winners_path, {})
         if not isinstance(winners, dict):
             winners = {}
@@ -2068,7 +2059,7 @@ def create_admin_routes(ctx):
         if not isinstance(discord_voters, dict):
             discord_voters = {}
 
-        snapshots_path = _runtime_path(ctx, 'fan_vote_snapshots.json')
+        snapshots_path = _path(ctx, 'fan_vote_snapshots.json')
         snap_blob = _read_json(snapshots_path, {'fixtures': {}})
         if not isinstance(snap_blob, dict):
             snap_blob = {'fixtures': {}}

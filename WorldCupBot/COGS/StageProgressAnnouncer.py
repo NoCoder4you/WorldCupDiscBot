@@ -10,13 +10,13 @@ class StageProgressAnnouncer(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.base_dir = getattr(bot, "BASE_DIR", None) or os.getcwd()
-        self.runtime_dir = os.path.join(self.base_dir, "runtime")
-        os.makedirs(self.runtime_dir, exist_ok=True)
+        self.json_dir = os.path.join(self.base_dir, "JSON")
+        os.makedirs(self.json_dir, exist_ok=True)
 
-        self.queue_path = os.path.join(self.runtime_dir, "bot_commands.jsonl")
-        self.state_path = os.path.join(self.runtime_dir, "stage_queue_state.json")
-        self.commands_state_path = os.path.join(self.runtime_dir, "bot_commands_state.json")
-        self.fanzone_state_path = os.path.join(self.runtime_dir, "fanzone_queue_state.json")
+        self.queue_path = os.path.join(self.json_dir, "bot_commands.jsonl")
+        self.state_path = os.path.join(self.json_dir, "stage_queue_state.json")
+        self.commands_state_path = os.path.join(self.json_dir, "bot_commands_state.json")
+        self.fanzone_state_path = os.path.join(self.json_dir, "fanzone_queue_state.json")
 
         self.team_iso_path = os.path.join(self.base_dir, "team_iso.json")
         self.country_roles_path = os.path.join(self.base_dir, "JSON", "countryroles.json")
