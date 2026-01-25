@@ -176,6 +176,26 @@
                       </div>
                       <div class="settings-divider admin-only"></div>
                       <div class="settings-row admin-only">
+                          <div class="settings-row-title">Auto backups</div>
+                          <div class="settings-auto-backup">
+                              <div class="settings-auto-backup-row">
+                                  <label class="settings-auto-backup-toggle">
+                                      <input type="checkbox" id="settings-auto-backup-enabled">
+                                      <span>Auto backup JSON every</span>
+                                  </label>
+                                  <div class="settings-auto-backup-interval">
+                                      <input type="number" id="settings-auto-backup-hours" min="0.5" step="0.5">
+                                      <span>hours</span>
+                                  </div>
+                              </div>
+                              <div class="settings-auto-backup-meta">
+                                  <span id="settings-auto-backup-last">Last backup: —</span>
+                                  <span id="settings-auto-backup-status">Loading...</span>
+                              </div>
+                          </div>
+                      </div>
+                      <div class="settings-divider admin-only"></div>
+                      <div class="settings-row admin-only">
                           <div class="settings-row-title">Embed maker</div>
                           <div class="settings-grid settings-grid-wide">
                               <label class="settings-field">
