@@ -3203,7 +3203,6 @@ select.select-dark:disabled {
 }
 
 #backups .table-scroll {
-  max-height: 70vh;
   overflow: auto;
 }
 
