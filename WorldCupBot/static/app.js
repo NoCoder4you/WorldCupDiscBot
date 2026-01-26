@@ -2558,7 +2558,7 @@ window.loadSplits = loadSplits;
         } else {
           const t = document.createElement('table');
           t.className = 'table';
-          t.innerHTML = '<thead><tr><th>Title (DD-MM_HH-MM)</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>';
+          t.innerHTML = '<thead><tr><th>Title</th><th>Size</th><th>Modified</th><th></th></tr></thead><tbody></tbody>';
           const tb = t.querySelector('tbody');
 
           files.forEach(f => {
