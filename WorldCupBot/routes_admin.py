@@ -118,16 +118,18 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
             last_ts = inferred_last_ts
             if last_ts is not None:
                 _save_backup_schedule(ctx, last_ts, interval=interval)
+                next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
             elif not bootstrapped_last_ts:
                 last_ts = int(startup_ts)
                 bootstrapped_last_ts = True
                 _save_backup_schedule(ctx, last_ts, interval=interval)
+                next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
 
         if last_ts is not None and not startup_reset_done and last_ts < startup_ts:
             last_ts = int(startup_ts)
             startup_reset_done = True
             _save_backup_schedule(ctx, last_ts, interval=interval)
-            next_ts = last_ts + interval
+            next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
 
         if next_ts is None and last_ts is not None:
             next_ts = int(last_ts + interval)
