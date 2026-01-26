@@ -4296,7 +4296,6 @@ body .notify-panel{ right: 90px; }
   gap: 18px;
 }
 
-/* Auto backup settings card mirrors backups styling while remaining compact. */
 /* Auto backup card gets extra definition and balance for admin visibility. */
 .settings-autobackup-card {
   display: flex;
@@ -4319,7 +4318,7 @@ body .notify-panel{ right: 90px; }
   margin: 0;
 }
 
-/* Keep the interval selector distinct and aligned with the backup toggle. */
+
 .settings-autobackup-interval {
   display: flex;
   align-items: center;
@@ -4361,7 +4360,6 @@ body .notify-panel{ right: 90px; }
   padding-right: 6px;
 }
 
-/* Status line gets a softer pill to separate it from the card body. */
 .settings-autobackup-status {
   margin-top: 8px;
   color: #cdd6ff;
