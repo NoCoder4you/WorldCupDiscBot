@@ -1,4 +1,4 @@
-import os, json, time, glob, sys, re, threading, atexit, shutil, zipfile, datetime
+import os, json, time, glob, sys, re, shutil, zipfile, datetime
 import requests
 from flask import Blueprint, jsonify, request, session, send_file
 import logging
@@ -12,13 +12,6 @@ from stage_constants import (
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
-AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS = 4 * 60 * 60
-AUTO_BACKUP_RETRY_SECONDS = 5 * 60
-AUTO_BACKUP_DISABLED_POLL_SECONDS = 60
-AUTO_BACKUP_SETTINGS_POLL_SECONDS = 60
-_auto_backup_thread = None
-_auto_backup_stop = None
-_auto_backup_armed = False
 MAX_BACKUPS = 25
 
 # ---- PATH / IO HELPERS ----
@@ -34,175 +27,6 @@ def _ensure_dir(path):
 
 def _backup_dir(base_dir):
     return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
-
-def _infer_last_backup_ts(base_dir: str):
-    bdir = _backup_dir(base_dir)
-    backups = [
-        os.path.join(bdir, name)
-        for name in os.listdir(bdir)
-        if name.endswith(".zip") and os.path.isfile(os.path.join(bdir, name))
-    ]
-    if not backups:
-        return None
-    return int(max(os.path.getmtime(path) for path in backups))
-
-def _normalize_backup_interval(raw) -> int:
-    try:
-        interval = int(float(raw))
-    except (TypeError, ValueError):
-        interval = AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS
-    return max(60, interval)
-
-def _compute_next_backup_ts(last_ts: int | None, interval: int, enabled: bool) -> int | None:
-    if not enabled or last_ts is None:
-        return None
-    return int(last_ts + interval)
-
-def _load_backup_settings(ctx) -> dict:
-    settings = _load_settings(ctx)
-    enabled = settings.get("AUTO_BACKUP_ENABLED", True)
-    interval = _normalize_backup_interval(
-        settings.get("AUTO_BACKUP_INTERVAL_SECONDS", AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS)
-    )
-    last_ts = settings.get("AUTO_BACKUP_LAST_TS")
-    try:
-        last_ts = int(last_ts)
-    except (TypeError, ValueError):
-        last_ts = None
-    next_ts = settings.get("AUTO_BACKUP_NEXT_TS")
-    try:
-        next_ts = int(next_ts)
-    except (TypeError, ValueError):
-        next_ts = None
-    armed_ts = settings.get("AUTO_BACKUP_ARMED_TS")
-    try:
-        armed_ts = int(armed_ts)
-    except (TypeError, ValueError):
-        armed_ts = None
-    return {
-        "enabled": bool(enabled),
-        "interval_seconds": interval,
-        "last_ts": last_ts,
-        "next_ts": next_ts,
-        "armed_ts": armed_ts,
-    }
-
-def _save_backup_settings(ctx, updates: dict) -> bool:
-    cfg = _load_settings(ctx)
-    cfg.update(updates)
-    return _save_settings(ctx, cfg)
-
-def _save_backup_schedule(ctx, last_ts: int | None, *, interval: int | None = None) -> None:
-    settings = _load_backup_settings(ctx)
-    interval_seconds = settings["interval_seconds"] if interval is None else _normalize_backup_interval(interval)
-    next_ts = _compute_next_backup_ts(last_ts, interval_seconds, settings["enabled"])
-    _save_backup_settings(ctx, {
-        "AUTO_BACKUP_LAST_TS": last_ts,
-        "AUTO_BACKUP_NEXT_TS": next_ts,
-    })
-
-def _record_backup_success(ctx, backup_ts: int | None = None) -> None:
-    ts = int(backup_ts or time.time())
-    _save_backup_schedule(ctx, ts)
-
-def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
-    inferred_last_ts = None
-    startup_ts = time.time()
-    bootstrapped_last_ts = False
-    startup_reset_done = False
-    startup_skip_done = False
-    startup_grace_deadline = None
-    while not stop_event.is_set():
-        if not _auto_backup_armed:
-            # Auto-backups are only allowed after an explicit settings change arms the scheduler.
-            stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
-            continue
-        settings = _load_backup_settings(ctx)
-        if not settings["enabled"]:
-            stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
-            continue
-        if settings.get("armed_ts") is None or settings["armed_ts"] < startup_ts:
-            # Auto-backups are only allowed after explicitly arming them post-startup.
-            stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
-            continue
-
-        interval = settings["interval_seconds"]
-        last_ts = settings["last_ts"]
-        next_ts = settings.get("next_ts")
-        if last_ts is None:
-            if inferred_last_ts is None:
-                inferred_last_ts = _infer_last_backup_ts(base_dir)
-            last_ts = inferred_last_ts
-            if last_ts is not None:
-                _save_backup_schedule(ctx, last_ts, interval=interval)
-                next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
-            elif not bootstrapped_last_ts:
-                last_ts = int(startup_ts)
-                bootstrapped_last_ts = True
-                _save_backup_schedule(ctx, last_ts, interval=interval)
-                next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
-
-        if last_ts is not None and not startup_reset_done and last_ts < startup_ts:
-            last_ts = int(startup_ts)
-            startup_reset_done = True
-            _save_backup_schedule(ctx, last_ts, interval=interval)
-            next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
-
-        if next_ts is None and last_ts is not None:
-            next_ts = int(last_ts + interval)
-            _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
-
-        if not startup_skip_done:
-            # Never run an auto-backup on startup; always schedule the next run from startup time.
-            last_ts = int(startup_ts)
-            _save_backup_schedule(ctx, last_ts, interval=interval)
-            next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
-            startup_grace_deadline = startup_ts + interval
-            startup_skip_done = True
-            continue
-
-        if startup_grace_deadline is not None and time.time() < startup_grace_deadline:
-            # Enforce a full interval grace period after startup before any auto-backup can run.
-            stop_event.wait(min(startup_grace_deadline - time.time(), AUTO_BACKUP_SETTINGS_POLL_SECONDS))
-            continue
-
-        if next_ts is None:
-            due_in = interval
-        else:
-            due_in = next_ts - time.time()
-
-        if due_in > 0:
-            stop_event.wait(min(due_in, AUTO_BACKUP_SETTINGS_POLL_SECONDS))
-            continue
-
-        try:
-            name = _create_backup(base_dir)
-            _record_backup_success(ctx)
-            inferred_last_ts = int(time.time())
-            log.info("Auto backup completed: %s", name)
-        except Exception:
-            log.exception("Auto backup failed")
-            stop_event.wait(AUTO_BACKUP_RETRY_SECONDS)
-            continue
-
-def _start_auto_backup(ctx, base_dir: str):
-    global _auto_backup_thread, _auto_backup_stop
-    if _auto_backup_thread and _auto_backup_thread.is_alive():
-        return
-    _auto_backup_stop = threading.Event()
-    _auto_backup_thread = threading.Thread(
-        target=_auto_backup_loop,
-        args=(ctx, base_dir, _auto_backup_stop),
-        name="auto-backup-loop",
-        daemon=True,
-    )
-    _auto_backup_thread.start()
-    log.info("Auto backup loop started (default interval=%ss)", AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS)
-
-def _stop_auto_backup():
-    global _auto_backup_stop
-    if _auto_backup_stop:
-        _auto_backup_stop.set()
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
@@ -221,17 +45,6 @@ def _list_backups(base_dir):
                 "rel": name,
             })
     return sorted(out, key=lambda x: x["ts"], reverse=True)
-
-def _effective_backup_status(ctx, base_dir: str) -> dict:
-    settings = _load_backup_settings(ctx)
-    last_ts = settings.get("last_ts")
-    if last_ts is None:
-        last_ts = _infer_last_backup_ts(base_dir)
-    return {
-        "enabled": settings["enabled"],
-        "interval_seconds": settings["interval_seconds"],
-        "last_backup_ts": last_ts,
-    }
 
 def _unique_backup_path(bdir: str, timestamp: str) -> tuple[str, str]:
     base_name = f"{timestamp}.zip"
@@ -610,9 +423,6 @@ def _is_admin(ctx):
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__)
-    base_dir = _base_dir(ctx)
-    if base_dir:
-        atexit.register(_stop_auto_backup)
 
     # ---------- Auth endpoints (Discord-session based) ----------
     @bp.get("/admin/auth/status")
@@ -637,8 +447,7 @@ def create_admin_routes(ctx):
     @bp.get("/api/backups")
     def backups_list():
         base = ctx.get("BASE_DIR", "")
-        # Do not start the auto-backup loop on page load to avoid any startup backups.
-        # Auto backups only begin after an explicit settings change via /api/backups/settings.
+        # Manual backups only; no automatic scheduler is started here.
         files = _list_backups(base)
         folders = [{
             "display": "JSON snapshots",
@@ -648,7 +457,6 @@ def create_admin_routes(ctx):
         return jsonify({
             "folders": folders,
             "backups": files,
-            "auto_backup": _effective_backup_status(ctx, base),
         })
 
     @bp.get("/api/backups/download")
@@ -666,7 +474,6 @@ def create_admin_routes(ctx):
     def backups_create():
         base = ctx.get("BASE_DIR", "")
         name = _create_backup(base)
-        _record_backup_success(ctx)
         user = session.get(USER_SESSION_KEY) or {}
         log.info(
             "Backup created via API (name=%s discord_id=%s username=%s)",
@@ -675,35 +482,6 @@ def create_admin_routes(ctx):
             user.get("username") or "unknown",
         )
         return jsonify({"ok": True, "created": name})
-
-    @bp.post("/api/backups/settings")
-    def backups_settings():
-        global _auto_backup_armed
-        base = ctx.get("BASE_DIR", "")
-        body = request.get_json(silent=True) or {}
-        updates = {}
-        if "enabled" in body:
-            updates["AUTO_BACKUP_ENABLED"] = bool(body.get("enabled"))
-        if "interval_seconds" in body:
-            updates["AUTO_BACKUP_INTERVAL_SECONDS"] = _normalize_backup_interval(body.get("interval_seconds"))
-        if updates and not _save_backup_settings(ctx, updates):
-            return jsonify({"ok": False, "error": "failed_to_save"}), 500
-        if updates:
-            settings = _load_backup_settings(ctx)
-            next_ts = _compute_next_backup_ts(
-                settings.get("last_ts"),
-                settings["interval_seconds"],
-                settings["enabled"],
-            )
-            _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
-            if settings.get("enabled"):
-                # Arm the scheduler only after an explicit settings change.
-                _save_backup_settings(ctx, {"AUTO_BACKUP_ARMED_TS": int(time.time())})
-                _start_auto_backup(ctx, base)
-            else:
-                _save_backup_settings(ctx, {"AUTO_BACKUP_ARMED_TS": None})
-                _stop_auto_backup()
-        return jsonify({"ok": True, "auto_backup": _effective_backup_status(ctx, base)})
 
     @bp.post("/api/backups/restore")
     def backups_restore():
