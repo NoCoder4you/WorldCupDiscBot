@@ -36,7 +36,7 @@ A custom **Discord bot** for running a FIFA World Cup 2026 themed tournament ser
 - **Cog status tracking** with JSON sync.
 
 ### Backup & Restore
-- Automatic JSON backups every 6 hours.
+- Automatic JSON backups every 4 hours (configurable in the admin panel).
 - Manual backup/restore commands.
 - Retains up to 25 recent backup files.
 
@@ -113,7 +113,7 @@ python WorldCupBot/launcher.py
 
 - Manage the bot from **Discord commands** or the **web admin panel**.
 - Logs are written to `WorldCupBot/WC.log` and `WorldCupBot/health.log`.
-- Backups are automatically created every 6 hours.
+- Backups are automatically created every 4 hours (configurable).
 
 ---
 
