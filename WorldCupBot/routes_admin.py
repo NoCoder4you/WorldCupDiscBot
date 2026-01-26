@@ -18,6 +18,7 @@ AUTO_BACKUP_DISABLED_POLL_SECONDS = 60
 AUTO_BACKUP_SETTINGS_POLL_SECONDS = 60
 _auto_backup_thread = None
 _auto_backup_stop = None
+_auto_backup_armed = False
 MAX_BACKUPS = 25
 
 # ---- PATH / IO HELPERS ----
@@ -106,6 +107,10 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
     startup_skip_done = False
     startup_grace_deadline = None
     while not stop_event.is_set():
+        if not _auto_backup_armed:
+            # Auto-backups are only allowed after an explicit settings change arms the scheduler.
+            stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
+            continue
         settings = _load_backup_settings(ctx)
         if not settings["enabled"]:
             stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
@@ -663,6 +668,7 @@ def create_admin_routes(ctx):
 
     @bp.post("/api/backups/settings")
     def backups_settings():
+        global _auto_backup_armed
         base = ctx.get("BASE_DIR", "")
         body = request.get_json(silent=True) or {}
         updates = {}
@@ -681,8 +687,11 @@ def create_admin_routes(ctx):
             )
             _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
             if settings.get("enabled"):
+                # Arm the scheduler only after an explicit settings change.
+                _auto_backup_armed = True
                 _start_auto_backup(ctx, base)
             else:
+                _auto_backup_armed = False
                 _stop_auto_backup()
         return jsonify({"ok": True, "auto_backup": _effective_backup_status(ctx, base)})
 
