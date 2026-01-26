@@ -2550,8 +2550,6 @@ window.loadSplits = loadSplits;
         // 3) render the settings + table
         const s = w.querySelector('.table-scroll');
         s.innerHTML = '';
-        w.querySelectorAll('.backup-settings').forEach(el => el.remove());
-
         const files = (d?.backups) || (d?.folders?.[0]?.files) || [];
         if (!files.length){
           const p = document.createElement('p');
