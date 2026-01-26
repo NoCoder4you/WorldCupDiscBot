@@ -74,11 +74,17 @@ def _load_backup_settings(ctx) -> dict:
         next_ts = int(next_ts)
     except (TypeError, ValueError):
         next_ts = None
+    armed_ts = settings.get("AUTO_BACKUP_ARMED_TS")
+    try:
+        armed_ts = int(armed_ts)
+    except (TypeError, ValueError):
+        armed_ts = None
     return {
         "enabled": bool(enabled),
         "interval_seconds": interval,
         "last_ts": last_ts,
         "next_ts": next_ts,
+        "armed_ts": armed_ts,
     }
 
 def _save_backup_settings(ctx, updates: dict) -> bool:
@@ -113,6 +119,10 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
             continue
         settings = _load_backup_settings(ctx)
         if not settings["enabled"]:
+            stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
+            continue
+        if settings.get("armed_ts") is None or settings["armed_ts"] < startup_ts:
+            # Auto-backups are only allowed after explicitly arming them post-startup.
             stop_event.wait(AUTO_BACKUP_DISABLED_POLL_SECONDS)
             continue
 
@@ -688,10 +698,10 @@ def create_admin_routes(ctx):
             _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
             if settings.get("enabled"):
                 # Arm the scheduler only after an explicit settings change.
-                _auto_backup_armed = True
+                _save_backup_settings(ctx, {"AUTO_BACKUP_ARMED_TS": int(time.time())})
                 _start_auto_backup(ctx, base)
             else:
-                _auto_backup_armed = False
+                _save_backup_settings(ctx, {"AUTO_BACKUP_ARMED_TS": None})
                 _stop_auto_backup()
         return jsonify({"ok": True, "auto_backup": _effective_backup_status(ctx, base)})
 
