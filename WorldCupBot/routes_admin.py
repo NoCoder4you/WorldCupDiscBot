@@ -92,6 +92,14 @@ def _create_backup(base_dir):
     _cleanup_old_backups(base_dir)
     return outname
 
+def _backup_request_context() -> dict:
+    """Return safe request metadata to trace backup calls without exposing tokens."""
+    return {
+        "remote_addr": request.remote_addr,
+        "forwarded_for": request.headers.get("X-Forwarded-For", ""),
+        "user_agent": request.headers.get("User-Agent", ""),
+    }
+
 def _restore_backup(base_dir, name):
     bdir = _backup_dir(base_dir)
     jdir = os.path.join(base_dir, "JSON")
@@ -475,11 +483,16 @@ def create_admin_routes(ctx):
         base = ctx.get("BASE_DIR", "")
         name = _create_backup(base)
         user = session.get(USER_SESSION_KEY) or {}
+        # Trace backup creation to identify startup callers triggering this endpoint.
+        trace_ctx = _backup_request_context()
         log.info(
-            "Backup created via API (name=%s discord_id=%s username=%s)",
+            "Backup created via API (name=%s discord_id=%s username=%s remote_addr=%s forwarded_for=%s user_agent=%s)",
             name,
             _effective_uid(ctx) or user.get("discord_id") or "anonymous",
             user.get("username") or "unknown",
+            trace_ctx.get("remote_addr"),
+            trace_ctx.get("forwarded_for"),
+            trace_ctx.get("user_agent"),
         )
         return jsonify({"ok": True, "created": name})
 
