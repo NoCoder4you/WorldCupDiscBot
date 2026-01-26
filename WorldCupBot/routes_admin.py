@@ -588,7 +588,6 @@ def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__)
     base_dir = _base_dir(ctx)
     if base_dir:
-        _start_auto_backup(ctx, base_dir)
         atexit.register(_stop_auto_backup)
 
     # ---------- Auth endpoints (Discord-session based) ----------
@@ -614,6 +613,9 @@ def create_admin_routes(ctx):
     @bp.get("/api/backups")
     def backups_list():
         base = ctx.get("BASE_DIR", "")
+        settings = _load_backup_settings(ctx)
+        if settings.get("enabled"):
+            _start_auto_backup(ctx, base)
         files = _list_backups(base)
         folders = [{
             "display": "JSON snapshots",
@@ -670,6 +672,10 @@ def create_admin_routes(ctx):
                 settings["enabled"],
             )
             _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
+            if settings.get("enabled"):
+                _start_auto_backup(ctx, base)
+            else:
+                _stop_auto_backup()
         return jsonify({"ok": True, "auto_backup": _effective_backup_status(ctx, base)})
 
     @bp.post("/api/backups/restore")
