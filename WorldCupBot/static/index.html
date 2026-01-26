@@ -142,99 +142,124 @@
                       </div>
                   </div>
                   <div class="settings-rows">
-                      <div class="settings-row admin-only">
-                          <div class="settings-row-title">Admin settings</div>
-                          <div class="settings-grid">
-                              <label class="settings-field">
-                                  <span class="settings-label">Target guild</span>
-                                  <select id="settings-guild-select" class="select-dark">
-                                      <option value="" disabled>Select a guild</option>
-                                  </select>
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Channel category</span>
-                                  <select id="settings-category-select" class="select-dark"></select>
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Stage announcement channel</span>
-                                  <select id="settings-channel-select" class="select-dark"></select>
-                              </label>
-                          </div>
-                      </div>
-                      <div class="settings-divider admin-only"></div>
-                      <div class="settings-row admin-only">
-                          <div class="settings-row-title">Maintenance mode</div>
-                          <div class="settings-maintenance">
-                              <div class="settings-maintenance-info">
-                                  <div class="settings-label">Site access</div>
-                                  <div id="settings-maintenance-status" class="settings-status">Loading...</div>
-                              </div>
-                              <div class="settings-maintenance-actions">
-                                  <button id="settings-maintenance-toggle" class="btn btn-outline">Enable</button>
+                      <!-- Admin-only settings grouped for quick access. -->
+                      <div class="settings-admin-panel admin-only">
+                          <div class="settings-admin-head">
+                              <div>
+                                  <div class="settings-admin-title">Admin controls</div>
                               </div>
                           </div>
-                      </div>
-                      <div class="settings-divider admin-only"></div>
-                      <div class="settings-row admin-only">
-                          <div class="settings-row-title">Embed maker</div>
-                          <div class="settings-grid settings-grid-wide">
-                              <label class="settings-field">
-                                  <span class="settings-label">Target guild</span>
-                                  <select id="embed-guild-select" class="select-dark">
-                                      <option value="" disabled>Select a guild</option>
-                                  </select>
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Target channel</span>
-                                  <select id="embed-channel-select" class="select-dark"></select>
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Title</span>
-                                  <input id="embed-title" type="text" placeholder="Embed title">
-                              </label>
-                              <label class="settings-field full">
-                                  <span class="settings-label">Description</span>
-                                  <textarea id="embed-description" rows="4" placeholder="Embed description"></textarea>
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Footer</span>
-                                  <input id="embed-footer" type="text" placeholder="Footer text">
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Footer icon URL</span>
-                                  <input id="embed-footer-icon" type="url" placeholder="https://...">
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Author name</span>
-                                  <input id="embed-author" type="text" placeholder="Author name">
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Author icon URL</span>
-                                  <input id="embed-author-icon" type="url" placeholder="https://...">
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Thumbnail URL</span>
-                                  <input id="embed-thumbnail" type="url" placeholder="https://...">
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Image URL</span>
-                                  <input id="embed-image" type="url" placeholder="https://...">
-                              </label>
-                              <label class="settings-field">
-                                  <span class="settings-label">Color (hex)</span>
-                                  <input id="embed-color" type="text" placeholder="#5865F2">
-                              </label>
-                              <label class="settings-field full">
-                                  <span class="settings-label">Message content (optional)</span>
-                                  <textarea id="embed-content" rows="2" placeholder="Optional message content"></textarea>
-                              </label>
+                          <div class="settings-admin-body">
+                              <div class="settings-row admin-only">
+                                  <div class="settings-row-title">Admin settings</div>
+                                  <div class="settings-grid">
+                                      <label class="settings-field">
+                                          <span class="settings-label">Target guild</span>
+                                          <select id="settings-guild-select" class="select-dark">
+                                              <option value="" disabled>Select a guild</option>
+                                          </select>
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Channel category</span>
+                                          <select id="settings-category-select" class="select-dark"></select>
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Stage announcement channel</span>
+                                          <select id="settings-channel-select" class="select-dark"></select>
+                                      </label>
+                                  </div>
+                              </div>
+                              <div class="settings-divider admin-only"></div>
+                              <div class="settings-row admin-only">
+                                  <div class="settings-row-title">Auto backups</div>
+                                  <!-- Auto backup controls allow admins to schedule JSON snapshots. -->
+                                  <div class="settings-autobackup-card">
+                                      <label class="checkbox settings-autobackup-toggle">
+                                          <input type="checkbox" id="settings-auto-backup-enabled">
+                                          <span>Auto backup JSON every</span>
+                                      </label>
+                                      <div class="settings-autobackup-interval">
+                                          <input id="settings-auto-backup-interval" type="number" min="0.1" step="0.1" placeholder="1.0">
+                                          <span class="settings-autobackup-unit">hours</span>
+                                      </div>
+                                  </div>
+                                  <div id="settings-auto-backup-status" class="settings-status settings-autobackup-status"></div>
+                              </div>
+                              <div class="settings-divider admin-only"></div>
+                              <div class="settings-row admin-only">
+                                  <div class="settings-row-title">Maintenance mode</div>
+                                  <div class="settings-maintenance">
+                                      <div class="settings-maintenance-info">
+                                          <div class="settings-label">Site access</div>
+                                          <div id="settings-maintenance-status" class="settings-status">Loading...</div>
+                                      </div>
+                                      <div class="settings-maintenance-actions">
+                                          <button id="settings-maintenance-toggle" class="btn btn-outline">Enable</button>
+                                      </div>
+                                  </div>
+                              </div>
+                              <div class="settings-divider admin-only"></div>
+                              <div class="settings-row admin-only">
+                                  <div class="settings-row-title">Embed maker</div>
+                                  <div class="settings-grid settings-grid-wide">
+                                      <label class="settings-field">
+                                          <span class="settings-label">Target guild</span>
+                                          <select id="embed-guild-select" class="select-dark">
+                                              <option value="" disabled>Select a guild</option>
+                                          </select>
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Target channel</span>
+                                          <select id="embed-channel-select" class="select-dark"></select>
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Title</span>
+                                          <input id="embed-title" type="text" placeholder="Embed title">
+                                      </label>
+                                      <label class="settings-field full">
+                                          <span class="settings-label">Description</span>
+                                          <textarea id="embed-description" rows="4" placeholder="Embed description"></textarea>
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Footer</span>
+                                          <input id="embed-footer" type="text" placeholder="Footer text">
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Footer icon URL</span>
+                                          <input id="embed-footer-icon" type="url" placeholder="https://...">
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Author name</span>
+                                          <input id="embed-author" type="text" placeholder="Author name">
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Author icon URL</span>
+                                          <input id="embed-author-icon" type="url" placeholder="https://...">
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Thumbnail URL</span>
+                                          <input id="embed-thumbnail" type="url" placeholder="https://...">
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Image URL</span>
+                                          <input id="embed-image" type="url" placeholder="https://...">
+                                      </label>
+                                      <label class="settings-field">
+                                          <span class="settings-label">Color (hex)</span>
+                                          <input id="embed-color" type="text" placeholder="#5865F2">
+                                      </label>
+                                      <label class="settings-field full">
+                                          <span class="settings-label">Message content (optional)</span>
+                                          <textarea id="embed-content" rows="2" placeholder="Optional message content"></textarea>
+                                      </label>
+                                  </div>
+                                  <div class="settings-actions">
+                                      <button id="embed-send" class="btn btn-primary" type="button">Send embed</button>
+                                      <span id="embed-status" class="settings-status"></span>
+                                  </div>
+                              </div>
                           </div>
-                          <div class="settings-actions">
-                              <button id="embed-send" class="btn btn-primary" type="button">Send embed</button>
-                              <span id="embed-status" class="settings-status"></span>
-                          </div>
                       </div>
-                      <div class="settings-divider admin-only"></div>
                       <div class="settings-row">
                           <div class="settings-row-title">Notifications</div>
                           <div class="settings-notifications-grid">
