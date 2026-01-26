@@ -2547,7 +2547,7 @@ window.loadSplits = loadSplits;
           ['Restore Latest',  { id: 'restore-latest' }]
         ]);
 
-        // 3) render the table
+        // 3) render the settings + table
         const s = w.querySelector('.table-scroll');
         s.innerHTML = '';
         w.querySelectorAll('.backup-settings').forEach(el => el.remove());
