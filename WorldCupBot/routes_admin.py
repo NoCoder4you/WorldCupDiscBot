@@ -82,6 +82,7 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
     inferred_last_ts = None
     startup_ts = time.time()
     bootstrapped_last_ts = False
+    startup_reset_done = False
     while not stop_event.is_set():
         settings = _load_backup_settings(ctx)
         if not settings["enabled"]:
@@ -100,6 +101,11 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
                 last_ts = int(startup_ts)
                 bootstrapped_last_ts = True
                 _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
+
+        if last_ts is not None and not startup_reset_done and last_ts < startup_ts:
+            last_ts = int(startup_ts)
+            startup_reset_done = True
+            _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
 
         if last_ts is None:
             due_in = interval
