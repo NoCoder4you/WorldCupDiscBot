@@ -104,6 +104,7 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
     bootstrapped_last_ts = False
     startup_reset_done = False
     startup_skip_done = False
+    startup_grace_deadline = None
     while not stop_event.is_set():
         settings = _load_backup_settings(ctx)
         if not settings["enabled"]:
@@ -141,7 +142,13 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
             last_ts = int(startup_ts)
             _save_backup_schedule(ctx, last_ts, interval=interval)
             next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
+            startup_grace_deadline = startup_ts + interval
             startup_skip_done = True
+            continue
+
+        if startup_grace_deadline is not None and time.time() < startup_grace_deadline:
+            # Enforce a full interval grace period after startup before any auto-backup can run.
+            stop_event.wait(min(startup_grace_deadline - time.time(), AUTO_BACKUP_SETTINGS_POLL_SECONDS))
             continue
 
         if next_ts is None:
@@ -615,9 +622,8 @@ def create_admin_routes(ctx):
     @bp.get("/api/backups")
     def backups_list():
         base = ctx.get("BASE_DIR", "")
-        settings = _load_backup_settings(ctx)
-        if settings.get("enabled"):
-            _start_auto_backup(ctx, base)
+        # Do not start the auto-backup loop on page load to avoid any startup backups.
+        # Auto backups only begin after an explicit settings change via /api/backups/settings.
         files = _list_backups(base)
         folders = [{
             "display": "JSON snapshots",
