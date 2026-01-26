@@ -2550,6 +2550,7 @@ window.loadSplits = loadSplits;
         // 3) render the settings + table
         const s = w.querySelector('.table-scroll');
         s.innerHTML = '';
+        w.querySelectorAll('.backup-settings').forEach(el => el.remove());
 
         const autoBackup = d?.auto_backup || {};
         const settingsWrap = document.createElement('div');
