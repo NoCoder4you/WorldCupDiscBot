@@ -40,7 +40,7 @@ body {
   box-shadow:
     0 0 20px #00ffd5,
     0 0 50px #00ffd5,
-    0 26px 60px rgba(0, 0, 0, 0.45);
+    0 26px 60px #00000073;
   text-align: center;
 }
 
