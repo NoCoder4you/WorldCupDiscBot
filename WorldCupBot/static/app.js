@@ -2621,74 +2621,6 @@ window.loadSplits = loadSplits;
       }
     }
 
-    async function loadAutoBackupSettings(){
-      const enabledInput = document.getElementById('settings-auto-backup-enabled');
-      const hoursInput = document.getElementById('settings-auto-backup-hours');
-      const lastLabel = document.getElementById('settings-auto-backup-last');
-      const statusLabel = document.getElementById('settings-auto-backup-status');
-
-      if (!enabledInput || !hoursInput || !lastLabel || !statusLabel) return;
-
-      const syncAutoBackupUI = (settings) => {
-        const enabled = settings?.enabled ?? true;
-        const intervalSeconds = Number(settings?.interval_seconds ?? (4 * 60 * 60));
-        const intervalHoursValue = Math.round((intervalSeconds / 3600) * 100) / 100;
-        enabledInput.checked = !!enabled;
-        hoursInput.value = Number.isFinite(intervalHoursValue) ? intervalHoursValue : 4;
-        const lastTs = settings?.last_backup_ts;
-        if (lastTs) {
-          lastLabel.textContent = `Last backup: ${new Date(lastTs * 1000).toLocaleString()}`;
-        } else {
-          lastLabel.textContent = 'Last backup: —';
-        }
-        statusLabel.textContent = enabled ? 'Auto backups enabled' : 'Auto backups disabled';
-      };
-
-      try{
-        const data = await fetchJSON('/api/backups');
-        syncAutoBackupUI(data?.auto_backup || {});
-      }catch(e){
-        statusLabel.textContent = `Backup status unavailable: ${e.message}`;
-      }
-
-      if (!enabledInput.dataset.bound){
-        enabledInput.dataset.bound = '1';
-        enabledInput.addEventListener('change', async () => {
-          try{
-            const res = await fetchJSON('/api/backups/settings', {
-              method: 'POST',
-              body: JSON.stringify({ enabled: enabledInput.checked })
-            });
-            syncAutoBackupUI(res?.auto_backup || {});
-            notify('Backup settings saved');
-          }catch(e){
-            notify(`Backup settings failed: ${e.message}`, false);
-          }
-        });
-      }
-
-      if (!hoursInput.dataset.bound){
-        hoursInput.dataset.bound = '1';
-        hoursInput.addEventListener('change', async () => {
-          const hours = Number(hoursInput.value);
-          if (!Number.isFinite(hours) || hours <= 0) {
-            notify('Enter a valid number of hours.', false);
-            return;
-          }
-          try{
-            const res = await fetchJSON('/api/backups/settings', {
-              method: 'POST',
-              body: JSON.stringify({ interval_seconds: Math.round(hours * 3600) })
-            });
-            syncAutoBackupUI(res?.auto_backup || {});
-            notify('Backup settings saved');
-          }catch(e){
-            notify(`Backup settings failed: ${e.message}`, false);
-          }
-        });
-      }
-    }
-
     let settingsAutoSaveTimer;
 
     async function loadSettings(){
@@ -2943,8 +2875,6 @@ window.loadSplits = loadSplits;
           setMaintenanceUnavailable('Enable Admin View to edit maintenance mode.', 'Admin View required');
           return;
         }
-
-        await loadAutoBackupSettings();
 
         let data;
         try {
