@@ -3206,6 +3206,10 @@ select.select-dark:disabled {
   overflow: auto;
 }
 
+#backups .backup-settings {
+  display: none !important;
+}
+
 /* Table column sizing and alignment */
 #backups .table {
   width: 100%;
