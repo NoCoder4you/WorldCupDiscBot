@@ -627,8 +627,6 @@ def create_admin_routes(ctx):
     @bp.get("/api/backups")
     def backups_list():
         base = ctx.get("BASE_DIR", "")
-        # Do not start the auto-backup loop on page load to avoid any startup backups.
-        # Auto backups only begin after an explicit settings change via /api/backups/settings.
         files = _list_backups(base)
         folders = [{
             "display": "JSON snapshots",
