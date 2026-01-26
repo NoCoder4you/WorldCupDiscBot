@@ -4331,16 +4331,27 @@ body .notify-panel{ right: 90px; }
 
 .settings-autobackup-interval input {
   width: 92px;
-  background: transparent;
-  border: none;
+  background: #0a0f1c;
+  border: 1px solid #6ea3ff33;
   color: #f2f4ff;
   font-weight: 700;
   text-align: right;
   padding: 6px 8px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  appearance: textfield;
 }
 
 .settings-autobackup-interval input:focus {
   outline: none;
+  border-color: #6ea3ff7a;
+}
+
+/* Keep number inputs consistent across browsers. */
+.settings-autobackup-interval input::-webkit-outer-spin-button,
+.settings-autobackup-interval input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .settings-autobackup-unit {
