@@ -80,6 +80,8 @@ def _record_backup_success(ctx, backup_ts: int | None = None) -> None:
 
 def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
     inferred_last_ts = None
+    startup_ts = time.time()
+    bootstrapped_last_ts = False
     while not stop_event.is_set():
         settings = _load_backup_settings(ctx)
         if not settings["enabled"]:
@@ -93,6 +95,10 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
                 inferred_last_ts = _infer_last_backup_ts(base_dir)
             last_ts = inferred_last_ts
             if last_ts is not None:
+                _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
+            elif not bootstrapped_last_ts:
+                last_ts = int(startup_ts)
+                bootstrapped_last_ts = True
                 _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
 
         if last_ts is None:
