@@ -4257,6 +4257,101 @@ body .notify-panel{ right: 90px; }
   margin-top: 16px;
 }
 
+/* Admin settings container mirrors the backups card style for better focus. */
+.settings-admin-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.18);
+}
+
+.settings-admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-admin-title {
+  color: var(--accent);
+  font-weight: 900;
+  letter-spacing: 0.3px;
+}
+
+.settings-admin-subtitle {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+.settings-admin-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Auto backup settings card mirrors backups styling while remaining compact. */
+.settings-autobackup-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(10, 15, 26, 0.9), rgba(18, 24, 38, 0.9));
+  border: 1px solid #ffffff1f;
+}
+
+.settings-autobackup-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  color: #f2f4ff;
+  margin: 0;
+}
+
+.settings-autobackup-interval {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  border: 1px solid #ffffff1f;
+  background: #0b101c;
+}
+
+.settings-autobackup-interval input {
+  width: 92px;
+  background: transparent;
+  border: none;
+  color: #f2f4ff;
+  font-weight: 700;
+  text-align: right;
+  padding: 6px 8px;
+}
+
+.settings-autobackup-interval input:focus {
+  outline: none;
+}
+
+.settings-autobackup-unit {
+  color: var(--muted);
+  font-weight: 700;
+  padding-right: 6px;
+}
+
+.settings-autobackup-status {
+  margin-top: 8px;
+  color: #cdd6ff;
+}
+
 body:not(.admin) .settings-rows {
   margin-top: 8px;
 }

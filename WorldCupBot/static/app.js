@@ -2620,6 +2620,7 @@ window.loadSplits = loadSplits;
     }
 
     let settingsAutoSaveTimer;
+    let autoBackupSaveTimer;
 
     async function loadSettings(){
       let sec;
@@ -2856,6 +2857,9 @@ window.loadSplits = loadSplits;
         const maintenanceConfirm = document.getElementById('maintenance-confirm');
         const maintenanceCancel = document.getElementById('maintenance-cancel');
         const maintenanceClose = document.getElementById('maintenance-close');
+        const autoBackupEnabled = document.getElementById('settings-auto-backup-enabled');
+        const autoBackupInterval = document.getElementById('settings-auto-backup-interval');
+        const autoBackupStatus = document.getElementById('settings-auto-backup-status');
 
         const setMaintenanceUnavailable = (message, buttonLabel = 'Unavailable') => {
           if (maintenanceStatus) maintenanceStatus.textContent = message;
@@ -2867,10 +2871,16 @@ window.loadSplits = loadSplits;
 
         if (!state.admin) {
           setMaintenanceUnavailable('Admin login required to change maintenance mode.', 'Admin only');
+          if (autoBackupStatus) {
+            autoBackupStatus.textContent = 'Admin login required to change auto backup settings.';
+          }
           return;
         }
         if (!getAdminView()) {
           setMaintenanceUnavailable('Enable Admin View to edit maintenance mode.', 'Admin View required');
+          if (autoBackupStatus) {
+            autoBackupStatus.textContent = 'Enable Admin View to edit auto backup settings.';
+          }
           return;
         }
 
@@ -2898,6 +2908,19 @@ window.loadSplits = loadSplits;
           }
         };
 
+        const updateAutoBackupStatus = (enabled, intervalHours, lastTs) => {
+          if (!autoBackupStatus) return;
+          const label = Number.isFinite(intervalHours) ? `${intervalHours}h` : '—';
+          if (!enabled) {
+            autoBackupStatus.textContent = `Auto backups disabled · Interval: ${label}`;
+            return;
+          }
+          const lastLabel = lastTs
+            ? new Date(lastTs * 1000).toLocaleString()
+            : 'No backups yet';
+          autoBackupStatus.textContent = `Last backup: ${lastLabel} · Auto backups enabled`;
+        };
+
         if (!isAdminUI()) return;
 
         const closeMaintenanceModal = () => {
@@ -2923,6 +2946,19 @@ window.loadSplits = loadSplits;
         };
 
         setMaintenanceState(Boolean(data?.maintenance_mode));
+        if (autoBackupEnabled) {
+          autoBackupEnabled.checked = Boolean(data?.auto_backup_enabled);
+        }
+        if (autoBackupInterval) {
+          autoBackupInterval.value = Number.isFinite(Number(data?.auto_backup_interval_hours))
+            ? Number(data.auto_backup_interval_hours)
+            : 6;
+        }
+        updateAutoBackupStatus(
+          Boolean(data?.auto_backup_enabled),
+          Number(data?.auto_backup_interval_hours),
+          Number(data?.auto_backup_last_ts) || 0
+        );
         const savedChannel = data?.stage_announce_channel || '';
         const primaryGuildId = data?.primary_guild_id || '';
         if (guildSelect) guildSelect.value = data?.selected_guild_id || '';
@@ -2974,6 +3010,44 @@ window.loadSplits = loadSplits;
               notify(`Failed to save settings: ${e.message}`, false);
             }
           }
+        };
+
+        const saveAutoBackupSettings = async ({ silent = false } = {}) => {
+          if (!autoBackupEnabled || !autoBackupInterval) return;
+          const hours = Number(autoBackupInterval.value);
+          // Guard against invalid values so we only send clean settings.
+          if (!Number.isFinite(hours) || hours <= 0) {
+            if (autoBackupStatus) {
+              autoBackupStatus.textContent = 'Enter a valid interval greater than 0 hours.';
+            }
+            return;
+          }
+          try {
+            await fetchJSON('/admin/settings', {
+              method: 'POST',
+              body: JSON.stringify({
+                auto_backup_enabled: autoBackupEnabled.checked,
+                auto_backup_interval_hours: hours
+              })
+            });
+            updateAutoBackupStatus(autoBackupEnabled.checked, hours, data?.auto_backup_last_ts || 0);
+            if (!silent) {
+              notify('Auto backup settings saved');
+              await loadSettings();
+            }
+          } catch (e) {
+            if (!silent) {
+              notify(`Failed to save auto backup settings: ${e.message}`, false);
+            }
+          }
+        };
+
+        const scheduleAutoBackupSave = () => {
+          if (isHydrating()) return;
+          if (autoBackupSaveTimer) clearTimeout(autoBackupSaveTimer);
+          autoBackupSaveTimer = setTimeout(() => {
+            saveAutoBackupSettings({ silent: true });
+          }, 500);
         };
 
         const scheduleAutoSave = () => {
@@ -3120,6 +3194,17 @@ window.loadSplits = loadSplits;
         if (maintenanceClose && !maintenanceClose.dataset.bound) {
           maintenanceClose.dataset.bound = '1';
           maintenanceClose.addEventListener('click', closeMaintenanceModal);
+        }
+
+        if (autoBackupEnabled && !autoBackupEnabled.dataset.bound) {
+          autoBackupEnabled.dataset.bound = '1';
+          autoBackupEnabled.addEventListener('change', scheduleAutoBackupSave);
+        }
+
+        if (autoBackupInterval && !autoBackupInterval.dataset.bound) {
+          autoBackupInterval.dataset.bound = '1';
+          autoBackupInterval.addEventListener('input', scheduleAutoBackupSave);
+          autoBackupInterval.addEventListener('change', () => saveAutoBackupSettings({ silent: false }));
         }
 
         await loadChannelsForGuild(guildSelect?.value || '', savedChannel);
