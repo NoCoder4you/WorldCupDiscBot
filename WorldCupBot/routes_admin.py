@@ -52,6 +52,11 @@ def _normalize_backup_interval(raw) -> int:
         interval = AUTO_BACKUP_DEFAULT_INTERVAL_SECONDS
     return max(60, interval)
 
+def _compute_next_backup_ts(last_ts: int | None, interval: int, enabled: bool) -> int | None:
+    if not enabled or last_ts is None:
+        return None
+    return int(last_ts + interval)
+
 def _load_backup_settings(ctx) -> dict:
     settings = _load_settings(ctx)
     enabled = settings.get("AUTO_BACKUP_ENABLED", True)
@@ -63,10 +68,16 @@ def _load_backup_settings(ctx) -> dict:
         last_ts = int(last_ts)
     except (TypeError, ValueError):
         last_ts = None
+    next_ts = settings.get("AUTO_BACKUP_NEXT_TS")
+    try:
+        next_ts = int(next_ts)
+    except (TypeError, ValueError):
+        next_ts = None
     return {
         "enabled": bool(enabled),
         "interval_seconds": interval,
         "last_ts": last_ts,
+        "next_ts": next_ts,
     }
 
 def _save_backup_settings(ctx, updates: dict) -> bool:
@@ -74,9 +85,18 @@ def _save_backup_settings(ctx, updates: dict) -> bool:
     cfg.update(updates)
     return _save_settings(ctx, cfg)
 
+def _save_backup_schedule(ctx, last_ts: int | None, *, interval: int | None = None) -> None:
+    settings = _load_backup_settings(ctx)
+    interval_seconds = settings["interval_seconds"] if interval is None else _normalize_backup_interval(interval)
+    next_ts = _compute_next_backup_ts(last_ts, interval_seconds, settings["enabled"])
+    _save_backup_settings(ctx, {
+        "AUTO_BACKUP_LAST_TS": last_ts,
+        "AUTO_BACKUP_NEXT_TS": next_ts,
+    })
+
 def _record_backup_success(ctx, backup_ts: int | None = None) -> None:
     ts = int(backup_ts or time.time())
-    _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": ts})
+    _save_backup_schedule(ctx, ts)
 
 def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
     inferred_last_ts = None
@@ -95,11 +115,11 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
                 inferred_last_ts = _infer_last_backup_ts(base_dir)
             last_ts = inferred_last_ts
             if last_ts is not None:
-                _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
+                _save_backup_schedule(ctx, last_ts)
             elif not bootstrapped_last_ts:
                 last_ts = int(startup_ts)
                 bootstrapped_last_ts = True
-                _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
+                _save_backup_schedule(ctx, last_ts)
 
         if last_ts is None:
             due_in = interval
@@ -621,6 +641,14 @@ def create_admin_routes(ctx):
             updates["AUTO_BACKUP_INTERVAL_SECONDS"] = _normalize_backup_interval(body.get("interval_seconds"))
         if updates and not _save_backup_settings(ctx, updates):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
+        if updates:
+            settings = _load_backup_settings(ctx)
+            next_ts = _compute_next_backup_ts(
+                settings.get("last_ts"),
+                settings["interval_seconds"],
+                settings["enabled"],
+            )
+            _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
         return jsonify({"ok": True, "auto_backup": _effective_backup_status(ctx, base)})
 
     @bp.post("/api/backups/restore")
