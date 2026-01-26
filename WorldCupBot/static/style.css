@@ -4297,15 +4297,17 @@ body .notify-panel{ right: 90px; }
 }
 
 /* Auto backup settings card mirrors backups styling while remaining compact. */
+/* Auto backup card gets extra definition and balance for admin visibility. */
 .settings-autobackup-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 14px 16px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(10, 15, 26, 0.9), rgba(18, 24, 38, 0.9));
-  border: 1px solid #ffffff1f;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(12, 18, 30, 0.96), rgba(18, 28, 44, 0.94));
+  border: 1px solid #5cc8ff2b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .settings-autobackup-toggle {
@@ -4317,14 +4319,15 @@ body .notify-panel{ right: 90px; }
   margin: 0;
 }
 
+/* Keep the interval selector distinct and aligned with the backup toggle. */
 .settings-autobackup-interval {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 8px;
   border-radius: 999px;
-  border: 1px solid #ffffff1f;
-  background: #0b101c;
+  border: 1px solid #6ea3ff40;
+  background: #0b111f;
 }
 
 .settings-autobackup-interval input {
@@ -4347,9 +4350,15 @@ body .notify-panel{ right: 90px; }
   padding-right: 6px;
 }
 
+/* Status line gets a softer pill to separate it from the card body. */
 .settings-autobackup-status {
   margin-top: 8px;
   color: #cdd6ff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(108, 160, 255, 0.12);
+  border: 1px solid rgba(108, 160, 255, 0.18);
+  width: fit-content;
 }
 
 body:not(.admin) .settings-rows {
