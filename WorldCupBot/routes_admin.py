@@ -13,6 +13,7 @@ from stage_constants import (
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
 MAX_BACKUPS = 25
+AUTO_BACKUP_DEFAULT_HOURS = 6.0
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -347,6 +348,40 @@ def _load_settings(ctx):
         pass
     return {}
 
+def _coerce_auto_backup_interval(value, default=AUTO_BACKUP_DEFAULT_HOURS) -> float:
+    """Parse and clamp the auto-backup interval to a safe positive float."""
+    try:
+        interval = float(value)
+    except (TypeError, ValueError):
+        return default
+    if interval <= 0:
+        return default
+    return max(0.1, round(interval, 2))
+
+def _update_auto_backup_timestamp(ctx, ts: int) -> None:
+    """Persist the last backup timestamp for UI reporting."""
+    settings = _load_settings(ctx)
+    settings["AUTO_BACKUP_LAST_TS"] = int(ts)
+    _save_settings(ctx, settings)
+
+def _auto_backup_if_due(ctx) -> str | None:
+    """Create an automatic backup when the configured interval elapses."""
+    if not _is_admin(ctx):
+        return None
+    settings = _load_settings(ctx)
+    if not bool(settings.get("AUTO_BACKUP_ENABLED")):
+        return None
+    interval_hours = _coerce_auto_backup_interval(settings.get("AUTO_BACKUP_INTERVAL_HOURS"))
+    last_ts = int(settings.get("AUTO_BACKUP_LAST_TS") or 0)
+    now = int(time.time())
+    if last_ts and (now - last_ts) < int(interval_hours * 3600):
+        return None
+    name = _create_backup(ctx.get("BASE_DIR", ""))
+    settings["AUTO_BACKUP_LAST_TS"] = now
+    _save_settings(ctx, settings)
+    log.info("Auto backup created (name=%s interval_hours=%.2f)", name, interval_hours)
+    return name
+
 def _guilds_path(ctx):
     return _path(ctx, "guilds.json")
 
@@ -455,7 +490,8 @@ def create_admin_routes(ctx):
     @bp.get("/api/backups")
     def backups_list():
         base = ctx.get("BASE_DIR", "")
-        # Manual backups only; no automatic scheduler is started here.
+        # Auto backups are triggered opportunistically when admins view the backups page.
+        _auto_backup_if_due(ctx)
         files = _list_backups(base)
         folders = [{
             "display": "JSON snapshots",
@@ -482,6 +518,7 @@ def create_admin_routes(ctx):
     def backups_create():
         base = ctx.get("BASE_DIR", "")
         name = _create_backup(base)
+        _update_auto_backup_timestamp(ctx, int(time.time()))
         user = session.get(USER_SESSION_KEY) or {}
         # Trace backup creation to identify startup callers triggering this endpoint.
         trace_ctx = _backup_request_context()
@@ -1251,6 +1288,12 @@ def create_admin_routes(ctx):
             "selected_guild_id": str(cfg.get("SELECTED_GUILD_ID") or "").strip(),
             "primary_guild_id": _load_primary_guild_id(ctx),
             "maintenance_mode": bool(cfg.get("MAINTENANCE_MODE")),
+            "auto_backup_enabled": bool(cfg.get("AUTO_BACKUP_ENABLED")),
+            "auto_backup_interval_hours": _coerce_auto_backup_interval(
+                cfg.get("AUTO_BACKUP_INTERVAL_HOURS"),
+                AUTO_BACKUP_DEFAULT_HOURS,
+            ),
+            "auto_backup_last_ts": int(cfg.get("AUTO_BACKUP_LAST_TS") or 0),
         })
 
     @bp.post("/admin/settings")
@@ -1260,6 +1303,8 @@ def create_admin_routes(ctx):
             return resp
         body = request.get_json(silent=True) or {}
         maintenance_raw = body.get("maintenance_mode", None)
+        auto_backup_enabled = body.get("auto_backup_enabled", None)
+        auto_backup_interval = body.get("auto_backup_interval_hours", None)
 
         cfg = _load_settings(ctx)
         prev_maintenance = bool(cfg.get("MAINTENANCE_MODE"))
@@ -1274,6 +1319,13 @@ def create_admin_routes(ctx):
                 cfg.pop("SELECTED_GUILD_ID", None)
         if maintenance_raw is not None:
             cfg["MAINTENANCE_MODE"] = bool(maintenance_raw)
+        if auto_backup_enabled is not None:
+            cfg["AUTO_BACKUP_ENABLED"] = bool(auto_backup_enabled)
+            # Start the interval clock when auto backups are first enabled.
+            if cfg["AUTO_BACKUP_ENABLED"] and not cfg.get("AUTO_BACKUP_LAST_TS"):
+                cfg["AUTO_BACKUP_LAST_TS"] = int(time.time())
+        if auto_backup_interval is not None:
+            cfg["AUTO_BACKUP_INTERVAL_HOURS"] = _coerce_auto_backup_interval(auto_backup_interval)
         if not _save_settings(ctx, cfg):
             return jsonify({"ok": False, "error": "failed_to_save"}), 500
         if maintenance_raw is not None:
@@ -1289,6 +1341,12 @@ def create_admin_routes(ctx):
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),
             "selected_guild_id": str(cfg.get("SELECTED_GUILD_ID") or "").strip(),
             "maintenance_mode": bool(cfg.get("MAINTENANCE_MODE")),
+            "auto_backup_enabled": bool(cfg.get("AUTO_BACKUP_ENABLED")),
+            "auto_backup_interval_hours": _coerce_auto_backup_interval(
+                cfg.get("AUTO_BACKUP_INTERVAL_HOURS"),
+                AUTO_BACKUP_DEFAULT_HOURS,
+            ),
+            "auto_backup_last_ts": int(cfg.get("AUTO_BACKUP_LAST_TS") or 0),
         })
 
     def _load_matches_payload():
