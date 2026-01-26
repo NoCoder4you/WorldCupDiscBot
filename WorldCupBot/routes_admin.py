@@ -136,6 +136,14 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
             next_ts = int(last_ts + interval)
             _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
 
+        if not startup_skip_done:
+            # Never run an auto-backup on startup; always schedule the next run from startup time.
+            last_ts = int(startup_ts)
+            _save_backup_schedule(ctx, last_ts, interval=interval)
+            next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
+            startup_skip_done = True
+            continue
+
         if next_ts is None:
             due_in = interval
         else:
@@ -143,13 +151,6 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
 
         if due_in > 0:
             stop_event.wait(min(due_in, AUTO_BACKUP_SETTINGS_POLL_SECONDS))
-            continue
-
-        if not startup_skip_done and next_ts is not None and next_ts <= time.time():
-            # Avoid immediate catch-up backups after restarts by resetting the schedule from startup.
-            last_ts = int(startup_ts)
-            _save_backup_schedule(ctx, last_ts, interval=interval)
-            startup_skip_done = True
             continue
 
         try:
