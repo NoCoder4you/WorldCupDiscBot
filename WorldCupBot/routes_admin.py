@@ -111,26 +111,34 @@ def _auto_backup_loop(ctx, base_dir: str, stop_event: threading.Event):
 
         interval = settings["interval_seconds"]
         last_ts = settings["last_ts"]
+        next_ts = settings.get("next_ts")
         if last_ts is None:
             if inferred_last_ts is None:
                 inferred_last_ts = _infer_last_backup_ts(base_dir)
             last_ts = inferred_last_ts
             if last_ts is not None:
-                _save_backup_schedule(ctx, last_ts)
+                _save_backup_schedule(ctx, last_ts, interval=interval)
+                next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
             elif not bootstrapped_last_ts:
                 last_ts = int(startup_ts)
                 bootstrapped_last_ts = True
-                _save_backup_schedule(ctx, last_ts)
+                _save_backup_schedule(ctx, last_ts, interval=interval)
+                next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
 
         if last_ts is not None and not startup_reset_done and last_ts < startup_ts:
             last_ts = int(startup_ts)
             startup_reset_done = True
-            _save_backup_settings(ctx, {"AUTO_BACKUP_LAST_TS": last_ts})
+            _save_backup_schedule(ctx, last_ts, interval=interval)
+            next_ts = _compute_next_backup_ts(last_ts, interval, settings["enabled"])
 
-        if last_ts is None:
+        if next_ts is None and last_ts is not None:
+            next_ts = int(last_ts + interval)
+            _save_backup_settings(ctx, {"AUTO_BACKUP_NEXT_TS": next_ts})
+
+        if next_ts is None:
             due_in = interval
         else:
-            due_in = interval - (time.time() - last_ts)
+            due_in = next_ts - time.time()
 
         if due_in > 0:
             stop_event.wait(min(due_in, AUTO_BACKUP_SETTINGS_POLL_SECONDS))
