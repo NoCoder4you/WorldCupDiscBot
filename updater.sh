@@ -134,16 +134,4 @@ echo "$NEW_COMMIT" > "$LAST_SYNC_FILE"
 
 echo "[Updater] Sync complete -> $TARGET"
 
-echo "----------------------------------"
-if [[ ! -d "$VENV_DIR" ]]; then
-  echo "[Updater] Creating venv at $VENV_DIR"
-  python3 -m venv "$VENV_DIR"
-fi
 
-echo "[Updater] Upgrade pip"
-"$PYBIN" -m pip install --upgrade pip wheel setuptools
-
-if [[ -f "$REQUIREMENTS_PATH" ]]; then
-  echo "[Updater] Installing requirements"
-  "$PYBIN" -m pip install -r "$REQUIREMENTS_PATH"
-fi
