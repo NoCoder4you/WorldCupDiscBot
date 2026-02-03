@@ -1,4 +1,3 @@
-/* app.js - logged-out 3-card grid, logged-in dice-5 grid, Bot Actions fixed */
 (() => {
   'use strict';
 
@@ -167,7 +166,7 @@
     setDashboardWarning(false);
   }
 
-// === Global Admin View toggle (persists) ===
+
 const ADMIN_VIEW_KEY = 'wc:adminView';
 const getAdminView = () => localStorage.getItem(ADMIN_VIEW_KEY) === '1';
 function setAdminView(on){
@@ -176,37 +175,37 @@ function setAdminView(on){
   applyAdminView();
 }
 
-// admin UI = (admin session unlocked) AND (admin view enabled)
+
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
 window.isAdminUI = isAdminUI;
 
 function applyAdminView(){
   const enabled = isAdminUI();
-  // show/hide all admin-only bits
+  
   document.querySelectorAll('.admin-only,[data-admin]').forEach(el=>{
     el.style.display = enabled ? '' : 'none';
   });
-  // keep a class for CSS if you want it
+  
   document.body.classList.toggle('user-admin-view', enabled);
 }
 
 function ensureAdminToggleButton(){
   const existing = document.getElementById('user-admin-toggle');
-  const shouldShow = !!state.admin; // only show when admin session is unlocked
+  const shouldShow = !!state.admin; 
 
-  // If admin is not unlocked, remove the button if it exists
+  
   if (!shouldShow) {
     if (existing) existing.remove();
     return;
   }
 
-  // If it already exists, just sync the label and exit
+  
   if (existing) {
     existing.textContent = getAdminView() ? 'Public View' : 'Admin View';
     return;
   }
 
-  // Otherwise create it
+  
   const btn = document.createElement('button');
   btn.id = 'user-admin-toggle';
   btn.className = 'fab-admin';
@@ -223,7 +222,7 @@ function ensureAdminToggleButton(){
 
 
 
-// keep views in sync if localStorage changes (other tab / module)
+
 window.addEventListener('storage', (e)=>{
   if (e.key === ADMIN_VIEW_KEY) { applyAdminView(); routePage(); }
 });
@@ -271,23 +270,23 @@ function stagePill(stage){
     }finally{ clearTimeout(to); }
   }
 
-  // === PAGE SWITCHER ===
+  
     function showPage(page) {
-      // admin-only pages
+      
       const adminPages = new Set(['backups','log','cogs']);
 
-      // block admin pages when not logged in
+      
       if (adminPages.has(page) && !isAdminUI()) {
         notify('That page requires admin login.', false);
         return;
       }
 
-      // show the chosen section
+      
       document.querySelectorAll('section.page-section').forEach(s => s.classList.remove('active-section'));
       const sec = document.getElementById(page);
       if (sec) sec.classList.add('active-section');
 
-      // load data for that page
+      
       if (page === 'dashboard') loadDashboard().catch(()=>{});
       if (page === 'ownership') loadOwnership().catch(()=>{});
       if (page === 'bets') loadBets().catch(()=>{});
@@ -310,16 +309,16 @@ function stagePill(stage){
       applyDashboardWarningState();
     }
 
-    // remember
+    
     state.currentPage = p;
   localStorage.setItem('wc:lastPage', p);
 
-  // nav highlight
+  
   document.querySelectorAll('#main-menu a').forEach(a => {
     a.classList.toggle('active', a.dataset.page === p);
   });
 
-  // show one section
+  
   document.querySelectorAll('section.page-section, section.dashboard')
     .forEach(s => s.classList.remove('active-section'));
   document.getElementById(p)?.classList.add('active-section');
@@ -357,7 +356,7 @@ function stagePill(stage){
       const close = document.getElementById('notify-close');
       if (!fab || !panel || !body || !close) return;
 
-      // Glow if any
+      
       fab.classList.toggle('has-new', items.length > 0);
 
       if (!items.length){
@@ -395,13 +394,13 @@ function stagePill(stage){
         `;
       }).join('');
 
-      // Wire buttons
+      
       body.querySelectorAll('button[data-dismiss]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           const id = btn.getAttribute('data-dismiss');
           if (!id) return;
 
-          // Persist read state on the server (fixes "comes back after refresh" + multi-device)
+          
           try{
             await fetch('/api/me/notifications/read', {
               method: 'POST',
@@ -411,11 +410,11 @@ function stagePill(stage){
             });
           }catch{}
 
-          // keep local dismissal too (fast UI + offline fallback)
+          
           dismissNotif(id);
           btn.closest('.notify-item')?.remove();
 
-          // refresh glow state
+          
           const remaining = body.querySelectorAll('.notify-item').length;
           fab.classList.toggle('has-new', remaining > 0);
           if (remaining === 0) body.innerHTML = `<div class="notify-empty">No New Notifications</div>`;
@@ -440,12 +439,12 @@ function stagePill(stage){
             }
           }catch{}
 
-          // close panel
+          
           panel.classList.remove('open');
           panel.setAttribute('aria-hidden', 'true');
           fab.setAttribute('aria-expanded', 'false');
 
-          // navigate
+          
           setPage(page);
           await routePage();
         });
@@ -470,7 +469,7 @@ function stagePill(stage){
             }
           }catch{}
 
-          // close panel
+          
           panel.classList.remove('open');
           panel.setAttribute('aria-hidden', 'true');
           fab.setAttribute('aria-expanded', 'false');
@@ -525,7 +524,7 @@ function stagePill(stage){
       });
     }
 
-    // Notifications polling - drives dot + bell animation
+    
     let _notifPollTimer = null;
     let _lastNotifSig = '';
 
@@ -542,7 +541,7 @@ function stagePill(stage){
           fab.classList.toggle('has-new', hasNew);
 
           if (sig && sig != _lastNotifSig) {
-            // ring only when something changed
+            
             fab.classList.add('bell-ring');
             setTimeout(() => fab.classList.remove('bell-ring'), 1400);
           }
@@ -553,7 +552,7 @@ function stagePill(stage){
             renderNotifications(items || []);
           }
         } catch (e) {
-          // ignore
+          
         }
       };
 
@@ -585,12 +584,12 @@ function stagePill(stage){
           renderNotifications(items || []);
         }
       }catch{
-        // ignore
+        
       }
     }
     window.refreshNotificationsNow = refreshNotificationsNow;
 
-    // Real test command that uses the same rendering path
+    
     window.wcTestNotify = async function(){
       wireNotifyUIOnce();
       startNotifPolling();
@@ -651,14 +650,14 @@ function stagePill(stage){
     }
 
 
-    // ===== Admin state (single source of truth) =====
+    
     window.adminUnlocked = false;
 
     function setAdminUI(unlocked){
       state.admin = !!unlocked;
       document.body.classList.toggle('admin', state.admin);
       applyAdminView();
-      ensureAdminToggleButton(); // create/remove FAB based on admin state
+      ensureAdminToggleButton(); 
     }
 
     function setUserUI(user){
@@ -717,7 +716,7 @@ function stagePill(stage){
     }
 
 
-    // === AUTH BOOTSTRAP ===
+    
     async function initAuth() {
       try {
         const r = await fetch('/admin/auth/status', { credentials: 'same-origin' });
@@ -730,30 +729,30 @@ function stagePill(stage){
       return state.admin;
     }
 
-    // keep session in sync after refresh
+    
     document.addEventListener('DOMContentLoaded', initAuth);
 
-    // Existing UI elements (works with your current modal + buttons)
-    const loginBtn  = document.querySelector('#admin-button');          // login/open modal button
-    const logoutBtn = document.querySelector('#admin-logout');          // logout button
-    const modal     = document.querySelector('#admin-login-backdrop');  // login modal backdrop
-    const submit    = document.querySelector('#admin-submit');          // login submit
-    const cancel    = document.querySelector('#admin-cancel');          // login cancel
-    const pw        = document.querySelector('#admin-password');        // password input
+    
+    const loginBtn  = document.querySelector('#admin-button');          
+    const logoutBtn = document.querySelector('#admin-logout');          
+    const modal     = document.querySelector('#admin-login-backdrop');  
+    const submit    = document.querySelector('#admin-submit');          
+    const cancel    = document.querySelector('#admin-cancel');          
+    const pw        = document.querySelector('#admin-password');        
 
-    // open login modal
+    
     loginBtn?.addEventListener('click', () => {
       modal.style.display = 'flex';
       pw.value = '';
       pw.focus();
     });
 
-    // cancel login
+    
     cancel?.addEventListener('click', () => {
       modal.style.display = 'none';
     });
 
-    // submit login
+    
     submit?.addEventListener('click', async () => {
       try {
         const r = await fetch('/admin/auth/login', {
@@ -777,7 +776,7 @@ function stagePill(stage){
       }
     });
 
-    // logout
+    
     logoutBtn?.addEventListener('click', async () => {
       try {
         const r = await fetch('/admin/auth/logout', { method: 'POST', credentials: 'include' });
@@ -794,11 +793,11 @@ function stagePill(stage){
       }
     });
 
-    // sync on load so refresh keeps your admin state
+    
     document.addEventListener('DOMContentLoaded', initAuth);
 
 
-  // --- DASHBOARD ---
+  
   async function loadDash(){
     const cached = readDashCache();
     try{
@@ -859,20 +858,19 @@ function stagePill(stage){
 
       state.lastBotRunning = running;
 
-      // Bot Actions (admin only). Buttons are not admin-gated, so JS fully controls them
       const $actions = qs('#bot-actions');
       const $start = qs('#start-bot');
       const $stop = qs('#stop-bot');
       const $restart = qs('#restart-bot');
       if(isAdminUI() && $actions && $start && $stop && $restart){
         if(running){
-          // online → Restart + Stop, 2 equal columns
+          
           $start.style.display='none';
           $restart.style.display='block';
           $stop.style.display='block';
           $actions.style.gridTemplateColumns = '1fr 1fr';
         }else{
-          // offline → Start only, full width
+          
           $start.style.display='block';
           $restart.style.display='none';
           $stop.style.display='none';
@@ -925,14 +923,14 @@ function stagePill(stage){
       const cpuPct = Number(s.cpu_percent || 0);
       const diskPct = Number(s.disk_percent || 0);
 
-      // Animate arcs
+      
       const semicircleDash = (pct) => {
-        const total = 125.66;                // arc length for our semicircle
+        const total = 125.66;                
         const c = Math.max(0, Math.min(100, Number(pct) || 0));
         return `${(c/100) * total},${total}`;
       };
 
-      // Memory
+      
       const memBar = document.getElementById('mem-bar');
       if (memBar) memBar.setAttribute('stroke-dasharray', semicircleDash(memPct));
       const memText = document.getElementById('mem-text');
@@ -943,7 +941,7 @@ function stagePill(stage){
       const memLegend = document.getElementById('mem-legend');
       if (memLegend) memLegend.textContent = `${memPct.toFixed(0)}%`;
 
-      // CPU
+      
       const cpuBar = document.getElementById('cpu-bar');
       if (cpuBar) cpuBar.setAttribute('stroke-dasharray', semicircleDash(cpuPct));
       const cpuText = document.getElementById('cpu-text');
@@ -953,7 +951,7 @@ function stagePill(stage){
       const cpuLegend = document.getElementById('cpu-legend');
       if (cpuLegend) cpuLegend.textContent = `${cpuPct.toFixed(0)}%`;
 
-      // Disk
+      
       const diskBar = document.getElementById('disk-bar');
       if (diskBar) diskBar.setAttribute('stroke-dasharray', semicircleDash(diskPct));
       const diskText = document.getElementById('disk-text');
@@ -978,8 +976,8 @@ function stagePill(stage){
     qs('#ping-value').textContent = isFinite(ms) ? `${ms} ms` : '-- ms';
   }
 
-  // --- OWNERSHIP ---
-    // ===== Verified picker (lazy-open; opens only on click) =====
+  
+    
     async function setupVerifiedPicker(preload = false) {
       const picker = document.getElementById('reassign-picker');
       const list   = document.getElementById('reassign-options');
@@ -987,7 +985,7 @@ function stagePill(stage){
       if (!picker || !list || !idBox) return;
 
       async function populate() {
-        // fetch /api/verified (preferred)
+        
         let entries = [];
         try {
           const r = await fetch('/api/verified', { credentials: 'include' });
@@ -1001,7 +999,7 @@ function stagePill(stage){
           }).filter(Boolean);
         } catch {}
 
-        // fallback /api/player_names
+        
         if (entries.length === 0) {
           try {
             const r = await fetch('/api/player_names', { credentials: 'include' });
@@ -1010,7 +1008,7 @@ function stagePill(stage){
           } catch {}
         }
 
-        // render
+        
         entries.sort((a,b) => a.name.localeCompare(b.name));
         list.innerHTML = '';
         entries.forEach(({ id, name }) => {
@@ -1023,22 +1021,22 @@ function stagePill(stage){
         });
       }
 
-      // Wire once
+      
       if (!picker.dataset.wired) {
         picker.dataset.wired = '1';
 
-        // Toggle on click; if empty, populate first
+        
         picker.addEventListener('click', async () => {
           if (list.childElementCount === 0) {
-            await populate();            // fill silently first time
-            if (list.childElementCount === 0) return; // nothing to show
+            await populate();            
+            if (list.childElementCount === 0) return; 
           }
           const open = list.hidden;
           list.hidden = !open;
           picker.setAttribute('aria-expanded', String(open));
         });
 
-        // Select an option
+        
         list.addEventListener('click', (e) => {
           const li = e.target.closest('li');
           if (!li) return;
@@ -1048,7 +1046,7 @@ function stagePill(stage){
           picker.setAttribute('aria-expanded', 'false');
         });
 
-        // Close when clicking outside
+        
         document.addEventListener('click', (e) => {
           if (e.target === picker || e.target.closest('#verified-select')) return;
           if (!list.hidden) {
@@ -1058,7 +1056,7 @@ function stagePill(stage){
         });
       }
 
-      // Optional preload (keeps list hidden)
+      
       if (preload && list.childElementCount === 0) {
         try { await populate(); } catch {}
       }
@@ -1079,7 +1077,7 @@ function stagePill(stage){
       head.className = 'table-head';
       head.innerHTML = `<div class="table-title">${title}</div><div class="table-actions"></div>`;
 
-      // Defensive: if something ever nukes the innerHTML, rebuild the actions container
+      
       let actions = head.querySelector('.table-actions');
       if (!actions){
         actions = document.createElement('div');
@@ -1121,9 +1119,9 @@ function stagePill(stage){
       sec.appendChild(wrap);
       return wrap;
     }
-// -------------------- OWNERSHIP (teams.json + players.json) --------------------
 
-// ===== Flags helpers =====
+
+
 window.TEAM_ISO = null;
 
 async function ensureTeamIsoLoaded(force = false) {
@@ -1137,24 +1135,24 @@ async function ensureTeamIsoLoaded(force = false) {
   return window.TEAM_ISO;
 }
 
-// Optional aliases for common naming differences
+
 const ISO_ALIASES = {
   'USA': 'us', 'United States': 'uS',
   'England': 'gb-eng', 'Scotland': 'gb-sct', 'Wales': 'gb-wls', 'Northern Ireland': 'gb-nir',
   'South Korea': 'kr', 'Ivory Coast': 'ci', "Côte d’Ivoire": 'ci', "Cote d'Ivoire": 'ci'
 };
 
-// Find the ISO code for a given country name
+
 function resolveIsoCode(country) {
   if (!country) return '';
   const c = String(country).trim();
 
-  // direct match
+  
   if (window.TEAM_ISO && window.TEAM_ISO[c]) return window.TEAM_ISO[c];
-  // alias match
+  
   if (ISO_ALIASES[c]) return ISO_ALIASES[c];
 
-  // relaxed match (case/space-insensitive)
+  
   const norm = c.toLowerCase().replace(/\s+/g, ' ');
   for (const k in (window.TEAM_ISO || {})) {
     if (k.toLowerCase().replace(/\s+/g, ' ') === norm) return window.TEAM_ISO[k];
@@ -1162,7 +1160,7 @@ function resolveIsoCode(country) {
   return '';
 }
 
-// Safe emoji from alpha-2 code
+
 function codeToEmoji(cc) {
   if (!/^[A-Za-z]{2}$/.test(cc)) return '🏳️';
   const up = cc.toUpperCase();
@@ -1170,19 +1168,19 @@ function codeToEmoji(cc) {
   return String.fromCodePoint(base + up.charCodeAt(0), base + up.charCodeAt(1));
 }
 
-// Build the flag HTML (img with emoji fallback)
+
 function flagHTML(country) {
   const code = resolveIsoCode(country);
   if (!code) return '';
   const emoji = codeToEmoji(code);
-  const src = `https://flagcdn.com/24x18/${code}.png`; // switch to /static/flags/${code}.svg if you host locally
+  const src = `https://flagcdn.com/24x18/${code}.png`; 
   const fallback = emoji !== '🏳️' ? emoji : '';
   return `<img class="flag-img" src="${src}" alt="${country}"
           onerror="this.replaceWith(document.createTextNode('${fallback}'));">`;
 }
 
 var ownershipState = { teams: [], rows: [], merged: [], loaded: false, lastSort: 'country', groupMap: new Map(), groupFilter: 'ALL' };
-var playerNames = {}; // id -> username
+var playerNames = {}; 
 
 function normalizeOwnershipTeam(value) {
   return String(value || '')
@@ -1275,7 +1273,7 @@ function formatOwnershipPercent(value) {
           return ownersCount > 1 ? shareLabel : '';
         };
 
-        // Owner cell
+        
         const idVal = row.main_owner ? row.main_owner.id : '';
         const label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
         const showId = !!(window.adminUnlocked && idVal && label !== idVal);
@@ -1285,7 +1283,6 @@ function formatOwnershipPercent(value) {
           ? `<span class="owner-name" title="${idVal}">${label}</span>${showId ? ' <span class="muted">(' + idVal + ')</span>' : ''}${ownerShare}`
           : 'Unassigned <span class="warn-icon" title="No owner">⚠️</span>';
 
-        // Split cell
         const splitStr = (row.split_with && row.split_with.length)
           ? row.split_with.map(s => {
               const splitShare = getShareLabel(s.id);
@@ -1293,13 +1290,11 @@ function formatOwnershipPercent(value) {
             }).join(', ')
           : '—';
 
-        // Stage cell
         const current = normalizeStage(
           (ownershipState.stages && ownershipState.stages[row.country]) || ''
         );
         let stageCell = '';
         if (isAdminUI()) {
-          // editable select for admins (this is what gets enhanced into the custom dropdown)
           const opts = STAGE_ORDER.map(v =>
             `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`
           ).join('');
@@ -1309,7 +1304,6 @@ function formatOwnershipPercent(value) {
             </select>
           `;
         } else {
-          // read-only pill for public
           stageCell = stagePill(current);
         }
 
@@ -1327,12 +1321,11 @@ function formatOwnershipPercent(value) {
         tbody.appendChild(tr);
       });
 
-      // After all rows are in the DOM, enhance the selects into custom dropdowns
       if (isAdminUI()) {
         enhanceStageSelects();
       }
 
-      // Show/hide admin-only column based on admin view
+      
       document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
         el.style.display = isAdminUI() ? '' : 'none';
       });
@@ -1387,7 +1380,7 @@ function setOwnershipGroupFilter(filter) {
 function enhanceStageSelects() {
   const selects = document.querySelectorAll('#ownership select.stage-select');
 
-  // clean up any old wrappers so re-rendering is safe
+  
   selects.forEach(sel => {
     const wrap = sel.closest('.stage-select-wrap');
     if (wrap) {
@@ -1427,14 +1420,14 @@ function enhanceStageSelects() {
       if (opt.selected) li.classList.add('selected');
 
       li.addEventListener('click', () => {
-        // update select
+        
         sel.value = opt.value;
         sel.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // update button text
+        
         btn.textContent = opt.textContent;
 
-        // update selected state
+        
         list.querySelectorAll('.stage-select-option.selected')
             .forEach(x => x.classList.remove('selected'));
         li.classList.add('selected');
@@ -1445,24 +1438,24 @@ function enhanceStageSelects() {
       list.appendChild(li);
     });
 
-    // insert wrapper before select
+    
     sel.parentNode.insertBefore(wrap, sel);
     wrap.appendChild(btn);
     wrap.appendChild(list);
     wrap.appendChild(sel);
   });
 
-  // global click handler to toggle / close
+  
   document.addEventListener('click', (evt) => {
     const wrap = evt.target.closest('.stage-select-wrap');
 
-    // click outside → close everything
+    
     if (!wrap) {
       closeAll();
       return;
     }
 
-    // click on the button → toggle that one
+    
     const btn = evt.target.closest('.stage-select-display');
     if (btn) {
       const list = wrap.querySelector('.stage-select-list');
@@ -1489,7 +1482,7 @@ function initStageDropdowns() {
     btn.addEventListener('click', ev => {
       ev.stopPropagation();
 
-      // close any other open dropdowns
+      
       document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
         if (ul !== list) {
           ul.classList.remove('open');
@@ -1499,7 +1492,7 @@ function initStageDropdowns() {
         }
       });
 
-      // toggle off if already open
+      
       if (list.classList.contains('open')) {
         list.classList.remove('open');
         wrap.classList.remove('drop-up');
@@ -1508,7 +1501,7 @@ function initStageDropdowns() {
         return;
       }
 
-      // temporarily open to measure height
+      
       list.classList.add('open');
       wrap.classList.add('is-open');
       wrap.closest('tr')?.classList.add('stage-select-open');
@@ -1518,21 +1511,21 @@ function initStageDropdowns() {
 
       const spaceBelow = vh - btnRect.bottom;
       const spaceAbove = btnRect.top;
-      const needed     = Math.min(listRect.height, 240) + 8; // list + small margin
+      const needed     = Math.min(listRect.height, 240) + 8; 
 
-      // decide direction
+      
       if (spaceBelow < needed && spaceAbove > spaceBelow) {
-        wrap.classList.add('drop-up');   // open above
+        wrap.classList.add('drop-up');   
       } else {
-        wrap.classList.remove('drop-up'); // open below
+        wrap.classList.remove('drop-up'); 
       }
     });
 
-    // keep clicks inside from bubbling/closing
+    
     list.addEventListener('click', ev => ev.stopPropagation());
   });
 
-  // click anywhere else closes everything
+  
   document.addEventListener('click', () => {
     document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
       ul.classList.remove('open');
@@ -1596,7 +1589,7 @@ function mergeTeamsWithOwnership(teams, rows) {
 
 async function initOwnership() {
   try {
-    // 1) Try merged endpoint
+    
     let list = null;
     try {
       const r = await fetch('/api/ownership_merged', { credentials: 'include' });
@@ -1604,9 +1597,9 @@ async function initOwnership() {
         const j = await r.json();
         if (j && Array.isArray(j.rows)) list = j.rows;
       }
-    } catch { /* fall through to fallback */ }
+    } catch {  }
 
-    // 2) Fallback: ownership_from_players + teams
+    
     if (!list) {
       const [rowsObj, teams] = await Promise.all([
         (async () => {
@@ -1628,7 +1621,7 @@ async function initOwnership() {
       list = mergeTeamsWithOwnership(ownershipState.teams, ownershipState.rows);
     }
 
-    // 3) Hydrate usernames
+    
     let names = {};
     try {
       const r = await fetch('/api/player_names', { credentials: 'include' });
@@ -1647,13 +1640,13 @@ async function initOwnership() {
       });
     });
 
-    // 4) Ensure flag map is loaded BEFORE rendering
+    
     await ensureTeamIsoLoaded();
 
-    // 5) Load current stages map
+    
     let stages = {};
     try {
-      // admin route returns { ok, stages: { Team: Stage } }
+      
       if (isAdminUI()) {
         const r = await fetch('/admin/teams/stage', { credentials: 'include' });
         if (r.ok) {
@@ -1661,20 +1654,20 @@ async function initOwnership() {
           stages = (j && j.stages) || {};
         }
       } else {
-        // public route returns { Team: Stage }
+        
         const r = await fetch('/api/team_stage', { credentials: 'include' });        if (r.ok) stages = await r.json();
       }
     } catch { stages = {}; }
     ownershipState.stages = stages || {};
 
-    // 6) Load group metadata for sorting
+    
     let teamMeta = null;
     try {
       teamMeta = await loadOwnershipTeamMeta();
     } catch { teamMeta = null; }
     ownershipState.groupMap = buildOwnershipGroupMap(teamMeta);
 
-    // 7) Render
+    
     ownershipState.merged = list;
     ownershipState.loaded = true;
     setOwnershipGroupFilter(ownershipState.groupFilter || 'ALL');
@@ -1685,7 +1678,7 @@ async function initOwnership() {
 }
 
 
-// Sort buttons
+
 var sortCountryBtn = document.querySelector('#sort-country');
 var sortGroupBtn = document.querySelector('#sort-group');
 if (sortCountryBtn) sortCountryBtn.addEventListener('click', function () { sortMerged('country'); });
@@ -1701,7 +1694,7 @@ document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('.reassign-btn');
   if (!btn) return;
 
-  // Always sync admin status before gating UI
+  
   try {
     const s = await fetch('/admin/auth/status', { credentials: 'include' }).then(r => r.json());
     const isAdmin = !!(s && s.unlocked);
@@ -1717,7 +1710,7 @@ document.addEventListener('click', async (ev) => {
     return;
   }
 
-  // Open the modal
+  
   const team = btn.getAttribute('data-team') || btn.dataset.team || '';
   openReassignModal(team.trim());
 });
@@ -1767,7 +1760,7 @@ document.addEventListener('change', async (e) => {
 
       if (!backdrop || !modal) return;
 
-      // never show a toast here — the gate lives in the click handler
+      
       inputT.value = teamName || '';
 
       if (picker) {
@@ -1776,7 +1769,7 @@ document.addEventListener('change', async (e) => {
       }
       if (inputId) inputId.value = '';
 
-      // populate verified users for the picker (best-effort)
+      
       setupVerifiedPicker(true);
       if (listbox && picker) {
         listbox.hidden = true;
@@ -1815,7 +1808,7 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
       state.admin = false;
       document.body.classList.remove('admin');
       notify('Admin required', false);
-      return; // do not keep the modal open pretending it worked
+      return; 
     }
 
     const data = await res.json();
@@ -1824,7 +1817,7 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
       return;
     }
 
-    // success: close modal, toast, and refresh the row if you keep a table renderer
+    
     document.getElementById('reassign-backdrop').style.display = 'none';
     notify('Team reassigned', true);
 
@@ -1834,7 +1827,7 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
   }
 });
 
-// ---- Ownership Table ----
+
 async function refreshOwnershipPage() {
   ownershipState.loaded = false;
   await initOwnership();
@@ -1842,21 +1835,21 @@ async function refreshOwnershipPage() {
 
 async function refreshOwnershipNow() {
   try {
-    // Disable buttons briefly to avoid double clicks
+    
     document.querySelectorAll('.reassign-btn').forEach(b => b.disabled = true);
 
-    // 1) Get merged rows (all countries, owners, splits)
+    
     const r = await fetch('/api/ownership_merged', { credentials: 'include' });
     const merged = r.ok ? (await r.json()).rows : null;
 
     if (!Array.isArray(merged)) {
-      // Fallback to old two-call path if merged endpoint is unavailable
+      
       const [rowsObj, teamsResp] = await Promise.all([
         fetch('/api/ownership_from_players', { credentials: 'include' }).then(x => x.json()),
         fetch('/api/teams', { credentials: 'include' }).then(x => x.json())
       ]);
       const teams = Array.isArray(teamsResp) ? teamsResp : (Array.isArray(teamsResp?.teams) ? teamsResp.teams : []);
-      // minimal merge
+      
       const byTeam = {};
       (rowsObj.rows || []).forEach(row => { byTeam[String(row.country).toLowerCase()] = row; });
       ownershipState.merged = teams.map(team => {
@@ -1873,7 +1866,7 @@ async function refreshOwnershipNow() {
       ownershipState.merged = merged;
     }
 
-    // 2) Hydrate id->name map so we show names not raw IDs
+    
     let names = {};
     try {
       const nr = await fetch('/api/player_names', { credentials: 'include' });
@@ -1890,7 +1883,7 @@ async function refreshOwnershipNow() {
       });
     });
 
-    // 3) Mark loaded and re-render using last sort
+    
     ownershipState.loaded = true;
     sortMerged(ownershipState.lastSort || 'country');
   } catch (e) {
@@ -1901,16 +1894,16 @@ async function refreshOwnershipNow() {
   }
 }
 
-// Buttons
+
 document.querySelector('#sort-country')?.addEventListener('click', () => sortMerged('country'));
 document.querySelector('#sort-player')?.addEventListener('click', () => sortMerged('player'));
 
-// Make sure router triggers initialization on first show
+
 const _origShowPage = typeof showPage === 'function' ? showPage : null;
 window.showPage = function(id) {
   if (_origShowPage) _origShowPage(id);
   else {
-    // simple fallback visibility if you don't have a router:
+    
     document.querySelectorAll('section.page-section, section.dashboard')
       .forEach(s => s.classList.remove('active-section'));
     document.getElementById(id)?.classList.add('active-section');
@@ -1918,32 +1911,32 @@ window.showPage = function(id) {
   if (id === 'ownership' && !ownershipState.loaded) initOwnership();
 };
 
-// Hard-init as a safety net (if router didn’t run yet)
+
 document.addEventListener('DOMContentLoaded', () => {
-  // If Ownership page is already visible, init immediately
+  
   const visible = document.querySelector('#ownership.page-section.active-section');
   if (visible && !ownershipState.loaded) initOwnership();
-  // Otherwise no-op; router will call it when you click the tab
+  
 });
 
-// ---- Compatibility shim for existing router ----
+
 async function loadOwnershipPage() {
-  // If your router expects a Promise, keep this async
+  
   if (!ownershipState.loaded) {
     await initOwnership();
   } else {
-    // Re-render using last sort so the page updates on re-entry
+    
     sortMerged(ownershipState.lastSort || 'country');
   }
 }
-// expose globally in case your router looks up window[loaderName]
+
 window.loadOwnershipPage = loadOwnershipPage;
 
     async function loadAndRenderBets() {
       const host = document.getElementById('bets');
       if (!host) return;
 
-      // header - no hover hint
+      
       host.innerHTML = `
         <div class="table-wrap">
           <div class="table-head">
@@ -1971,7 +1964,7 @@ window.loadOwnershipPage = loadOwnershipPage;
         return res.json().catch(() => ({}));
       };
 
-      // build verified map for fallbacks
+      
       let verifiedMap = new Map();
       try {
         const verified = await getJSON('/api/verified');
@@ -1981,15 +1974,15 @@ window.loadOwnershipPage = loadOwnershipPage;
           (u.display_name && String(u.display_name).trim()) ||
           (u.username && String(u.username).trim()) || ''
         ]));
-      } catch { /* ok on public */ }
+      } catch {  }
 
-      // helper: prefer display_name from verified map, fall back to provided username
+      
       const resolveDisplayName = (id, fallbackUsername) => {
         const key = id ? String(id) : '';
         return (key && verifiedMap.get(key)) || fallbackUsername || (key ? `User ${key}` : 'Unknown');
       };
 
-      // fetch bets (enriched by backend if you used the latest routes_public.py)
+      
       let bets = [];
       const showAdmin = (typeof isAdminUI === 'function')
       ? isAdminUI()
@@ -2033,13 +2026,13 @@ window.loadOwnershipPage = loadOwnershipPage;
         const tdWager = document.createElement('td');
         tdWager.textContent = bet.wager ?? '-';
 
-        // Compute display names ONCE and reuse everywhere
+        
         const o1Name = (bet.option1_display_name ??
                        resolveDisplayName(bet.option1_user_id, bet.option1_user_name)) || '';
         const o2Name = (bet.option2_display_name ??
                        resolveDisplayName(bet.option2_user_id, bet.option2_user_name)) || '';
 
-        // Option 1 cell with tooltip on text
+        
         const tdO1 = document.createElement('td');
         tdO1.className = 'bet-opt bet-opt1';
         const s1 = document.createElement('span');
@@ -2049,7 +2042,7 @@ window.loadOwnershipPage = loadOwnershipPage;
           : 'Unclaimed';
         tdO1.appendChild(s1);
 
-        // Option 2 cell with tooltip on text
+        
         const tdO2 = document.createElement('td');
         tdO2.className = 'bet-opt bet-opt2';
         const s2 = document.createElement('span');
@@ -2059,13 +2052,13 @@ window.loadOwnershipPage = loadOwnershipPage;
           : 'Unclaimed';
         tdO2.appendChild(s2);
 
-        // Winner column
+        
         const tdWin = document.createElement('td');
         tdWin.className = 'bet-winner';
         const winner = bet.winner === 'option1' || bet.winner === 'option2' ? bet.winner : null;
 
           if (showAdmin) {
-          // ADMIN: show Set O1 / Set O2 buttons
+          
           const box = document.createElement('div');
           box.className = 'win-controls';
 
@@ -2100,7 +2093,7 @@ window.loadOwnershipPage = loadOwnershipPage;
           box.append(b1, b2);
           tdWin.appendChild(box);
         } else {
-          // PUBLIC: show the claimant's display name
+          
           const pill = document.createElement('span');
           pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
           if (winner === 'option1') pill.textContent = o1Name || 'Option 1';
@@ -2122,26 +2115,26 @@ window.loadOwnershipPage = loadOwnershipPage;
     }
 
 
-/* -----------------------------
-   Splits page (Public + Admin)
-   Public reads:
-     /api/split_requests           -> JSON/split_requests.json (pending + resolved)
-   Admin actions:
-     /admin/splits/accept
-     /admin/splits/decline
-   ----------------------------- */
 
-// ensure we have a state bag
+
+
+
+
+
+
+
+
+
 window.state = window.state || {};
 
-// stop any prior poller when we re-enter the page
+
 if (state.splitsHistoryTimer) {
   clearInterval(state.splitsHistoryTimer);
   state.splitsHistoryTimer = null;
 }
 state.splitsBuilt = false;
 
-// entry point called by router
+
 async function loadSplits(){
   try {
     if (!state.splitsBuilt) buildSplitsShell();
@@ -2152,7 +2145,7 @@ async function loadSplits(){
 }
 window.loadSplits = loadSplits;
 
-// build the splits cards inside #splits
+
 function buildSplitsShell(){
   const sec = document.getElementById('splits');
   if (!sec) return;
@@ -2187,7 +2180,7 @@ function buildSplitsShell(){
     </div>
   `;
 
-  // wire refresh buttons
+  
   const btnPublic = document.getElementById('splits-public-refresh');
   if (btnPublic && !btnPublic._wired) {
     btnPublic._wired = true;
@@ -2202,7 +2195,7 @@ function buildSplitsShell(){
   state.splitsBuilt = true;
 }
 
-// short utilities
+
 function escapeHTML(s) {
   if (s == null) return '';
   return String(s)
@@ -2212,7 +2205,7 @@ function escapeHTML(s) {
 function fmtDateTime(x) {
   let t = x;
   if (typeof t === 'string' && /^\d+(\.\d+)?$/.test(t)) t = Number(t);
-  if (typeof t === 'number' && t < 1e12) t = t * 1000; // seconds -> ms
+  if (typeof t === 'number' && t < 1e12) t = t * 1000; 
   const d = new Date(t);
   if (Number.isNaN(d.getTime())) return '-';
   const pad = n => String(n).padStart(2,'0');
@@ -2279,7 +2272,7 @@ function shortId(id) {
   const str = String(id);
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
-  return '#' + (hash % 90000 + 10000); // 5 digits
+  return '#' + (hash % 90000 + 10000); 
 }
 function splitStatusPill(status, variant = 'admin') {
   const pendingClass = variant === 'public' ? 'pill-pending-public' : 'pill-pending-admin';
@@ -2318,7 +2311,7 @@ async function loadPublicSplits() {
   }
 }
 
-/* Public Requests table */
+
 function renderPublicPendingSplits(rows, verifiedMap){
   const body = document.getElementById('splits-pending');
   if (!body) return;
@@ -2455,7 +2448,7 @@ function renderPublicPendingSplits(rows, verifiedMap){
   body.appendChild(table);
 }
 
-/* Public History table */
+
 function renderPublicSplitHistory(rows, verifiedMap) {
   const body = document.getElementById('splits-history-body');
   if (!body) return;
@@ -2538,16 +2531,16 @@ window.loadSplits = loadSplits;
 
     async function loadBackups(){
       try{
-        // 1) get list from the API
+        
         const d = await fetchJSON('/api/backups');
 
-        // 2) build the section header WITHOUT a prune button
+        
         const w = ensureSectionCard('backups', 'Backups', [
           ['Backup All',      { id: 'backup-all' }],
           ['Restore Latest',  { id: 'restore-latest' }]
         ]);
 
-        // 3) render the settings + table
+        
         const s = w.querySelector('.table-scroll');
         s.innerHTML = '';
         const files = (d?.backups) || (d?.folders?.[0]?.files) || [];
@@ -2592,7 +2585,6 @@ window.loadSplits = loadSplits;
           s.appendChild(t);
         }
 
-        // 4) hook up the two remaining actions
         qs('#backup-all').onclick = async () => {
           try{
             await fetchJSON('/api/backups/create', { method:'POST', body: JSON.stringify({}) });
@@ -2789,16 +2781,16 @@ window.loadSplits = loadSplits;
             offsets.add(hour * 60);
           }
           [
-            750,  // GMT+12:30
-            630,  // GMT+10:30
-            570,  // GMT+09:30
-            330,  // GMT+05:30
-            270,  // GMT+04:30
-            210,  // GMT+03:30
-            -210, // GMT-03:30
-            -270, // GMT-04:30
-            -570, // GMT-09:30
-            -630  // GMT-10:30
+            750,  
+            630,  
+            570,  
+            330,  
+            270,  
+            210,  
+            -210, 
+            -270, 
+            -570, 
+            -630  
           ].forEach((minutes) => offsets.add(minutes));
           [...offsets]
             .sort((a, b) => b - a)
@@ -3015,7 +3007,6 @@ window.loadSplits = loadSplits;
         const saveAutoBackupSettings = async ({ silent = false } = {}) => {
           if (!autoBackupEnabled || !autoBackupInterval) return;
           const hours = Number(autoBackupInterval.value);
-          // Guard against invalid values so we only send clean settings.
           if (!Number.isFinite(hours) || hours <= 0) {
             if (autoBackupStatus) {
               autoBackupStatus.textContent = 'Enter a valid interval greater than 0 hours.';
@@ -3339,9 +3330,7 @@ window.loadSplits = loadSplits;
       }
     }
 
-/* ======= BEGIN LOGS MODULE ======= */
     async function loadLogs(){
-      // Build the card once
       if (!state.logsInit){
         buildLogsCard();
         state.logsInit = true;
@@ -3353,14 +3342,11 @@ window.loadSplits = loadSplits;
       const sec = document.querySelector('#log');
       if (!sec) return;
 
-      // wipe the body area, keep your header if you have one
-      // if your section already has a wrapper, target its body element instead
       sec.innerHTML = '';
 
       const wrap = document.createElement('div');
       wrap.className = 'table-wrap';
 
-      // header bar
       const head = document.createElement('div');
       head.className = 'table-head';
       head.innerHTML = `
@@ -3379,7 +3365,6 @@ window.loadSplits = loadSplits;
       `;
       wrap.appendChild(head);
 
-      // table
       const body = document.createElement('div');
       body.className = 'table-scroll';
       body.innerHTML = `
@@ -3393,7 +3378,6 @@ window.loadSplits = loadSplits;
       wrap.appendChild(body);
       sec.appendChild(wrap);
 
-      // wire controls
       head.querySelectorAll('[data-kind]').forEach(btn=>{
         btn.addEventListener('click', () => {
           state.logsKind = btn.dataset.kind;
@@ -3437,23 +3421,23 @@ window.loadSplits = loadSplits;
       return Array.isArray(j.lines) ? j.lines : [];
     }
 
-    // Split a log line into [time, message] for common formats
+    
     function splitTimeMsg(line){
-      // 1) "YYYY-MM-DD HH:MM:SS,mmm rest..."
+      
       const re1 = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:[,\.]\d{3})?)(?:\s+|\s*\|\s*)(.*)$/;
       let m = line.match(re1);
       if (m) return [m[1], m[2]];
 
-      // 2) ISO "YYYY-MM-DDTHH:MM:SS.mmmZ | rest"
+      
       const re2 = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)(?:\s+|\s*\|\s*)(.*)$/;
       m = line.match(re2);
       if (m) return [m[1], m[2]];
 
-      // 3) Fallback split on first pipe if present
+      
       const i = line.indexOf('|');
       if (i > 0) return [line.slice(0, i).trim(), line.slice(i + 1).trim()];
 
-      // 4) No detectable time
+      
       return ['', line];
     }
 
@@ -3543,7 +3527,7 @@ async function loadCogs(){
       const tdS = document.createElement('td');
       const tdA = document.createElement('td');
 
-      // status pill
+      
       const pill = document.createElement('span');
       pill.className = 'pill pill-wait';
       pill.textContent = '…';
@@ -3554,7 +3538,7 @@ async function loadCogs(){
         pill.textContent = loaded ? 'Loaded' : 'Unloaded';
       };
 
-      // resolve status (fast path: use hint if provided)
+      
       if (typeof loadedHint === 'boolean') setPill(loadedHint);
       else {
         getCogStatus(name).then(v => {
@@ -3563,7 +3547,7 @@ async function loadCogs(){
         });
       }
 
-        // actions
+        
         const group = document.createElement('div');
         group.className = 'chip-group--cog';
 
@@ -3616,7 +3600,7 @@ async function loadCogs(){
 
 
 async function getCogStatus(name){
-  // prefer a per-cog status endpoint; fall back to list that includes `loaded`
+  
   try {
     const s = await fetchJSON(`/admin/cogs/${encodeURIComponent(name)}/status`);
     if (typeof s?.loaded === 'boolean') return s.loaded;
@@ -3626,12 +3610,12 @@ async function getCogStatus(name){
     const row = (list?.cogs || []).find(c => c.name === name);
     if (typeof row?.loaded === 'boolean') return row.loaded;
   } catch {}
-  // public fallback (if exposed)
+  
   try {
     const s = await fetchJSON(`/api/cogs/${encodeURIComponent(name)}/status`);
     if (typeof s?.loaded === 'boolean') return s.loaded;
   } catch {}
-  return null; // unknown
+  return null; 
 }
 
 
@@ -3685,7 +3669,7 @@ async function getCogStatus(name){
     }
   window.addEventListener('load', init);
 
-// === Auto redirect new Discord-linked users to /terms ===
+
 async function checkUserTOS() {
   try {
     const res = await fetch('/api/me/tos', { credentials: 'include' });
@@ -3699,16 +3683,13 @@ async function checkUserTOS() {
   }
 }
 
-// run this early after page load, before dashboard routing
+
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(checkUserTOS, 1000);
 });
 
 })();
 
-/* =========================
-   WORLD MAP - interactive SVG
-   ========================= */
 (function(){
   const host       = document.getElementById('map-svg-host');
   const tip        = document.getElementById('map-tip');
@@ -3716,7 +3697,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!host || !tip) return;
 
-  const CACHE_TTL_MS = 60 * 1000; // 60s cache
+  const CACHE_TTL_MS = 60 * 1000; 
 
   function now(){ return Date.now(); }
 
@@ -3873,10 +3854,10 @@ document.addEventListener('DOMContentLoaded', () => {
             onerror="this.style.display='none';">`;
   }
 
-  // 24h meta cache
+  
   async function loadTeamMeta(){
     const CK  = 'wc:team_meta';
-    const TTL = 24 * 60 * 60 * 1000; // 24 hours
+    const TTL = 24 * 60 * 60 * 1000; 
 
     try{
       const blob = JSON.parse(localStorage.getItem(CK) || 'null');
@@ -3959,13 +3940,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let iso = '';
 
-      // GB, FR, etc.
+      
       const m1 = raw.match(/^[A-Za-z]{2}$/);
 
-      // iso-GB, iso_fr, etc.
+      
       const m2 = raw.match(/^iso[-_ ]?([A-Za-z]{2})$/);
 
-      // Subdivisions like gb-eng, gb-sct, gb-wls, gb-nir
+      
       const m3 = raw.match(/^([A-Za-z]{2}[-_][A-Za-z]{2,3})$/);
 
       if (m1) {
@@ -3975,7 +3956,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (m3) {
         iso = m3[1].toLowerCase();
       } else {
-        return; // ignore non-country shapes
+        return; 
       }
 
       el.classList.add('country', 'free');
@@ -3995,9 +3976,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function normalizeTeamName(name){
     return (name || '')
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')   // strip accents
-      .replace(/['’]/g, '')              // strip apostrophes
-      .replace(/\s+/g, ' ')              // collapse spaces
+      .replace(/[\u0300-\u036f]/g, '')   
+      .replace(/['’]/g, '')              
+      .replace(/\s+/g, ' ')              
       .trim()
       .toLowerCase();
   }
@@ -4016,7 +3997,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stageMap   = teamStages || {};
     const fixturesList = Array.isArray(fixtures) ? fixtures : [];
 
-    // map normalized team name -> iso from /api/team_iso
+    
     const nameToIso = {};
     Object.entries(teamIsoMap).forEach(([name, iso]) => {
       const norm   = normalizeTeamName(name);
@@ -4042,7 +4023,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return (nameToIso[norm] || ISO_OVERRIDES[norm] || '').toLowerCase();
     }
 
-    // 0) Precompute "next match" per ISO from fixtures
+    
     const nextMatchByIso = {};
     const nowMs = Date.now();
 
@@ -4066,7 +4047,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // Prefer future over past, then earlier time
       if (isFuture && !prev.isFuture) {
         nextMatchByIso[iso] = { label, whenMs: whenMs ?? 0, isFuture };
         return;
@@ -4085,7 +4065,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (awayIso && f.home) considerNext(awayIso, f.home, whenStr);
     });
 
-    // 1) team -> ownership state (store both raw and normalized keys)
     const teamState = {};
     for (const row of rows) {
       const team = row.country;
@@ -4101,7 +4080,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ownersCount > 0 && (!splits || splits.length === 0)) status = 'owned';
       if (splits && splits.length > 0) status = 'split';
 
-      // if you are the main owner of this team, mark as self
+      
       if (isSelf && status === 'owned') status = 'self';
 
       const stateObj = { status, main: row.main_owner, splits: row.split_with };
@@ -4110,7 +4089,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!teamState[norm]) teamState[norm] = stateObj;
     }
 
-    // 2) build meta lookups (qualified, group) keyed by team name or iso
+    
     const teamQual  = {};
     const teamGroup = {};
     const isoQual   = {};
@@ -4118,12 +4097,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (teamMeta) {
       if (teamMeta.groups) {
-        // grouped style: { groups:{A:[...strings or objects...]}, not_qualified:[...optional...] }
+        
         Object.entries(teamMeta.groups).forEach(([g, arr]) => {
           (arr || []).forEach(entry => {
             let tName = '';
             let iso   = '';
-            let q     = true; // everything listed in groups is qualified
+            let q     = true;
 
             if (typeof entry === 'string') {
               tName = entry;
@@ -4153,7 +4132,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
 
-        // optional explicit not_qualified list (strings or objects)
+        
         (teamMeta.not_qualified || []).forEach(entry => {
           let tName = '';
           let iso   = '';
@@ -4179,12 +4158,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
       } else {
-        // flat object keyed by team / iso, entries can be {team, iso, group, qualified}
         Object.values(teamMeta).forEach(item => {
           if (!item) return;
           const tName = item.team || item.name || '';
           const iso   = String(item.iso || '').toLowerCase();
-          const q     = item.qualified !== false; // default true
+          const q     = item.qualified !== false;
           const g     = item.group || '';
 
           const norm = normalizeTeamName(tName);
@@ -4205,7 +4183,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // iso -> team label from /api/team_iso
     const isoToTeam = {};
     Object.entries(teamIsoMap).forEach(([name, iso]) => {
       const norm   = normalizeTeamName(name);
@@ -4221,16 +4198,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const iso   = isoRaw;
       const isoUp = iso.toUpperCase();
 
-      // from ISO to team name
       const team     = isoToTeam[iso] || isoUp;
       const normTeam = normalizeTeamName(team);
 
-      // derive iso from name when needed
       const inferIso = inferIsoFromName(team) || iso;
 
       const teamLabel = team;
 
-      // default: mark as not qualified when meta exists and does not say otherwise
       let status = 'nq';
 
       let qualified = true;
@@ -4242,7 +4216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
       }
 
-      // ownership by name
+      
       let ownership = null;
       if (team || normTeam) {
         ownership = teamState[team] || teamState[normTeam] || null;
@@ -4252,11 +4226,11 @@ document.addEventListener('DOMContentLoaded', () => {
         status = 'free';
         if (ownership) status = ownership.status;
       } else if (!teamMeta) {
-        // if no meta at all, fall back to ownership only
+        
         status = ownership ? ownership.status : 'free';
       }
 
-      // owners list for tooltip + details
+      
       const ownerNames = [];
       let mainName = '';
       let coNames  = '';
@@ -4280,7 +4254,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const ownersText  = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
       const ownersCount = ownerNames.length;
 
-      // equal-split prize share text (only if there are owners)
+      
       let prizeShare = '';
       if (ownersCount > 0) {
         const base = Math.floor(100 / ownersCount);
@@ -4296,18 +4270,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
-      // tournament stage
       let stage = (stageMap[team] || stageMap[normTeam]) || '—';
 
-      // map fixtures to this ISO
       const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
       const nextMatch = matchObj ? matchObj.label : '';
 
-      // apply base status classes (self/owned/split/free/nq)
       el.classList.remove('owned','split','free','nq','dim','self');
       el.classList.add(status);
 
-      // datasets for tooltip + group filter + self-owner overlay + info card
+      
       el.dataset.owners      = ownersText;
       el.dataset.team        = teamLabel;
       el.dataset.group       = group;
@@ -4320,7 +4291,6 @@ document.addEventListener('DOMContentLoaded', () => {
       el.dataset.prizeShare  = prizeShare || '';
       el.dataset.nextMatch   = nextMatch || '';
 
-      // tooltip handlers
       el.onmouseenter = ev => {
         const flagPrefix = flag ? flag + ' ' : '';
         const teamLine   = `${flagPrefix}<strong>${escapeHtml(teamLabel)}</strong>`;
@@ -4374,7 +4344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Tooltip positioning - relative to #map-wrap
+  
   const wrap = document.getElementById('map-wrap');
 
   function positionTip(ev) {
@@ -4401,7 +4371,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const existing = svg.querySelector('#wc-panroot');
     if (existing) return existing;
 
-    const panRoot = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const panRoot = document.createElementNS('http:
     panRoot.setAttribute('id','wc-panroot');
 
     const keep   = new Set(['defs','title','desc','metadata']);
@@ -4567,7 +4537,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Prize Share — only visible for split teams
+      
       if (shareEl) {
         if (isSplit && prizeShare) {
           shareEl.style.display = '';
@@ -4666,7 +4636,7 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
   }
 
-  // Daily silent refresh of team_meta (and re-render if on World Map)
+  
   (function setupDailyMetaRefresh(){
     const DAY = 24 * 60 * 60 * 1000;
     setInterval(async ()=>{
@@ -4684,7 +4654,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 })();
 
-// --- Leaderboards add-on START (append-only) ---
+
 (() => {
   'use strict';
   const qs = (s, el=document)=>el.querySelector(s);
@@ -4694,17 +4664,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const idHue = id => String(id||'').split('').reduce((h,ch)=>(h*31+ch.charCodeAt(0))%360,0);
   const initials = n => (n||'').trim().split(/\s+/).slice(0,2).map(p=>p[0]||'').join('').toUpperCase() || '??';
 
-    // Build a Discord CDN avatar URL from id + avatar hash
+    
     function discordAvatarUrl(id, avatarHash){
       if(!id || !avatarHash) return null;
       const ext = String(avatarHash).startsWith('a_') ? 'gif' : 'png';
       return `https://cdn.discordapp.com/avatars/${id}/${avatarHash}.${ext}?size=64`;
     }
 
-    // Default avatar when the user has no custom avatar
+    
     function discordDefaultAvatarUrl(id){
       try {
-        const idx = Number(BigInt(String(id)) % 6n); // 0..5
+        const idx = Number(BigInt(String(id)) % 6n); 
         return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
       } catch {
         return `https://cdn.discordapp.com/embed/avatars/0.png`;
@@ -4729,14 +4699,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const fill = document.createElement('div');
       fill.className = 'lb-fill';
 
-      // Clamp ratio between 0–1 and make top value exactly 100%
+      
       const pct = (!max || max <= 0)
         ? 0
         : (value >= max ? 1 : Math.max(0, Math.min(1, value / max)));
 
       wrap.setAttribute('aria-label', `${value} of ${max}`);
 
-      // Smooth animation, but keep full width perfectly aligned for max value
+      
       requestAnimationFrame(() => {
         fill.style.width = (pct === 1 ? '100%' : `${(pct * 100).toFixed(1)}%`);
       });
@@ -4766,18 +4736,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const id = String(v.discord_id || v.id || v.user_id || '').trim();
       if (!id) return;
 
-      // Gather any avatar info we already have
+      
       const raw = v.avatar_url || v.avatarUrl || v.avatar || v.avatar_hash || v.avatarHash || null;
 
-      // If it's a URL, keep it. If it's a hash, build CDN URL. Else default avatar.
+      
       let avatar_url = null;
-      if (raw && /^https?:\/\//i.test(String(raw))) {
+      if (raw && /^https?:\/\
         avatar_url = raw;
       } else if (raw && /^[aA]?_?[0-9a-f]{6,}$/.test(String(raw))) {
         const ext = String(raw).startsWith('a_') ? 'gif' : 'png';
         avatar_url = `https://cdn.discordapp.com/avatars/${id}/${raw}.${ext}?size=64`;
       } else {
-        // default avatar (coloured Discord silhouette)
+        
         try {
           const idx = Number(BigInt(String(id)) % 6n);
           avatar_url = `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
@@ -4795,9 +4765,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // ---- Live enrichment: replace defaults with real Discord avatars ----
+    
     const missing = Object.values(vmap)
-      .filter(v => !v.avatar_url || /\/embed\/avatars\//.test(String(v.avatar_url)))
+      .filter(v => !v.avatar_url || /\/embed\/avatars\
       .map(v => v.id);
 
     if (missing.length) {
@@ -4823,7 +4793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function aggregateOwners(rows, vmap){
-      // Map id -> {id, name, teams:[], split_teams:[], count, split_count, avatar_url}
+      
       const owners = new Map();
       for (const r of rows) {
         const main = r?.main_owner?.id ? String(r.main_owner.id) : null;
@@ -4850,11 +4820,11 @@ document.addEventListener('DOMContentLoaded', () => {
         count: r.teams.length + r.split_teams.length
       }));
     list.sort((a, b) =>
-      // 1) prioritize main-owned teams
+      
       (b.teams.length - a.teams.length) ||
-      // 2) then total count (main + split)
+      
       (b.count - a.count) ||
-      // 3) then name
+      
       String(a.name).localeCompare(String(b.name))
     );
     return list;
@@ -4867,7 +4837,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if(Array.isArray(data)) return data;
         if(Array.isArray(data.rows)) return data.rows;
-      }catch(_) { /* keep silent */ }
+      }catch(_) {  }
       return [];
     }
 
@@ -4878,7 +4848,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if(Array.isArray(data)) return data;
         if(Array.isArray(data.rows)) return data.rows;
-      }catch(_) { /* keep silent */ }
+      }catch(_) {  }
       return [];
     }
 
@@ -4943,7 +4913,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const flags = document.createElement('div');
       flags.className = 'lb-flags';
 
-      // combine main first, then splits; cap total chips to 6 for performance
+      
       const main = (rec.teams || []).map(c => ({ c, cls: '' }));
       const split = (rec.split_teams || []).map(c => ({ c, cls: 'split' }));
       const combined = [...main, ...split];
@@ -4955,7 +4925,7 @@ document.addEventListener('DOMContentLoaded', () => {
         flags.appendChild(chip);
       });
 
-      // tooltip for the full list
+      
       const allNames = [
         ...rec.teams.map(t=>`${t}`),
         ...rec.split_teams.map(t=>`${t} (split)`)
@@ -5002,17 +4972,17 @@ document.addEventListener('DOMContentLoaded', () => {
     async function renderLeaderboards(){
       const { rows, bets, iso, vmap } = await fetchAll();
 
-      // Owners - splits always included inside aggregateOwners now
+      
       let owners = aggregateOwners(rows, vmap);
       const maxOwn = owners[0]?.count || 0;
       owners.forEach(o => o._max = maxOwn);
 
-      // Bettors
+      
       let bettors = aggregateBettors(bets, vmap);
       const maxWin = bettors[0]?.wins || 0;
       bettors.forEach(b => b._max = maxWin);
 
-      // Fan Zone voting wins
+      
       const rawVoteWins = await fetchFanZoneWinsData();
       const rawVoteLosses = await fetchFanZoneLossesData();
       let voteWins = (rawVoteWins || []).map(r => {
@@ -5135,7 +5105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try{ await renderLeaderboards(); state.lb.loaded=true; }catch(e){ console.error('Leaderboards error',e); }
     }
 
-    // hook: first time Leaderboards is opened
+    
     function hookNav(){
     const link=[...document.querySelectorAll('#main-menu a')].find(a=>a.dataset.page==='leaderboards');
     if(link){ link.addEventListener('click', ()=>loadLeaderboardsOnce(), {once:true}); }
@@ -5146,7 +5116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('DOMContentLoaded', hookNav);
 })();
 
-// ---------------- Fixtures (public) ----------------
+
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const escAttr = (s) => String(s || '')
@@ -6084,7 +6054,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 })();
 
-// ---------------- Fan Zone (fixtures + voting) ----------------
+
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -6128,7 +6098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const out = new Map();
     if (!teamMeta) return out;
 
-    // Preferred: { groups: { A:[...teams], B:[...teams] } }
+    
     if (teamMeta.groups && typeof teamMeta.groups === 'object') {
       for (const [g, arr] of Object.entries(teamMeta.groups)) {
         if (!Array.isArray(arr)) continue;
@@ -6140,7 +6110,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return out;
     }
 
-    // Fallback: { "Argentina": { group:"A", ... }, ... }
     if (typeof teamMeta === 'object') {
       for (const [team, meta] of Object.entries(teamMeta)) {
         const g = meta && typeof meta === 'object' ? meta.group : null;
@@ -6168,7 +6137,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sel.innerHTML = '<option value="ALL">All groups</option>' +
       sorted.map(g => `<option value="${g}">Group ${g}</option>`).join('');
 
-    // restore selection if still valid
     const wanted = prev && (prev === 'ALL' || groups.has(prev)) ? prev : 'ALL';
     sel.value = wanted;
   }
@@ -6204,8 +6172,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-  // If you already have isAdminUI() elsewhere, we use it.
-  // Fallback: treat body.admin as admin.
+  
+  
   const isAdminUI = (typeof window.isAdminUI === 'function')
     ? window.isAdminUI
     : (() => document.body.classList.contains('admin'));
@@ -6240,7 +6208,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function flagImg(iso) {
     if (!iso) return '';
-    return `<img class="fan-flag" alt="${iso}" src="https://flagcdn.com/w40/${iso}.png" loading="lazy">`;
+    return `<img class="fan-flag" alt="${iso}" src="https:
   }
 
   function pct(n) {
@@ -6342,12 +6310,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyStatsToCard(card, stats) {
   if (!card || !stats) return;
 
-  // Vote buttons
+  
   const btnHome = card.querySelector('.fan-vote[data-choice="home"]');
   const btnAway = card.querySelector('.fan-vote[data-choice="away"]');
   const btnDraw = card.querySelector('.fan-vote[data-choice="draw"]');
 
-  // Percent bars (matches cardHTML markup: .fan-bar-home/.fan-bar-away each contains a <span>)
+  
   const barHome = card.querySelector('.fan-bar-home');
   const barAway = card.querySelector('.fan-bar-away');
   const barDraw = card.querySelector('.fan-bar-draw');
@@ -6355,7 +6323,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const barAwayPct = barAway ? barAway.querySelector('span') : null;
   const barDrawPct = barDraw ? barDraw.querySelector('span') : null;
 
-  // Totals
+  
   const totalEl = card.querySelector('.fan-total');
 
   const hp = Math.max(0, Math.min(100, Number(stats.home_pct || 0)));
@@ -6371,8 +6339,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (totalEl) totalEl.textContent = String(Number(stats.total || 0));
 
-  // "You voted" state (this is what brings the outline back)
-  const last = String(stats.last_choice || stats.last || '').toLowerCase(); // "home"|"away"|"draw"| ""
+  
+  const last = String(stats.last_choice || stats.last || '').toLowerCase();
   const homeLabel = card.dataset.home || 'Home';
   const awayLabel = card.dataset.away || 'Away';
   if (btnHome) btnHome.classList.toggle('active', last === 'home');
@@ -6401,19 +6369,19 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnAway) btnAway.disabled = isLocked || !!last;
   if (btnDraw) btnDraw.disabled = isLocked || !!last;
 
-  // Lock visuals + disable Admin "Declare" buttons too
+  
   card.classList.toggle('locked', isLocked);
   card.dataset.winner = isLocked ? winner : '';
 
   const declareBtns = card.querySelectorAll('.fan-win');
   declareBtns.forEach(b => { b.disabled = isLocked; });
 
-  // Optional winner highlight classes if you want them
+  
   card.classList.toggle('winner-home', isLocked && winner === 'home');
   card.classList.toggle('winner-away', isLocked && winner === 'away');
   card.classList.toggle('winner-draw', isLocked && winner === 'draw');
 
-  // Update the little pill if present
+  
   const pill = card.querySelector('.pill.pill-ok');
   if (pill) {
     const votedLabel = last === 'home' ? homeLabel : last === 'away' ? awayLabel : last === 'draw' ? 'Draw' : '';
@@ -6430,7 +6398,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const stats = await getStats(fid);
         if (stats?.ok) applyStatsToCard(card, stats);
-      } catch { /* ignore */ }
+      } catch {  }
     }
     }
 
@@ -6441,7 +6409,7 @@ document.addEventListener('DOMContentLoaded', () => {
         credentials: 'include',
         body: JSON.stringify({
           match_id: String(matchId),
-          winner: String(side) // "home" or "away"
+          winner: String(side) 
         })
       });
 
@@ -6450,10 +6418,10 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error(data?.error || `declare_failed_${res.status}`);
       }
 
-      // Winner declared - refresh bell immediately
+      
       try {
         if (typeof window.refreshNotificationsNow === 'function') {
-          await window.refreshNotificationsNow(true); // force ring + refresh
+          await window.refreshNotificationsNow(true); 
         }
       } catch (e) {
         console.warn('refreshNotificationsNow failed', e);
@@ -6496,7 +6464,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // decorate fixtures with group so we can filter
+    
     fixtures.forEach(f => {
       const gh = teamToGroup.get(normalize(f?.home)) || '';
       const ga = teamToGroup.get(normalize(f?.away)) || '';
@@ -6522,12 +6490,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     applyFanZoneFilters();
 
-    // One click handler for both vote + declare winner
     if (host.dataset.fanWired === '1') return;
     host.dataset.fanWired = '1';
     host.addEventListener('click', async (ev) => {
 
-      // --- Admin declare winner ---
+      
       const winBtn = ev.target.closest('.fan-win');
       if (winBtn) {
         if (!isAdminUI()) {
@@ -6568,7 +6535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-    // --- Public vote ---
+    
     const voteBtn = ev.target.closest('.fan-vote');
     if (!voteBtn) return;
 
@@ -6577,20 +6544,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const choice = voteBtn?.dataset?.choice;
     if (!fid || !choice) return;
 
-    // If already locked (winner declared), do not even try
+    
     if (card?.dataset?.winner) {
       notify('Voting is locked for this match', false);
       return;
     }
 
-    // Disable immediately to prevent spam clicks
+    
     card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
 
     try {
       await sendVote(fid, choice);
     } catch (err) {
       if (String(err?.message).includes('voting_closed')) {
-        // HARD LOCK from server (winner declared between refresh + click)
+        
         card.dataset.winner = 'locked';
         card.classList.add('locked');
         card.querySelectorAll('.fan-vote').forEach(b => b.disabled = true);
@@ -6605,7 +6572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { once: false });
   }
 
-  // Public loader (call when entering the page)
+  
   window.loadFanZone = async function loadFanZone() {
     await renderFanZone();
   };
@@ -6614,7 +6581,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('timezonechange', updateFanZoneTimes);
   window.addEventListener('dateformatchange', updateFanZoneTimes);
 
-  // Auto-refresh while the Fan Zone section is visible
+  
   let fanTimer = null;
   function ensureFanRefresh() {
     clearInterval(fanTimer);
@@ -6629,7 +6596,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const { sel, inp } = getFanFilterEls();
       if (!sel && !inp) return;
 
-      // prevent double-wiring
+      
       const key = sel || inp;
       if (key && key.dataset.wired === '1') return;
       if (key) key.dataset.wired = '1';
@@ -6638,7 +6605,7 @@ document.addEventListener('DOMContentLoaded', () => {
       inp && inp.addEventListener('input', applyFanZoneFilters);
     }
 
-  // When Fan Zone is selected, load + start refresher
+  
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[data-page="fanzone"]');
     if (!a) return;
@@ -6700,7 +6667,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(() => setMessage(idx + 1), 5000);
   }
 
-  // If landing directly on Fan Zone
+  
   window.addEventListener('DOMContentLoaded', () => {
     if (document.querySelector('#fanzone.page-section.active-section')) {
       ensureFanFilterWiring();
