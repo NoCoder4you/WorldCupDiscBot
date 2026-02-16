@@ -4430,7 +4430,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const existing = svg.querySelector('#wc-panroot');
     if (existing) return existing;
 
-    const panRoot = document.createElementNS('http:
+    // Create the pan container in the SVG namespace so wrapped nodes remain valid SVG.
+    const panRoot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     panRoot.setAttribute('id','wc-panroot');
 
     const keep   = new Set(['defs','title','desc','metadata']);
@@ -4800,8 +4801,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       
       let avatar_url = null;
-      if (raw && /^https?:\/\
-        avatar_url = raw;
+      if (raw && /^https?:\/\//i.test(String(raw))) {
+        avatar_url = String(raw);
       } else if (raw && /^[aA]?_?[0-9a-f]{6,}$/.test(String(raw))) {
         const ext = String(raw).startsWith('a_') ? 'gif' : 'png';
         avatar_url = `https://cdn.discordapp.com/avatars/${id}/${raw}.${ext}?size=64`;
@@ -4826,7 +4827,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     
     const missing = Object.values(vmap)
-      .filter(v => !v.avatar_url || /\/embed\/avatars\
+      // Backfill only users still using Discord default avatars (or missing avatar URL).
+      .filter(v => !v.avatar_url || /\/embed\/avatars\//.test(String(v.avatar_url)))
       .map(v => v.id);
 
     if (missing.length) {
@@ -6267,7 +6269,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function flagImg(iso) {
     if (!iso) return '';
-    return `<img class="fan-flag" alt="${iso}" src="https:
+    const safeIso = String(iso).trim().toLowerCase();
+    // Render a compact country flag icon for Fan Zone cards.
+    return `<img class="fan-flag" alt="${safeIso}" src="https://flagcdn.com/w20/${safeIso}.png" loading="lazy">`;
   }
 
   function pct(n) {
