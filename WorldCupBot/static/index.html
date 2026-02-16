@@ -721,8 +721,13 @@
         <span id="footer-rotator" class="footer-rotator" aria-live="polite">World Cup 2026</span>
       </footer>
 
-      <script src="app.js"></script>
-      <script src="user.js"></script>
+      <!--
+        Stage constants are now bootstrapped in app.js, so the page only needs app.js
+        and user.js. Keeping the script list small avoids hard failures if a separate
+        stage.js asset is blocked or missing in front-end hosting.
+      -->
+      <script src="/app.js"></script>
+      <script src="/user.js"></script>
 
     </body>
 </html>
