@@ -38,6 +38,18 @@ def test_index_uses_root_absolute_static_asset_paths(client):
     assert 'src="/user.js"' in html
 
 
+
+
+def test_terms_uses_root_absolute_static_asset_paths():
+    """
+    Terms page assets should use root-absolute URLs so CSS/JS load reliably
+    regardless of URL prefixes or reverse-proxy path rewriting.
+    """
+    html = (ROOT / "WorldCupBot" / "static" / "terms.html").read_text(encoding="utf-8")
+    assert 'href="/terms.css"' in html
+    assert 'src="/terms.js"' in html
+
+
 def test_app_bootstraps_stage_constants_without_stage_js():
     """
     app.js now defines window.WorldCupStages when the standalone stage.js asset
