@@ -49,7 +49,6 @@ def test_app_bootstraps_stage_constants_without_stage_js():
     assert "const STAGE_PROGRESS = {" in app_js
 
 
-
 def test_me_respects_masquerade_without_app_base_dir_config(tmp_path):
     """
     Ensure masquerade still works when app.config["BASE_DIR"] is unset.
@@ -93,3 +92,21 @@ def test_me_respects_masquerade_without_app_base_dir_config(tmp_path):
     assert data["ok"] is True
     assert data["is_admin"] is True
     assert data["masquerading_as"] == "999"
+
+
+def test_app_js_has_no_known_truncated_syntax_tokens():
+    """
+    Guard against previously observed truncated JS tokens that produced
+    `SyntaxError: Invalid or unexpected token` at runtime.
+    """
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+
+    # Broken patterns seen in production errors / prior diffs.
+    assert "createElementNS('http:\\n" not in app_js
+    assert "src=\"https:\\n" not in app_js
+    assert '/\\/embed\\/avatars\\\\\n' not in app_js
+
+    # Ensure repaired snippets are present.
+    assert "createElementNS('http://www.w3.org/2000/svg', 'g')" in app_js
+    assert "https://flagcdn.com/w20/${safeIso}.png" in app_js
+    assert r"/\/embed\/avatars\//.test(String(v.avatar_url))" in app_js
