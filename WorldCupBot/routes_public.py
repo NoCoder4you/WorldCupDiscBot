@@ -292,8 +292,15 @@ def _effective_uid():
     real_id = str(user.get("discord_id") or "")
     masquerade_id = session.get("wc_masquerade_id")
 
-    # Only allow masquerade if the real user is an admin
+    # Only allow masquerade if the real user is an admin.
+    #
+    # In production the app may not populate app.config["BASE_DIR"], so we also
+    # derive the base directory from Flask's static folder (BASE_DIR/static).
     base = current_app.config.get("BASE_DIR", "")
+    if not base:
+        static_folder = current_app.static_folder
+        if static_folder:
+            base = os.path.dirname(static_folder)
     cfg = _load_config(base)
     admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
 
