@@ -26,16 +26,28 @@ def test_teams_reads_from_json(client, app):
     assert resp.get_json() == [{"name": "Alpha"}]
 
 
-def test_index_uses_root_absolute_static_asset_paths(client):
+def test_index_uses_document_relative_static_asset_paths(client):
     """
-    Static assets are referenced with root-absolute paths so index.html can still
-    load JS/CSS when the page URL includes a nested prefix.
+    Index assets should stay document-relative so reverse proxies that mount the
+    app under a prefix (e.g. /panel/) do not break static URL resolution.
     """
     html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
-    assert 'href="/style.css"' in html
+    assert 'href="style.css"' in html
     assert 'src="/stage.js"' not in html
-    assert 'src="/app.js"' in html
-    assert 'src="/user.js"' in html
+    assert 'src="app.js"' in html
+    assert 'src="user.js"' in html
+
+
+
+
+def test_terms_uses_document_relative_static_asset_paths():
+    """
+    Terms assets should stay document-relative for prefix-based deployments
+    (e.g. /panel/terms -> /panel/terms.css) to avoid 404s.
+    """
+    html = (ROOT / "WorldCupBot" / "static" / "terms.html").read_text(encoding="utf-8")
+    assert 'href="terms.css"' in html
+    assert 'src="terms.js"' in html
 
 
 def test_app_bootstraps_stage_constants_without_stage_js():
