@@ -32,12 +32,16 @@ def test_index_uses_document_relative_static_asset_paths(client):
     app under a prefix (e.g. /panel/) do not break static URL resolution.
     """
     html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+
+    # Positive checks: the intended mount-aware paths.
     assert 'href="style.css"' in html
-    assert 'src="/stage.js"' not in html
     assert 'src="app.js"' in html
     assert 'src="user.js"' in html
 
-
+    # Negative checks: guard against root-absolute regressions that 404 behind prefixes.
+    assert 'href="/style.css"' not in html
+    assert 'src="/app.js"' not in html
+    assert 'src="/user.js"' not in html
 
 
 def test_terms_uses_document_relative_static_asset_paths():
@@ -46,21 +50,14 @@ def test_terms_uses_document_relative_static_asset_paths():
     (e.g. /panel/terms -> /panel/terms.css) to avoid 404s.
     """
     html = (ROOT / "WorldCupBot" / "static" / "terms.html").read_text(encoding="utf-8")
+
+    # Positive checks: expected mount-aware asset references.
     assert 'href="terms.css"' in html
     assert 'src="terms.js"' in html
 
-
-
-
-def test_terms_uses_root_absolute_static_asset_paths():
-    """
-    Terms page assets should use root-absolute URLs so CSS/JS load reliably
-    regardless of URL prefixes or reverse-proxy path rewriting.
-    """
-    html = (ROOT / "WorldCupBot" / "static" / "terms.html").read_text(encoding="utf-8")
-    assert 'href="/terms.css"' in html
-    assert 'src="/terms.js"' in html
-
+    # Negative checks: disallow root-absolute references that bypass mount prefixes.
+    assert 'href="/terms.css"' not in html
+    assert 'src="/terms.js"' not in html
 
 def test_app_bootstraps_stage_constants_without_stage_js():
     """
