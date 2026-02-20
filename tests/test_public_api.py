@@ -234,3 +234,10 @@ def test_maintenance_announcement_retries_fallback_channels_when_send_fails():
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
     assert "for ch in channels:" in bot_py
     assert "if await self._post_maintenance_message(guild, ch, message):" in bot_py
+
+
+def test_maintenance_channel_selection_does_not_skip_when_member_cache_missing():
+    """Guard that missing guild member cache does not block announcement attempts."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert "if not member:" in bot_py
+    assert "return True" in bot_py

@@ -217,12 +217,20 @@ class WorldCupBot(commands.Bot):
     def _can_send_in_channel(self, guild: discord.Guild, channel: discord.TextChannel) -> bool:
         """Return True when the bot can send messages in the provided channel."""
         member = self._bot_member(guild)
+
+        # In some cache states guild.me/member lookup can be temporarily empty
+        # right after startup. If we hard-fail here, no candidates are produced
+        # and announcements are skipped entirely. In that case, allow the channel
+        # through and let the actual send call determine if posting is possible.
         if not member:
-            return False
+            return True
+
         try:
             return bool(channel.permissions_for(member).send_messages)
         except Exception:
-            return False
+            # Prefer attempting delivery over suppressing it on permission
+            # lookup edge-cases; send() will still be safely exception-handled.
+            return True
 
     def _announcement_channel_candidates(self, guild: discord.Guild, channel_name: str) -> List[discord.TextChannel]:
         """Build an ordered list of writable channels for maintenance announcements."""
