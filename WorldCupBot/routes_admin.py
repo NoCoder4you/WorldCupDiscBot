@@ -1342,7 +1342,7 @@ def create_admin_routes(ctx):
                     _enqueue_command(ctx, "maintenance_mode_enabled", {
                         "channel": "announcements",
                         "message": (
-                            "🚧 **Maintenance Mode Enabled**\n"
+                            "# 🚧 Maintenance Mode Enabled 🚧\n"
                             "The World Cup site is temporarily unavailable while "
                             "we perform maintenance. We will post another update "
                             "here as soon as normal access is restored."
