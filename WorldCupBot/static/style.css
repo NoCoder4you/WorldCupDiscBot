@@ -2452,6 +2452,28 @@ body.user-admin-view #ownership .ownership-card {
     outline: none;
 }
 
+/* Keep the dropdown list in the same dark palette as the modal fields. */
+#split-create-country {
+    color-scheme: dark;
+}
+
+#split-create-country option {
+    background: #0f1622;
+    color: #e8f1fb;
+}
+
+/* Remove numeric spinner controls to match the cleaner modal input styling. */
+#split-create-percentage::-webkit-outer-spin-button,
+#split-create-percentage::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+#split-create-percentage[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 #split-create-backdrop .modal-foot {
     display: flex;
     justify-content: flex-end;
