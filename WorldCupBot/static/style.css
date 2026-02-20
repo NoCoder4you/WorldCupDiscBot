@@ -2452,14 +2452,9 @@ body.user-admin-view #ownership .ownership-card {
     outline: none;
 }
 
-/* Keep the dropdown list in the same dark palette as the modal fields. */
+/* The country value is stored in a hidden input; visible list uses a custom dark dropdown. */
 #split-create-country {
-    color-scheme: dark;
-}
-
-#split-create-country option {
-    background: #0f1622;
-    color: #e8f1fb;
+    display: none;
 }
 
 /* Remove numeric spinner controls to match the cleaner modal input styling. */
@@ -2474,6 +2469,12 @@ body.user-admin-view #ownership .ownership-card {
     appearance: textfield;
 }
 
+
+
+/* Split modal custom dropdown host follows modal field spacing and width. */
+#split-create-country-select {
+    width: 100%;
+}
 #split-create-backdrop .modal-foot {
     display: flex;
     justify-content: flex-end;
@@ -2674,7 +2675,8 @@ select.select-dark:disabled {
     position: relative;
 }
 
-#reassign-picker {
+#reassign-picker,
+#split-create-country-picker {
     width: 100%;
     text-align: left;
     background: #0d141d;
@@ -2687,12 +2689,14 @@ select.select-dark:disabled {
     cursor: pointer;
     outline: none;
 }
-#reassign-picker:focus {
+#reassign-picker:focus,
+#split-create-country-picker:focus {
     border-color: #4da4ff;
     box-shadow: 0 0 0 3px #4da4ff40;
 }
 
-#reassign-options {
+#reassign-options,
+#split-create-country-options {
     position: absolute;
     left: 0;
     right: 0;
@@ -2709,7 +2713,8 @@ select.select-dark:disabled {
     box-shadow: 0 12px 30px #00000073;
 }
 
-#reassign-options li {
+#reassign-options li,
+#split-create-country-options li {
     padding: 10px 12px;
     color: #dce6f0;
     cursor: pointer;
@@ -2719,20 +2724,26 @@ select.select-dark:disabled {
 }
 #reassign-options li:hover,
 #reassign-options li[aria-selected="true"],
-#reassign-options li:focus {
+#reassign-options li:focus,
+#split-create-country-options li:hover,
+#split-create-country-options li[aria-selected="true"],
+#split-create-country-options li:focus {
     background: #1c2431;
     color: #ffffff;
 }
 
 /* Hide scrollbar light backgrounds (WebKit) */
-#reassign-options::-webkit-scrollbar {
+#reassign-options::-webkit-scrollbar,
+#split-create-country-options::-webkit-scrollbar {
     width: 10px;
 }
-#reassign-options::-webkit-scrollbar-thumb {
+#reassign-options::-webkit-scrollbar-thumb,
+#split-create-country-options::-webkit-scrollbar-thumb {
     background: #1b2838;
     border-radius: 8px;
 }
-#reassign-options::-webkit-scrollbar-track {
+#reassign-options::-webkit-scrollbar-track,
+#split-create-country-options::-webkit-scrollbar-track {
     background: #0d141d;
 }
 
