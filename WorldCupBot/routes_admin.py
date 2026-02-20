@@ -1336,6 +1336,18 @@ def create_admin_routes(ctx):
                     _user_label(),
                     next_maintenance,
                 )
+                if next_maintenance:
+                    # Broadcast the maintenance state change so Discord members
+                    # immediately understand why the web app is unavailable.
+                    _enqueue_command(ctx, "maintenance_mode_enabled", {
+                        "channel": "announcements",
+                        "message": (
+                            "🚧 **Maintenance Mode Enabled**\n"
+                            "The World Cup site is temporarily unavailable while "
+                            "we perform maintenance. We will post another update "
+                            "here as soon as normal access is restored."
+                        ),
+                    })
         return jsonify({
             "ok": True,
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),

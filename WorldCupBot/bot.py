@@ -208,6 +208,49 @@ class WorldCupBot(commands.Bot):
         except Exception as e:
             log.exception("Cog %s failed for %s: %s", action, name, e)
 
+    async def _get_announcement_channel(self, guild: discord.Guild, channel_name: str) -> discord.TextChannel | None:
+        """Return a text channel by name, with sensible fallbacks when unavailable."""
+        if not guild:
+            return None
+        target = str(channel_name or "").strip().lower()
+        if target:
+            for ch in guild.text_channels:
+                if ch.name.lower() == target:
+                    return ch
+        if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
+            return guild.system_channel
+        for ch in guild.text_channels:
+            if ch.permissions_for(guild.me).send_messages:
+                return ch
+        return None
+
+    async def _handle_maintenance_announcement(self, data: dict):
+        """Post a maintenance-mode announcement in the configured Discord channel."""
+        if not self.guilds:
+            return
+        message = str(data.get("message") or "").strip()
+        channel_name = str(data.get("channel") or "announcements").strip()
+        if not message:
+            return
+
+        for guild in self.guilds:
+            ch = await self._get_announcement_channel(guild, channel_name)
+            if not ch:
+                log.warning(
+                    "Maintenance announcement skipped in guild %s: no writable channel found",
+                    guild.id,
+                )
+                continue
+            try:
+                await ch.send(message)
+            except Exception as e:
+                log.warning(
+                    "Failed to post maintenance announcement in guild %s channel %s: %s",
+                    guild.id,
+                    getattr(ch, "id", "?"),
+                    e,
+                )
+
     @tasks.loop(seconds=1.0)
     async def _command_watcher(self):
         lines, new_offset = await self._read_new_commands()
@@ -225,6 +268,9 @@ class WorldCupBot(commands.Bot):
                 continue
             if kind == "cog":
                 await self._handle_cog_action(str(data.get("action") or ""), str(data.get("cog") or ""))
+                continue
+            if kind == "maintenance_mode_enabled":
+                await self._handle_maintenance_announcement(data)
         self._commands_offset = new_offset
         self._save_commands_state()
         compact_command_queue(

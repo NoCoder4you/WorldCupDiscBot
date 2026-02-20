@@ -206,3 +206,11 @@ def test_split_requests_respond_forbidden_for_non_owner(client, app):
     data = resp.get_json()
     assert data["ok"] is False
     assert data["error"] == "forbidden"
+
+
+def test_bot_watcher_handles_maintenance_announcement_commands():
+    """Regression guard: runtime command watcher should process maintenance announcements."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert 'if kind == "maintenance_mode_enabled":' in bot_py
+    assert 'await self._handle_maintenance_announcement(data)' in bot_py
+    assert 'async def _handle_maintenance_announcement(self, data: dict):' in bot_py
