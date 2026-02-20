@@ -2279,9 +2279,11 @@ async function openSplitCreateModal() {
   const closeBtn = document.getElementById('split-create-close');
   const cancelBtn = document.getElementById('split-create-cancel');
   const submitBtn = document.getElementById('split-create-submit');
-  const countrySel = document.getElementById('split-create-country');
+  const countryInput = document.getElementById('split-create-country');
+  const countryPicker = document.getElementById('split-create-country-picker');
+  const countryOptions = document.getElementById('split-create-country-options');
   const pctInput = document.getElementById('split-create-percentage');
-  if (!backdrop || !modal || !countrySel || !pctInput || !submitBtn) return;
+  if (!backdrop || !modal || !countryInput || !countryPicker || !countryOptions || !pctInput || !submitBtn) return;
 
   // Reuse ownership cache so we can build a country dropdown from current owner data.
   await initOwnership();
@@ -2293,21 +2295,40 @@ async function openSplitCreateModal() {
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 
-  countrySel.innerHTML = '<option value="">Select a country</option>';
+  // Build a custom dark dropdown list to avoid native white option popups.
+  countryInput.value = '';
+  countryPicker.textContent = 'Select a country';
+  countryPicker.setAttribute('aria-expanded', 'false');
+  countryOptions.innerHTML = '';
   teams.forEach(team => {
-    const opt = document.createElement('option');
-    opt.value = team;
-    opt.textContent = team;
-    countrySel.appendChild(opt);
+    const li = document.createElement('li');
+    li.textContent = team;
+    li.setAttribute('role', 'option');
+    li.dataset.value = team;
+    li.setAttribute('aria-selected', 'false');
+    countryOptions.appendChild(li);
   });
+  countryOptions.hidden = true;
   pctInput.value = '';
 
+  const closeCountryList = () => {
+    countryOptions.hidden = true;
+    countryPicker.setAttribute('aria-expanded', 'false');
+  };
+
   const closeModal = () => {
+    closeCountryList();
     backdrop.style.display = 'none';
     document.removeEventListener('keydown', onEsc);
   };
   const onEsc = (ev) => {
-    if (ev.key === 'Escape') closeModal();
+    if (ev.key === 'Escape') {
+      if (!countryOptions.hidden) {
+        closeCountryList();
+        return;
+      }
+      closeModal();
+    }
   };
 
   if (closeBtn && !closeBtn._wired) {
@@ -2325,10 +2346,45 @@ async function openSplitCreateModal() {
     });
   }
 
+  // Wire the custom dropdown interactions once.
+  if (!countryPicker._wired) {
+    countryPicker._wired = true;
+    countryPicker.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const shouldOpen = countryOptions.hidden;
+      countryOptions.hidden = !shouldOpen;
+      countryPicker.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    });
+  }
+
+  if (!countryOptions._wired) {
+    countryOptions._wired = true;
+    countryOptions.addEventListener('click', (ev) => {
+      const opt = ev.target.closest('li[data-value]');
+      if (!opt) return;
+      const selected = String(opt.dataset.value || '');
+      countryInput.value = selected;
+      countryPicker.textContent = selected || 'Select a country';
+      countryOptions.querySelectorAll('li[role="option"]').forEach(li => {
+        li.setAttribute('aria-selected', li === opt ? 'true' : 'false');
+      });
+      closeCountryList();
+    });
+  }
+
+  if (!countryOptions._outsideWired) {
+    countryOptions._outsideWired = true;
+    document.addEventListener('click', (ev) => {
+      if (!backdrop || backdrop.style.display !== 'flex') return;
+      const inside = ev.target === countryPicker || countryPicker.contains(ev.target) || countryOptions.contains(ev.target);
+      if (!inside) closeCountryList();
+    });
+  }
+
   if (!submitBtn._wired) {
     submitBtn._wired = true;
     submitBtn.addEventListener('click', async () => {
-      const team = countrySel.value;
+      const team = countryInput.value;
       const pctRaw = String(pctInput.value || '').trim();
       const body = { team };
 
