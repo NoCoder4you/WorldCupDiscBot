@@ -131,3 +131,78 @@ def test_app_js_has_no_known_truncated_syntax_tokens():
     assert "createElementNS('http://www.w3.org/2000/svg', 'g')" in app_js
     assert "https://flagcdn.com/w20/${safeIso}.png" in app_js
     assert r"/\/embed\/avatars\//.test(String(v.avatar_url))" in app_js
+
+
+def test_split_requests_respond_accept_updates_players_and_history(client, app):
+    """Main owner should be able to accept a pending split request from the public web endpoint."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    # Seed minimal ownership data where user 200 is the main owner of Brazil.
+    players_path = json_dir / "players.json"
+    players_path.write_text(json.dumps({
+        "200": {"display_name": "Owner", "teams": [{"team": "Brazil", "ownership": {"main_owner": 200, "split_with": []}}]},
+        "100": {"display_name": "Requester", "teams": []},
+    }), encoding="utf-8")
+
+    split_requests_path = json_dir / "split_requests.json"
+    split_requests_path.write_text(json.dumps({
+        "req1": {
+            "requester_id": 100,
+            "main_owner_id": 200,
+            "team": "Brazil",
+            "expires_at": 4102444800,
+            "requested_percentage": 25
+        }
+    }), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "200", "username": "owner"}
+
+    resp = client.post('/api/split_requests/respond', json={"id": "req1", "action": "accept"})
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    assert payload["event"]["action"] == "accepted"
+
+    # Pending request should be removed.
+    pending_after = json.loads(split_requests_path.read_text(encoding="utf-8"))
+    assert "req1" not in pending_after
+
+    # Owner entry should include requester in split_with.
+    players_after = json.loads(players_path.read_text(encoding="utf-8"))
+    owner_teams = players_after["200"]["teams"]
+    brazil_owner_row = next(t for t in owner_teams if t["team"] == "Brazil")
+    assert 100 in brazil_owner_row["ownership"]["split_with"]
+
+    # Requester should have team entry pointing to same main owner.
+    requester_teams = players_after["100"]["teams"]
+    brazil_requester_row = next(t for t in requester_teams if t["team"] == "Brazil")
+    assert brazil_requester_row["ownership"]["main_owner"] == 200
+
+
+def test_split_requests_respond_forbidden_for_non_owner(client, app):
+    """Only the receiving main owner can resolve a split request via web API."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    (json_dir / "split_requests.json").write_text(json.dumps({
+        "req2": {
+            "requester_id": 100,
+            "main_owner_id": 200,
+            "team": "Argentina",
+            "expires_at": 4102444800,
+            "requested_percentage": 20
+        }
+    }), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "300", "username": "not-owner"}
+
+    resp = client.post('/api/split_requests/respond', json={"id": "req2", "action": "decline"})
+    assert resp.status_code == 403
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "forbidden"
