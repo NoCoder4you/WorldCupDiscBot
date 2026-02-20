@@ -60,8 +60,8 @@ def test_enabling_maintenance_mode_enqueues_announcement_command(tmp_path):
     assert "Maintenance Mode Enabled" in str(cmd_data.get("message") or "")
 
 
-def test_disabling_maintenance_mode_does_not_enqueue_enable_announcement(tmp_path):
-    """Disabling maintenance mode should not queue the enable-only announcement command."""
+def test_disabling_maintenance_mode_enqueues_disabled_announcement(tmp_path):
+    """Disabling maintenance mode should enqueue a clear recovery announcement."""
     client, json_dir = _build_admin_client(tmp_path)
 
     # First enable mode so a later disable is a real state transition.
@@ -75,7 +75,13 @@ def test_disabling_maintenance_mode_does_not_enqueue_enable_announcement(tmp_pat
 
     queue_path = json_dir / "bot_commands.jsonl"
     commands = [json.loads(line) for line in queue_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    maintenance_cmds = [c for c in commands if c.get("kind") == "maintenance_mode_enabled"]
+    enabled_cmds = [c for c in commands if c.get("kind") == "maintenance_mode_enabled"]
+    disabled_cmds = [c for c in commands if c.get("kind") == "maintenance_mode_disabled"]
 
-    # Only the initial enable should add this command kind.
-    assert len(maintenance_cmds) == 1
+    # The first toggle-on emits the enable notice and toggle-off emits recovery.
+    assert len(enabled_cmds) == 1
+    assert len(disabled_cmds) == 1
+
+    disabled_data = disabled_cmds[0].get("data") or {}
+    assert disabled_data.get("channel") == "announcements"
+    assert "Maintenance Mode Disabled" in str(disabled_data.get("message") or "")

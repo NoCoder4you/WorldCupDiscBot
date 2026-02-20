@@ -1348,6 +1348,17 @@ def create_admin_routes(ctx):
                             "here as soon as normal access is restored."
                         ),
                     })
+                else:
+                    # Mirror the enable notice with a clear recovery update so
+                    # members know the site is live again.
+                    _enqueue_command(ctx, "maintenance_mode_disabled", {
+                        "channel": "announcements",
+                        "message": (
+                            "✅ **Maintenance Mode Disabled**\n"
+                            "Maintenance is complete and the World Cup site is "
+                            "now available again."
+                        ),
+                    })
         return jsonify({
             "ok": True,
             "stage_announce_channel": str(cfg.get("STAGE_ANNOUNCE_CHANNEL") or "").strip(),

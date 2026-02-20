@@ -211,6 +211,12 @@ def test_split_requests_respond_forbidden_for_non_owner(client, app):
 def test_bot_watcher_handles_maintenance_announcement_commands():
     """Regression guard: runtime command watcher should process maintenance announcements."""
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
-    assert 'if kind == "maintenance_mode_enabled":' in bot_py
+    assert 'if kind in ("maintenance_mode_enabled", "maintenance_mode_disabled"):' in bot_py
     assert 'await self._handle_maintenance_announcement(data)' in bot_py
     assert 'async def _handle_maintenance_announcement(self, data: dict):' in bot_py
+
+
+def test_maintenance_announcement_channel_selection_requires_send_permission():
+    """Guard against choosing a named channel where the bot cannot send messages."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert 'if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:' in bot_py

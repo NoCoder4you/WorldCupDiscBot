@@ -209,14 +209,21 @@ class WorldCupBot(commands.Bot):
             log.exception("Cog %s failed for %s: %s", action, name, e)
 
     async def _get_announcement_channel(self, guild: discord.Guild, channel_name: str) -> discord.TextChannel | None:
-        """Return a text channel by name, with sensible fallbacks when unavailable."""
+        """Return the best writable announcement channel for the guild."""
         if not guild:
             return None
+
+        # Prefer an exact name match, but only when the bot can actually send
+        # messages there. This avoids selecting a locked #announcements channel
+        # and silently dropping the maintenance message.
         target = str(channel_name or "").strip().lower()
         if target:
             for ch in guild.text_channels:
-                if ch.name.lower() == target:
+                if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:
                     return ch
+
+        # Fall back to the system channel (when writable) and then to any other
+        # writable text channel so announcements still go out.
         if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
             return guild.system_channel
         for ch in guild.text_channels:
@@ -269,7 +276,9 @@ class WorldCupBot(commands.Bot):
             if kind == "cog":
                 await self._handle_cog_action(str(data.get("action") or ""), str(data.get("cog") or ""))
                 continue
-            if kind == "maintenance_mode_enabled":
+            if kind in ("maintenance_mode_enabled", "maintenance_mode_disabled"):
+                # Both state transitions use the same posting pipeline; the
+                # queued payload provides the user-facing message.
                 await self._handle_maintenance_announcement(data)
         self._commands_offset = new_offset
         self._save_commands_state()
