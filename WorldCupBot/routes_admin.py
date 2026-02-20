@@ -1337,8 +1337,6 @@ def create_admin_routes(ctx):
                     next_maintenance,
                 )
                 if next_maintenance:
-                    # Broadcast the maintenance state change so Discord members
-                    # immediately understand why the web app is unavailable.
                     _enqueue_command(ctx, "maintenance_mode_enabled", {
                         "channel": "announcements",
                         "message": (
@@ -1349,12 +1347,10 @@ def create_admin_routes(ctx):
                         ),
                     })
                 else:
-                    # Mirror the enable notice with a clear recovery update so
-                    # members know the site is live again.
                     _enqueue_command(ctx, "maintenance_mode_disabled", {
                         "channel": "announcements",
                         "message": (
-                            "✅ **Maintenance Mode Disabled**\n"
+                            "# ✅ Maintenance Mode Disabled ✅\n"
                             "Maintenance is complete and the World Cup site is "
                             "now available again."
                         ),
