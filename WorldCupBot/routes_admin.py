@@ -1349,12 +1349,10 @@ def create_admin_routes(ctx):
                         ),
                     })
                 else:
-                    # Mirror the enable notice with a clear recovery update so
-                    # members know the site is live again.
                     _enqueue_command(ctx, "maintenance_mode_disabled", {
                         "channel": "announcements",
                         "message": (
-                            "✅ **Maintenance Mode Disabled**\n"
+                            "# ✅ Maintenance Mode Disabled ✅\n"
                             "Maintenance is complete and the World Cup site is "
                             "now available again."
                         ),
