@@ -1337,8 +1337,6 @@ def create_admin_routes(ctx):
                     next_maintenance,
                 )
                 if next_maintenance:
-                    # Broadcast the maintenance state change so Discord members
-                    # immediately understand why the web app is unavailable.
                     _enqueue_command(ctx, "maintenance_mode_enabled", {
                         "channel": "announcements",
                         "message": (
