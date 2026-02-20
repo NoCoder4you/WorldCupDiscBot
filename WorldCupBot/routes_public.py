@@ -1091,6 +1091,237 @@ def create_public_routes(ctx):
         data = {"pending": pending, "resolved": resolved}
         return jsonify(data)
 
+    @api.post("/split_requests/create")
+    def split_requests_create():
+        """Create a split request from the signed-in user to a team's main owner."""
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": False, "error": "login_required"}), 401
+
+        requester_id = str(_effective_uid() or user.get("discord_id") or "").strip()
+        body = request.get_json(silent=True) or {}
+        team = str(body.get("team") or body.get("country") or "").strip()
+        percentage = body.get("percentage", None)
+
+        if not requester_id:
+            return jsonify({"ok": False, "error": "invalid_user"}), 400
+        if not team:
+            return jsonify({"ok": False, "error": "missing_team"}), 400
+
+        # Build a case-insensitive map so UI input can match canonical team names.
+        players_blob = _json_load(_players_path(base), {})
+        canonical_team = team
+        team_map = {}
+        if isinstance(players_blob, dict):
+            for _, pdata in players_blob.items():
+                if not isinstance(pdata, dict):
+                    continue
+                for entry in pdata.get("teams", []) or []:
+                    if isinstance(entry, dict) and entry.get("team"):
+                        tname = str(entry.get("team")).strip()
+                        team_map.setdefault(tname.lower(), tname)
+        canonical_team = team_map.get(team.lower(), team)
+
+        main_owner_id = None
+        split_count = 0
+        if isinstance(players_blob, dict):
+            for uid, pdata in players_blob.items():
+                if not isinstance(pdata, dict):
+                    continue
+                for entry in pdata.get("teams", []) or []:
+                    if not isinstance(entry, dict):
+                        continue
+                    if str(entry.get("team") or "").strip().lower() != canonical_team.lower():
+                        continue
+                    own = entry.get("ownership") or {}
+                    mo = own.get("main_owner") if isinstance(own, dict) else None
+                    if mo is None:
+                        continue
+                    # The authoritative main owner entry is the player record whose uid matches main_owner.
+                    if str(mo).strip() == str(uid).strip():
+                        main_owner_id = str(mo).strip()
+                        sw = own.get("split_with") if isinstance(own, dict) else []
+                        split_count = len(sw) if isinstance(sw, list) else 0
+                        break
+                if main_owner_id:
+                    break
+
+        if not main_owner_id:
+            return jsonify({"ok": False, "error": "team_has_no_main_owner"}), 400
+        if requester_id == str(main_owner_id):
+            return jsonify({"ok": False, "error": "already_main_owner"}), 400
+
+        req_path = _split_requests_path(base)
+        requests_blob = _json_load(req_path, {})
+        if not isinstance(requests_blob, dict):
+            requests_blob = {}
+
+        for req in requests_blob.values():
+            if not isinstance(req, dict):
+                continue
+            if str(req.get("requester_id") or "") == requester_id and str(req.get("team") or "").strip().lower() == canonical_team.lower():
+                return jsonify({"ok": False, "error": "duplicate_pending_request"}), 409
+
+        # If percentage is omitted, default to current main-owner share divided by 2.
+        remaining = 100 / (1 + max(split_count, 0))
+        requested_percentage = remaining / 2 if percentage in (None, "") else percentage
+        try:
+            requested_percentage = float(requested_percentage)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "invalid_percentage"}), 400
+
+        if requested_percentage <= 0 or requested_percentage > remaining:
+            return jsonify({"ok": False, "error": "percentage_out_of_range", "remaining": remaining}), 400
+
+        request_id = f"{requester_id}_{canonical_team}_{int(time.time())}"
+        requests_blob[request_id] = {
+            "requester_id": int(requester_id) if requester_id.isdigit() else requester_id,
+            "main_owner_id": int(main_owner_id) if str(main_owner_id).isdigit() else main_owner_id,
+            "team": canonical_team,
+            "expires_at": (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)).timestamp(),
+            "requested_percentage": requested_percentage,
+        }
+        _json_save(req_path, requests_blob)
+
+        log.info(
+            "Split request created via public API (request_id=%s team=%s requester_id=%s main_owner_id=%s requested_percentage=%s)",
+            request_id,
+            canonical_team,
+            requester_id,
+            main_owner_id,
+            requested_percentage,
+        )
+
+        return jsonify({"ok": True, "id": request_id, "team": canonical_team, "requested_percentage": requested_percentage})
+
+    @api.post("/split_requests/respond")
+    def split_requests_respond():
+        """Allow the receiving main owner to accept/decline a pending split request from the website."""
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": False, "error": "login_required"}), 401
+
+        owner_id = str(_effective_uid() or user.get("discord_id") or "").strip()
+        data = request.get_json(silent=True) or {}
+        sid = str(data.get("id") or "").strip()
+        action = str(data.get("action") or "").strip().lower()
+        reason = str(data.get("reason") or "").strip()
+
+        if not sid:
+            return jsonify({"ok": False, "error": "missing_id"}), 400
+        if action not in ("accept", "decline"):
+            return jsonify({"ok": False, "error": "invalid_action"}), 400
+
+        req_path = _split_requests_path(base)
+        pending_raw = _json_load(req_path, {})
+        if not isinstance(pending_raw, dict):
+            pending_raw = {}
+
+        entry = pending_raw.get(sid)
+        if not isinstance(entry, dict):
+            return jsonify({"ok": False, "error": "not_found"}), 404
+
+        entry_owner_id = str(entry.get("main_owner_id") or "").strip()
+        if not owner_id or owner_id != entry_owner_id:
+            return jsonify({"ok": False, "error": "forbidden"}), 403
+
+        # Remove from pending first so accept/decline cannot be replayed.
+        pending_raw.pop(sid, None)
+        _json_save(req_path, pending_raw)
+
+        req_id = str(entry.get("requester_id") or "").strip()
+        team = str(entry.get("team") or "").strip()
+        if not req_id or not team:
+            return jsonify({"ok": False, "error": "bad_request"}), 400
+
+        names = _player_names_map(base)
+
+        if action == "accept":
+            players_path = _players_path(base)
+            players = _json_load(players_path, {})
+            if not isinstance(players, dict):
+                players = {}
+
+            def ensure_player(uid: str):
+                uid = str(uid)
+                if uid not in players or not isinstance(players[uid], dict):
+                    # Keep explanatory placeholder display_name for safety in partially-migrated JSON.
+                    players[uid] = {"display_name": uid, "teams": []}
+                players[uid].setdefault("teams", [])
+                return players[uid]
+
+            def ensure_team_entry(pdict: dict, team_name: str):
+                for t in pdict.get("teams", []):
+                    if isinstance(t, dict) and t.get("team") == team_name:
+                        t.setdefault("ownership", {})
+                        t["ownership"].setdefault("split_with", [])
+                        return t
+                new_entry = {"team": team_name, "ownership": {"main_owner": None, "split_with": []}}
+                pdict["teams"].append(new_entry)
+                return new_entry
+
+            owner = ensure_player(owner_id)
+            owner_team = ensure_team_entry(owner, team)
+            owner_team["ownership"]["main_owner"] = int(owner_id) if owner_id.isdigit() else owner_id
+            sw = owner_team["ownership"].get("split_with", [])
+            requester_as_num = int(req_id) if req_id.isdigit() else req_id
+            if requester_as_num not in sw:
+                sw.append(requester_as_num)
+            owner_team["ownership"]["split_with"] = sw
+
+            requester = ensure_player(req_id)
+            req_team = ensure_team_entry(requester, team)
+            req_team["ownership"]["main_owner"] = int(owner_id) if owner_id.isdigit() else owner_id
+            req_team["ownership"].setdefault("split_with", [])
+
+            _json_save(players_path, players)
+
+        event = {
+            "id": sid,
+            "action": "accepted" if action == "accept" else "declined",
+            "team": team,
+            "requester_id": req_id,
+            "main_owner_id": owner_id,
+            "from_username": names.get(req_id, req_id),
+            "to_username": names.get(owner_id, owner_id),
+            "reason": reason,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+
+        log_path = _split_requests_log_path(base)
+        raw_log = _json_load(log_path, [])
+        if isinstance(raw_log, dict):
+            events = raw_log.get("events", [])
+            if not isinstance(events, list):
+                events = []
+            events.append(event)
+            raw_log["events"] = events
+            _json_save(log_path, raw_log)
+        else:
+            if not isinstance(raw_log, list):
+                raw_log = []
+            raw_log.append(event)
+            _json_save(log_path, raw_log)
+
+        _enqueue_command(base, {
+            "kind": "split_accept" if action == "accept" else "split_decline",
+            "id": sid,
+            "reason": reason,
+        })
+
+        log.info(
+            "Split request resolved via public API (action=%s request_id=%s team=%s requester_id=%s main_owner_id=%s)",
+            action,
+            sid,
+            team,
+            req_id,
+            owner_id,
+        )
+
+        return jsonify({"ok": True, "event": event})
+
     @api.post("/split_requests/force")
     def split_requests_force():
         base = ctx.get("BASE_DIR","")

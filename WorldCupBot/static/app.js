@@ -2216,6 +2216,7 @@ function buildSplitsShell(){
           <div class="table-head">
             <div class="table-title">Split Requests</div>
             <div class="table-actions">
+              <button id="splits-create-open" class="btn">Create New</button>
               <button id="splits-public-refresh" class="btn">Refresh</button>
             </div>
           </div>
@@ -2240,6 +2241,11 @@ function buildSplitsShell(){
   `;
 
   
+  const btnCreate = document.getElementById('splits-create-open');
+  if (btnCreate && !btnCreate._wired) {
+    btnCreate._wired = true;
+    btnCreate.addEventListener('click', openSplitCreateModal);
+  }
   const btnPublic = document.getElementById('splits-public-refresh');
   if (btnPublic && !btnPublic._wired) {
     btnPublic._wired = true;
@@ -2255,6 +2261,171 @@ function buildSplitsShell(){
 }
 
 
+
+
+function deriveDefaultSplitPercentageByTeam(teamName) {
+  const key = String(teamName || '').toLowerCase();
+  const merged = Array.isArray(ownershipState.merged) ? ownershipState.merged : [];
+  const row = merged.find(r => String(r.country || '').toLowerCase() === key);
+  if (!row || !row.main_owner) return null;
+  const splitCount = Array.isArray(row.split_with) ? row.split_with.length : 0;
+  const mainOwnerShare = 100 / (1 + splitCount);
+  return mainOwnerShare / 2;
+}
+
+async function openSplitCreateModal() {
+  const backdrop = document.getElementById('split-create-backdrop');
+  const modal = document.getElementById('split-create-modal');
+  const closeBtn = document.getElementById('split-create-close');
+  const cancelBtn = document.getElementById('split-create-cancel');
+  const submitBtn = document.getElementById('split-create-submit');
+  const countryInput = document.getElementById('split-create-country');
+  const countryPicker = document.getElementById('split-create-country-picker');
+  const countryOptions = document.getElementById('split-create-country-options');
+  const pctInput = document.getElementById('split-create-percentage');
+  if (!backdrop || !modal || !countryInput || !countryPicker || !countryOptions || !pctInput || !submitBtn) return;
+
+  // Reuse ownership cache so we can build a country dropdown from current owner data.
+  await initOwnership();
+
+  const currentUid = state.userId ? String(state.userId) : '';
+  const teams = (ownershipState.merged || [])
+    .filter(row => row && row.main_owner && String(row.main_owner.id || '') !== currentUid)
+    .map(row => String(row.country || '').trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  // Build a custom dark dropdown list to avoid native white option popups.
+  countryInput.value = '';
+  countryPicker.textContent = 'Select a country';
+  countryPicker.setAttribute('aria-expanded', 'false');
+  countryOptions.innerHTML = '';
+  teams.forEach(team => {
+    const li = document.createElement('li');
+    li.textContent = team;
+    li.setAttribute('role', 'option');
+    li.dataset.value = team;
+    li.setAttribute('aria-selected', 'false');
+    countryOptions.appendChild(li);
+  });
+  countryOptions.hidden = true;
+  pctInput.value = '';
+
+  const closeCountryList = () => {
+    countryOptions.hidden = true;
+    countryPicker.setAttribute('aria-expanded', 'false');
+  };
+
+  const closeModal = () => {
+    closeCountryList();
+    backdrop.style.display = 'none';
+    document.removeEventListener('keydown', onEsc);
+  };
+  const onEsc = (ev) => {
+    if (ev.key === 'Escape') {
+      if (!countryOptions.hidden) {
+        closeCountryList();
+        return;
+      }
+      closeModal();
+    }
+  };
+
+  if (closeBtn && !closeBtn._wired) {
+    closeBtn._wired = true;
+    closeBtn.addEventListener('click', closeModal);
+  }
+  if (cancelBtn && !cancelBtn._wired) {
+    cancelBtn._wired = true;
+    cancelBtn.addEventListener('click', closeModal);
+  }
+  if (!backdrop._wired) {
+    backdrop._wired = true;
+    backdrop.addEventListener('click', (ev) => {
+      if (ev.target === backdrop) closeModal();
+    });
+  }
+
+  // Wire the custom dropdown interactions once.
+  if (!countryPicker._wired) {
+    countryPicker._wired = true;
+    countryPicker.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const shouldOpen = countryOptions.hidden;
+      countryOptions.hidden = !shouldOpen;
+      countryPicker.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    });
+  }
+
+  if (!countryOptions._wired) {
+    countryOptions._wired = true;
+    countryOptions.addEventListener('click', (ev) => {
+      const opt = ev.target.closest('li[data-value]');
+      if (!opt) return;
+      const selected = String(opt.dataset.value || '');
+      countryInput.value = selected;
+      countryPicker.textContent = selected || 'Select a country';
+      countryOptions.querySelectorAll('li[role="option"]').forEach(li => {
+        li.setAttribute('aria-selected', li === opt ? 'true' : 'false');
+      });
+      closeCountryList();
+    });
+  }
+
+  if (!countryOptions._outsideWired) {
+    countryOptions._outsideWired = true;
+    document.addEventListener('click', (ev) => {
+      if (!backdrop || backdrop.style.display !== 'flex') return;
+      const inside = ev.target === countryPicker || countryPicker.contains(ev.target) || countryOptions.contains(ev.target);
+      if (!inside) closeCountryList();
+    });
+  }
+
+  if (!submitBtn._wired) {
+    submitBtn._wired = true;
+    submitBtn.addEventListener('click', async () => {
+      const team = countryInput.value;
+      const pctRaw = String(pctInput.value || '').trim();
+      const body = { team };
+
+      if (!team) {
+        notify('Please select a country.', false);
+        return;
+      }
+      if (pctRaw) {
+        const pct = Number(pctRaw);
+        if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+          notify('Percentage must be between 0 and 100.', false);
+          return;
+        }
+        body.percentage = pct;
+      }
+
+      try {
+        submitBtn.disabled = true;
+        // Backend applies default percentage logic when this field is omitted.
+        const result = await fetchJSON('/api/split_requests/create', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        });
+        const usedPct = typeof result.requested_percentage === 'number'
+          ? result.requested_percentage
+          : deriveDefaultSplitPercentageByTeam(team);
+        notify(`Split request created for ${team}${usedPct ? ` (${formatPercentage(usedPct)})` : ''}.`, true);
+        closeModal();
+        await loadPublicSplits();
+      } catch (e) {
+        notify(`Create split request failed: ${e.message || e}`, false);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  backdrop.style.display = 'flex';
+  modal.focus();
+  document.addEventListener('keydown', onEsc);
+}
 function escapeHTML(s) {
   if (s == null) return '';
   return String(s)
@@ -2376,6 +2547,7 @@ function renderPublicPendingSplits(rows, verifiedMap){
   if (!body) return;
   body.innerHTML = '';
   const isAdminView = typeof isAdminUI === 'function' ? isAdminUI() : !!state.admin;
+  const currentUid = state.userId ? String(state.userId) : '';
 
   if (!Array.isArray(rows) || rows.length === 0) {
     const empty = document.createElement('div');
@@ -2435,17 +2607,33 @@ function renderPublicPendingSplits(rows, verifiedMap){
       <td class="col-when mono">${when ? fmtDateTime(when) : '-'}</td>
       <td class="col-status">
         ${
-          isAdminView
-            ? `
-              <div class="action-cell">
-                <button type="button" class="pill pill-pending-admin pill-click">Pending</button>
-                <div class="chip-group--split hidden">
-                  <button type="button" class="btn-split split-accept"  data-action="accept"  data-id="${escapeHTML(realId)}">Accept</button>
+          (() => {
+            // Admins keep the existing action chip flow.
+            if (isAdminView) {
+              return `
+                <div class="action-cell">
+                  <button type="button" class="pill pill-pending-admin pill-click">Pending</button>
+                  <div class="chip-group--split hidden">
+                    <button type="button" class="btn-split split-accept" data-action="accept" data-id="${escapeHTML(realId)}">Accept</button>
+                    <button type="button" class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
+                  </div>
+                </div>
+              `;
+            }
+
+            // If the signed-in user is the receiving/main owner, allow them to resolve on web.
+            const isReceivingOwner = currentUid && String(toId || '') === currentUid;
+            if (isReceivingOwner) {
+              return `
+                <div class="chip-group--split">
+                  <button type="button" class="btn-split split-accept" data-action="accept" data-id="${escapeHTML(realId)}">Accept</button>
                   <button type="button" class="btn-split split-decline" data-action="decline" data-id="${escapeHTML(realId)}">Decline</button>
                 </div>
-              </div>
-            `
-            : splitStatusPill('pending', 'public')
+              `;
+            }
+
+            return splitStatusPill('pending', 'public');
+          })()
         }
       </td>
     `;
@@ -2572,15 +2760,21 @@ function renderPublicSplitHistory(rows, verifiedMap) {
 }
 
 async function submitSplitAction(action, requestId) {
-  const url = action === 'accept'
-    ? '/admin/splits/accept'
-    : '/admin/splits/decline';
+  // Admin users keep using admin endpoints; regular users use the public response endpoint.
+  const useAdminEndpoint = typeof isAdminUI === 'function' ? isAdminUI() : !!state.admin;
+  const url = useAdminEndpoint
+    ? (action === 'accept' ? '/admin/splits/accept' : '/admin/splits/decline')
+    : '/api/split_requests/respond';
+
+  const payload = useAdminEndpoint
+    ? { id: requestId }
+    : { id: requestId, action };
 
   const res = await fetch(url, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: requestId })
+    body: JSON.stringify(payload)
   });
   return await res.json();
 }
