@@ -249,7 +249,21 @@ class WorldCupBot(commands.Bot):
                 )
                 continue
             try:
-                await ch.send(message)
+                sent = await ch.send(message)
+
+                # If the target channel is a Discord Announcement (news) channel,
+                # crosspost the message so followers in linked servers receive
+                # the maintenance update automatically.
+                if isinstance(ch, discord.TextChannel) and ch.is_news():
+                    try:
+                        await sent.publish()
+                    except Exception as e:
+                        log.warning(
+                            "Posted maintenance message but failed to publish in guild %s channel %s: %s",
+                            guild.id,
+                            getattr(ch, "id", "?"),
+                            e,
+                        )
             except Exception as e:
                 log.warning(
                     "Failed to post maintenance announcement in guild %s channel %s: %s",

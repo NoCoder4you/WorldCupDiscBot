@@ -220,3 +220,10 @@ def test_maintenance_announcement_channel_selection_requires_send_permission():
     """Guard against choosing a named channel where the bot cannot send messages."""
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
     assert 'if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:' in bot_py
+
+
+def test_maintenance_announcements_publish_in_news_channels():
+    """Guard that maintenance announcements attempt crossposting in news channels."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert "if isinstance(ch, discord.TextChannel) and ch.is_news():" in bot_py
+    assert "await sent.publish()" in bot_py
