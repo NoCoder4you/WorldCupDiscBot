@@ -209,14 +209,21 @@ class WorldCupBot(commands.Bot):
             log.exception("Cog %s failed for %s: %s", action, name, e)
 
     async def _get_announcement_channel(self, guild: discord.Guild, channel_name: str) -> discord.TextChannel | None:
-        """Return a text channel by name, with sensible fallbacks when unavailable."""
+        """Return the best writable announcement channel for the guild."""
         if not guild:
             return None
+
+        # Prefer an exact name match, but only when the bot can actually send
+        # messages there. This avoids selecting a locked #announcements channel
+        # and silently dropping the maintenance message.
         target = str(channel_name or "").strip().lower()
         if target:
             for ch in guild.text_channels:
-                if ch.name.lower() == target:
+                if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:
                     return ch
+
+        # Fall back to the system channel (when writable) and then to any other
+        # writable text channel so announcements still go out.
         if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
             return guild.system_channel
         for ch in guild.text_channels:
