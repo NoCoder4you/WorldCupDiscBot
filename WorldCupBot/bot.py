@@ -208,28 +208,86 @@ class WorldCupBot(commands.Bot):
         except Exception as e:
             log.exception("Cog %s failed for %s: %s", action, name, e)
 
-    async def _get_announcement_channel(self, guild: discord.Guild, channel_name: str) -> discord.TextChannel | None:
-        """Return the best writable announcement channel for the guild."""
-        if not guild:
+    def _bot_member(self, guild: discord.Guild) -> discord.Member | None:
+        """Best-effort lookup for the bot member object inside a guild."""
+        if not guild or not self.user:
             return None
+        return guild.me or guild.get_member(self.user.id)
 
-        # Prefer an exact name match, but only when the bot can actually send
-        # messages there. This avoids selecting a locked #announcements channel
-        # and silently dropping the maintenance message.
+    def _can_send_in_channel(self, guild: discord.Guild, channel: discord.TextChannel) -> bool:
+        """Return True when the bot can send messages in the provided channel."""
+        member = self._bot_member(guild)
+        if not member:
+            return False
+        try:
+            return bool(channel.permissions_for(member).send_messages)
+        except Exception:
+            return False
+
+    def _announcement_channel_candidates(self, guild: discord.Guild, channel_name: str) -> List[discord.TextChannel]:
+        """Build an ordered list of writable channels for maintenance announcements."""
+        if not guild:
+            return []
+
+        candidates: List[discord.TextChannel] = []
         target = str(channel_name or "").strip().lower()
+
+        # 1) Prefer the explicitly requested channel name (usually #announcements)
+        #    when it is writable for the bot account.
         if target:
             for ch in guild.text_channels:
-                if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:
-                    return ch
+                if ch.name.lower() == target and self._can_send_in_channel(guild, ch):
+                    candidates.append(ch)
 
-        # Fall back to the system channel (when writable) and then to any other
-        # writable text channel so announcements still go out.
-        if guild.system_channel and guild.system_channel.permissions_for(guild.me).send_messages:
-            return guild.system_channel
+        # 2) Fall back to the system channel when the requested channel does not
+        #    exist or is not writable.
+        if guild.system_channel and self._can_send_in_channel(guild, guild.system_channel):
+            candidates.append(guild.system_channel)
+
+        # 3) Last resort: any writable text channel.
         for ch in guild.text_channels:
-            if ch.permissions_for(guild.me).send_messages:
-                return ch
-        return None
+            if self._can_send_in_channel(guild, ch):
+                candidates.append(ch)
+
+        # Remove duplicates while preserving preference order.
+        deduped: List[discord.TextChannel] = []
+        seen: set[int] = set()
+        for ch in candidates:
+            cid = int(getattr(ch, "id", 0) or 0)
+            if cid and cid in seen:
+                continue
+            if cid:
+                seen.add(cid)
+            deduped.append(ch)
+        return deduped
+
+    async def _post_maintenance_message(self, guild: discord.Guild, channel: discord.TextChannel, message: str) -> bool:
+        """Send and optionally publish a maintenance message in the given channel."""
+        try:
+            sent = await channel.send(message)
+
+            # If the target channel is a Discord Announcement (news) channel,
+            # crosspost the message so followers in linked servers receive
+            # the maintenance update automatically.
+            if isinstance(channel, discord.TextChannel) and channel.is_news():
+                try:
+                    await sent.publish()
+                except Exception as e:
+                    log.warning(
+                        "Posted maintenance message but failed to publish in guild %s channel %s: %s",
+                        guild.id,
+                        getattr(channel, "id", "?"),
+                        e,
+                    )
+            return True
+        except Exception as e:
+            log.warning(
+                "Failed to post maintenance announcement in guild %s channel %s: %s",
+                guild.id,
+                getattr(channel, "id", "?"),
+                e,
+            )
+            return False
 
     async def _handle_maintenance_announcement(self, data: dict):
         """Post a maintenance-mode announcement in the configured Discord channel."""
@@ -241,35 +299,27 @@ class WorldCupBot(commands.Bot):
             return
 
         for guild in self.guilds:
-            ch = await self._get_announcement_channel(guild, channel_name)
-            if not ch:
+            channels = self._announcement_channel_candidates(guild, channel_name)
+            if not channels:
                 log.warning(
                     "Maintenance announcement skipped in guild %s: no writable channel found",
                     guild.id,
                 )
                 continue
-            try:
-                sent = await ch.send(message)
 
-                # If the target channel is a Discord Announcement (news) channel,
-                # crosspost the message so followers in linked servers receive
-                # the maintenance update automatically.
-                if isinstance(ch, discord.TextChannel) and ch.is_news():
-                    try:
-                        await sent.publish()
-                    except Exception as e:
-                        log.warning(
-                            "Posted maintenance message but failed to publish in guild %s channel %s: %s",
-                            guild.id,
-                            getattr(ch, "id", "?"),
-                            e,
-                        )
-            except Exception as e:
+            # Try channels in preference order. If posting fails in #announcements
+            # (e.g., transient API error), we still attempt fallbacks so the
+            # maintenance status is delivered consistently.
+            delivered = False
+            for ch in channels:
+                if await self._post_maintenance_message(guild, ch, message):
+                    delivered = True
+                    break
+            if not delivered:
                 log.warning(
-                    "Failed to post maintenance announcement in guild %s channel %s: %s",
+                    "Maintenance announcement failed in guild %s after trying %s channel(s)",
                     guild.id,
-                    getattr(ch, "id", "?"),
-                    e,
+                    len(channels),
                 )
 
     @tasks.loop(seconds=1.0)

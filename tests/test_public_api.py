@@ -219,11 +219,18 @@ def test_bot_watcher_handles_maintenance_announcement_commands():
 def test_maintenance_announcement_channel_selection_requires_send_permission():
     """Guard against choosing a named channel where the bot cannot send messages."""
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
-    assert 'if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:' in bot_py
+    assert 'if ch.name.lower() == target and self._can_send_in_channel(guild, ch):' in bot_py
 
 
 def test_maintenance_announcements_publish_in_news_channels():
     """Guard that maintenance announcements attempt crossposting in news channels."""
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
-    assert "if isinstance(ch, discord.TextChannel) and ch.is_news():" in bot_py
+    assert "if isinstance(channel, discord.TextChannel) and channel.is_news():" in bot_py
     assert "await sent.publish()" in bot_py
+
+
+def test_maintenance_announcement_retries_fallback_channels_when_send_fails():
+    """Guard that posting logic iterates fallback channels when initial send fails."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert "for ch in channels:" in bot_py
+    assert "if await self._post_maintenance_message(guild, ch, message):" in bot_py
