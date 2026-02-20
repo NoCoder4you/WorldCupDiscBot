@@ -206,3 +206,24 @@ def test_split_requests_respond_forbidden_for_non_owner(client, app):
     data = resp.get_json()
     assert data["ok"] is False
     assert data["error"] == "forbidden"
+
+
+def test_bot_watcher_handles_maintenance_announcement_commands():
+    """Regression guard: runtime command watcher should process maintenance announcements."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert 'if kind in ("maintenance_mode_enabled", "maintenance_mode_disabled"):' in bot_py
+    assert 'await self._handle_maintenance_announcement(data)' in bot_py
+    assert 'async def _handle_maintenance_announcement(self, data: dict):' in bot_py
+
+
+def test_maintenance_announcement_channel_selection_requires_send_permission():
+    """Guard against choosing a named channel where the bot cannot send messages."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert 'if ch.name.lower() == target and ch.permissions_for(guild.me).send_messages:' in bot_py
+
+
+def test_maintenance_announcements_publish_in_news_channels():
+    """Guard that maintenance announcements attempt crossposting in news channels."""
+    bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
+    assert "if isinstance(ch, discord.TextChannel) and ch.is_news():" in bot_py
+    assert "await sent.publish()" in bot_py
