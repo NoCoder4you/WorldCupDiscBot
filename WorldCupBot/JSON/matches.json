@@ -8,7 +8,7 @@
     "group": "A"
   },
   {
-    "id": "2026-06-11-A-KOR-QUAL1",
+    "id": "2026-06-11-A-KOR-BIH",
     "home": "South Korea",
     "away": "Bosnia and Herzegovina",
     "utc": "2026-06-12T02:00:00Z",
@@ -16,7 +16,7 @@
     "group": "A"
   },
   {
-    "id": "2026-06-12-B-CAN-QUAL2",
+    "id": "2026-06-12-B-CAN-CZE",
     "home": "Canada",
     "away": "Czech Republic",
     "utc": "2026-06-12T19:00:00Z",
@@ -32,7 +32,7 @@
     "group": "D"
   },
   {
-    "id": "2026-06-13-D-AUS-QUAL3",
+    "id": "2026-06-13-D-AUS-SWE",
     "home": "Australia",
     "away": "Sweden",
     "utc": "2026-06-13T04:00:00Z",
@@ -88,7 +88,7 @@
     "group": "E"
   },
   {
-    "id": "2026-06-14-F-QUAL4-TUN",
+    "id": "2026-06-14-F-TUR-TUN",
     "home": "Turkey",
     "away": "Tunisia",
     "utc": "2026-06-15T02:00:00Z",
@@ -136,7 +136,7 @@
     "group": "I"
   },
   {
-    "id": "2026-06-16-I-QUAL5-NOR",
+    "id": "2026-06-16-I-CRC-NOR",
     "home": "Costa Rica",
     "away": "Norway",
     "utc": "2026-06-16T22:00:00Z",
@@ -160,7 +160,7 @@
     "group": "J"
   },
   {
-    "id": "2026-06-17-K-POR-QUAL6",
+    "id": "2026-06-17-K-POR-COD",
     "home": "Portugal",
     "away": "Congo (DRC)",
     "utc": "2026-06-17T17:00:00Z",
@@ -192,7 +192,7 @@
     "group": "K"
   },
   {
-    "id": "2026-06-18-A-QUAL7-ZAF",
+    "id": "2026-06-18-A-BIH-ZAF",
     "home": "Bosnia and Herzegovina",
     "away": "South Africa",
     "utc": "2026-06-18T16:00:00Z",
@@ -200,7 +200,7 @@
     "group": "A"
   },
   {
-    "id": "2026-06-18-B-SUI-QUAL8",
+    "id": "2026-06-18-B-SUI-CZE",
     "home": "Switzerland",
     "away": "Czech Republic",
     "utc": "2026-06-18T19:00:00Z",
@@ -224,7 +224,7 @@
     "group": "A"
   },
   {
-    "id": "2026-06-19-D-QUAL9-PAR",
+    "id": "2026-06-19-D-SWE-PAR",
     "home": "Sweden",
     "away": "Paraguay",
     "utc": "2026-06-19T04:00:00Z",
@@ -256,7 +256,7 @@
     "group": "C"
   },
   {
-    "id": "2026-06-20-F-NED-QUAL10",
+    "id": "2026-06-20-F-NED-TUR",
     "home": "Netherlands",
     "away": "Turkey",
     "utc": "2026-06-20T17:00:00Z",
@@ -320,7 +320,7 @@
     "group": "G"
   },
   {
-    "id": "2026-06-22-I-FRA-QUAL11",
+    "id": "2026-06-22-I-FRA-CRC",
     "home": "France",
     "away": "Costa Rica",
     "utc": "2026-06-22T02:00:00Z",
@@ -376,7 +376,7 @@
     "group": "L"
   },
   {
-    "id": "2026-06-23-K-COL-QUAL12",
+    "id": "2026-06-23-K-COL-COD",
     "home": "Colombia",
     "away": "Congo (DRC)",
     "utc": "2026-06-24T02:00:00Z",
@@ -392,7 +392,7 @@
     "group": "B"
   },
   {
-    "id": "2026-06-24-B-QUAL13-QAT",
+    "id": "2026-06-24-B-CZE-QAT",
     "home": "Czech Republic",
     "away": "Qatar",
     "utc": "2026-06-24T19:00:00Z",
@@ -416,7 +416,7 @@
     "group": "C"
   },
   {
-    "id": "2026-06-24-A-QUAL14-MEX",
+    "id": "2026-06-24-A-BIH-MEX",
     "home": "Bosnia and Herzegovina",
     "away": "Mexico",
     "utc": "2026-06-25T01:00:00Z",
@@ -448,7 +448,7 @@
     "group": "E"
   },
   {
-    "id": "2026-06-25-F-JPN-QUAL15",
+    "id": "2026-06-25-F-JPN-TUR",
     "home": "Japan",
     "away": "Turkey",
     "utc": "2026-06-25T23:00:00Z",
@@ -464,7 +464,7 @@
     "group": "F"
   },
   {
-    "id": "2026-06-25-D-QUAL16-USA",
+    "id": "2026-06-25-D-SWE-USA",
     "home": "Sweden",
     "away": "USA",
     "utc": "2026-06-26T02:00:00Z",
@@ -488,7 +488,7 @@
     "group": "I"
   },
   {
-    "id": "2026-06-26-I-SEN-QUAL17",
+    "id": "2026-06-26-I-SEN-CRC",
     "home": "Senegal",
     "away": "Costa Rica",
     "utc": "2026-06-26T19:00:00Z",
@@ -552,7 +552,7 @@
     "group": "K"
   },
   {
-    "id": "2026-06-27-K-QUAL18-UZB",
+    "id": "2026-06-27-K-COD-UZB",
     "home": "Congo (DRC)",
     "away": "Uzbekistan",
     "utc": "2026-06-27T23:30:00Z",
