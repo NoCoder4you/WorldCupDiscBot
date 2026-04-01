@@ -10,7 +10,7 @@
   {
     "id": "2026-06-11-A-KOR-QUAL1",
     "home": "South Korea",
-    "away": "TBA",
+    "away": "Bosnia and Herzegovina",
     "utc": "2026-06-12T02:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "A"
@@ -18,7 +18,7 @@
   {
     "id": "2026-06-12-B-CAN-QUAL2",
     "home": "Canada",
-    "away": "TBA",
+    "away": "Czech Republic",
     "utc": "2026-06-12T19:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "B"
@@ -34,7 +34,7 @@
   {
     "id": "2026-06-13-D-AUS-QUAL3",
     "home": "Australia",
-    "away": "TBA",
+    "away": "Sweden",
     "utc": "2026-06-13T04:00:00Z",
     "stadium": "BC Place Vancouver",
     "group": "D"
@@ -89,7 +89,7 @@
   },
   {
     "id": "2026-06-14-F-QUAL4-TUN",
-    "home": "TBA",
+    "home": "Turkey",
     "away": "Tunisia",
     "utc": "2026-06-15T02:00:00Z",
     "stadium": "Estadio Monterrey",
@@ -137,19 +137,11 @@
   },
   {
     "id": "2026-06-16-I-QUAL5-NOR",
-    "home": "TBA",
+    "home": "Costa Rica",
     "away": "Norway",
     "utc": "2026-06-16T22:00:00Z",
     "stadium": "Boston Stadium",
     "group": "I"
-  },
-  {
-    "id": "2026-06-17-L-ENG-SPA",
-    "home": "England",
-    "away": "Spain",
-    "utc": "2026-06-17T00:00:00Z",
-    "stadium": "Dallas Stadium",
-    "group": "L"
   },
   {
     "id": "2026-06-16-J-ARG-ALG",
@@ -170,7 +162,7 @@
   {
     "id": "2026-06-17-K-POR-QUAL6",
     "home": "Portugal",
-    "away": "TBA",
+    "away": "Congo (DRC)",
     "utc": "2026-06-17T17:00:00Z",
     "stadium": "Houston Stadium",
     "group": "K"
@@ -201,7 +193,7 @@
   },
   {
     "id": "2026-06-18-A-QUAL7-ZAF",
-    "home": "TBA",
+    "home": "Bosnia and Herzegovina",
     "away": "South Africa",
     "utc": "2026-06-18T16:00:00Z",
     "stadium": "Atlanta Stadium",
@@ -210,7 +202,7 @@
   {
     "id": "2026-06-18-B-SUI-QUAL8",
     "home": "Switzerland",
-    "away": "TBA",
+    "away": "Czech Republic",
     "utc": "2026-06-18T19:00:00Z",
     "stadium": "Los Angeles Stadium",
     "group": "B"
@@ -233,7 +225,7 @@
   },
   {
     "id": "2026-06-19-D-QUAL9-PAR",
-    "home": "TBA",
+    "home": "Sweden",
     "away": "Paraguay",
     "utc": "2026-06-19T04:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
@@ -266,7 +258,7 @@
   {
     "id": "2026-06-20-F-NED-QUAL10",
     "home": "Netherlands",
-    "away": "TBA",
+    "away": "Turkey",
     "utc": "2026-06-20T17:00:00Z",
     "stadium": "Houston Stadium",
     "group": "F"
@@ -330,7 +322,7 @@
   {
     "id": "2026-06-22-I-FRA-QUAL11",
     "home": "France",
-    "away": "TBA",
+    "away": "Costa Rica",
     "utc": "2026-06-22T02:00:00Z",
     "stadium": "Philadelphia Stadium",
     "group": "I"
@@ -386,7 +378,7 @@
   {
     "id": "2026-06-23-K-COL-QUAL12",
     "home": "Colombia",
-    "away": "TBA",
+    "away": "Congo (DRC)",
     "utc": "2026-06-24T02:00:00Z",
     "stadium": "Estadio Guadalajara",
     "group": "K"
@@ -401,7 +393,7 @@
   },
   {
     "id": "2026-06-24-B-QUAL13-QAT",
-    "home": "TBA",
+    "home": "Czech Republic",
     "away": "Qatar",
     "utc": "2026-06-24T19:00:00Z",
     "stadium": "Seattle Stadium",
@@ -425,7 +417,7 @@
   },
   {
     "id": "2026-06-24-A-QUAL14-MEX",
-    "home": "TBA",
+    "home": "Bosnia and Herzegovina",
     "away": "Mexico",
     "utc": "2026-06-25T01:00:00Z",
     "stadium": "Mexico City Stadium",
@@ -458,7 +450,7 @@
   {
     "id": "2026-06-25-F-JPN-QUAL15",
     "home": "Japan",
-    "away": "TBA",
+    "away": "Turkey",
     "utc": "2026-06-25T23:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "F"
@@ -473,7 +465,7 @@
   },
   {
     "id": "2026-06-25-D-QUAL16-USA",
-    "home": "TBA",
+    "home": "Sweden",
     "away": "USA",
     "utc": "2026-06-26T02:00:00Z",
     "stadium": "Los Angeles Stadium",
@@ -498,7 +490,7 @@
   {
     "id": "2026-06-26-I-SEN-QUAL17",
     "home": "Senegal",
-    "away": "TBA",
+    "away": "Costa Rica",
     "utc": "2026-06-26T19:00:00Z",
     "stadium": "Toronto Stadium",
     "group": "I"
@@ -561,7 +553,7 @@
   },
   {
     "id": "2026-06-27-K-QUAL18-UZB",
-    "home": "TBA",
+    "home": "Congo (DRC)",
     "away": "Uzbekistan",
     "utc": "2026-06-27T23:30:00Z",
     "stadium": "Atlanta Stadium",
