@@ -5890,14 +5890,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const sideSlots = ensureSlotPath(merged, meta.stage, meta.side);
       const key = String(meta.slot);
       const existing = (sideSlots[key] && typeof sideSlots[key] === 'object') ? sideSlots[key] : {};
+      const targetFixture = byMatchNumber.get(rule.target);
+      const canonicalMatchId = String(targetFixture?.id || '').trim();
+      const existingMatchId = String(existing.match_id || existing.matchId || '').trim();
 
       // Preserve manual/admin-authored values when present; only fill blanks.
-      sideSlots[key] = {
+      const nextSlot = {
         ...existing,
-        match_id: String(existing.match_id || existing.matchId || '').trim() || `Match ${rule.target}`,
         home: String(existing.home || '').trim() || home || '',
         away: String(existing.away || '').trim() || away || '',
       };
+      // Only stamp match_id when we can align to a known fixture ID format.
+      // Avoid synthetic "Match N" IDs because stage lookup uses exact fixture.id.
+      if (existingMatchId) {
+        nextSlot.match_id = existingMatchId;
+      } else if (canonicalMatchId) {
+        nextSlot.match_id = canonicalMatchId;
+      }
+      sideSlots[key] = nextSlot;
     });
 
     return merged;
