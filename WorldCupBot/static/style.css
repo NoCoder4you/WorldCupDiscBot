@@ -264,7 +264,11 @@ main {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px;
+    /*
+     * Keep side/bottom breathing room, but remove top padding so sticky table
+     * headers can sit directly under the sticky navbar without a visual gap.
+     */
+    padding: 0 12px 12px;
     display: flex;
     flex-direction: column
 }
@@ -2007,6 +2011,7 @@ body.user-admin-view #ownership .ownership-card {
     background: #080e16f5;
     backdrop-filter: saturate(1.2) blur(4px);
     position: sticky;
+    /* With main top padding removed, sticky headers can anchor at 0 cleanly. */
     top: 0;
     z-index: 2;
 }
