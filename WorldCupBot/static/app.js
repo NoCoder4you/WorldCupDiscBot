@@ -5786,12 +5786,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function parseMatchNumber(raw) {
     const text = String(raw || '').trim();
     if (!text) return null;
-    const direct = Number(text);
-    if (Number.isFinite(direct)) return direct;
-    const m = text.match(/\b(?:match\s*)?(\d{2,3})\b/i);
+
+    if (/^\d{1,3}$/.test(text)) return Number(text);
+    const m = text.match(/^match\s*#?\s*(\d{1,3})$/i);
     if (!m) return null;
-    const num = Number(m[1]);
-    return Number.isFinite(num) ? num : null;
+    return Number(m[1]);
   }
 
   function winnerSideForFixture(fixture, winnersMap) {
@@ -5815,7 +5814,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function autoProgressionSlots(fixtures, winnersMap, currentSlots) {
     const byMatchNumber = new Map();
     (Array.isArray(fixtures) ? fixtures : []).forEach((fixture) => {
-      const matchNo = parseMatchNumber(fixture?.id);
+      // Some feeds use `id`, others may expose a separate match-number key.
+      const matchNo = parseMatchNumber(fixture?.id)
+        ?? parseMatchNumber(fixture?.match_id)
+        ?? parseMatchNumber(fixture?.match);
       if (!Number.isFinite(matchNo)) return;
       byMatchNumber.set(matchNo, fixture);
     });
@@ -5887,14 +5889,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const sideSlots = ensureSlotPath(merged, meta.stage, meta.side);
       const key = String(meta.slot);
       const existing = (sideSlots[key] && typeof sideSlots[key] === 'object') ? sideSlots[key] : {};
+      const targetFixture = byMatchNumber.get(rule.target);
+      const canonicalMatchId = String(targetFixture?.id || '').trim();
+      const existingMatchId = String(existing.match_id || existing.matchId || '').trim();
 
       // Preserve manual/admin-authored values when present; only fill blanks.
-      sideSlots[key] = {
+      const nextSlot = {
         ...existing,
-        match_id: String(existing.match_id || existing.matchId || '').trim() || `Match ${rule.target}`,
         home: String(existing.home || '').trim() || home || '',
         away: String(existing.away || '').trim() || away || '',
       };
+      // Only stamp match_id when we can align to a known fixture ID format.
+      // Avoid synthetic "Match N" IDs because stage lookup uses exact fixture.id.
+      if (existingMatchId) {
+        nextSlot.match_id = existingMatchId;
+      } else if (canonicalMatchId) {
+        nextSlot.match_id = canonicalMatchId;
+      }
+      sideSlots[key] = nextSlot;
     });
 
     return merged;
