@@ -5820,6 +5820,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return slots[stage][side];
   }
 
+  function isUnresolvedSlotTeam(raw) {
+    // Slots often start life as "TBD". Treat that as unresolved so declared
+    // winners can flow into the next round when progression runs.
+    const text = String(raw || '').trim().toLowerCase();
+    return !text || text === 'tbd' || text === 'to be decided';
+  }
+
   function autoProgressionSlots(fixtures, winnersMap, currentSlots) {
     const byMatchNumber = new Map();
     const fixturesById = new Map();
@@ -5908,8 +5915,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Preserve manual/admin-authored values when present; only fill blanks.
       const nextSlot = {
         ...existing,
-        home: String(existing.home || '').trim() || home || '',
-        away: String(existing.away || '').trim() || away || '',
+        home: isUnresolvedSlotTeam(existing.home) ? (home || '') : String(existing.home || '').trim(),
+        away: isUnresolvedSlotTeam(existing.away) ? (away || '') : String(existing.away || '').trim(),
       };
       // Only stamp match_id when we can align to a known fixture ID format.
       // Avoid synthetic "Match N" IDs because stage lookup uses exact fixture.id.
@@ -6002,8 +6009,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const slotKey = String(tslot);
       const existing = (sideSlots[slotKey] && typeof sideSlots[slotKey] === 'object') ? sideSlots[slotKey] : {};
       const next = { ...existing };
-      if (pos === 'home' && !String(existing.home || '').trim()) next.home = team;
-      if (pos === 'away' && !String(existing.away || '').trim()) next.away = team;
+      if (pos === 'home' && isUnresolvedSlotTeam(existing.home)) next.home = team;
+      if (pos === 'away' && isUnresolvedSlotTeam(existing.away)) next.away = team;
       sideSlots[slotKey] = next;
     });
 
