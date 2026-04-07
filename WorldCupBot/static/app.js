@@ -5794,15 +5794,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function winnerSideForFixture(fixture, winnersMap) {
-    const rec = winnersMap && fixture?.id ? winnersMap[fixture.id] : null;
-    const recWinner = String(rec?.winner_side || rec?.winner || '').toLowerCase();
-    if (recWinner === 'home' || recWinner === 'away' || recWinner === 'draw') return recWinner;
-    const hs = parseScore(fixture?.home_score);
-    const as = parseScore(fixture?.away_score);
-    if (hs === null || as === null) return '';
-    if (hs > as) return 'home';
-    if (as > hs) return 'away';
-    return 'draw';
+    // Knockout auto-progression should be controlled by declared Match Votes winners.
+    // Do not infer winners from scorelines here.
+    if (!winnersMap || typeof winnersMap !== 'object') return '';
+    const fid = String(fixture?.id || '').trim();
+    const matchNo = parseMatchNumber(fid);
+    const candidateKeys = [fid];
+    if (Number.isFinite(matchNo)) {
+      candidateKeys.push(String(matchNo), `Match ${matchNo}`);
+    }
+    for (const key of candidateKeys) {
+      if (!key) continue;
+      const rec = winnersMap[key];
+      const recWinner = String(rec?.winner_side || rec?.winner || '').toLowerCase();
+      if (recWinner === 'home' || recWinner === 'away' || recWinner === 'draw') {
+        return recWinner;
+      }
+    }
+    return '';
   }
 
   function ensureSlotPath(slots, stage, side) {
