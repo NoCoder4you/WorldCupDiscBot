@@ -5786,8 +5786,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function parseMatchNumber(raw) {
     const text = String(raw || '').trim();
     if (!text) return null;
-    // Accept only explicit match-number formats so IDs like
-    // "BRKT-R32-L1-..." don't get misread as match 32.
+
     if (/^\d{1,3}$/.test(text)) return Number(text);
     const m = text.match(/^match\s*#?\s*(\d{1,3})$/i);
     if (!m) return null;
