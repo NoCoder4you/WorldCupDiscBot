@@ -6519,7 +6519,8 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="fan-vs">vs</div>
           <div class="fan-team">
-            ${flagImg(f.away_iso)} <span class="fan-team-name">${f.away}</span>
+            <!-- Keep away-team flag on the outer edge so both teams visually point toward "vs". -->
+            <span class="fan-team-name">${f.away}</span> ${flagImg(f.away_iso)}
           </div>
         </div>
 

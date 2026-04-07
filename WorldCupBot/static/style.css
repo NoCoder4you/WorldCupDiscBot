@@ -3827,6 +3827,16 @@ select.select-dark:disabled {
   gap: 8px;
 }
 
+/* Pull each side of the matchup toward the center "vs" column for better visual balance. */
+.fan-head .fan-team:first-child {
+  justify-content: flex-end;
+}
+
+/* Keep the home team label readable when it truncates by anchoring text toward the center. */
+.fan-head .fan-team:first-child .fan-team-name {
+  text-align: right;
+}
+
 .fan-team-name {
   white-space: nowrap;
   overflow: hidden;
