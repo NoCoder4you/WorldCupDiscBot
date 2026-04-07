@@ -5780,6 +5780,237 @@ document.addEventListener('DOMContentLoaded', () => {
     return list;
   }
 
+  // --- Knockout auto-progression (Round of 16 onward) ---
+  // This computes derived bracket slot teams from prior match winners.
+  // Manual admin-edited slot values remain authoritative and are not overwritten.
+  function parseMatchNumber(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return null;
+    // Accept only explicit match-number formats so IDs like
+    // "BRKT-R32-L1-..." don't get misread as match 32.
+    if (/^\d{1,3}$/.test(text)) return Number(text);
+    const m = text.match(/^match\s*#?\s*(\d{1,3})$/i);
+    if (!m) return null;
+    return Number(m[1]);
+  }
+
+  function winnerSideForFixture(fixture, winnersMap) {
+    // Knockout auto-progression should be controlled by declared Match Votes winners.
+    // Do not infer winners from scorelines here.
+    if (!winnersMap || typeof winnersMap !== 'object') return '';
+    const fid = String(fixture?.id || '').trim();
+    const matchNo = parseMatchNumber(fid);
+    const candidateKeys = [fid];
+    if (Number.isFinite(matchNo)) {
+      candidateKeys.push(String(matchNo), `Match ${matchNo}`);
+    }
+    for (const key of candidateKeys) {
+      if (!key) continue;
+      const rec = winnersMap[key];
+      const recWinner = String(rec?.winner_side || rec?.winner || '').toLowerCase();
+      if (recWinner === 'home' || recWinner === 'away' || recWinner === 'draw') {
+        return recWinner;
+      }
+    }
+    return '';
+  }
+
+  function ensureSlotPath(slots, stage, side) {
+    if (!slots[stage] || typeof slots[stage] !== 'object') slots[stage] = {};
+    if (!slots[stage][side] || typeof slots[stage][side] !== 'object') slots[stage][side] = {};
+    return slots[stage][side];
+  }
+
+  function autoProgressionSlots(fixtures, winnersMap, currentSlots) {
+    const byMatchNumber = new Map();
+    const fixturesById = new Map();
+    (Array.isArray(fixtures) ? fixtures : []).forEach((fixture) => {
+      const fid = String(fixture?.id || '').trim();
+      if (fid) fixturesById.set(fid, fixture);
+      // Some feeds use `id`, others may expose a separate match-number key.
+      const matchNo = parseMatchNumber(fixture?.id)
+        ?? parseMatchNumber(fixture?.match_id)
+        ?? parseMatchNumber(fixture?.match);
+      if (!Number.isFinite(matchNo)) return;
+      byMatchNumber.set(matchNo, fixture);
+    });
+
+    const targetMeta = {
+      89: { stage: 'Round of 16', side: 'left', slot: 1 },
+      90: { stage: 'Round of 16', side: 'left', slot: 2 },
+      91: { stage: 'Round of 16', side: 'left', slot: 3 },
+      92: { stage: 'Round of 16', side: 'left', slot: 4 },
+      93: { stage: 'Round of 16', side: 'right', slot: 1 },
+      94: { stage: 'Round of 16', side: 'right', slot: 2 },
+      95: { stage: 'Round of 16', side: 'right', slot: 3 },
+      96: { stage: 'Round of 16', side: 'right', slot: 4 },
+      97: { stage: 'Quarter-finals', side: 'left', slot: 1 },
+      98: { stage: 'Quarter-finals', side: 'left', slot: 2 },
+      99: { stage: 'Quarter-finals', side: 'right', slot: 1 },
+      100: { stage: 'Quarter-finals', side: 'right', slot: 2 },
+      101: { stage: 'Semi-finals', side: 'left', slot: 1 },
+      102: { stage: 'Semi-finals', side: 'right', slot: 1 },
+      103: { stage: 'Third Place Play-off', side: 'center', slot: 1 },
+      104: { stage: 'Final', side: 'center', slot: 1 },
+    };
+
+    const progression = [
+      { target: 89, homeFrom: 74, awayFrom: 77 },
+      { target: 90, homeFrom: 73, awayFrom: 75 },
+      { target: 91, homeFrom: 76, awayFrom: 78 },
+      { target: 92, homeFrom: 79, awayFrom: 80 },
+      { target: 93, homeFrom: 83, awayFrom: 84 },
+      { target: 94, homeFrom: 81, awayFrom: 82 },
+      { target: 95, homeFrom: 86, awayFrom: 88 },
+      { target: 96, homeFrom: 85, awayFrom: 87 },
+      { target: 97, homeFrom: 89, awayFrom: 90 },
+      { target: 98, homeFrom: 93, awayFrom: 94 },
+      { target: 99, homeFrom: 91, awayFrom: 92 },
+      { target: 100, homeFrom: 95, awayFrom: 96 },
+      { target: 101, homeFrom: 97, awayFrom: 98 },
+      { target: 102, homeFrom: 99, awayFrom: 100 },
+      // Third-place play-off takes semi-final losers.
+      { target: 103, homeLoserFrom: 101, awayLoserFrom: 102 },
+      { target: 104, homeFrom: 101, awayFrom: 102 },
+    ];
+
+    const winnerLoserTeams = (matchNo) => {
+      const fixture = byMatchNumber.get(matchNo);
+      if (!fixture) return { winner: '', loser: '' };
+      const side = winnerSideForFixture(fixture, winnersMap);
+      const home = String(fixture.home || '').trim();
+      const away = String(fixture.away || '').trim();
+      if (side === 'home') return { winner: home, loser: away };
+      if (side === 'away') return { winner: away, loser: home };
+      return { winner: '', loser: '' };
+    };
+
+    const merged = (currentSlots && typeof currentSlots === 'object')
+      ? JSON.parse(JSON.stringify(currentSlots))
+      : {};
+
+    progression.forEach((rule) => {
+      const meta = targetMeta[rule.target];
+      if (!meta) return;
+      const home = Number.isFinite(rule.homeFrom)
+        ? winnerLoserTeams(rule.homeFrom).winner
+        : (Number.isFinite(rule.homeLoserFrom) ? winnerLoserTeams(rule.homeLoserFrom).loser : '');
+      const away = Number.isFinite(rule.awayFrom)
+        ? winnerLoserTeams(rule.awayFrom).winner
+        : (Number.isFinite(rule.awayLoserFrom) ? winnerLoserTeams(rule.awayLoserFrom).loser : '');
+      if (!home && !away) return;
+      const sideSlots = ensureSlotPath(merged, meta.stage, meta.side);
+      const key = String(meta.slot);
+      const existing = (sideSlots[key] && typeof sideSlots[key] === 'object') ? sideSlots[key] : {};
+      const targetFixture = byMatchNumber.get(rule.target);
+      const canonicalMatchId = String(targetFixture?.id || '').trim();
+      const existingMatchId = String(existing.match_id || existing.matchId || '').trim();
+
+      // Preserve manual/admin-authored values when present; only fill blanks.
+      const nextSlot = {
+        ...existing,
+        home: String(existing.home || '').trim() || home || '',
+        away: String(existing.away || '').trim() || away || '',
+      };
+      // Only stamp match_id when we can align to a known fixture ID format.
+      // Avoid synthetic "Match N" IDs because stage lookup uses exact fixture.id.
+      if (existingMatchId) {
+        nextSlot.match_id = existingMatchId;
+      } else if (canonicalMatchId) {
+        nextSlot.match_id = canonicalMatchId;
+      }
+      sideSlots[key] = nextSlot;
+    });
+
+    // Fallback progression by bracket structure (stage/side/slot) so environments
+    // that use non-numeric fixture IDs can still advance teams.
+    const slotRules = [
+      // Round of 32 -> Round of 16 (left)
+      { from: ['Round of 32', 'left', 1, 'winner'], to: ['Round of 16', 'left', 1, 'home'] },
+      { from: ['Round of 32', 'left', 2, 'winner'], to: ['Round of 16', 'left', 1, 'away'] },
+      { from: ['Round of 32', 'left', 3, 'winner'], to: ['Round of 16', 'left', 2, 'home'] },
+      { from: ['Round of 32', 'left', 4, 'winner'], to: ['Round of 16', 'left', 2, 'away'] },
+      { from: ['Round of 32', 'left', 5, 'winner'], to: ['Round of 16', 'left', 3, 'home'] },
+      { from: ['Round of 32', 'left', 6, 'winner'], to: ['Round of 16', 'left', 3, 'away'] },
+      { from: ['Round of 32', 'left', 7, 'winner'], to: ['Round of 16', 'left', 4, 'home'] },
+      { from: ['Round of 32', 'left', 8, 'winner'], to: ['Round of 16', 'left', 4, 'away'] },
+      // Round of 32 -> Round of 16 (right)
+      { from: ['Round of 32', 'right', 1, 'winner'], to: ['Round of 16', 'right', 1, 'home'] },
+      { from: ['Round of 32', 'right', 2, 'winner'], to: ['Round of 16', 'right', 1, 'away'] },
+      { from: ['Round of 32', 'right', 3, 'winner'], to: ['Round of 16', 'right', 2, 'home'] },
+      { from: ['Round of 32', 'right', 4, 'winner'], to: ['Round of 16', 'right', 2, 'away'] },
+      { from: ['Round of 32', 'right', 5, 'winner'], to: ['Round of 16', 'right', 3, 'home'] },
+      { from: ['Round of 32', 'right', 6, 'winner'], to: ['Round of 16', 'right', 3, 'away'] },
+      { from: ['Round of 32', 'right', 7, 'winner'], to: ['Round of 16', 'right', 4, 'home'] },
+      { from: ['Round of 32', 'right', 8, 'winner'], to: ['Round of 16', 'right', 4, 'away'] },
+      // Round of 16 -> Quarter-finals
+      { from: ['Round of 16', 'left', 1, 'winner'], to: ['Quarter-finals', 'left', 1, 'home'] },
+      { from: ['Round of 16', 'left', 2, 'winner'], to: ['Quarter-finals', 'left', 1, 'away'] },
+      { from: ['Round of 16', 'left', 3, 'winner'], to: ['Quarter-finals', 'left', 2, 'home'] },
+      { from: ['Round of 16', 'left', 4, 'winner'], to: ['Quarter-finals', 'left', 2, 'away'] },
+      { from: ['Round of 16', 'right', 1, 'winner'], to: ['Quarter-finals', 'right', 1, 'home'] },
+      { from: ['Round of 16', 'right', 2, 'winner'], to: ['Quarter-finals', 'right', 1, 'away'] },
+      { from: ['Round of 16', 'right', 3, 'winner'], to: ['Quarter-finals', 'right', 2, 'home'] },
+      { from: ['Round of 16', 'right', 4, 'winner'], to: ['Quarter-finals', 'right', 2, 'away'] },
+      // Quarter-finals -> Semi-finals
+      { from: ['Quarter-finals', 'left', 1, 'winner'], to: ['Semi-finals', 'left', 1, 'home'] },
+      { from: ['Quarter-finals', 'left', 2, 'winner'], to: ['Semi-finals', 'left', 1, 'away'] },
+      { from: ['Quarter-finals', 'right', 1, 'winner'], to: ['Semi-finals', 'right', 1, 'home'] },
+      { from: ['Quarter-finals', 'right', 2, 'winner'], to: ['Semi-finals', 'right', 1, 'away'] },
+      // Semi-finals -> Final + Third Place
+      { from: ['Semi-finals', 'left', 1, 'winner'], to: ['Final', 'center', 1, 'home'] },
+      { from: ['Semi-finals', 'right', 1, 'winner'], to: ['Final', 'center', 1, 'away'] },
+      { from: ['Semi-finals', 'left', 1, 'loser'], to: ['Third Place Play-off', 'center', 1, 'home'] },
+      { from: ['Semi-finals', 'right', 1, 'loser'], to: ['Third Place Play-off', 'center', 1, 'away'] },
+    ];
+
+    const slotFixture = (stage, side, slot) => {
+      const cfg = merged?.[stage]?.[side]?.[String(slot)] || {};
+      const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+      if (matchId && fixturesById.has(matchId)) return fixturesById.get(matchId);
+      const expectedStage = normalizeStage(stage) || stage;
+      const teamA = String(cfg.home || '').trim();
+      const teamB = String(cfg.away || '').trim();
+      return (Array.isArray(fixtures) ? fixtures : []).find((f) => {
+        if (!f || normalizeStage(f.stage || '') !== expectedStage) return false;
+        if (Number(f.bracket_slot) !== Number(slot)) return false;
+        if (teamA && teamB) {
+          const fh = String(f.home || '').trim();
+          const fa = String(f.away || '').trim();
+          return (fh === teamA && fa === teamB) || (fh === teamB && fa === teamA);
+        }
+        return true;
+      }) || null;
+    };
+
+    const slotTeam = (stage, side, slot, kind) => {
+      const fx = slotFixture(stage, side, slot);
+      if (!fx) return '';
+      const winner = winnerSideForFixture(fx, winnersMap);
+      const home = String(fx.home || '').trim();
+      const away = String(fx.away || '').trim();
+      if (winner === 'home') return kind === 'winner' ? home : away;
+      if (winner === 'away') return kind === 'winner' ? away : home;
+      return '';
+    };
+
+    slotRules.forEach((rule) => {
+      const [fs, fside, fslot, fkind] = rule.from;
+      const [ts, tside, tslot, pos] = rule.to;
+      const team = slotTeam(fs, fside, fslot, fkind);
+      if (!team) return;
+      const sideSlots = ensureSlotPath(merged, ts, tside);
+      const slotKey = String(tslot);
+      const existing = (sideSlots[slotKey] && typeof sideSlots[slotKey] === 'object') ? sideSlots[slotKey] : {};
+      const next = { ...existing };
+      if (pos === 'home' && !String(existing.home || '').trim()) next.home = team;
+      if (pos === 'away' && !String(existing.away || '').trim()) next.away = team;
+      sideSlots[slotKey] = next;
+    });
+
+    return merged;
+  }
+
   function matchCard(f, opts = {}){
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
@@ -6090,7 +6321,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateResultsView();
     ensureSummaryToggle();
     ensureResultsToggle();
-    renderBracket(bracketHost, fixtures, bracketSlots);
+    const resolvedSlots = autoProgressionSlots(fixtures, winners, bracketSlots);
+    renderBracket(bracketHost, fixtures, resolvedSlots);
     updateFixturesTimes();
   }
 

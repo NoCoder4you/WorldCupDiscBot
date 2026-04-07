@@ -1999,6 +1999,190 @@ def create_admin_routes(ctx):
         data['events'] = events[:500]
         _write_json_atomic(path, data)
 
+    def _match_no(raw) -> int | None:
+        text = str(raw or "").strip()
+        if not text:
+            return None
+        if re.fullmatch(r"\d{1,3}", text):
+            return int(text)
+        m = re.fullmatch(r"match\s*#?\s*(\d{1,3})", text, flags=re.IGNORECASE)
+        if not m:
+            return None
+        return int(m.group(1))
+
+    def _winner_record_for_fixture(winners_map: dict, fixture: dict, match_no: int | None) -> dict:
+        if not isinstance(winners_map, dict):
+            return {}
+        fid = str((fixture or {}).get("id") or (fixture or {}).get("fixture_id") or "").strip()
+        keys = [fid]
+        if isinstance(match_no, int):
+            keys.extend([str(match_no), f"Match {match_no}"])
+        for key in keys:
+            if not key:
+                continue
+            rec = winners_map.get(key)
+            if isinstance(rec, dict):
+                return rec
+        return {}
+
+    def _auto_create_progression_matches():
+        """Create downstream knockout matches once both participant teams are known via declared winners."""
+        progression = [
+            {"target": 89, "home_from": 74, "away_from": 77},
+            {"target": 90, "home_from": 73, "away_from": 75},
+            {"target": 91, "home_from": 76, "away_from": 78},
+            {"target": 92, "home_from": 79, "away_from": 80},
+            {"target": 93, "home_from": 83, "away_from": 84},
+            {"target": 94, "home_from": 81, "away_from": 82},
+            {"target": 95, "home_from": 86, "away_from": 88},
+            {"target": 96, "home_from": 85, "away_from": 87},
+            {"target": 97, "home_from": 89, "away_from": 90},
+            {"target": 98, "home_from": 93, "away_from": 94},
+            {"target": 99, "home_from": 91, "away_from": 92},
+            {"target": 100, "home_from": 95, "away_from": 96},
+            {"target": 101, "home_from": 97, "away_from": 98},
+            {"target": 102, "home_from": 99, "away_from": 100},
+            {"target": 103, "home_loser_from": 101, "away_loser_from": 102},
+            {"target": 104, "home_from": 101, "away_from": 102},
+        ]
+        target_meta = {
+            89: {"stage": "Round of 16", "side": "left", "slot": 1},
+            90: {"stage": "Round of 16", "side": "left", "slot": 2},
+            91: {"stage": "Round of 16", "side": "left", "slot": 3},
+            92: {"stage": "Round of 16", "side": "left", "slot": 4},
+            93: {"stage": "Round of 16", "side": "right", "slot": 1},
+            94: {"stage": "Round of 16", "side": "right", "slot": 2},
+            95: {"stage": "Round of 16", "side": "right", "slot": 3},
+            96: {"stage": "Round of 16", "side": "right", "slot": 4},
+            97: {"stage": "Quarter-finals", "side": "left", "slot": 1},
+            98: {"stage": "Quarter-finals", "side": "left", "slot": 2},
+            99: {"stage": "Quarter-finals", "side": "right", "slot": 1},
+            100: {"stage": "Quarter-finals", "side": "right", "slot": 2},
+            101: {"stage": "Semi-finals", "side": "left", "slot": 1},
+            102: {"stage": "Semi-finals", "side": "right", "slot": 1},
+            103: {"stage": "Third Place Play-off", "side": "center", "slot": 1},
+            104: {"stage": "Final", "side": "center", "slot": 1},
+        }
+
+        winners_map = _read_json(_path(ctx, "fan_winners.json"), {})
+        if not isinstance(winners_map, dict):
+            winners_map = {}
+
+        container, fixtures, key = _load_matches_payload()
+        fixtures = fixtures if isinstance(fixtures, list) else []
+
+        by_match_no: dict[int, dict] = {}
+        for f in fixtures:
+            if not isinstance(f, dict):
+                continue
+            m_no = _match_no(f.get("id")) or _match_no(f.get("fixture_id"))
+            if isinstance(m_no, int):
+                by_match_no[m_no] = f
+
+        def winner_loser(match_no: int) -> tuple[str, str]:
+            fx = by_match_no.get(match_no)
+            if not isinstance(fx, dict):
+                return "", ""
+            rec = _winner_record_for_fixture(winners_map, fx, match_no)
+            side = str(rec.get("winner_side") or rec.get("winner") or "").strip().lower()
+            home = str(fx.get("home") or "").strip()
+            away = str(fx.get("away") or "").strip()
+            if side == "home":
+                return home, away
+            if side == "away":
+                return away, home
+            return "", ""
+
+        slots = _read_json(_bracket_slots_path(ctx), {})
+        if not isinstance(slots, dict):
+            slots = {}
+
+        changed_slots = False
+        changed_fixtures = False
+
+        for rule in progression:
+            target = int(rule["target"])
+            meta = target_meta.get(target) or {}
+            stage = str(meta.get("stage") or "").strip()
+            side = str(meta.get("side") or "center").strip()
+            slot = int(meta.get("slot") or 1)
+            if not stage:
+                continue
+
+            home = ""
+            away = ""
+            if "home_from" in rule:
+                home, _ = winner_loser(int(rule["home_from"]))
+            elif "home_loser_from" in rule:
+                _, home = winner_loser(int(rule["home_loser_from"]))
+            if "away_from" in rule:
+                away, _ = winner_loser(int(rule["away_from"]))
+            elif "away_loser_from" in rule:
+                _, away = winner_loser(int(rule["away_loser_from"]))
+            if not home or not away:
+                continue
+
+            stage_slots = slots.get(stage)
+            if not isinstance(stage_slots, dict):
+                stage_slots = {}
+            side_slots = stage_slots.get(side)
+            if not isinstance(side_slots, dict):
+                side_slots = {}
+            slot_key = str(slot)
+            slot_entry = side_slots.get(slot_key)
+            if not isinstance(slot_entry, dict):
+                slot_entry = {}
+
+            next_entry = {
+                **slot_entry,
+                "match_id": str(slot_entry.get("match_id") or "").strip() or str(target),
+                "home": home,
+                "away": away,
+            }
+            if next_entry != slot_entry:
+                side_slots[slot_key] = next_entry
+                stage_slots[side] = side_slots
+                slots[stage] = stage_slots
+                changed_slots = True
+
+            target_fx = by_match_no.get(target)
+            if isinstance(target_fx, dict):
+                if (
+                    str(target_fx.get("home") or "").strip() != home
+                    or str(target_fx.get("away") or "").strip() != away
+                    or normalize_stage(str(target_fx.get("stage") or "")) != stage
+                ):
+                    target_fx["home"] = home
+                    target_fx["away"] = away
+                    target_fx["stage"] = stage
+                    target_fx["bracket_slot"] = slot
+                    changed_fixtures = True
+            else:
+                new_fixture = {
+                    "id": str(target),
+                    "home": home,
+                    "away": away,
+                    "utc": "",
+                    "time": "",
+                    "stadium": "",
+                    "group": "",
+                    "stage": stage,
+                    "bracket_slot": slot,
+                }
+                fixtures.append(new_fixture)
+                by_match_no[target] = new_fixture
+                changed_fixtures = True
+
+        if changed_slots:
+            _write_json_atomic(_bracket_slots_path(ctx), slots)
+        if changed_fixtures:
+            if container is None:
+                _write_json_atomic(_matches_path(ctx), fixtures)
+            else:
+                if key:
+                    container[key] = fixtures
+                _write_json_atomic(_matches_path(ctx), container)
+
     @bp.post("/admin/fanzone/declare")
     def fanzone_declare_winner():
         resp = require_admin()
@@ -2090,6 +2274,7 @@ def create_admin_routes(ctx):
         for aid in alias_ids:
             winners[aid] = rec  # alias lock
         _write_json_atomic(winners_path, winners)
+        _auto_create_progression_matches()
 
         # Snapshot votes at declare-time for fairness/audit
         votes_path = _fanzone_votes_path(ctx)
