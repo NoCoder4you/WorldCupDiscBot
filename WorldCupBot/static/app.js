@@ -5780,6 +5780,126 @@ document.addEventListener('DOMContentLoaded', () => {
     return list;
   }
 
+  // --- Knockout auto-progression (Round of 16 onward) ---
+  // This computes derived bracket slot teams from prior match winners.
+  // Manual admin-edited slot values remain authoritative and are not overwritten.
+  function parseMatchNumber(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return null;
+    const direct = Number(text);
+    if (Number.isFinite(direct)) return direct;
+    const m = text.match(/\b(?:match\s*)?(\d{2,3})\b/i);
+    if (!m) return null;
+    const num = Number(m[1]);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function winnerSideForFixture(fixture, winnersMap) {
+    const rec = winnersMap && fixture?.id ? winnersMap[fixture.id] : null;
+    const recWinner = String(rec?.winner_side || rec?.winner || '').toLowerCase();
+    if (recWinner === 'home' || recWinner === 'away' || recWinner === 'draw') return recWinner;
+    const hs = parseScore(fixture?.home_score);
+    const as = parseScore(fixture?.away_score);
+    if (hs === null || as === null) return '';
+    if (hs > as) return 'home';
+    if (as > hs) return 'away';
+    return 'draw';
+  }
+
+  function ensureSlotPath(slots, stage, side) {
+    if (!slots[stage] || typeof slots[stage] !== 'object') slots[stage] = {};
+    if (!slots[stage][side] || typeof slots[stage][side] !== 'object') slots[stage][side] = {};
+    return slots[stage][side];
+  }
+
+  function autoProgressionSlots(fixtures, winnersMap, currentSlots) {
+    const byMatchNumber = new Map();
+    (Array.isArray(fixtures) ? fixtures : []).forEach((fixture) => {
+      const matchNo = parseMatchNumber(fixture?.id);
+      if (!Number.isFinite(matchNo)) return;
+      byMatchNumber.set(matchNo, fixture);
+    });
+
+    const targetMeta = {
+      89: { stage: 'Round of 16', side: 'left', slot: 1 },
+      90: { stage: 'Round of 16', side: 'left', slot: 2 },
+      91: { stage: 'Round of 16', side: 'left', slot: 3 },
+      92: { stage: 'Round of 16', side: 'left', slot: 4 },
+      93: { stage: 'Round of 16', side: 'right', slot: 1 },
+      94: { stage: 'Round of 16', side: 'right', slot: 2 },
+      95: { stage: 'Round of 16', side: 'right', slot: 3 },
+      96: { stage: 'Round of 16', side: 'right', slot: 4 },
+      97: { stage: 'Quarter-finals', side: 'left', slot: 1 },
+      98: { stage: 'Quarter-finals', side: 'left', slot: 2 },
+      99: { stage: 'Quarter-finals', side: 'right', slot: 1 },
+      100: { stage: 'Quarter-finals', side: 'right', slot: 2 },
+      101: { stage: 'Semi-finals', side: 'left', slot: 1 },
+      102: { stage: 'Semi-finals', side: 'right', slot: 1 },
+      103: { stage: 'Third Place Play-off', side: 'center', slot: 1 },
+      104: { stage: 'Final', side: 'center', slot: 1 },
+    };
+
+    const progression = [
+      { target: 89, homeFrom: 74, awayFrom: 77 },
+      { target: 90, homeFrom: 73, awayFrom: 75 },
+      { target: 91, homeFrom: 76, awayFrom: 78 },
+      { target: 92, homeFrom: 79, awayFrom: 80 },
+      { target: 93, homeFrom: 83, awayFrom: 84 },
+      { target: 94, homeFrom: 81, awayFrom: 82 },
+      { target: 95, homeFrom: 86, awayFrom: 88 },
+      { target: 96, homeFrom: 85, awayFrom: 87 },
+      { target: 97, homeFrom: 89, awayFrom: 90 },
+      { target: 98, homeFrom: 93, awayFrom: 94 },
+      { target: 99, homeFrom: 91, awayFrom: 92 },
+      { target: 100, homeFrom: 95, awayFrom: 96 },
+      { target: 101, homeFrom: 97, awayFrom: 98 },
+      { target: 102, homeFrom: 99, awayFrom: 100 },
+      // Third-place play-off takes semi-final losers.
+      { target: 103, homeLoserFrom: 101, awayLoserFrom: 102 },
+      { target: 104, homeFrom: 101, awayFrom: 102 },
+    ];
+
+    const winnerLoserTeams = (matchNo) => {
+      const fixture = byMatchNumber.get(matchNo);
+      if (!fixture) return { winner: '', loser: '' };
+      const side = winnerSideForFixture(fixture, winnersMap);
+      const home = String(fixture.home || '').trim();
+      const away = String(fixture.away || '').trim();
+      if (side === 'home') return { winner: home, loser: away };
+      if (side === 'away') return { winner: away, loser: home };
+      return { winner: '', loser: '' };
+    };
+
+    const merged = (currentSlots && typeof currentSlots === 'object')
+      ? JSON.parse(JSON.stringify(currentSlots))
+      : {};
+
+    progression.forEach((rule) => {
+      const meta = targetMeta[rule.target];
+      if (!meta) return;
+      const home = Number.isFinite(rule.homeFrom)
+        ? winnerLoserTeams(rule.homeFrom).winner
+        : (Number.isFinite(rule.homeLoserFrom) ? winnerLoserTeams(rule.homeLoserFrom).loser : '');
+      const away = Number.isFinite(rule.awayFrom)
+        ? winnerLoserTeams(rule.awayFrom).winner
+        : (Number.isFinite(rule.awayLoserFrom) ? winnerLoserTeams(rule.awayLoserFrom).loser : '');
+      if (!home && !away) return;
+      const sideSlots = ensureSlotPath(merged, meta.stage, meta.side);
+      const key = String(meta.slot);
+      const existing = (sideSlots[key] && typeof sideSlots[key] === 'object') ? sideSlots[key] : {};
+
+      // Preserve manual/admin-authored values when present; only fill blanks.
+      sideSlots[key] = {
+        ...existing,
+        match_id: String(existing.match_id || existing.matchId || '').trim() || `Match ${rule.target}`,
+        home: String(existing.home || '').trim() || home || '',
+        away: String(existing.away || '').trim() || away || '',
+      };
+    });
+
+    return merged;
+  }
+
   function matchCard(f, opts = {}){
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
@@ -6090,7 +6210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateResultsView();
     ensureSummaryToggle();
     ensureResultsToggle();
-    renderBracket(bracketHost, fixtures, bracketSlots);
+    const resolvedSlots = autoProgressionSlots(fixtures, winners, bracketSlots);
+    renderBracket(bracketHost, fixtures, resolvedSlots);
     updateFixturesTimes();
   }
 
