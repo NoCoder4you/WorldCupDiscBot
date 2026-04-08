@@ -5734,6 +5734,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // Fixtures may store bracket position either as:
+  //   - numeric `bracket_slot` (legacy), or
+  //   - object `{ side, slot }` (newer data model).
+  // These helpers normalize both formats for rendering + auto-progression.
+  function fixtureSlotNumber(fixture) {
+    if (!fixture || typeof fixture !== 'object') return NaN;
+    const raw = fixture.bracket_slot;
+    if (raw && typeof raw === 'object') return Number(raw.slot);
+    return Number(raw ?? fixture.slot ?? fixture.bracket);
+  }
+
+  function fixtureSlotSide(fixture) {
+    if (!fixture || typeof fixture !== 'object') return '';
+    const raw = fixture.bracket_slot;
+    if (raw && typeof raw === 'object') return String(raw.side || '').toLowerCase();
+    return '';
+  }
+
   function stageMatches(fixtures, stage, expected, slotConfig, forceSlots = false){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
     const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
@@ -5769,8 +5787,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     list.sort((a, b) => {
-      const aSlot = Number(a.bracket_slot);
-      const bSlot = Number(b.bracket_slot);
+      const aSlot = fixtureSlotNumber(a);
+      const bSlot = fixtureSlotNumber(b);
       if (Number.isFinite(aSlot) && Number.isFinite(bSlot) && aSlot !== bSlot) return aSlot - bSlot;
       if (Number.isFinite(aSlot) && !Number.isFinite(bSlot)) return -1;
       if (!Number.isFinite(aSlot) && Number.isFinite(bSlot)) return 1;
@@ -5979,7 +5997,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const teamB = String(cfg.away || '').trim();
       return (Array.isArray(fixtures) ? fixtures : []).find((f) => {
         if (!f || normalizeStage(f.stage || '') !== expectedStage) return false;
-        if (Number(f.bracket_slot) !== Number(slot)) return false;
+        if (fixtureSlotNumber(f) !== Number(slot)) return false;
+        if (side && fixtureSlotSide(f) && fixtureSlotSide(f) !== String(side).toLowerCase()) return false;
         if (teamA && teamB) {
           const fh = String(f.home || '').trim();
           const fa = String(f.away || '').trim();
@@ -6054,7 +6073,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function attachSlotIds(list, stage, side) {
     return list.map((match, idx) => {
-      const slot = Number(match.bracket_slot) || (idx + 1);
+      const slot = fixtureSlotNumber(match) || (idx + 1);
       if (!match._slot_id) {
         match._slot_id = buildSlotId(stage, side, slot);
       }
