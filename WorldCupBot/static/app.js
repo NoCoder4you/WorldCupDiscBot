@@ -5772,8 +5772,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
-          match.home = match.home || home || 'TBD';
-          match.away = match.away || away || 'TBD';
+          // Keep resolved slot teams visible even when fixture feeds still carry
+          // placeholder labels like "TBD" for downstream knockout rounds.
+          match.home = isUnresolvedSlotTeam(match.home) ? (home || 'TBD') : match.home;
+          match.away = isUnresolvedSlotTeam(match.away) ? (away || 'TBD') : match.away;
         }
         out.push(match);
       }
