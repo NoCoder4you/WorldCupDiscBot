@@ -574,5 +574,389 @@
     "utc": "2026-06-28T02:00:00Z",
     "stadium": "Dallas Stadium",
     "group": "J"
+  },
+  {
+    "id": "M73",
+    "home": "2A",
+    "away": "2B",
+    "utc": "2026-06-28T19:00:00Z",
+    "stadium": "Los Angeles Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M74",
+    "home": "1E",
+    "away": "3ABCDF",
+    "utc": "2026-06-29T20:30:00Z",
+    "stadium": "Boston Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 2
+    }
+  },
+  {
+    "id": "M75",
+    "home": "1F",
+    "away": "2C",
+    "utc": "2026-06-30T01:00:00Z",
+    "stadium": "Monterrey Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 3
+    }
+  },
+  {
+    "id": "M76",
+    "home": "1C",
+    "away": "2F",
+    "utc": "2026-06-29T17:00:00Z",
+    "stadium": "Houston Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 4
+    }
+  },
+  {
+    "id": "M77",
+    "home": "1I",
+    "away": "3CDFGH",
+    "utc": "2026-06-30T21:00:00Z",
+    "stadium": "New York New Jersey Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 5
+    }
+  },
+  {
+    "id": "M78",
+    "home": "2E",
+    "away": "2I",
+    "utc": "2026-06-30T17:00:00Z",
+    "stadium": "Dallas Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 6
+    }
+  },
+  {
+    "id": "M79",
+    "home": "1A",
+    "away": "3CEFHI",
+    "utc": "2026-07-01T01:00:00Z",
+    "stadium": "Mexico City Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 7
+    }
+  },
+  {
+    "id": "M80",
+    "home": "1L",
+    "away": "3EHIJK",
+    "utc": "2026-07-01T16:00:00Z",
+    "stadium": "Atlanta Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 8
+    }
+  },
+  {
+    "id": "M81",
+    "home": "1D",
+    "away": "3BEFIJ",
+    "utc": "2026-07-02T00:00:00Z",
+    "stadium": "San Francisco Bay Area Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M82",
+    "home": "1G",
+    "away": "3AEHIJ",
+    "utc": "2026-07-01T20:00:00Z",
+    "stadium": "Seattle Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 2
+    }
+  },
+  {
+    "id": "M83",
+    "home": "2K",
+    "away": "2L",
+    "utc": "2026-07-02T23:00:00Z",
+    "stadium": "Toronto Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 3
+    }
+  },
+  {
+    "id": "M84",
+    "home": "1H",
+    "away": "2J",
+    "utc": "2026-07-02T19:00:00Z",
+    "stadium": "Los Angeles Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 4
+    }
+  },
+  {
+    "id": "M85",
+    "home": "1B",
+    "away": "3EFGIJ",
+    "utc": "2026-07-03T03:00:00Z",
+    "stadium": "BC Place Vancouver",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 5
+    }
+  },
+  {
+    "id": "M86",
+    "home": "1J",
+    "away": "2H",
+    "utc": "2026-07-03T22:00:00Z",
+    "stadium": "Miami Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 6
+    }
+  },
+  {
+    "id": "M87",
+    "home": "1K",
+    "away": "3DEIJL",
+    "utc": "2026-07-04T01:30:00Z",
+    "stadium": "Kansas City Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 7
+    }
+  },
+  {
+    "id": "M88",
+    "home": "2D",
+    "away": "2G",
+    "utc": "2026-07-03T18:00:00Z",
+    "stadium": "Dallas Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 8
+    }
+  },
+  {
+    "id": "M89",
+    "home": "W74",
+    "away": "W77",
+    "utc": "2026-07-04T21:00:00Z",
+    "stadium": "Philadelphia Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M90",
+    "home": "W73",
+    "away": "W75",
+    "utc": "2026-07-04T17:00:00Z",
+    "stadium": "Houston Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 2
+    }
+  },
+  {
+    "id": "M91",
+    "home": "W76",
+    "away": "W78",
+    "utc": "2026-07-05T20:00:00Z",
+    "stadium": "New York New Jersey Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 3
+    }
+  },
+  {
+    "id": "M92",
+    "home": "W79",
+    "away": "W80",
+    "utc": "2026-07-06T00:00:00Z",
+    "stadium": "Mexico City Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 4
+    }
+  },
+  {
+    "id": "M93",
+    "home": "W83",
+    "away": "W84",
+    "utc": "2026-07-06T19:00:00Z",
+    "stadium": "Dallas Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M94",
+    "home": "W81",
+    "away": "W82",
+    "utc": "2026-07-07T00:00:00Z",
+    "stadium": "Seattle Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 2
+    }
+  },
+  {
+    "id": "M95",
+    "home": "W86",
+    "away": "W88",
+    "utc": "2026-07-07T16:00:00Z",
+    "stadium": "Atlanta Stadium",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 3
+    }
+  },
+  {
+    "id": "M96",
+    "home": "W85",
+    "away": "W87",
+    "utc": "2026-07-07T20:00:00Z",
+    "stadium": "BC Place Vancouver",
+    "stage": "Round of 16",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 4
+    }
+  },
+  {
+    "id": "M97",
+    "home": "W89",
+    "away": "W90",
+    "utc": "2026-07-09T20:00:00Z",
+    "stadium": "Boston Stadium",
+    "stage": "Quarter-finals",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M98",
+    "home": "W93",
+    "away": "W94",
+    "utc": "2026-07-10T19:00:00Z",
+    "stadium": "Los Angeles Stadium",
+    "stage": "Quarter-finals",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 2
+    }
+  },
+  {
+    "id": "M99",
+    "home": "W91",
+    "away": "W92",
+    "utc": "2026-07-11T21:00:00Z",
+    "stadium": "Miami Stadium",
+    "stage": "Quarter-finals",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M100",
+    "home": "W95",
+    "away": "W96",
+    "utc": "2026-07-12T01:00:00Z",
+    "stadium": "Kansas City Stadium",
+    "stage": "Quarter-finals",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 2
+    }
+  },
+  {
+    "id": "M101",
+    "home": "W97",
+    "away": "W98",
+    "utc": "2026-07-14T19:00:00Z",
+    "stadium": "Dallas Stadium",
+    "stage": "Semi-finals",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M102",
+    "home": "W99",
+    "away": "W100",
+    "utc": "2026-07-15T19:00:00Z",
+    "stadium": "Atlanta Stadium",
+    "stage": "Semi-finals",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M103",
+    "home": "Loser 101",
+    "away": "Loser 102",
+    "utc": "2026-07-18T21:00:00Z",
+    "stadium": "Miami Stadium",
+    "stage": "Third Place Play-off",
+    "bracket_slot": {
+      "side": "center",
+      "slot": 1
+    }
+  },
+  {
+    "id": "M104",
+    "home": "Winner 101",
+    "away": "Winner 102",
+    "utc": "2026-07-19T19:00:00Z",
+    "stadium": "New York New Jersey Stadium",
+    "stage": "Final",
+    "bracket_slot": {
+      "side": "center",
+      "slot": 1
+    }
   }
 ]
