@@ -1061,7 +1061,8 @@ body.user-admin-view .dashboard-grid .card {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-align: left;
+    /* Keep country names visually centered in the card while truncating when needed. */
+    text-align: center;
 }
 
 .fixtures-team-record {
