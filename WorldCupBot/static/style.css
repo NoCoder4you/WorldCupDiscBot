@@ -1070,6 +1070,12 @@ body.user-admin-view .dashboard-grid .card {
     text-align: center;
 }
 
+.fixtures-team-name-tight {
+    /* Preserve 13px sizing while slightly narrowing glyph footprint for Bosnia label. */
+    transform: scaleX(0.94);
+    transform-origin: center;
+}
+
 .fixtures-team-record {
     display: grid;
     gap: 6px;
