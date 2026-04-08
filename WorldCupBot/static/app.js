@@ -5734,6 +5734,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // Fixtures may store bracket position either as:
+  //   - numeric `bracket_slot` (legacy), or
+  //   - object `{ side, slot }` (newer data model).
+  // These helpers normalize both formats for rendering + auto-progression.
+  function fixtureSlotNumber(fixture) {
+    if (!fixture || typeof fixture !== 'object') return NaN;
+    const raw = fixture.bracket_slot;
+    if (raw && typeof raw === 'object') return Number(raw.slot);
+    return Number(raw ?? fixture.slot ?? fixture.bracket);
+  }
+
+  function fixtureSlotSide(fixture) {
+    if (!fixture || typeof fixture !== 'object') return '';
+    const raw = fixture.bracket_slot;
+    if (raw && typeof raw === 'object') return String(raw.side || '').toLowerCase();
+    return '';
+  }
+
   function stageMatches(fixtures, stage, expected, slotConfig, forceSlots = false){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
     const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
@@ -5769,8 +5787,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     list.sort((a, b) => {
-      const aSlot = Number(a.bracket_slot);
-      const bSlot = Number(b.bracket_slot);
+      const aSlot = fixtureSlotNumber(a);
+      const bSlot = fixtureSlotNumber(b);
       if (Number.isFinite(aSlot) && Number.isFinite(bSlot) && aSlot !== bSlot) return aSlot - bSlot;
       if (Number.isFinite(aSlot) && !Number.isFinite(bSlot)) return -1;
       if (!Number.isFinite(aSlot) && Number.isFinite(bSlot)) return 1;
@@ -5979,7 +5997,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const teamB = String(cfg.away || '').trim();
       return (Array.isArray(fixtures) ? fixtures : []).find((f) => {
         if (!f || normalizeStage(f.stage || '') !== expectedStage) return false;
-        if (Number(f.bracket_slot) !== Number(slot)) return false;
+        if (fixtureSlotNumber(f) !== Number(slot)) return false;
+        if (side && fixtureSlotSide(f) && fixtureSlotSide(f) !== String(side).toLowerCase()) return false;
         if (teamA && teamB) {
           const fh = String(f.home || '').trim();
           const fa = String(f.away || '').trim();
@@ -6054,7 +6073,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function attachSlotIds(list, stage, side) {
     return list.map((match, idx) => {
-      const slot = Number(match.bracket_slot) || (idx + 1);
+      const slot = fixtureSlotNumber(match) || (idx + 1);
       if (!match._slot_id) {
         match._slot_id = buildSlotId(stage, side, slot);
       }
@@ -6235,6 +6254,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Keep the latest fixtures + admin slot overrides in this module so the
+  // bracket-slot edit modal can preload existing values for the chosen slot.
+  let fixturesCache = [];
+  let bracketSlotsCache = {};
+
   async function loadFixtures(){
     const nextHost = $('#fixtures-next-stage');
     const knockedHost = $('#fixtures-knocked-out');
@@ -6266,6 +6290,8 @@ document.addEventListener('DOMContentLoaded', () => {
       stages = (st && typeof st === 'object') ? st : {};
       winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
       bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
+      fixturesCache = Array.isArray(fixtures) ? fixtures : [];
+      bracketSlotsCache = (bracketSlots && typeof bracketSlots === 'object') ? bracketSlots : {};
       groupByName = buildGroupMap(meta);
       if (iso && typeof iso === 'object') {
         Object.entries(iso).forEach(([team, code]) => {
@@ -6364,6 +6390,7 @@ document.addEventListener('DOMContentLoaded', () => {
     backdrop.style.display = 'flex';
     modal.focus();
     updateSlotFormConstraints();
+    fillSlotFormFromExisting();
   }
 
   function closeSlotModal() {
@@ -6402,6 +6429,81 @@ document.addEventListener('DOMContentLoaded', () => {
       sideEl.disabled = !cfg.side;
       if (!cfg.side) sideEl.value = 'center';
     }
+  }
+
+  function utcToModalDateTime(utcRaw) {
+    const raw = String(utcRaw || '').trim();
+    if (!raw) return { date: '', time: '' };
+    const dt = new Date(raw);
+    if (!Number.isFinite(dt.getTime())) return { date: '', time: '' };
+    const pad = (num) => String(num).padStart(2, '0');
+    return {
+      date: `${pad(dt.getUTCDate())}/${pad(dt.getUTCMonth() + 1)}`,
+      time: `${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}`,
+    };
+  }
+
+  function getCurrentSlotSelection() {
+    const stage = document.getElementById('fixtures-slot-stage')?.value || '';
+    const side = document.getElementById('fixtures-slot-side')?.value || 'center';
+    const slot = Number(document.getElementById('fixtures-slot-number')?.value || '');
+    if (!stage || !Number.isFinite(slot) || slot < 1) return null;
+    const cfg = getStageConfig(stage);
+    return {
+      stage,
+      side: cfg.side ? side : 'center',
+      slot
+    };
+  }
+
+  function getSlotOverride(stage, side, slot) {
+    const stageBucket = (bracketSlotsCache && bracketSlotsCache[stage]) || {};
+    const sideBucket = (stageBucket && stageBucket[side]) || {};
+    const slotBucket = (sideBucket && sideBucket[String(slot)]) || {};
+    return (slotBucket && typeof slotBucket === 'object') ? slotBucket : null;
+  }
+
+  function getFixtureForSlot(stage, side, slot) {
+    if (!Array.isArray(fixturesCache)) return null;
+    return fixturesCache.find((fixture) => {
+      if (!fixture || typeof fixture !== 'object') return false;
+      const stageRaw = normalizeStage(fixture.stage) || fixture.stage;
+      if (String(stageRaw || '') !== String(stage || '')) return false;
+      const bracket = fixture.bracket_slot;
+      if (bracket && typeof bracket === 'object') {
+        const bSide = String(bracket.side || '').toLowerCase();
+        const bSlot = Number(bracket.slot);
+        return bSide === String(side || '').toLowerCase() && bSlot === Number(slot);
+      }
+      const fallbackSlot = Number(fixture.bracket_slot || fixture.slot || fixture.bracket);
+      if (!Number.isFinite(fallbackSlot)) return false;
+      if (fallbackSlot !== Number(slot)) return false;
+      if (stage === 'Final' || stage === 'Third Place Play-off') return true;
+      return false;
+    }) || null;
+  }
+
+  function fillSlotFormFromExisting() {
+    const selection = getCurrentSlotSelection();
+    if (!selection) return;
+    const { stage, side, slot } = selection;
+    const override = getSlotOverride(stage, side, slot);
+    const fixture = getFixtureForSlot(stage, side, slot);
+
+    // Prefill with persisted slot override first, then fallback fixture values.
+    const home = String((override && override.home) || (fixture && fixture.home) || '').trim();
+    const away = String((override && override.away) || (fixture && fixture.away) || '').trim();
+    const utc = String((override && override.utc) || (fixture && fixture.utc) || '').trim();
+    const { date, time } = utcToModalDateTime(utc);
+
+    const setVal = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = value;
+    };
+    setVal('fixtures-slot-country-a', home);
+    setVal('fixtures-slot-country-b', away);
+    setVal('fixtures-slot-date', date);
+    setVal('fixtures-slot-time', time);
   }
 
   function readSlotForm() {
@@ -6534,7 +6636,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('fixtures-slot-stage')?.addEventListener('change', updateSlotFormConstraints);
+  document.getElementById('fixtures-slot-stage')?.addEventListener('change', () => {
+    updateSlotFormConstraints();
+    fillSlotFormFromExisting();
+  });
+  document.getElementById('fixtures-slot-side')?.addEventListener('change', fillSlotFormFromExisting);
+  document.getElementById('fixtures-slot-number')?.addEventListener('input', fillSlotFormFromExisting);
   document.addEventListener('DOMContentLoaded', updateSlotFormConstraints);
 
   window.addEventListener('timezonechange', updateFixturesTimes);
