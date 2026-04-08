@@ -5746,16 +5746,26 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let slot = 1; slot <= total; slot += 1) {
         const cfg = slots[String(slot)] || slots[slot] || {};
         const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+        const slotLabel = String(cfg.label || '').trim();
         const home = String(cfg.home || cfg.country_a || '').trim();
         const away = String(cfg.away || cfg.country_b || '').trim();
+        const slotUtc = String(cfg.utc || '').trim();
         let match = matchId ? byId.get(matchId) : null;
         if (!match) {
-          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || `Slot ${slot}`, slot);
+          // If matches.json does not have this knockout match yet, build the
+          // display card from bracket_slots.json so users still get useful
+          // opponent placeholders and kickoff time.
+          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || slotLabel || `Slot ${slot}`, slot);
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
+          // Fill any missing match details from bracket slot metadata.
           match.home = match.home || home || 'TBD';
           match.away = match.away || away || 'TBD';
+          match.utc = match.utc || slotUtc || '';
+          if (!String(match.id || '').trim()) {
+            match.id = matchId || slotLabel || `Slot ${slot}`;
+          }
         }
         out.push(match);
       }
@@ -6355,6 +6365,128 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     openSlotModal();
+  });
+
+  function openResultModal() {
+    const backdrop = document.getElementById('fixtures-result-backdrop');
+    const modal = document.getElementById('fixtures-result-modal');
+    if (!backdrop || !modal) return;
+    backdrop.style.display = 'flex';
+    modal.focus();
+  }
+
+  function closeResultModal() {
+    const backdrop = document.getElementById('fixtures-result-backdrop');
+    if (backdrop) backdrop.style.display = 'none';
+  }
+
+  function resetResultModalFields() {
+    const matchEl = document.getElementById('fixtures-result-match');
+    const homeEl = document.getElementById('fixtures-result-home-score');
+    const awayEl = document.getElementById('fixtures-result-away-score');
+    if (matchEl) matchEl.value = '';
+    if (homeEl) homeEl.value = '';
+    if (awayEl) awayEl.value = '';
+  }
+
+  async function populateResultMatchOptions() {
+    const select = document.getElementById('fixtures-result-match');
+    if (!select) return;
+
+    // Pull candidates from admin fixtures endpoint (matches.json-backed) so
+    // score updates always target canonical fixture IDs.
+    const payload = await fetchJSON('/admin/fixtures');
+    const list = Array.isArray(payload?.fixtures) ? payload.fixtures : [];
+    select.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = list.length ? 'Select a match' : 'No matches available';
+    select.appendChild(placeholder);
+
+    list
+      .slice()
+      .sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))
+      .forEach((fixture) => {
+        const id = String(fixture?.id || '').trim();
+        if (!id) return;
+        const home = String(fixture?.home || 'TBD').trim() || 'TBD';
+        const away = String(fixture?.away || 'TBD').trim() || 'TBD';
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = `${id} — ${home} vs ${away}`;
+        select.appendChild(opt);
+      });
+  }
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.id !== 'fixtures-add-result') return;
+    if (typeof window.isAdminUI === 'function' && !window.isAdminUI()) {
+      notify('Admin required', false);
+      return;
+    }
+    // Keep this action scoped to Results mode so it is clear where the update
+    // will be reflected immediately after save.
+    if (!fixturesSummaryState.showResults) {
+      notify('Switch to "Results" view first, then add a result.', false);
+      return;
+    }
+    try {
+      resetResultModalFields();
+      await populateResultMatchOptions();
+      openResultModal();
+    } catch (err) {
+      notify(`Failed to load matches: ${err.message || err}`, false);
+    }
+  });
+
+  document.getElementById('fixtures-result-cancel')?.addEventListener('click', () => {
+    closeResultModal();
+  });
+
+  document.getElementById('fixtures-result-close')?.addEventListener('click', () => {
+    closeResultModal();
+  });
+
+  document.getElementById('fixtures-result-backdrop')?.addEventListener('click', (e) => {
+    if (e.target?.id === 'fixtures-result-backdrop') closeResultModal();
+  });
+
+  document.getElementById('fixtures-result-save')?.addEventListener('click', async () => {
+    const matchId = String(document.getElementById('fixtures-result-match')?.value || '').trim();
+    const homeRaw = String(document.getElementById('fixtures-result-home-score')?.value || '').trim();
+    const awayRaw = String(document.getElementById('fixtures-result-away-score')?.value || '').trim();
+
+    if (!matchId) {
+      notify('Please select a match.', false);
+      return;
+    }
+
+    // Client-side validation mirrors server-side checks to keep admin feedback
+    // immediate and explicit before sending the write request.
+    const homeScore = Number.parseInt(homeRaw, 10);
+    const awayScore = Number.parseInt(awayRaw, 10);
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore < 0 || awayScore < 0) {
+      notify('Scores must be non-negative whole numbers.', false);
+      return;
+    }
+
+    try {
+      await fetchJSON('/admin/fixtures/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: matchId,
+          home_score: homeScore,
+          away_score: awayScore,
+        })
+      });
+      notify('Result saved', true);
+      closeResultModal();
+      loadFixtures();
+    } catch (err) {
+      notify(`Failed to save result: ${err.message || err}`, false);
+    }
   });
 
   function openSlotModal() {

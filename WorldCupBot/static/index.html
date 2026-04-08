@@ -444,6 +444,9 @@
                           <button id="fixtures-edit-slot" class="btn btn-outline sm admin-only" type="button">
                               Edit bracket slot
                           </button>
+                          <button id="fixtures-add-result" class="btn btn-outline sm admin-only" type="button">
+                              Add result
+                          </button>
                           <button id="fixtures-refresh" class="btn sm">Refresh</button>
                       </div>
                   </div>
@@ -543,6 +546,36 @@
                   <div class="modal-foot">
                       <button class="btn btn-outline" id="fixtures-slot-cancel">Cancel</button>
                       <button class="btn" id="fixtures-slot-save">Save</button>
+                  </div>
+              </div>
+          </div>
+
+          <div id="fixtures-result-backdrop" style="display:none;">
+              <div id="fixtures-result-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="fixtures-result-title" tabindex="-1">
+                  <div class="modal-head">
+                      <h3 id="fixtures-result-title">Add Result</h3>
+                      <button class="modal-close" id="fixtures-result-close" aria-label="Close">×</button>
+                  </div>
+                  <div class="modal-body">
+                      <label>
+                          <span>Match</span>
+                          <select id="fixtures-result-match" class="select-dark">
+                              <option value="">Loading matches…</option>
+                          </select>
+                      </label>
+                      <label>
+                          <span>Home score</span>
+                          <input id="fixtures-result-home-score" type="number" min="0" step="1" placeholder="e.g. 2" />
+                      </label>
+                      <label>
+                          <span>Away score</span>
+                          <input id="fixtures-result-away-score" type="number" min="0" step="1" placeholder="e.g. 1" />
+                      </label>
+                      <div class="hint">Matches are loaded from <code>matches.json</code> through the admin fixtures endpoint.</div>
+                  </div>
+                  <div class="modal-foot">
+                      <button class="btn btn-outline" id="fixtures-result-cancel">Cancel</button>
+                      <button class="btn" id="fixtures-result-save">Save Result</button>
                   </div>
               </div>
           </div>
