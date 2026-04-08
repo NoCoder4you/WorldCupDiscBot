@@ -4148,8 +4148,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadFixtures(){
     try {
-      const data = await fetchJSON('/api/fixtures');
-      return (data && data.fixtures) || [];
+      const res = await fetch('/api/fixtures', { cache: 'no-store' });
+      const data = await res.json();
+
+      const fixtures = Array.isArray(data)
+        ? data
+        : Array.isArray(data.matches)
+          ? data.matches
+          : [];
+
+      // Normalize keys so old and new fixture schemas both render safely.
+      return fixtures.map(f => ({
+        id: f.id || f.fixture_id || f.match_id || '',
+        home: f.home || f.home_team || 'TBD',
+        away: f.away || f.away_team || 'TBD',
+        utc: f.utc || f.kickoff_utc || null,
+        stadium: f.stadium || '',
+        group: f.group || '',
+        stage: f.stage || '',
+        match_type: f.match_type || ''
+      }));
     } catch (e) {
       console.warn('loadFixtures failed:', e);
       return [];
@@ -6286,7 +6304,11 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchJSON('/api/team_iso'),
         fetchJSON('/api/team_meta')
       ]);
-      fixtures = (fx && fx.fixtures) || [];
+      fixtures = Array.isArray(fx)
+        ? fx
+        : Array.isArray(fx?.matches)
+          ? fx.matches
+          : [];
       stages = (st && typeof st === 'object') ? st : {};
       winners = (wn && wn.winners && typeof wn.winners === 'object') ? wn.winners : {};
       bracketSlots = (bs && bs.slots && typeof bs.slots === 'object') ? bs.slots : {};
@@ -6754,23 +6776,43 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inp) inp.value = '';
     }
 
-    function applyFanZoneFilters(){
-      const { sel, inp } = getFanFilterEls();
+  function applyFanZoneFilters(){
+    const { sel, inp } = getFanFilterEls();
 
-      const group = String(sel?.value || 'ALL').toUpperCase();
-      const q = normalize(inp?.value || '');
+      const selectedGroup = String(sel?.value || 'ALL').toUpperCase();
+      const searchTerm = String(inp?.value || '');
+      const normalizedGroup = (selectedGroup === 'ALL') ? 'all' : selectedGroup;
+      const filtered = filterFixtures(fanZoneFixturesCache, normalizedGroup, searchTerm);
+      const visible = new Set(filtered.map((fixture) => String(fixture.id || '')));
 
       const cards = Array.from(document.querySelectorAll('#fanzone-list .fan-card'));
       for (const card of cards) {
-        const g = String(card.dataset.group || '').toUpperCase();
-        const teams = normalize(card.dataset.teams || '');
-
-        const okGroup = (group === 'ALL') || (g && g === group);
-        const okCountry = !q || teams.includes(q);
-
-        card.style.display = (okGroup && okCountry) ? '' : 'none';
+        const fid = String(card.dataset.fid || '');
+        card.style.display = visible.has(fid) ? '' : 'none';
       }
     }
+
+  let fanZoneFixturesCache = [];
+
+  function filterFixtures(fixtures, selectedGroup, searchTerm) {
+    let out = [...fixtures];
+
+    if (selectedGroup && selectedGroup !== 'all') {
+      out = out.filter(f => (f.group || '').toUpperCase() === selectedGroup.toUpperCase());
+    }
+
+    if (searchTerm) {
+      const q = searchTerm.trim().toLowerCase();
+      out = out.filter(f =>
+        (f.home || '').toLowerCase().includes(q) ||
+        (f.away || '').toLowerCase().includes(q) ||
+        (f.group || '').toLowerCase().includes(q) ||
+        (f.stage || '').toLowerCase().includes(q)
+      );
+    }
+
+    return out;
+  }
 
   
   
@@ -6779,8 +6821,25 @@ document.addEventListener('DOMContentLoaded', () => {
     : (() => document.body.classList.contains('admin'));
 
   async function getFixtures() {
-    const d = await fetchJSON('/api/fixtures');
-    return (d && d.fixtures) || [];
+    const res = await fetch('/api/fixtures', { cache: 'no-store' });
+    const data = await res.json();
+
+    const fixtures = Array.isArray(data)
+      ? data
+      : Array.isArray(data.matches)
+        ? data.matches
+        : [];
+
+    return fixtures.map(f => ({
+      id: f.id || f.fixture_id || f.match_id || '',
+      home: f.home || f.home_team || 'TBD',
+      away: f.away || f.away_team || 'TBD',
+      utc: f.utc || f.kickoff_utc || null,
+      stadium: f.stadium || '',
+      group: f.group || '',
+      stage: f.stage || '',
+      match_type: f.match_type || ''
+    }));
   }
 
   async function getStats(fid) {
@@ -7071,21 +7130,30 @@ document.addEventListener('DOMContentLoaded', () => {
     fixtures.forEach(f => {
       const gh = teamToGroup.get(normalize(f?.home)) || '';
       const ga = teamToGroup.get(normalize(f?.away)) || '';
-      f._group = gh || ga || '';
+      // Preserve fixture-provided group first; derive only as a fallback.
+      f._group = f.group || gh || ga || '';
     });
+    fanZoneFixturesCache = fixtures;
 
     if (!fixtures.length) {
       host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
       return;
     }
 
-    host.innerHTML = fixtures.map(f => `
-      <div class="fan-card" data-fid="${f.id}" data-utc="${escAttr(f.utc || '')}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}">
+    const initialCards = [];
+    const renderFixtureCard = (fx) => `
+      <div class="fan-card" data-fid="${fx.id}" data-utc="${escAttr(fx.utc || '')}" data-group="${escAttr(fx._group || '')}" data-stage="${escAttr(fx.stage || '')}" data-teams="${escAttr(`${fx.home} ${fx.away}`)}" data-home="${escAttr(fx.home)}" data-away="${escAttr(fx.away)}">
         <div class="muted" style="padding:12px">Loading…</div>
       </div>
-    `).join('');
+    `;
+    for (const fx of fixtures) {
+      if (!fx.id || !fx.home || !fx.away) continue;
+      initialCards.push(renderFixtureCard(fx));
+    }
+    host.innerHTML = initialCards.join('');
 
     for (const f of fixtures) {
+      if (!f.id || !f.home || !f.away) continue;
       const stats = await getStats(f.id).catch(() => null);
       const card = host.querySelector(`.fan-card[data-fid="${CSS.escape(f.id)}"]`);
       if (card) card.outerHTML = cardHTML(f, stats);
