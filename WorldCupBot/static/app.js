@@ -5535,16 +5535,17 @@ document.addEventListener('DOMContentLoaded', () => {
     host.innerHTML = teams.map(({ name, stage }) => {
       const rec = records.get(name) || { w: 0, d: 0, l: 0 };
       const flag = isoFlagImg(isoByName?.[normalizeTeamName(name)] || '');
-      // Bosnia and Herzegovina is the only label currently exceeding the compact
-      // card width at 13px; apply a tiny horizontal squeeze class for that name only.
-      const compactNameClass = normalizeTeamName(name) === 'BOSNIA AND HERZEGOVINA' ? ' fixtures-team-name-tight' : '';
+      const isBosniaName = normalizeTeamName(name) === 'BOSNIA AND HERZEGOVINA';
+      // Keep Bosnia-specific styling isolated via a dedicated id so we can tune
+      // just this long label without affecting the rest of the compact team names.
+      const bosniaNameIdAttr = isBosniaName ? ' id="fixtures-team-name-bosnia"' : '';
       return `
         <div class="fixtures-team compact">
           <div class="fixtures-team-head">
             <div class="fixtures-team-meta">
               ${flag}
               <div class="fixtures-team-meta-text">
-                <span class="fixtures-team-name${compactNameClass}">${escAttr(name)}</span>
+                <span class="fixtures-team-name"${bosniaNameIdAttr}>${escAttr(name)}</span>
                 <span class="fixtures-team-stage">${stageBadge(stage)}</span>
               </div>
             </div>

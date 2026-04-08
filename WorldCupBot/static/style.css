@@ -1070,10 +1070,13 @@ body.user-admin-view .dashboard-grid .card {
     text-align: center;
 }
 
-.fixtures-team-name-tight {
-    /* Preserve 13px sizing while slightly narrowing glyph footprint for Bosnia label. */
-    transform: scaleX(0.94);
-    transform-origin: center;
+#fixtures-team-name-bosnia {
+    /*
+     * Bosnia and Herzegovina is the longest compact-card team name.
+     * Give it a dedicated selector so we can keep this label inside the card
+     * without changing typography for every other country name.
+     */
+    font-size: 11px;
 }
 
 .fixtures-team-record {
