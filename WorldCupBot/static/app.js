@@ -5535,10 +5535,11 @@ document.addEventListener('DOMContentLoaded', () => {
     host.innerHTML = teams.map(({ name, stage }) => {
       const rec = records.get(name) || { w: 0, d: 0, l: 0 };
       const flag = isoFlagImg(isoByName?.[normalizeTeamName(name)] || '');
-      const isBosniaName = normalizeTeamName(name) === 'Bosnia and Herzegovina';
-      // Keep Bosnia-specific styling isolated via a dedicated id so we can tune
-      // just this long label without affecting the rest of the compact team names.
-      const bosniaNameIdAttr = isBosniaName ? ' id="fixtures-team-name-bosnia"' : '';
+      const isBosniaName = normalizeTeamName(name) === 'BOSNIA AND HERZEGOVINA';
+      // Bosnia can appear in different sections; suffix the id with stage so ids stay
+      // unique in the full DOM while still giving Bosnia a dedicated id namespace.
+      const bosniaStageSuffix = String(stage || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const bosniaNameIdAttr = isBosniaName ? ` id="fixtures-team-name-bosnia-${bosniaStageSuffix}"` : '';
       return `
         <div class="fixtures-team compact">
           <div class="fixtures-team-head">

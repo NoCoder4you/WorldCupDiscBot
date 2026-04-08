@@ -1068,7 +1068,8 @@ body.user-admin-view .dashboard-grid .card {
     text-align: center;
 }
 
-#fixtures-team-name-bosnia {
+[id^="fixtures-team-name-bosnia-"] {
+
     font-size: 11px;
 }
 
