@@ -85,3 +85,52 @@ def test_disabling_maintenance_mode_enqueues_disabled_announcement(tmp_path):
     disabled_data = disabled_cmds[0].get("data") or {}
     assert disabled_data.get("channel") == "announcements"
     assert "Maintenance Mode Disabled" in str(disabled_data.get("message") or "")
+
+
+def test_admin_fixture_result_updates_match_scores(tmp_path):
+    """Admin result endpoint should persist home/away scores for a fixture."""
+    client, json_dir = _build_admin_client(tmp_path)
+    matches_path = json_dir / "matches.json"
+    matches_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "M73",
+                    "home": "2A",
+                    "away": "2B",
+                    "utc": "2026-06-28T19:00:00Z",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M73", "home_score": 2, "away_score": 1},
+    )
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    assert payload["home_score"] == 2
+    assert payload["away_score"] == 1
+
+    stored = json.loads(matches_path.read_text(encoding="utf-8"))
+    assert stored[0]["home_score"] == 2
+    assert stored[0]["away_score"] == 1
+
+
+def test_admin_fixture_result_rejects_invalid_score(tmp_path):
+    """Result endpoint should reject non-numeric or negative score values."""
+    client, json_dir = _build_admin_client(tmp_path)
+    matches_path = json_dir / "matches.json"
+    matches_path.write_text(json.dumps([{"id": "M73"}]), encoding="utf-8")
+
+    bad = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M73", "home_score": -1, "away_score": "x"},
+    )
+    assert bad.status_code == 400
+    payload = bad.get_json()
+    assert payload["ok"] is False
+    assert payload["error"] == "invalid_score"

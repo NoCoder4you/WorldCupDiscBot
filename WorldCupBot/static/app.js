@@ -5746,16 +5746,26 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let slot = 1; slot <= total; slot += 1) {
         const cfg = slots[String(slot)] || slots[slot] || {};
         const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+        const slotLabel = String(cfg.label || '').trim();
         const home = String(cfg.home || cfg.country_a || '').trim();
         const away = String(cfg.away || cfg.country_b || '').trim();
+        const slotUtc = String(cfg.utc || '').trim();
         let match = matchId ? byId.get(matchId) : null;
         if (!match) {
-          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || `Slot ${slot}`, slot);
+          // If matches.json does not have this knockout match yet, build the
+          // display card from bracket_slots.json so users still get useful
+          // opponent placeholders and kickoff time.
+          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || slotLabel || `Slot ${slot}`, slot);
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
+          // Fill any missing match details from bracket slot metadata.
           match.home = match.home || home || 'TBD';
           match.away = match.away || away || 'TBD';
+          match.utc = match.utc || slotUtc || '';
+          if (!String(match.id || '').trim()) {
+            match.id = matchId || slotLabel || `Slot ${slot}`;
+          }
         }
         out.push(match);
       }
@@ -6355,6 +6365,60 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     openSlotModal();
+  });
+
+  async function promptAndSubmitResult() {
+    const idRaw = window.prompt('Enter match ID (example: M73 or BRKT-R32-L1-2A-2B):', '');
+    if (idRaw === null) return;
+    const matchId = String(idRaw || '').trim();
+    if (!matchId) {
+      notify('Match ID is required.', false);
+      return;
+    }
+
+    const homeRaw = window.prompt('Enter home score (whole number):', '');
+    if (homeRaw === null) return;
+    const awayRaw = window.prompt('Enter away score (whole number):', '');
+    if (awayRaw === null) return;
+
+    // Validate in the UI first so admins get immediate feedback before request.
+    const homeScore = Number.parseInt(String(homeRaw || '').trim(), 10);
+    const awayScore = Number.parseInt(String(awayRaw || '').trim(), 10);
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore) || homeScore < 0 || awayScore < 0) {
+      notify('Scores must be non-negative whole numbers.', false);
+      return;
+    }
+
+    await fetchJSON('/admin/fixtures/result', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        match_id: matchId,
+        home_score: homeScore,
+        away_score: awayScore,
+      })
+    });
+  }
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.id !== 'fixtures-add-result') return;
+    if (typeof window.isAdminUI === 'function' && !window.isAdminUI()) {
+      notify('Admin required', false);
+      return;
+    }
+    // Keep this action scoped to Results mode so it is clear where the update
+    // will be reflected immediately after save.
+    if (!fixturesSummaryState.showResults) {
+      notify('Switch to "Results" view first, then add a result.', false);
+      return;
+    }
+    try {
+      await promptAndSubmitResult();
+      notify('Result saved', true);
+      loadFixtures();
+    } catch (err) {
+      notify(`Failed to save result: ${err.message || err}`, false);
+    }
   });
 
   function openSlotModal() {

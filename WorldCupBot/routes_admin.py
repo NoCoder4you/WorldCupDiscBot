@@ -1493,6 +1493,60 @@ def create_admin_routes(ctx):
             _write_json_atomic(_matches_path(ctx), container)
         return jsonify({"ok": True, "id": match_id, "bracket_slot": slot_val})
 
+    @bp.post("/admin/fixtures/result")
+    def admin_fixture_result_set():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("id") or body.get("match_id") or "").strip()
+        home_score_raw = body.get("home_score")
+        away_score_raw = body.get("away_score")
+
+        if not match_id:
+            return jsonify({"ok": False, "error": "missing_match_id"}), 400
+
+        # Results must be explicit non-negative integers so public pages can
+        # safely render deterministic scorelines without extra coercion logic.
+        try:
+            home_score = int(str(home_score_raw).strip())
+            away_score = int(str(away_score_raw).strip())
+        except Exception:
+            return jsonify({"ok": False, "error": "invalid_score"}), 400
+        if home_score < 0 or away_score < 0:
+            return jsonify({"ok": False, "error": "invalid_score"}), 400
+
+        container, fixtures, key = _load_matches_payload()
+        updated = False
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
+            if fid != match_id:
+                continue
+            fixture["home_score"] = home_score
+            fixture["away_score"] = away_score
+            updated = True
+            break
+
+        if not updated:
+            return jsonify({"ok": False, "error": "match_not_found"}), 404
+
+        if container is None:
+            _write_json_atomic(_matches_path(ctx), fixtures)
+        else:
+            if key:
+                container[key] = fixtures
+            _write_json_atomic(_matches_path(ctx), container)
+
+        return jsonify({
+            "ok": True,
+            "id": match_id,
+            "home_score": home_score,
+            "away_score": away_score,
+        })
+
     @bp.post("/admin/bracket_slots")
     def admin_bracket_slots_set():
         resp = require_admin()
