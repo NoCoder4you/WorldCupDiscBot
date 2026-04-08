@@ -1071,11 +1071,6 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 #fixtures-team-name-bosnia {
-    /*
-     * Bosnia and Herzegovina is the longest compact-card team name.
-     * Give it a dedicated selector so we can keep this label inside the card
-     * without changing typography for every other country name.
-     */
     font-size: 11px;
 }
 
