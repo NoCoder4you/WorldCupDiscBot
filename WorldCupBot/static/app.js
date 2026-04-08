@@ -6496,6 +6496,7 @@ document.addEventListener('DOMContentLoaded', () => {
     backdrop.style.display = 'flex';
     modal.focus();
     updateSlotFormConstraints();
+    autofillSlotFormFromSelection();
   }
 
   function closeSlotModal() {
@@ -6557,6 +6558,71 @@ document.addEventListener('DOMContentLoaded', () => {
     setVal('fixtures-slot-country-b', '');
     setVal('fixtures-slot-date', '');
     setVal('fixtures-slot-time', '');
+  }
+
+  // Keep the latest bracket slots payload in-memory while the modal is open.
+  // This allows quick slot lookups as the admin changes stage/side/slot.
+  let bracketSlotsCache = null;
+
+  async function loadBracketSlotsCache(force = false) {
+    if (!force && bracketSlotsCache && typeof bracketSlotsCache === 'object') {
+      return bracketSlotsCache;
+    }
+    const payload = await fetchJSON('/api/bracket_slots');
+    const slots = (payload && payload.slots && typeof payload.slots === 'object') ? payload.slots : {};
+    bracketSlotsCache = slots;
+    return slots;
+  }
+
+  function utcToSlotFormFields(utcRaw) {
+    const utc = String(utcRaw || '').trim();
+    if (!utc) return { date: '', time: '' };
+    const stamp = Date.parse(utc);
+    if (!Number.isFinite(stamp)) return { date: '', time: '' };
+    const dt = new Date(stamp);
+    const pad = (num) => String(num).padStart(2, '0');
+    return {
+      // The form stores day/month and time in UTC to match existing validation.
+      date: `${pad(dt.getUTCDate())}/${pad(dt.getUTCMonth() + 1)}`,
+      time: `${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}`,
+    };
+  }
+
+  async function autofillSlotFormFromSelection() {
+    const stage = String(document.getElementById('fixtures-slot-stage')?.value || '').trim();
+    const sideEl = document.getElementById('fixtures-slot-side');
+    const slotRaw = String(document.getElementById('fixtures-slot-number')?.value || '').trim();
+    if (!stage || !slotRaw) return;
+    const stageNorm = String(normalizeStage(stage) || '').trim();
+    if (!stageNorm) return;
+    const cfg = getStageConfig(stageNorm);
+    const side = cfg.side ? String(sideEl?.value || '').trim().toLowerCase() : 'center';
+    if (cfg.side && !side) return;
+    const slotNum = Number(slotRaw);
+    if (!Number.isFinite(slotNum) || slotNum < 1 || slotNum > cfg.max) return;
+
+    try {
+      const slots = await loadBracketSlotsCache();
+      const slotData = slots?.[stageNorm]?.[side]?.[String(slotNum)];
+      if (!slotData || typeof slotData !== 'object') {
+        // No saved data for this slot, so clear only the editable fields.
+        document.getElementById('fixtures-slot-country-a').value = '';
+        document.getElementById('fixtures-slot-country-b').value = '';
+        document.getElementById('fixtures-slot-date').value = '';
+        document.getElementById('fixtures-slot-time').value = '';
+        return;
+      }
+      const home = String(slotData.home || '').trim();
+      const away = String(slotData.away || '').trim();
+      const { date, time } = utcToSlotFormFields(slotData.utc);
+      // Autofill all slot-controlled fields so admins only edit what is needed.
+      document.getElementById('fixtures-slot-country-a').value = home;
+      document.getElementById('fixtures-slot-country-b').value = away;
+      document.getElementById('fixtures-slot-date').value = date;
+      document.getElementById('fixtures-slot-time').value = time;
+    } catch (_err) {
+      // Keep UX resilient: autofill failure should not block manual entry.
+    }
   }
 
   function makeInitials(name) {
@@ -6660,13 +6726,19 @@ document.addEventListener('DOMContentLoaded', () => {
       notify('Bracket slot updated', true);
       closeSlotModal();
       clearSlotForm();
+      bracketSlotsCache = null;
       loadFixtures();
     } catch (err) {
       notify(`Failed to update slot: ${err.message || err}`, false);
     }
   });
 
-  document.getElementById('fixtures-slot-stage')?.addEventListener('change', updateSlotFormConstraints);
+  document.getElementById('fixtures-slot-stage')?.addEventListener('change', async () => {
+    updateSlotFormConstraints();
+    await autofillSlotFormFromSelection();
+  });
+  document.getElementById('fixtures-slot-side')?.addEventListener('change', autofillSlotFormFromSelection);
+  document.getElementById('fixtures-slot-number')?.addEventListener('input', autofillSlotFormFromSelection);
   document.addEventListener('DOMContentLoaded', updateSlotFormConstraints);
 
   window.addEventListener('timezonechange', updateFixturesTimes);
