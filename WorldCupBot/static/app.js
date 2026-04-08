@@ -5754,8 +5754,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
-          match.home = match.home || home || 'TBD';
-          match.away = match.away || away || 'TBD';
+          // Keep resolved slot teams visible even when fixture feeds still carry
+          // placeholder labels like "TBD" for downstream knockout rounds.
+          match.home = isUnresolvedSlotTeam(match.home) ? (home || 'TBD') : match.home;
+          match.away = isUnresolvedSlotTeam(match.away) ? (away || 'TBD') : match.away;
         }
         out.push(match);
       }
@@ -5818,6 +5820,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!slots[stage] || typeof slots[stage] !== 'object') slots[stage] = {};
     if (!slots[stage][side] || typeof slots[stage][side] !== 'object') slots[stage][side] = {};
     return slots[stage][side];
+  }
+
+  function isUnresolvedSlotTeam(raw) {
+    // Slots often start life as "TBD". Treat that as unresolved so declared
+    // winners can flow into the next round when progression runs.
+    const text = String(raw || '').trim().toLowerCase();
+    return !text || text === 'tbd' || text === 'to be decided';
   }
 
   function autoProgressionSlots(fixtures, winnersMap, currentSlots) {
@@ -5908,8 +5917,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Preserve manual/admin-authored values when present; only fill blanks.
       const nextSlot = {
         ...existing,
-        home: String(existing.home || '').trim() || home || '',
-        away: String(existing.away || '').trim() || away || '',
+        home: isUnresolvedSlotTeam(existing.home) ? (home || '') : String(existing.home || '').trim(),
+        away: isUnresolvedSlotTeam(existing.away) ? (away || '') : String(existing.away || '').trim(),
       };
       // Only stamp match_id when we can align to a known fixture ID format.
       // Avoid synthetic "Match N" IDs because stage lookup uses exact fixture.id.
@@ -6002,8 +6011,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const slotKey = String(tslot);
       const existing = (sideSlots[slotKey] && typeof sideSlots[slotKey] === 'object') ? sideSlots[slotKey] : {};
       const next = { ...existing };
-      if (pos === 'home' && !String(existing.home || '').trim()) next.home = team;
-      if (pos === 'away' && !String(existing.away || '').trim()) next.away = team;
+      if (pos === 'home' && isUnresolvedSlotTeam(existing.home)) next.home = team;
+      if (pos === 'away' && isUnresolvedSlotTeam(existing.away)) next.away = team;
       sideSlots[slotKey] = next;
     });
 
