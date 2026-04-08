@@ -5746,16 +5746,26 @@ document.addEventListener('DOMContentLoaded', () => {
       for (let slot = 1; slot <= total; slot += 1) {
         const cfg = slots[String(slot)] || slots[slot] || {};
         const matchId = String(cfg.match_id || cfg.matchId || '').trim();
+        const slotLabel = String(cfg.label || '').trim();
         const home = String(cfg.home || cfg.country_a || '').trim();
         const away = String(cfg.away || cfg.country_b || '').trim();
+        const slotUtc = String(cfg.utc || '').trim();
         let match = matchId ? byId.get(matchId) : null;
         if (!match) {
-          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || `Slot ${slot}`, slot);
+          // If matches.json does not have this knockout match yet, build the
+          // display card from bracket_slots.json so users still get useful
+          // opponent placeholders and kickoff time.
+          match = makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || slotLabel || `Slot ${slot}`, slot);
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
+          // Fill any missing match details from bracket slot metadata.
           match.home = match.home || home || 'TBD';
           match.away = match.away || away || 'TBD';
+          match.utc = match.utc || slotUtc || '';
+          if (!String(match.id || '').trim()) {
+            match.id = matchId || slotLabel || `Slot ${slot}`;
+          }
         }
         out.push(match);
       }
