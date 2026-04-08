@@ -3830,6 +3830,8 @@ select.select-dark:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Allow each team column to shrink within the grid so long country names do not overflow the card. */
+  min-width: 0;
 }
 
 /* Pull each side of the matchup toward the center "vs" column for better visual balance. */
@@ -3843,6 +3845,9 @@ select.select-dark:disabled {
 }
 
 .fan-team-name {
+  /* Enable proper ellipsis behavior inside flex containers on both home and away team labels. */
+  min-width: 0;
+  flex: 1 1 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
