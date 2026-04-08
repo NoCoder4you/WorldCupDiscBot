@@ -1015,7 +1015,6 @@ body.user-admin-view .dashboard-grid .card {
     border-radius: 12px;
     padding: 10px 12px;
     background: #111a26;
-    display: grid;
     gap: 8px;
 }
 
