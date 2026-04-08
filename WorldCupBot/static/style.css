@@ -1035,6 +1035,8 @@ body.user-admin-view .dashboard-grid .card {
     display: flex;
     align-items: center;
     gap: 6px;
+    /* Allow the text column to shrink inside narrow cards. */
+    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -1052,8 +1054,17 @@ body.user-admin-view .dashboard-grid .card {
 
 .fixtures-team-name {
     font-weight: 800;
-    font-size: 13px;
+    /* Slightly smaller text avoids clipping for long country names (e.g. Bosnia and Herzegovina). */
+    font-size: 12px;
+    /* Force the name to take the available row width so ellipsis can apply. */
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Keep country names visually centered in the card while truncating when needed. */
     text-align: center;
 }
 
