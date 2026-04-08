@@ -1035,8 +1035,6 @@ body.user-admin-view .dashboard-grid .card {
     display: flex;
     align-items: center;
     gap: 6px;
-    /* Allow the text column to shrink inside narrow cards. */
-    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -1071,11 +1069,7 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 [id^="fixtures-team-name-bosnia-"] {
-    /*
-     * Bosnia and Herzegovina is the longest compact-card team name.
-     * Give it a dedicated id namespace so we can keep this label inside the card
-     * without changing typography for every other country name.
-     */
+
     font-size: 11px;
 }
 
