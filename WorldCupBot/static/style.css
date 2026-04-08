@@ -1070,15 +1070,8 @@ body.user-admin-view .dashboard-grid .card {
     text-align: center;
 }
 
-.fixtures-team-name-tight {
-    /*
-     * Bosnia and Herzegovina is our longest compact-card label.
-     * Use a slightly smaller, tighter rendering so it stays fully inside the card
-     * without relying on transform scaling (which can look blurry).
-     */
-    font-size: 12px;
-    letter-spacing: -0.1px;
-    line-height: 1.1;
+#fixtures-team-name-bosnia {
+    font-size: 11px;
 }
 
 .fixtures-team-record {
