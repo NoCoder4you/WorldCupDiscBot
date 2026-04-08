@@ -1035,6 +1035,8 @@ body.user-admin-view .dashboard-grid .card {
     display: flex;
     align-items: center;
     gap: 6px;
+    /* Allow the text column to shrink inside narrow cards. */
+    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -1053,8 +1055,8 @@ body.user-admin-view .dashboard-grid .card {
 .fixtures-team-name {
     font-weight: 800;
     font-size: 13px;
-    /* Keep long team names on one line without overflowing compact cards. */
     display: block;
+    width: 100%;
     max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
