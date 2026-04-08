@@ -384,14 +384,6 @@
     "group": "K"
   },
   {
-    "id": "2026-06-24-B-SUI-CAN",
-    "home": "Switzerland",
-    "away": "Canada",
-    "utc": "2026-06-24T19:00:00Z",
-    "stadium": "BC Place Vancouver",
-    "group": "B"
-  },
-  {
     "id": "2026-06-24-B-CZE-QAT",
     "home": "Czech Republic",
     "away": "Qatar",
@@ -400,12 +392,12 @@
     "group": "B"
   },
   {
-    "id": "2026-06-24-C-SCO-BRA",
-    "home": "Scotland",
-    "away": "Brazil",
-    "utc": "2026-06-24T22:00:00Z",
-    "stadium": "Miami Stadium",
-    "group": "C"
+    "id": "2026-06-24-B-SUI-CAN",
+    "home": "Switzerland",
+    "away": "Canada",
+    "utc": "2026-06-24T19:00:00Z",
+    "stadium": "BC Place Vancouver",
+    "group": "B"
   },
   {
     "id": "2026-06-24-C-MAR-HAI",
@@ -413,6 +405,14 @@
     "away": "Haiti",
     "utc": "2026-06-24T22:00:00Z",
     "stadium": "Atlanta Stadium",
+    "group": "C"
+  },
+  {
+    "id": "2026-06-24-C-SCO-BRA",
+    "home": "Scotland",
+    "away": "Brazil",
+    "utc": "2026-06-24T22:00:00Z",
+    "stadium": "Miami Stadium",
     "group": "C"
   },
   {
@@ -464,19 +464,19 @@
     "group": "F"
   },
   {
-    "id": "2026-06-25-D-SWE-USA",
-    "home": "Sweden",
-    "away": "USA",
-    "utc": "2026-06-26T02:00:00Z",
-    "stadium": "Los Angeles Stadium",
-    "group": "D"
-  },
-  {
     "id": "2026-06-25-D-PAR-AUS",
     "home": "Paraguay",
     "away": "Australia",
     "utc": "2026-06-26T02:00:00Z",
     "stadium": "San Francisco Bay Area Stadium",
+    "group": "D"
+  },
+  {
+    "id": "2026-06-25-D-SWE-USA",
+    "home": "Sweden",
+    "away": "USA",
+    "utc": "2026-06-26T02:00:00Z",
+    "stadium": "Los Angeles Stadium",
     "group": "D"
   },
   {
@@ -528,14 +528,6 @@
     "group": "G"
   },
   {
-    "id": "2026-06-27-L-PAN-ENG",
-    "home": "Panama",
-    "away": "England",
-    "utc": "2026-06-27T21:00:00Z",
-    "stadium": "New York New Jersey Stadium",
-    "group": "L"
-  },
-  {
     "id": "2026-06-27-L-CRO-GHA",
     "home": "Croatia",
     "away": "Ghana",
@@ -544,12 +536,12 @@
     "group": "L"
   },
   {
-    "id": "2026-06-27-K-COL-POR",
-    "home": "Colombia",
-    "away": "Portugal",
-    "utc": "2026-06-27T23:30:00Z",
-    "stadium": "Miami Stadium",
-    "group": "K"
+    "id": "2026-06-27-L-PAN-ENG",
+    "home": "Panama",
+    "away": "England",
+    "utc": "2026-06-27T21:00:00Z",
+    "stadium": "New York New Jersey Stadium",
+    "group": "L"
   },
   {
     "id": "2026-06-27-K-COD-UZB",
@@ -557,6 +549,14 @@
     "away": "Uzbekistan",
     "utc": "2026-06-27T23:30:00Z",
     "stadium": "Atlanta Stadium",
+    "group": "K"
+  },
+  {
+    "id": "2026-06-27-K-COL-POR",
+    "home": "Colombia",
+    "away": "Portugal",
+    "utc": "2026-06-27T23:30:00Z",
+    "stadium": "Miami Stadium",
     "group": "K"
   },
   {
@@ -588,6 +588,18 @@
     }
   },
   {
+    "id": "M76",
+    "home": "1C",
+    "away": "2F",
+    "utc": "2026-06-29T17:00:00Z",
+    "stadium": "Houston Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "left",
+      "slot": 4
+    }
+  },
+  {
     "id": "M74",
     "home": "1E",
     "away": "3ABCDF",
@@ -612,15 +624,15 @@
     }
   },
   {
-    "id": "M76",
-    "home": "1C",
-    "away": "2F",
-    "utc": "2026-06-29T17:00:00Z",
-    "stadium": "Houston Stadium",
+    "id": "M78",
+    "home": "2E",
+    "away": "2I",
+    "utc": "2026-06-30T17:00:00Z",
+    "stadium": "Dallas Stadium",
     "stage": "Round of 32",
     "bracket_slot": {
       "side": "left",
-      "slot": 4
+      "slot": 6
     }
   },
   {
@@ -633,18 +645,6 @@
     "bracket_slot": {
       "side": "left",
       "slot": 5
-    }
-  },
-  {
-    "id": "M78",
-    "home": "2E",
-    "away": "2I",
-    "utc": "2026-06-30T17:00:00Z",
-    "stadium": "Dallas Stadium",
-    "stage": "Round of 32",
-    "bracket_slot": {
-      "side": "left",
-      "slot": 6
     }
   },
   {
@@ -672,18 +672,6 @@
     }
   },
   {
-    "id": "M81",
-    "home": "1D",
-    "away": "3BEFIJ",
-    "utc": "2026-07-02T00:00:00Z",
-    "stadium": "San Francisco Bay Area Stadium",
-    "stage": "Round of 32",
-    "bracket_slot": {
-      "side": "right",
-      "slot": 1
-    }
-  },
-  {
     "id": "M82",
     "home": "1G",
     "away": "3AEHIJ",
@@ -696,15 +684,15 @@
     }
   },
   {
-    "id": "M83",
-    "home": "2K",
-    "away": "2L",
-    "utc": "2026-07-02T23:00:00Z",
-    "stadium": "Toronto Stadium",
+    "id": "M81",
+    "home": "1D",
+    "away": "3BEFIJ",
+    "utc": "2026-07-02T00:00:00Z",
+    "stadium": "San Francisco Bay Area Stadium",
     "stage": "Round of 32",
     "bracket_slot": {
       "side": "right",
-      "slot": 3
+      "slot": 1
     }
   },
   {
@@ -720,6 +708,18 @@
     }
   },
   {
+    "id": "M83",
+    "home": "2K",
+    "away": "2L",
+    "utc": "2026-07-02T23:00:00Z",
+    "stadium": "Toronto Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 3
+    }
+  },
+  {
     "id": "M85",
     "home": "1B",
     "away": "3EFGIJ",
@@ -729,6 +729,18 @@
     "bracket_slot": {
       "side": "right",
       "slot": 5
+    }
+  },
+  {
+    "id": "M88",
+    "home": "2D",
+    "away": "2G",
+    "utc": "2026-07-03T18:00:00Z",
+    "stadium": "Dallas Stadium",
+    "stage": "Round of 32",
+    "bracket_slot": {
+      "side": "right",
+      "slot": 8
     }
   },
   {
@@ -756,15 +768,15 @@
     }
   },
   {
-    "id": "M88",
-    "home": "2D",
-    "away": "2G",
-    "utc": "2026-07-03T18:00:00Z",
-    "stadium": "Dallas Stadium",
-    "stage": "Round of 32",
+    "id": "M90",
+    "home": "W73",
+    "away": "W75",
+    "utc": "2026-07-04T17:00:00Z",
+    "stadium": "Houston Stadium",
+    "stage": "Round of 16",
     "bracket_slot": {
-      "side": "right",
-      "slot": 8
+      "side": "left",
+      "slot": 2
     }
   },
   {
@@ -777,18 +789,6 @@
     "bracket_slot": {
       "side": "left",
       "slot": 1
-    }
-  },
-  {
-    "id": "M90",
-    "home": "W73",
-    "away": "W75",
-    "utc": "2026-07-04T17:00:00Z",
-    "stadium": "Houston Stadium",
-    "stage": "Round of 16",
-    "bracket_slot": {
-      "side": "left",
-      "slot": 2
     }
   },
   {
