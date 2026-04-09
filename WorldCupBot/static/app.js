@@ -1991,6 +1991,82 @@ async function loadOwnershipPage() {
 
 window.loadOwnershipPage = loadOwnershipPage;
 
+    async function openBetsCreateModal(onCreated){
+      const backdrop = document.getElementById('bets-create-backdrop');
+      const modal = document.getElementById('bets-create-modal');
+      const closeBtn = document.getElementById('bets-create-close');
+      const cancelBtn = document.getElementById('bets-create-cancel');
+      const submitBtn = document.getElementById('bets-create-submit');
+      const titleInput = document.getElementById('bets-create-title-input');
+      const wagerInput = document.getElementById('bets-create-wager-input');
+      const option1Input = document.getElementById('bets-create-option1-input');
+      const option2Input = document.getElementById('bets-create-option2-input');
+
+      if (!backdrop || !modal || !submitBtn || !titleInput || !wagerInput || !option1Input || !option2Input) return;
+
+      titleInput.value = '';
+      wagerInput.value = '';
+      option1Input.value = '';
+      option2Input.value = '';
+
+      const closeModal = () => {
+        backdrop.style.display = 'none';
+        document.removeEventListener('keydown', onEsc);
+      };
+      const onEsc = (ev) => {
+        if (ev.key === 'Escape') closeModal();
+      };
+
+      // Wire controls once, then update submit handler per-open so the latest
+      // callback logic is used after page refresh/rerender.
+      if (closeBtn && !closeBtn._wired) {
+        closeBtn._wired = true;
+        closeBtn.addEventListener('click', closeModal);
+      }
+      if (cancelBtn && !cancelBtn._wired) {
+        cancelBtn._wired = true;
+        cancelBtn.addEventListener('click', closeModal);
+      }
+      if (!backdrop._wired) {
+        backdrop._wired = true;
+        backdrop.addEventListener('click', (ev) => {
+          if (ev.target === backdrop) closeModal();
+        });
+      }
+
+      submitBtn.onclick = async () => {
+        const payload = {
+          bet_title: String(titleInput.value || '').trim(),
+          wager: String(wagerInput.value || '').trim(),
+          option1: String(option1Input.value || '').trim(),
+          option2: String(option2Input.value || '').trim(),
+        };
+        if (!payload.bet_title || !payload.wager || !payload.option1 || !payload.option2) {
+          notify('Please fill in all bet fields.', false);
+          return;
+        }
+        try {
+          submitBtn.disabled = true;
+          await fetchJSON('/api/bets/create', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+          notify('Bet created and sent to Discord.', true);
+          closeModal();
+          if (typeof onCreated === 'function') await onCreated();
+        } catch (e) {
+          notify(`Failed to create bet: ${e.message || e}`, false);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      };
+
+      backdrop.style.display = 'flex';
+      modal.focus();
+      titleInput.focus();
+      document.addEventListener('keydown', onEsc);
+    }
+
     async function loadAndRenderBets() {
       const host = document.getElementById('bets');
       if (!host) return;
@@ -2001,6 +2077,7 @@ window.loadOwnershipPage = loadOwnershipPage;
           <div class="table-head">
             <div class="table-title">Bets</div>
             <div class="table-actions">
+              <button id="bets-create-open" class="btn small">Create Bet</button>
               <button id="bets-refresh" class="btn small">Refresh</button>
             </div>
           </div>
@@ -2043,6 +2120,7 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       
       let bets = [];
+      const currentUid = state.userId ? String(state.userId) : '';
       const showAdmin = (typeof isAdminUI === 'function')
       ? isAdminUI()
       : (window.state && state.admin === true);
@@ -2111,6 +2189,32 @@ window.loadOwnershipPage = loadOwnershipPage;
           : 'Unclaimed';
         tdO2.appendChild(s2);
 
+        const option1OwnerId = bet.option1_user_id ? String(bet.option1_user_id) : '';
+        const option2OwnerId = bet.option2_user_id ? String(bet.option2_user_id) : '';
+        const canClaimOnWeb = !!currentUid
+          && !option2OwnerId
+          && currentUid !== option1OwnerId;
+        if (canClaimOnWeb) {
+          const claimBtn = document.createElement('button');
+          claimBtn.className = 'btn xs';
+          claimBtn.type = 'button';
+          claimBtn.textContent = 'Claim';
+          claimBtn.style.marginLeft = '8px';
+          claimBtn.onclick = async () => {
+            claimBtn.disabled = true;
+            try {
+              await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});
+              notify('Bet claimed.', true);
+              await loadAndRenderBets();
+            } catch (e) {
+              console.error('[bets] claim failed:', e);
+              notify('Failed to claim bet.', false);
+              claimBtn.disabled = false;
+            }
+          };
+          tdO2.appendChild(claimBtn);
+        }
+
         
         const tdWin = document.createElement('td');
         tdWin.className = 'bet-winner';
@@ -2169,6 +2273,12 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       const btn = document.getElementById('bets-refresh');
       if (btn) btn.onclick = () => loadAndRenderBets();
+      const createBtn = document.getElementById('bets-create-open');
+      if (createBtn) {
+        createBtn.disabled = !currentUid;
+        createBtn.title = currentUid ? '' : 'Log in with Discord to create bets.';
+        createBtn.onclick = () => openBetsCreateModal(loadAndRenderBets);
+      }
 
       if (typeof enableHoverTips === 'function') enableHoverTips();
     }
