@@ -2,12 +2,14 @@ import json
 import os
 import tempfile
 from typing import Optional
+import logging
 
 import discord
 from discord.ext import commands, tasks
 
 from queue_utils import compact_command_queue
 
+log = logging.getLogger(__name__)
 
 def _json_read(path: str, default):
     try:
@@ -108,8 +110,8 @@ class BetPageAnnouncer(commands.Cog):
         settings = self._load_settings()
         cfg = self._load_config()
 
-        # Allow either channel IDs or channel names in settings/config for
-        # flexibility across local and hosted environments.
+        # Explicit IDs are still supported, but we intentionally force the
+        # default to the dedicated #bets channel.
         candidates = [
             settings.get("BETS_CHANNEL_ID"),
             settings.get("BETS_CHANNEL"),
@@ -120,7 +122,6 @@ class BetPageAnnouncer(commands.Cog):
             cfg.get("BET_CHANNEL"),
             cfg.get("BET_CHANNEL_NAME"),
             "bets",
-            "announcements",
         ]
 
         for raw in candidates:
@@ -142,7 +143,8 @@ class BetPageAnnouncer(commands.Cog):
                     if ch.name.lower() == token.lower():
                         return ch
 
-        return guild.system_channel if isinstance(guild.system_channel, discord.TextChannel) else None
+        # Do not fall back to arbitrary channels; requirement is to post in #bets.
+        return None
 
     def _load_bets(self):
         data = _json_read(self.bets_path, [])
@@ -167,6 +169,64 @@ class BetPageAnnouncer(commands.Cog):
         if sid:
             return f"<@{sid}>"
         return str(uname or "Unclaimed")
+
+    def _display_name(self, user: discord.abc.User) -> str:
+        """Resolve a stable display label for persisted bet claim records."""
+        return (
+            str(getattr(user, "display_name", "") or "").strip()
+            or str(getattr(user, "global_name", "") or "").strip()
+            or str(getattr(user, "name", "") or "").strip()
+            or str(getattr(user, "id", "") or "").strip()
+        )
+
+    async def _claim_bet_from_discord(self, bet_id: str, user: discord.abc.User):
+        """
+        Handle in-Discord claim button interactions for web-posted bets so the
+        same claim state is reflected in JSON and on the Bets page.
+        """
+        bets, bet = self._find_bet(bet_id)
+        if not bet:
+            return False, "Bet not found in records."
+
+        claimer_id = str(getattr(user, "id", "") or "").strip()
+        if not claimer_id:
+            return False, "Unable to identify your account."
+        if claimer_id == str(bet.get("option1_user_id") or "").strip():
+            return False, "You cannot claim your own bet."
+        if str(bet.get("option2_user_id") or "").strip():
+            return False, "This bet has already been claimed."
+
+        bet["option2_user_id"] = claimer_id
+        bet["option2_user_name"] = self._display_name(user)
+        self._save_bets(bets)
+        return True, f'You claimed: **{bet.get("option2") or "Option 2"}**'
+
+    async def _bet_message_view(self, bet_id: str, *, claimable: bool):
+        if not claimable:
+            return None
+
+        view = discord.ui.View(timeout=None)
+
+        async def _on_claim(interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
+            ok, message = await self._claim_bet_from_discord(bet_id, interaction.user)
+            if not ok:
+                await interaction.followup.send(message, ephemeral=True)
+                return
+
+            # Reload from JSON to guarantee the embed reflects persisted state.
+            _, fresh = self._find_bet(bet_id)
+            if fresh and interaction.message:
+                try:
+                    await interaction.message.edit(embed=self._build_bet_embed(fresh), view=None)
+                except Exception:
+                    pass
+            await interaction.followup.send(message, ephemeral=True)
+
+        claim_btn = discord.ui.Button(label="Claim Bet", style=discord.ButtonStyle.success)
+        claim_btn.callback = _on_claim
+        view.add_item(claim_btn)
+        return view
 
     def _build_bet_embed(self, bet: dict) -> discord.Embed:
         option1 = str(bet.get("option1") or "Option 1")
@@ -217,10 +277,12 @@ class BetPageAnnouncer(commands.Cog):
 
         channel = await self._find_bets_channel(guild)
         if not channel:
+            log.warning("Skipping bet post because #bets channel was not found (bet_id=%s)", bet_id)
             return
 
         try:
-            sent = await channel.send(embed=self._build_bet_embed(bet))
+            view = await self._bet_message_view(bet_id, claimable=True)
+            sent = await channel.send(embed=self._build_bet_embed(bet), view=view)
         except Exception:
             return
 

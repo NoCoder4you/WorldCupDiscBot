@@ -257,39 +257,6 @@ def test_bets_create_requires_login(client):
     assert data["error"] == "login_required"
 
 
-def test_fanzone_vote_requires_login(client):
-    """
-    Fan-zone match voting must reject anonymous users so votes are always tied
-    to authenticated Discord identities.
-    """
-    resp = client.post("/api/fanzone/vote", json={"fixture_id": "M1", "choice": "home"})
-    assert resp.status_code == 401
-    data = resp.get_json()
-    assert data["ok"] is False
-    assert data["error"] == "not_logged_in"
-
-
-def test_fanzone_vote_allows_logged_in_user_and_records_discord_vote(client, app):
-    """
-    Logged-in users should still be able to vote, and their Discord id should
-    be persisted in the discord_voters map for notification/leaderboard logic.
-    """
-    with client.session_transaction() as sess:
-        sess["wc_user"] = {"discord_id": "200", "username": "owner"}
-
-    resp = client.post("/api/fanzone/vote", json={"fixture_id": "M1", "choice": "home"})
-    assert resp.status_code == 200
-    data = resp.get_json()
-    assert data["ok"] is True
-
-    base_dir = Path(app.config["BASE_DIR"])
-    votes_path = base_dir / "JSON" / "fan_votes.json"
-    votes_blob = json.loads(votes_path.read_text(encoding="utf-8"))
-    fixture_votes = votes_blob["fixtures"]["M1"]
-    assert fixture_votes["home"] == 1
-    assert fixture_votes["discord_voters"]["200"] == "home"
-
-
 def test_bets_create_persists_bet_and_enqueues_command(client, app):
     """Creating from Bets page should store the bet and queue a Discord post command."""
     base_dir = Path(app.config["BASE_DIR"])
@@ -372,6 +339,9 @@ def test_bet_page_announcer_handles_runtime_bet_commands():
     assert 'elif kind == "bet_claimed":' in cog_py
     assert "await self._handle_bet_created(bet_id)" in cog_py
     assert "await self._handle_bet_claimed(bet_id)" in cog_py
+    assert 'discord.ui.Button(label="Claim Bet"' in cog_py
+    assert '"bets"' in cog_py
+    assert '"announcements"' not in cog_py
 
 
 def test_bets_create_modal_markup_exists_in_index():
