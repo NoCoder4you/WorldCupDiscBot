@@ -2191,29 +2191,8 @@ window.loadOwnershipPage = loadOwnershipPage;
 
         const option1OwnerId = bet.option1_user_id ? String(bet.option1_user_id) : '';
         const option2OwnerId = bet.option2_user_id ? String(bet.option2_user_id) : '';
-        const canClaimOnWeb = !!currentUid
-          && !option2OwnerId
-          && currentUid !== option1OwnerId;
-        if (canClaimOnWeb) {
-          const claimBtn = document.createElement('button');
-          claimBtn.className = 'btn xs';
-          claimBtn.type = 'button';
-          claimBtn.textContent = 'Claim';
-          claimBtn.style.marginLeft = '8px';
-          claimBtn.onclick = async () => {
-            claimBtn.disabled = true;
-            try {
-              await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});
-              notify('Bet claimed.', true);
-              await loadAndRenderBets();
-            } catch (e) {
-              console.error('[bets] claim failed:', e);
-              notify('Failed to claim bet.', false);
-              claimBtn.disabled = false;
-            }
-          };
-          tdO2.appendChild(claimBtn);
-        }
+        const isClaimed = !!option2OwnerId;
+        const claimableByCurrentUser = !!currentUid && !isClaimed && currentUid !== option1OwnerId;
 
         
         const tdWin = document.createElement('td');
@@ -2263,6 +2242,37 @@ window.loadOwnershipPage = loadOwnershipPage;
           else if (winner === 'option2') pill.textContent = o2Name || 'Option 2';
           else pill.textContent = 'TBD';
           tdWin.appendChild(pill);
+
+          // Public view: expose explicit claim controls in the winner column so
+          // users can claim directly from the Bets page without hunting inside
+          // tooltip-only option cells.
+          if (!winner && !isClaimed) {
+            const claimBtn = document.createElement('button');
+            claimBtn.className = 'btn xs';
+            claimBtn.type = 'button';
+            claimBtn.textContent = 'Claim Bet';
+            claimBtn.style.marginLeft = '8px';
+            claimBtn.disabled = !claimableByCurrentUser;
+            if (!currentUid) {
+              claimBtn.title = 'Log in with Discord to claim bets.';
+            } else if (currentUid === option1OwnerId) {
+              claimBtn.title = 'You cannot claim your own bet.';
+            }
+            claimBtn.onclick = async () => {
+              if (!claimableByCurrentUser) return;
+              claimBtn.disabled = true;
+              try {
+                await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});
+                notify('Bet claimed.', true);
+                await loadAndRenderBets();
+              } catch (e) {
+                console.error('[bets] claim failed:', e);
+                notify('Failed to claim bet.', false);
+                claimBtn.disabled = false;
+              }
+            };
+            tdWin.appendChild(claimBtn);
+          }
         }
 
         tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);

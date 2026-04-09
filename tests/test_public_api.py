@@ -358,3 +358,10 @@ def test_bets_create_uses_modal_workflow_instead_of_window_prompts():
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
     assert "async function openBetsCreateModal(onCreated)" in app_js
     assert "createBtn.onclick = () => openBetsCreateModal(loadAndRenderBets);" in app_js
+
+
+def test_bets_page_exposes_claim_button_flow():
+    """Bets page should keep an explicit claim action in the web table UI."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "claimBtn.textContent = 'Claim Bet';" in app_js
+    assert "await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});" in app_js
