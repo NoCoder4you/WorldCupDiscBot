@@ -2387,6 +2387,14 @@ def create_public_routes(ctx):
         if not fixture_id or choice not in ("home", "away", "draw"):
             return jsonify({"ok": False, "error": "invalid_request"}), 400
 
+        # Match votes now require an authenticated Discord session. This keeps
+        # fan voting tied to a real account and prevents anonymous cookie-only
+        # votes from being counted.
+        user = session.get(_session_key()) or {}
+        uid = _effective_uid() or str(user.get("discord_id") or "").strip()
+        if not uid:
+            return jsonify({"ok": False, "error": "not_logged_in"}), 401
+
         winners_blob = _json_load(_fz_winners_path(base), {})
         if isinstance(winners_blob, dict) and fixture_id in winners_blob:
             return jsonify({"ok": False, "error": "voting_closed"}), 409
@@ -2410,19 +2418,12 @@ def create_public_routes(ctx):
         resp = make_response(jsonify({"ok": True}))
         fan_id = _ensure_fan_id(resp)
 
-        # If the voter is logged in, also record a per-discord vote so we can notify them later.
-        uid = None
-        try:
-            u = session.get(_session_key()) or {}
-            uid = _effective_uid() or str(u.get("discord_id") or "").strip()
-        except Exception:
-            uid = None
-        if uid:
-            dv = fx.setdefault("discord_voters", {})
-            if not isinstance(dv, dict):
-                dv = {}
-                fx["discord_voters"] = dv
-            dv.setdefault(uid, choice)
+        # Persist a per-Discord vote map for later winner/loss notifications.
+        dv = fx.setdefault("discord_voters", {})
+        if not isinstance(dv, dict):
+            dv = {}
+            fx["discord_voters"] = dv
+        dv.setdefault(uid, choice)
 
         # One vote per fixture per anonymous fan id (cookie-based)
         if fan_id in voters:
