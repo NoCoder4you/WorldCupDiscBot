@@ -241,3 +241,101 @@ def test_maintenance_channel_selection_does_not_skip_when_member_cache_missing()
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")
     assert "if not member:" in bot_py
     assert "return True" in bot_py
+
+
+def test_bets_create_requires_login(client):
+    """Creating a bet from the web should require an authenticated Discord session."""
+    resp = client.post("/api/bets/create", json={
+        "bet_title": "Will Team A win?",
+        "wager": "100 coins",
+        "option1": "Team A",
+        "option2": "Team B",
+    })
+    assert resp.status_code == 401
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert data["error"] == "login_required"
+
+
+def test_bets_create_persists_bet_and_enqueues_command(client, app):
+    """Creating from Bets page should store the bet and queue a Discord post command."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "1234", "username": "creator"}
+
+    resp = client.post("/api/bets/create", json={
+        "bet_title": "Will Team A win?",
+        "wager": "100 coins",
+        "option1": "Team A",
+        "option2": "Team B",
+    })
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    bet = payload["bet"]
+    assert bet["option1_user_id"] == "1234"
+    assert bet["option2_user_id"] is None
+
+    bets_path = json_dir / "bets.json"
+    bets = json.loads(bets_path.read_text(encoding="utf-8"))
+    assert isinstance(bets, list) and len(bets) == 1
+    assert bets[0]["bet_title"] == "Will Team A win?"
+
+    commands_path = json_dir / "bot_commands.jsonl"
+    lines = [ln for ln in commands_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    assert lines, "Expected a queued runtime command for Discord posting."
+    cmd = json.loads(lines[-1])
+    assert cmd["kind"] == "bet_created"
+    assert cmd["data"]["bet_id"] == bet["bet_id"]
+
+
+def test_bets_claim_updates_record_and_enqueues_command(client, app):
+    """Claiming from the Bets page should fill option2 and queue a Discord edit command."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    (json_dir / "bets.json").write_text(json.dumps([{
+        "bet_id": "00001",
+        "bet_title": "Who wins?",
+        "wager": "50",
+        "option1": "A",
+        "option2": "B",
+        "option1_user_id": "111",
+        "option1_user_name": "creator",
+        "option2_user_id": None,
+        "option2_user_name": None,
+        "channel_id": None,
+        "message_id": None,
+        "winner": None,
+    }]), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "222", "username": "claimer"}
+
+    resp = client.post("/api/bets/00001/claim", json={})
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    assert payload["bet"]["option2_user_id"] == "222"
+
+    bets = json.loads((json_dir / "bets.json").read_text(encoding="utf-8"))
+    assert bets[0]["option2_user_id"] == "222"
+    assert bets[0]["option2_user_name"] == "claimer"
+
+    commands_path = json_dir / "bot_commands.jsonl"
+    lines = [ln for ln in commands_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    cmd = json.loads(lines[-1])
+    assert cmd["kind"] == "bet_claimed"
+    assert cmd["data"]["bet_id"] == "00001"
+
+
+def test_bet_page_announcer_handles_runtime_bet_commands():
+    """Guard that the bot-side announcer processes queue commands for create + claim."""
+    cog_py = (ROOT / "WorldCupBot" / "COGS" / "BetPageAnnouncer.py").read_text(encoding="utf-8")
+    assert 'if kind == "bet_created":' in cog_py
+    assert 'elif kind == "bet_claimed":' in cog_py
+    assert "await self._handle_bet_created(bet_id)" in cog_py
+    assert "await self._handle_bet_claimed(bet_id)" in cog_py
