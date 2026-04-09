@@ -339,3 +339,19 @@ def test_bet_page_announcer_handles_runtime_bet_commands():
     assert 'elif kind == "bet_claimed":' in cog_py
     assert "await self._handle_bet_created(bet_id)" in cog_py
     assert "await self._handle_bet_claimed(bet_id)" in cog_py
+
+
+def test_bets_create_modal_markup_exists_in_index():
+    """Bets page should expose a first-class create modal instead of prompt dialogs."""
+    html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'id="bets-create-backdrop"' in html
+    assert 'id="bets-create-modal"' in html
+    assert 'id="bets-create-submit"' in html
+    assert 'id="bets-create-title-input"' in html
+
+
+def test_bets_create_uses_modal_workflow_instead_of_window_prompts():
+    """Regression guard: creating bets should use the custom modal flow."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "async function openBetsCreateModal(onCreated)" in app_js
+    assert "createBtn.onclick = () => openBetsCreateModal(loadAndRenderBets);" in app_js

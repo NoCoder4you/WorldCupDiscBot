@@ -1991,6 +1991,82 @@ async function loadOwnershipPage() {
 
 window.loadOwnershipPage = loadOwnershipPage;
 
+    async function openBetsCreateModal(onCreated){
+      const backdrop = document.getElementById('bets-create-backdrop');
+      const modal = document.getElementById('bets-create-modal');
+      const closeBtn = document.getElementById('bets-create-close');
+      const cancelBtn = document.getElementById('bets-create-cancel');
+      const submitBtn = document.getElementById('bets-create-submit');
+      const titleInput = document.getElementById('bets-create-title-input');
+      const wagerInput = document.getElementById('bets-create-wager-input');
+      const option1Input = document.getElementById('bets-create-option1-input');
+      const option2Input = document.getElementById('bets-create-option2-input');
+
+      if (!backdrop || !modal || !submitBtn || !titleInput || !wagerInput || !option1Input || !option2Input) return;
+
+      titleInput.value = '';
+      wagerInput.value = '';
+      option1Input.value = '';
+      option2Input.value = '';
+
+      const closeModal = () => {
+        backdrop.style.display = 'none';
+        document.removeEventListener('keydown', onEsc);
+      };
+      const onEsc = (ev) => {
+        if (ev.key === 'Escape') closeModal();
+      };
+
+      // Wire controls once, then update submit handler per-open so the latest
+      // callback logic is used after page refresh/rerender.
+      if (closeBtn && !closeBtn._wired) {
+        closeBtn._wired = true;
+        closeBtn.addEventListener('click', closeModal);
+      }
+      if (cancelBtn && !cancelBtn._wired) {
+        cancelBtn._wired = true;
+        cancelBtn.addEventListener('click', closeModal);
+      }
+      if (!backdrop._wired) {
+        backdrop._wired = true;
+        backdrop.addEventListener('click', (ev) => {
+          if (ev.target === backdrop) closeModal();
+        });
+      }
+
+      submitBtn.onclick = async () => {
+        const payload = {
+          bet_title: String(titleInput.value || '').trim(),
+          wager: String(wagerInput.value || '').trim(),
+          option1: String(option1Input.value || '').trim(),
+          option2: String(option2Input.value || '').trim(),
+        };
+        if (!payload.bet_title || !payload.wager || !payload.option1 || !payload.option2) {
+          notify('Please fill in all bet fields.', false);
+          return;
+        }
+        try {
+          submitBtn.disabled = true;
+          await fetchJSON('/api/bets/create', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+          notify('Bet created and sent to Discord.', true);
+          closeModal();
+          if (typeof onCreated === 'function') await onCreated();
+        } catch (e) {
+          notify(`Failed to create bet: ${e.message || e}`, false);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      };
+
+      backdrop.style.display = 'flex';
+      modal.focus();
+      titleInput.focus();
+      document.addEventListener('keydown', onEsc);
+    }
+
     async function loadAndRenderBets() {
       const host = document.getElementById('bets');
       if (!host) return;
@@ -2201,30 +2277,7 @@ window.loadOwnershipPage = loadOwnershipPage;
       if (createBtn) {
         createBtn.disabled = !currentUid;
         createBtn.title = currentUid ? '' : 'Log in with Discord to create bets.';
-        createBtn.onclick = async () => {
-          const betTitle = window.prompt('Bet title (max 80 chars):', '');
-          if (betTitle == null) return;
-          const wager = window.prompt('Wager (max 50 chars):', '');
-          if (wager == null) return;
-          const option1 = window.prompt('Option 1 (your side, max 60 chars):', '');
-          if (option1 == null) return;
-          const option2 = window.prompt('Option 2 (other side, max 60 chars):', '');
-          if (option2 == null) return;
-
-          try {
-            await postJSON('/api/bets/create', {
-              bet_title: String(betTitle || '').trim(),
-              wager: String(wager || '').trim(),
-              option1: String(option1 || '').trim(),
-              option2: String(option2 || '').trim(),
-            });
-            notify('Bet created and sent to Discord.', true);
-            await loadAndRenderBets();
-          } catch (e) {
-            console.error('[bets] create failed:', e);
-            notify('Failed to create bet.', false);
-          }
-        };
+        createBtn.onclick = () => openBetsCreateModal(loadAndRenderBets);
       }
 
       if (typeof enableHoverTips === 'function') enableHoverTips();
