@@ -47,6 +47,27 @@ def format_owner_mentions(owner_mentions, share):
         return "N/A"
     return ", ".join(f"{mention} ({share})" for mention in owner_mentions)
 
+
+def calculate_teams_left(players, teams):
+    """Return remaining team slots after accounting for assigned and pending entries.
+
+    We subtract *all* occupied player slots (already assigned teams and pending entries)
+    from the total number of tournament teams so the add-player confirmation stays
+    dynamic from 48 down to 0 as players are added.
+    """
+    occupied_slots = 0
+    for pdata in players.values():
+        for entry in pdata.get("teams", []):
+            if isinstance(entry, dict):
+                # A slot is occupied when an assignment is pending or already tied to a team.
+                if entry.get("pending") or entry.get("team"):
+                    occupied_slots += 1
+            elif entry:
+                # Legacy string-based entries store the team name directly.
+                occupied_slots += 1
+
+    return max(len(teams) - occupied_slots, 0)
+
 class TeamsDistribution(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -91,15 +112,7 @@ class TeamsDistribution(commands.Cog):
             1 for entry in players[str(user.id)]["teams"]
             if isinstance(entry, dict) and entry.get("pending")
         )
-        assigned_teams = set()
-        for pdata in players.values():
-            for entry in pdata.get("teams", []):
-                if isinstance(entry, dict):
-                    if entry.get("team"):
-                        assigned_teams.add(entry["team"])
-                elif entry:
-                    assigned_teams.add(entry)
-        teams_left = max(len(teams) - len(assigned_teams), 0)
+        teams_left = calculate_teams_left(players, teams)
 
         confirm_embed = discord.Embed(
             title="New Player Added",
