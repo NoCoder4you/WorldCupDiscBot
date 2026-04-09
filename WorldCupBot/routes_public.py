@@ -50,7 +50,9 @@ def _cmd_queue_path(base_dir):
 def _enqueue_command(base_dir, cmd: dict):
     cmd = dict(cmd); cmd["ts"] = int(time.time())
     with open(_cmd_queue_path(base_dir), "a", encoding="utf-8") as f:
-        f.write(json.dumps(cmd) + "\\n")
+        # Use a real newline delimiter so queue consumers can read one JSON
+        # command per line via splitlines()/JSONL semantics.
+        f.write(json.dumps(cmd) + "\n")
 
 def _bets_path(base_dir):
     return os.path.join(_json_dir(base_dir), "bets.json")
@@ -759,6 +761,158 @@ def create_public_routes(ctx):
         resp.headers["Pragma"] = "no-cache"
         resp.headers["Expires"] = "0"
         return resp
+
+    @api.post("/bets/create")
+    def api_bets_create():
+        """
+        Create a bet from the Bets page and enqueue a bot command so the embed
+        is posted to Discord using the same announcement workflow as runtime
+        queue events.
+        """
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": False, "error": "login_required"}), 401
+
+        uid = str(_effective_uid() or user.get("discord_id") or "").strip()
+        if not uid:
+            return jsonify({"ok": False, "error": "invalid_user"}), 400
+
+        body = request.get_json(silent=True) or {}
+        title = str(body.get("bet_title") or "").strip()
+        wager = str(body.get("wager") or "").strip()
+        option1 = str(body.get("option1") or "").strip()
+        option2 = str(body.get("option2") or "").strip()
+
+        if not title:
+            return jsonify({"ok": False, "error": "missing_bet_title"}), 400
+        if not wager:
+            return jsonify({"ok": False, "error": "missing_wager"}), 400
+        if not option1:
+            return jsonify({"ok": False, "error": "missing_option1"}), 400
+        if not option2:
+            return jsonify({"ok": False, "error": "missing_option2"}), 400
+
+        title = title[:80]
+        wager = wager[:50]
+        option1 = option1[:60]
+        option2 = option2[:60]
+
+        raw = _json_load(_bets_path(base), [])
+        bets = raw if isinstance(raw, list) else (raw.get("bets", []) if isinstance(raw, dict) else [])
+        if not isinstance(bets, list):
+            bets = []
+
+        existing_ids = {
+            str(b.get("bet_id")).strip()
+            for b in bets
+            if isinstance(b, dict) and str(b.get("bet_id") or "").strip()
+        }
+        bet_id = ""
+        for _ in range(10000):
+            candidate = str(secrets.randbelow(100000)).zfill(5)
+            if candidate not in existing_ids:
+                bet_id = candidate
+                break
+        if not bet_id:
+            return jsonify({"ok": False, "error": "could_not_generate_bet_id"}), 500
+
+        # Prefer a stable name that appears in verified/player maps so both UI
+        # tooltips and Discord embeds show friendly identities.
+        creator_name = (
+            str(user.get("display_name") or "").strip()
+            or str(user.get("global_name") or "").strip()
+            or str(user.get("username") or "").strip()
+            or uid
+        )
+
+        rec = {
+            "bet_id": bet_id,
+            "message_id": None,
+            "bet_title": title,
+            "wager": wager,
+            "option1": option1,
+            "option2": option2,
+            "option1_user_id": uid,
+            "option1_user_name": creator_name,
+            "option2_user_id": None,
+            "option2_user_name": None,
+            "channel_id": None,
+            "winner": None,
+        }
+        bets.append(rec)
+        _json_save(_bets_path(base), bets)
+
+        _enqueue_command(base, {
+            "kind": "bet_created",
+            "data": {"bet_id": bet_id}
+        })
+
+        log.info(
+            "Bet created via public API (bet_id=%s creator_id=%s title=%s option1=%s option2=%s)",
+            bet_id,
+            uid,
+            title,
+            option1,
+            option2,
+        )
+        return jsonify({"ok": True, "bet": rec})
+
+    @api.post("/bets/<bet_id>/claim")
+    def api_bets_claim(bet_id):
+        """
+        Claim the open side of a bet from the web UI and enqueue a command so
+        the existing Discord message is updated to reflect the claimer.
+        """
+        base = ctx.get("BASE_DIR", "")
+        user = session.get(_session_key())
+        if not user or not user.get("discord_id"):
+            return jsonify({"ok": False, "error": "login_required"}), 401
+
+        uid = str(_effective_uid() or user.get("discord_id") or "").strip()
+        if not uid:
+            return jsonify({"ok": False, "error": "invalid_user"}), 400
+
+        raw = _json_load(_bets_path(base), [])
+        bets = raw if isinstance(raw, list) else (raw.get("bets", []) if isinstance(raw, dict) else [])
+        if not isinstance(bets, list):
+            return jsonify({"ok": False, "error": "bets_file_invalid"}), 500
+
+        target = None
+        for b in bets:
+            if isinstance(b, dict) and str(b.get("bet_id") or "").strip() == str(bet_id).strip():
+                target = b
+                break
+        if not target:
+            return jsonify({"ok": False, "error": "bet_not_found"}), 404
+
+        if str(target.get("option1_user_id") or "").strip() == uid:
+            return jsonify({"ok": False, "error": "cannot_claim_own_bet"}), 400
+        if str(target.get("option2_user_id") or "").strip():
+            return jsonify({"ok": False, "error": "already_claimed"}), 409
+
+        claimer_name = (
+            str(user.get("display_name") or "").strip()
+            or str(user.get("global_name") or "").strip()
+            or str(user.get("username") or "").strip()
+            or uid
+        )
+        target["option2_user_id"] = uid
+        target["option2_user_name"] = claimer_name
+        _json_save(_bets_path(base), bets)
+
+        _enqueue_command(base, {
+            "kind": "bet_claimed",
+            "data": {"bet_id": str(bet_id)}
+        })
+
+        log.info(
+            "Bet claimed via public API (bet_id=%s claimer_id=%s creator_id=%s)",
+            bet_id,
+            uid,
+            target.get("option1_user_id"),
+        )
+        return jsonify({"ok": True, "bet": target})
 
     # ---------- Ownership from players ----------
     @api.get("/ownership_merged")

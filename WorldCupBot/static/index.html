@@ -756,6 +756,34 @@
             </div>
           </div>
 
+          <!-- ===== Bets Create Modal ===== -->
+          <div id="bets-create-backdrop" style="display:none;">
+            <div id="bets-create-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="bets-create-title" tabindex="-1">
+              <div class="modal-head">
+                <h3 id="bets-create-title">Create Bet</h3>
+                <button class="modal-close" id="bets-create-close" aria-label="Close">×</button>
+              </div>
+              <div class="modal-body">
+                <label for="bets-create-title-input">Bet title</label>
+                <input id="bets-create-title-input" type="text" maxlength="80" placeholder="e.g. Will Argentina win their next match?">
+
+                <label for="bets-create-wager-input">Wager</label>
+                <input id="bets-create-wager-input" type="text" maxlength="50" placeholder="e.g. 100 coins">
+
+                <label for="bets-create-option1-input">Option 1 (your side)</label>
+                <input id="bets-create-option1-input" type="text" maxlength="60" placeholder="e.g. Argentina wins">
+
+                <label for="bets-create-option2-input">Option 2 (other side)</label>
+                <input id="bets-create-option2-input" type="text" maxlength="60" placeholder="e.g. France wins or draws">
+                <div class="hint">All bets are final once claimed.</div>
+              </div>
+              <div class="modal-foot">
+                <button id="bets-create-cancel" class="btn btn-outline">Cancel</button>
+                <button id="bets-create-submit" class="btn">Create</button>
+              </div>
+            </div>
+          </div>
+
           <section id="cogs" class="page-section admin-only"></section>
           <section id="splits" class="page-section"></section>
           <section id="bets" class="page-section"></section>
