@@ -2001,6 +2001,7 @@ window.loadOwnershipPage = loadOwnershipPage;
           <div class="table-head">
             <div class="table-title">Bets</div>
             <div class="table-actions">
+              <button id="bets-create-open" class="btn small">Create Bet</button>
               <button id="bets-refresh" class="btn small">Refresh</button>
             </div>
           </div>
@@ -2043,6 +2044,7 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       
       let bets = [];
+      const currentUid = state.userId ? String(state.userId) : '';
       const showAdmin = (typeof isAdminUI === 'function')
       ? isAdminUI()
       : (window.state && state.admin === true);
@@ -2111,6 +2113,32 @@ window.loadOwnershipPage = loadOwnershipPage;
           : 'Unclaimed';
         tdO2.appendChild(s2);
 
+        const option1OwnerId = bet.option1_user_id ? String(bet.option1_user_id) : '';
+        const option2OwnerId = bet.option2_user_id ? String(bet.option2_user_id) : '';
+        const canClaimOnWeb = !!currentUid
+          && !option2OwnerId
+          && currentUid !== option1OwnerId;
+        if (canClaimOnWeb) {
+          const claimBtn = document.createElement('button');
+          claimBtn.className = 'btn xs';
+          claimBtn.type = 'button';
+          claimBtn.textContent = 'Claim';
+          claimBtn.style.marginLeft = '8px';
+          claimBtn.onclick = async () => {
+            claimBtn.disabled = true;
+            try {
+              await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});
+              notify('Bet claimed.', true);
+              await loadAndRenderBets();
+            } catch (e) {
+              console.error('[bets] claim failed:', e);
+              notify('Failed to claim bet.', false);
+              claimBtn.disabled = false;
+            }
+          };
+          tdO2.appendChild(claimBtn);
+        }
+
         
         const tdWin = document.createElement('td');
         tdWin.className = 'bet-winner';
@@ -2169,6 +2197,35 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       const btn = document.getElementById('bets-refresh');
       if (btn) btn.onclick = () => loadAndRenderBets();
+      const createBtn = document.getElementById('bets-create-open');
+      if (createBtn) {
+        createBtn.disabled = !currentUid;
+        createBtn.title = currentUid ? '' : 'Log in with Discord to create bets.';
+        createBtn.onclick = async () => {
+          const betTitle = window.prompt('Bet title (max 80 chars):', '');
+          if (betTitle == null) return;
+          const wager = window.prompt('Wager (max 50 chars):', '');
+          if (wager == null) return;
+          const option1 = window.prompt('Option 1 (your side, max 60 chars):', '');
+          if (option1 == null) return;
+          const option2 = window.prompt('Option 2 (other side, max 60 chars):', '');
+          if (option2 == null) return;
+
+          try {
+            await postJSON('/api/bets/create', {
+              bet_title: String(betTitle || '').trim(),
+              wager: String(wager || '').trim(),
+              option1: String(option1 || '').trim(),
+              option2: String(option2 || '').trim(),
+            });
+            notify('Bet created and sent to Discord.', true);
+            await loadAndRenderBets();
+          } catch (e) {
+            console.error('[bets] create failed:', e);
+            notify('Failed to create bet.', false);
+          }
+        };
+      }
 
       if (typeof enableHoverTips === 'function') enableHoverTips();
     }
