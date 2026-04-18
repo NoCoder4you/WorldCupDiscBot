@@ -107,6 +107,44 @@ class TeamsDistribution(commands.Cog):
 
         save_json(PLAYERS_FILE, players)
 
+        guild = interaction.guild
+        member = guild.get_member(user.id) if guild else None
+
+        # Keep role handling tolerant to legacy naming by accepting both singular
+        # and plural variants when looking up the "player" role.
+        players_role = None
+        spectators_role = None
+        if guild:
+            players_role = discord.utils.find(
+                lambda role: role.name.lower() in {"players", "player"},
+                guild.roles
+            )
+            spectators_role = discord.utils.find(
+                lambda role: role.name.lower() == "spectators",
+                guild.roles
+            )
+
+        # Promote newly added users from Spectators -> Players when they are a
+        # guild member and the required roles exist.
+        if member and players_role:
+            roles_to_add = []
+            roles_to_remove = []
+            if players_role not in member.roles:
+                roles_to_add.append(players_role)
+            if spectators_role and spectators_role in member.roles:
+                roles_to_remove.append(spectators_role)
+
+            if roles_to_remove:
+                await member.remove_roles(
+                    *roles_to_remove,
+                    reason=f"Promoted to player by /addplayer by {interaction.user}"
+                )
+            if roles_to_add:
+                await member.add_roles(
+                    *roles_to_add,
+                    reason=f"Added to tournament pool by {interaction.user}"
+                )
+
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
         pending_entries = sum(
             1 for entry in players[str(user.id)]["teams"]
@@ -128,7 +166,6 @@ class TeamsDistribution(commands.Cog):
             confirm_embed.set_thumbnail(url=bot_avatar)
 
         # Find "World Cup Admin" > "player-confirmation"
-        guild = interaction.guild
         confirm_channel = None
         if guild:
             for category in guild.categories:
