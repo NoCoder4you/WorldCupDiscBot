@@ -73,6 +73,55 @@ class TeamsDistribution(commands.Cog):
         self.bot = bot
         self.iso_mapping = load_json(ISO_FILE)
 
+    async def sync_member_pool_roles(
+        self,
+        guild: discord.Guild | None,
+        user: discord.abc.User,
+        actor: discord.abc.User
+    ) -> None:
+        """Promote a guild member from Spectators to Players for tournament access.
+        """
+        if not guild:
+            return
+
+        member = guild.get_member(user.id)
+        if not member:
+            # Role edits can only be made for users present in the guild.
+            return
+
+        # The tournament role is intentionally strict to the "Players" label,
+        # while matching case-insensitively to avoid capitalization drift.
+        players_role = discord.utils.find(
+            lambda role: role.name.lower() == "players",
+            guild.roles
+        )
+        spectators_role = discord.utils.find(
+            lambda role: role.name.lower() == "spectators",
+            guild.roles
+        )
+
+        if not players_role:
+            # Without the exact "Players" role, there is nothing safe to promote to.
+            return
+
+        roles_to_add = []
+        roles_to_remove = []
+        if players_role not in member.roles:
+            roles_to_add.append(players_role)
+        if spectators_role and spectators_role in member.roles:
+            roles_to_remove.append(spectators_role)
+
+        if roles_to_remove:
+            await member.remove_roles(
+                *roles_to_remove,
+                reason=f"Promoted to player by /addplayer by {actor}"
+            )
+        if roles_to_add:
+            await member.add_roles(
+                *roles_to_add,
+                reason=f"Added to tournament pool by {actor}"
+            )
+
     async def get_or_create_country_role(self, guild, country, existing_roles, countryroles, reason="World Cup Team Assignment"):
         role = existing_roles.get(country)
         if not role and guild:
@@ -107,6 +156,9 @@ class TeamsDistribution(commands.Cog):
 
         save_json(PLAYERS_FILE, players)
 
+        guild = interaction.guild
+        await self.sync_member_pool_roles(guild, user, interaction.user)
+
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
         pending_entries = sum(
             1 for entry in players[str(user.id)]["teams"]
@@ -128,7 +180,6 @@ class TeamsDistribution(commands.Cog):
             confirm_embed.set_thumbnail(url=bot_avatar)
 
         # Find "World Cup Admin" > "player-confirmation"
-        guild = interaction.guild
         confirm_channel = None
         if guild:
             for category in guild.categories:
