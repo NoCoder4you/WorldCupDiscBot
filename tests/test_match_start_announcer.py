@@ -1,4 +1,5 @@
 import pytest
+import json
 
 discord = pytest.importorskip("discord")
 
@@ -45,3 +46,18 @@ def test_reminder_kind_supports_one_hour_and_kickoff_windows():
     assert ann._reminder_kind(-30) == "kickoff"
     # Out-of-window values should not trigger a reminder.
     assert ann._reminder_kind(3700) is None
+
+
+def test_load_matches_prefers_json_directory(tmp_path):
+    ann = _announcer_stub()
+    ann.matches_path = str(tmp_path / "JSON" / "matches.json")
+    ann.legacy_matches_path = str(tmp_path / "matches.json")
+
+    (tmp_path / "JSON").mkdir(parents=True, exist_ok=True)
+    with open(ann.matches_path, "w", encoding="utf-8") as f:
+        json.dump([{"id": "json-fixture"}], f)
+    with open(ann.legacy_matches_path, "w", encoding="utf-8") as f:
+        json.dump([{"id": "legacy-fixture"}], f)
+
+    matches = ann._load_matches()
+    assert matches[0]["id"] == "json-fixture"

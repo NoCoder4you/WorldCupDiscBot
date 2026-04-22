@@ -19,7 +19,10 @@ class MatchStartAnnouncer(commands.Cog):
         self.json_dir = os.path.join(self.base_dir, "JSON")
         os.makedirs(self.json_dir, exist_ok=True)
 
-        self.matches_path = os.path.join(self.base_dir, "matches.json")
+        # Canonical fixture storage is JSON/matches.json. Keep a legacy fallback
+        # path for environments that still mirror files at repository root.
+        self.matches_path = os.path.join(self.json_dir, "matches.json")
+        self.legacy_matches_path = os.path.join(self.base_dir, "matches.json")
         self.country_roles_path = os.path.join(self.json_dir, "countryroles.json")
         self.team_meta_path = os.path.join(self.json_dir, "team_meta.json")
         self.state_path = os.path.join(self.json_dir, "match_start_announcer_state.json")
@@ -69,6 +72,16 @@ class MatchStartAnnouncer(commands.Cog):
             return data if data is not None else default
         except Exception:
             return default
+
+    def _load_matches(self) -> list[dict[str, Any]]:
+        # Prefer JSON/matches.json because admin/public routes persist there.
+        for path in (self.matches_path, self.legacy_matches_path):
+            raw_matches = self._load_json(path, [])
+            if isinstance(raw_matches, dict):
+                raw_matches = raw_matches.get("fixtures") or raw_matches.get("matches") or []
+            if isinstance(raw_matches, list) and raw_matches:
+                return [m for m in raw_matches if isinstance(m, dict)]
+        return []
 
     def _selected_guild_id(self) -> str:
         settings = self._load_json(os.path.join(self.json_dir, "admin_settings.json"), {})
@@ -226,10 +239,7 @@ class MatchStartAnnouncer(commands.Cog):
         if not guild:
             return
 
-        raw_matches = self._load_json(self.matches_path, [])
-        if isinstance(raw_matches, dict):
-            raw_matches = raw_matches.get("fixtures") or raw_matches.get("matches") or []
-        matches = raw_matches if isinstance(raw_matches, list) else []
+        matches = self._load_matches()
 
         now_ts = int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
 
