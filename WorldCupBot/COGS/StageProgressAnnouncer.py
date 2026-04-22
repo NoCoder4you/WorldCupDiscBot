@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands, tasks
 
 from queue_utils import compact_command_queue
+from stage_constants import STAGE_CHANNEL_MAP
 
 log = logging.getLogger(__name__)
 
@@ -140,12 +141,28 @@ class StageProgressAnnouncer(commands.Cog):
             return None
         roles = self._load_country_roles()
         role_id = roles.get(team)
-        if not role_id:
-            return None
+        if role_id:
+            try:
+                role = guild.get_role(int(role_id))
+                if role:
+                    return role
+            except Exception:
+                pass
+
+        # Fallback for environments where countryroles.json is incomplete but
+        # each country role exists with the country name.
         try:
-            return guild.get_role(int(role_id))
+            team_l = str(team or "").strip().lower()
+            return discord.utils.find(lambda r: r.name.lower() == team_l, guild.roles)
         except Exception:
             return None
+
+    def _announcement_channel(self, stage: str, fallback: str) -> str:
+        stage_key = str(stage or "").strip()
+        mapped = STAGE_CHANNEL_MAP.get(stage_key)
+        if mapped:
+            return mapped
+        return str(fallback or "announcements")
 
     async def _dm_user_embed(self, user_id: str, embed: discord.Embed):
         try:
@@ -253,7 +270,8 @@ class StageProgressAnnouncer(commands.Cog):
             data = cmd.get("data") or {}
             team = str(data.get("team") or "")
             stage = str(data.get("stage") or "")
-            channel_name = str(data.get("channel") or "announcements")
+            requested_channel = str(data.get("channel") or "announcements")
+            channel_name = self._announcement_channel(stage, requested_channel)
             owner_ids = data.get("owner_ids") or []
             log.info(
                 "Country stage announcement queued (team=%s stage=%s channel=%s owners=%s)",
