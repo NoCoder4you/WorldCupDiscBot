@@ -24,7 +24,8 @@ class MatchStartAnnouncer(commands.Cog):
         self.team_meta_path = os.path.join(self.json_dir, "team_meta.json")
         self.state_path = os.path.join(self.json_dir, "match_start_announcer_state.json")
 
-        self._sent_keys: set[str] = set()
+        self._sent_hour_keys: set[str] = set()
+        self._sent_kickoff_keys: set[str] = set()
         self._load_state()
         self._loop.start()
 
@@ -38,16 +39,26 @@ class MatchStartAnnouncer(commands.Cog):
         try:
             with open(self.state_path, "r", encoding="utf-8") as f:
                 data = json.load(f) or {}
-            keys = data.get("sent_keys") or []
-            if isinstance(keys, list):
-                self._sent_keys = {str(k) for k in keys if str(k).strip()}
+            # Backward compatibility: previous state versions used "sent_keys"
+            # for one-hour reminders only.
+            old_hour_keys = data.get("sent_keys") or []
+            hour_keys = data.get("sent_hour_keys") or old_hour_keys
+            kickoff_keys = data.get("sent_kickoff_keys") or []
+            if isinstance(hour_keys, list):
+                self._sent_hour_keys = {str(k) for k in hour_keys if str(k).strip()}
+            if isinstance(kickoff_keys, list):
+                self._sent_kickoff_keys = {str(k) for k in kickoff_keys if str(k).strip()}
         except Exception:
-            self._sent_keys = set()
+            self._sent_hour_keys = set()
+            self._sent_kickoff_keys = set()
 
     def _save_state(self):
         try:
             with open(self.state_path, "w", encoding="utf-8") as f:
-                json.dump({"sent_keys": sorted(self._sent_keys)[-5000:]}, f)
+                json.dump({
+                    "sent_hour_keys": sorted(self._sent_hour_keys)[-5000:],
+                    "sent_kickoff_keys": sorted(self._sent_kickoff_keys)[-5000:],
+                }, f)
         except Exception:
             pass
 
@@ -179,9 +190,26 @@ class MatchStartAnnouncer(commands.Cog):
                 mentions.append(mention)
         return " ".join(mentions) if mentions else None
 
-    def _announcement_embed(self, home: str, away: str, kickoff_ts: int) -> discord.Embed:
+    def _reminder_kind(self, seconds_until: int) -> str | None:
+        """
+        Return which reminder should fire at the current poll tick.
+
+        - hour: within the final hour, but not in the kickoff minute window.
+        - kickoff: within ±60 seconds from kickoff.
+        """
+        if -60 <= seconds_until <= 60:
+            return "kickoff"
+        if 60 < seconds_until <= 3600:
+            return "hour"
+        return None
+
+    def _announcement_embed(self, home: str, away: str, kickoff_ts: int, reminder_kind: str) -> discord.Embed:
+        if reminder_kind == "kickoff":
+            title = "🚨 Kickoff is now"
+        else:
+            title = "⏰ Match starts in 1 hour"
         embed = discord.Embed(
-            title="⏰ Match starts in 1 hour",
+            title=title,
             description=(
                 f"**{home}** vs **{away}**\n"
                 f"Kickoff: <t:{kickoff_ts}:F> (<t:{kickoff_ts}:R>)"
@@ -215,14 +243,15 @@ class MatchStartAnnouncer(commands.Cog):
             if not (home and away and kickoff_ts):
                 continue
 
-            # Fire exactly once when the match is in the final hour pre-kickoff.
             seconds_until = kickoff_ts - now_ts
-            if seconds_until < 0 or seconds_until > 3600:
+            reminder_kind = self._reminder_kind(seconds_until)
+            if not reminder_kind:
                 continue
 
             fixture_id = str(fixture.get("id") or "").strip() or f"{home}-{away}-{kickoff_ts}"
             state_key = f"{fixture_id}:{kickoff_ts}"
-            if state_key in self._sent_keys:
+            sent_keys = self._sent_kickoff_keys if reminder_kind == "kickoff" else self._sent_hour_keys
+            if state_key in sent_keys:
                 continue
 
             channel_name = self._resolve_channel_name(fixture, home, away)
@@ -238,10 +267,10 @@ class MatchStartAnnouncer(commands.Cog):
                 content = self._country_role_mentions(guild, home, away)
                 await channel.send(
                     content=content,
-                    embed=self._announcement_embed(home, away, kickoff_ts),
+                    embed=self._announcement_embed(home, away, kickoff_ts, reminder_kind),
                     allowed_mentions=discord.AllowedMentions(roles=True),
                 )
-                self._sent_keys.add(state_key)
+                sent_keys.add(state_key)
                 self._save_state()
             except Exception:
                 continue

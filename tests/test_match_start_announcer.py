@@ -33,3 +33,15 @@ def test_resolve_channel_name_falls_back_to_group():
 
     fixture = {"stage": "Group Stage"}
     assert ann._resolve_channel_name(fixture, "France", "Brazil") == "group-b"
+
+
+def test_reminder_kind_supports_one_hour_and_kickoff_windows():
+    ann = _announcer_stub()
+
+    # 59 minutes before kickoff -> one-hour reminder window.
+    assert ann._reminder_kind(59 * 60) == "hour"
+    # Exact kickoff and nearby poll drift -> kickoff reminder window.
+    assert ann._reminder_kind(0) == "kickoff"
+    assert ann._reminder_kind(-30) == "kickoff"
+    # Out-of-window values should not trigger a reminder.
+    assert ann._reminder_kind(3700) is None
