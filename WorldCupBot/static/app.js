@@ -2237,10 +2237,19 @@ window.loadOwnershipPage = loadOwnershipPage;
         } else {
           
           const pill = document.createElement('span');
-          pill.className = 'pill ' + (winner ? 'pill-winner' : 'pill-tbd');
-          if (winner === 'option1') pill.textContent = o1Name || 'Option 1';
-          else if (winner === 'option2') pill.textContent = o2Name || 'Option 2';
-          else pill.textContent = 'TBD';
+          pill.className = 'pill bet-outcome-pill ' + (winner ? 'pill-winner' : 'pill-tbd');
+
+          // Always prefer the resolved display-name fields for winner text so the
+          // outcome column reflects the same friendly identity shown across the app.
+          const winnerDisplayName =
+            winner === 'option1' ? (o1Name || 'Option 1')
+            : winner === 'option2' ? (o2Name || 'Option 2')
+            : 'TBD';
+
+          pill.textContent = winnerDisplayName;
+          // Preserve the full value for hover/focus so long names remain accessible
+          // when the UI applies ellipsis for tight table layouts.
+          pill.title = winnerDisplayName;
           tdWin.appendChild(pill);
 
           // Public view: expose explicit claim controls in the winner column so

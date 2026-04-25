@@ -3040,12 +3040,19 @@ select.select-dark:disabled {
 
 .pill-winner {
     background: var(--accent);
-    color: var(--header-bg);
+    color: #07111c;
 }
 .pill-tbd {
     background: #6b72804d;
     color: var(--text);
     border: 1px dashed var(--card-border);
+}
+.bet-outcome-pill {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
 }
 
 .win-controls {
