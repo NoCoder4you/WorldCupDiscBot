@@ -102,29 +102,58 @@ class WorldCupBot(commands.Bot):
 
     async def _post_config_report(self):
         for guild in self.guilds:
-            msgs = [
-                "WorldCupBot is online.",
-                f"Config - ADMIN_ROLE_NAME: {ADMIN_ROLE_NAME or 'MISSING'}",
-                f"Config - ADMIN_CATEGORY_NAME: {ADMIN_CATEGORY_NAME or 'MISSING'}",
-            ]
-            if ADMIN_LOG_CHANNEL_IDS:
-                parts = []
-                for cid in ADMIN_LOG_CHANNEL_IDS:
-                    ch = guild.get_channel(cid)
-                    parts.append(f"#{ch.name}" if ch else str(cid))
-                msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: " + ", ".join(parts))
-            else:
-                msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: none set (will use fallback)")
+            # Resolve configured admin log channels to human-readable labels so the startup
+            # report is immediately actionable when troubleshooting config issues.
+            resolved_channels = []
+            unresolved_channels = []
+            for cid in ADMIN_LOG_CHANNEL_IDS:
+                ch = guild.get_channel(cid)
+                if ch:
+                    resolved_channels.append(f"#{ch.name} ({cid})")
+                else:
+                    unresolved_channels.append(str(cid))
 
             warn = []
             if not ADMIN_ROLE_NAME:
                 warn.append("ADMIN_ROLE_NAME not set - admin commands blocked.")
             if not ADMIN_CATEGORY_NAME:
                 warn.append("ADMIN_CATEGORY_NAME not set - admin commands blocked.")
-            if warn:
-                msgs.append("⚠️ " + " ".join(warn))
+            status_text = "⚠️ Action required" if warn else "✅ Admin configuration check passed"
 
-            await send_discord_log(guild, "\n".join(msgs))
+            # Use an embed for this startup report so the message is easier to scan in busy
+            # admin channels and the key diagnostics are grouped by topic.
+            embed = discord.Embed(
+                title="WorldCupBot startup report",
+                description="✅ Bot is online and ready.",
+                color=discord.Color.orange() if warn else discord.Color.green(),
+            )
+            embed.add_field(
+                name="Runtime",
+                value=(
+                    f"• Guild: **{guild.name}** (`{guild.id}`)\n"
+                    f"• Connected as: **{self.user}** (`{self.user.id if self.user else '?'}`)\n"
+                    f"• Gateway latency: **{round(self.latency * 1000)} ms**\n"
+                    f"• Loaded cogs: **{len(self.loaded_exts)}**"
+                ),
+                inline=False,
+            )
+            admin_lines = [
+                f"• ADMIN_ROLE_NAME: **{ADMIN_ROLE_NAME or 'MISSING'}**",
+                f"• ADMIN_CATEGORY_NAME: **{ADMIN_CATEGORY_NAME or 'MISSING'}**",
+                "• ADMIN_LOG_CHANNEL_IDS (resolved): "
+                + (", ".join(resolved_channels) if resolved_channels else "none"),
+            ]
+            if unresolved_channels:
+                admin_lines.append(
+                    "• ADMIN_LOG_CHANNEL_IDS (not found in guild): " + ", ".join(unresolved_channels)
+                )
+            if not ADMIN_LOG_CHANNEL_IDS:
+                admin_lines.append("• ADMIN_LOG_CHANNEL_IDS: none set (bot will use fallback logger channel)")
+            embed.add_field(name="Admin configuration", value="\n".join(admin_lines), inline=False)
+            embed.add_field(name="Status", value=status_text if not warn else "⚠️ " + " ".join(warn), inline=False)
+            embed.set_footer(text="WorldCupBot launcher health check")
+
+            await send_discord_log(guild, status_text, embed=embed)
 
     # --------------- Cog Helpers ---------------
     async def load_all_cogs(self):
@@ -430,14 +459,14 @@ async def get_fallback_log_channels(guild: discord.Guild) -> List[discord.abc.Me
         return [guild.system_channel]
     return []
 
-async def send_discord_log(guild: discord.Guild, message: str):
+async def send_discord_log(guild: discord.Guild, message: str, embed: discord.Embed = None):
     targets = await get_fallback_log_channels(guild)
     if not targets:
         log.warning("No suitable log channel found in guild %s. Message: %s", guild.name if guild else "?", message)
         return
     for ch in targets:
         try:
-            await ch.send(message)
+            await ch.send(message, embed=embed)
         except Exception:
             pass
     log.info(message)
