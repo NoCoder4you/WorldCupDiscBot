@@ -102,19 +102,36 @@ class WorldCupBot(commands.Bot):
 
     async def _post_config_report(self):
         for guild in self.guilds:
+            # Resolve configured admin log channels to human-readable labels so the startup
+            # report is immediately actionable when troubleshooting config issues.
+            resolved_channels = []
+            unresolved_channels = []
+            for cid in ADMIN_LOG_CHANNEL_IDS:
+                ch = guild.get_channel(cid)
+                if ch:
+                    resolved_channels.append(f"#{ch.name} ({cid})")
+                else:
+                    unresolved_channels.append(str(cid))
+
             msgs = [
-                "WorldCupBot is online.",
-                f"Config - ADMIN_ROLE_NAME: {ADMIN_ROLE_NAME or 'MISSING'}",
-                f"Config - ADMIN_CATEGORY_NAME: {ADMIN_CATEGORY_NAME or 'MISSING'}",
+                "✅ **WorldCupBot is online and ready.**",
+                f"• Guild: **{guild.name}** (`{guild.id}`)",
+                f"• Connected as: **{self.user}** (`{self.user.id if self.user else '?'}`)",
+                f"• Gateway latency: **{round(self.latency * 1000)} ms**",
+                f"• Loaded cogs: **{len(self.loaded_exts)}**",
+                "",
+                "**Admin configuration**",
+                f"• ADMIN_ROLE_NAME: **{ADMIN_ROLE_NAME or 'MISSING'}**",
+                f"• ADMIN_CATEGORY_NAME: **{ADMIN_CATEGORY_NAME or 'MISSING'}**",
             ]
-            if ADMIN_LOG_CHANNEL_IDS:
-                parts = []
-                for cid in ADMIN_LOG_CHANNEL_IDS:
-                    ch = guild.get_channel(cid)
-                    parts.append(f"#{ch.name}" if ch else str(cid))
-                msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: " + ", ".join(parts))
+            if resolved_channels:
+                msgs.append("• ADMIN_LOG_CHANNEL_IDS (resolved): " + ", ".join(resolved_channels))
             else:
-                msgs.append("Config - ADMIN_LOG_CHANNEL_IDS: none set (will use fallback)")
+                msgs.append("• ADMIN_LOG_CHANNEL_IDS (resolved): none")
+            if unresolved_channels:
+                msgs.append("• ADMIN_LOG_CHANNEL_IDS (not found in guild): " + ", ".join(unresolved_channels))
+            if not ADMIN_LOG_CHANNEL_IDS:
+                msgs.append("• ADMIN_LOG_CHANNEL_IDS: none set (bot will use fallback logger channel)")
 
             warn = []
             if not ADMIN_ROLE_NAME:
@@ -122,7 +139,11 @@ class WorldCupBot(commands.Bot):
             if not ADMIN_CATEGORY_NAME:
                 warn.append("ADMIN_CATEGORY_NAME not set - admin commands blocked.")
             if warn:
-                msgs.append("⚠️ " + " ".join(warn))
+                msgs.append("")
+                msgs.append("⚠️ **Action required:** " + " ".join(warn))
+            else:
+                msgs.append("")
+                msgs.append("✅ Admin configuration check passed.")
 
             await send_discord_log(guild, "\n".join(msgs))
 
