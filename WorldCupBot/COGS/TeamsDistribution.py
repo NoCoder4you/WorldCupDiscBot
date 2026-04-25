@@ -204,10 +204,9 @@ class TeamsDistribution(commands.Cog):
         dm_embed = discord.Embed(
             title="World Cup 2026",
             description=(
-                "Thank You for joining Noah's FIFA 2026 World Cup Tournament!\n"
-                "- Your team will be randomly assigned before the tournament starts!\n"
-                "- Your team will be revealed before the tournament starts!\n"
-                "- You are more than welcome to purchase more than one team!"
+                "Thank you for joining Noah and Tori's FIFA 2026 World Cup Sweepstake!\n"
+                "- Your team will be randomly assigned and revealed before the tournament starts!\n"
+                "- You may buy 2 entries and 3rd entry after May 1st"
             ),
             colour=discord.Colour.green()
         )
