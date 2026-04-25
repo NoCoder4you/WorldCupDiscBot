@@ -1021,7 +1021,10 @@ def create_admin_routes(ctx):
             eid = f"bet:{bet_id}:{uid}"
             if eid in existing:
                 return
-            outcome = "Status: 🏆 Won 🏆" if result == "win" else "Lost"
+            # Keep `outcome` label-free because `body` already prefixes the
+            # line with `Status:`. This avoids rendering `Status: Status: ...`
+            # in the notifications panel.
+            outcome = "🏆 Won 🏆" if result == "win" else "Lost"
             events.append({
                 "id": eid,
                 "discord_id": uid,
