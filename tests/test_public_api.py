@@ -344,6 +344,20 @@ def test_bet_page_announcer_handles_runtime_bet_commands():
     assert '"announcements"' not in cog_py
 
 
+def test_bet_page_announcer_uses_single_sidecar_tmp_file():
+    """State writes should use one deterministic .tmp sidecar file."""
+    cog_py = (ROOT / "WorldCupBot" / "COGS" / "BetPageAnnouncer.py").read_text(encoding="utf-8")
+    assert 'tmp_path = f"{path}.tmp"' in cog_py
+    assert "tempfile.mkstemp" not in cog_py
+
+
+def test_bet_page_announcer_skips_redundant_state_writes():
+    """Polling loop should avoid rewriting offset state when unchanged."""
+    cog_py = (ROOT / "WorldCupBot" / "COGS" / "BetPageAnnouncer.py").read_text(encoding="utf-8")
+    assert "if self._saved_offset == int(self._offset):" in cog_py
+    assert "self._saved_offset = int(self._offset)" in cog_py
+
+
 def test_bets_create_modal_markup_exists_in_index():
     """Bets page should expose a first-class create modal instead of prompt dialogs."""
     html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")

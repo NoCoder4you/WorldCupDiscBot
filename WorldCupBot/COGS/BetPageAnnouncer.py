@@ -1,6 +1,5 @@
 import json
 import os
-import tempfile
 from typing import Optional
 import logging
 
@@ -20,10 +19,13 @@ def _json_read(path: str, default):
 
 
 def _json_write_atomic(path: str, data) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(prefix="bet_page_", suffix=".tmp", dir=os.path.dirname(path))
+    dir_name = os.path.dirname(path)
+    os.makedirs(dir_name, exist_ok=True)
+    # Use a deterministic sidecar tmp file so we don't leave behind many
+    # uniquely named temp files if the process is interrupted mid-write.
+    tmp_path = f"{path}.tmp"
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
         os.replace(tmp_path, path)
     finally:
@@ -56,6 +58,7 @@ class BetPageAnnouncer(commands.Cog):
         self.bets_path = os.path.join(self.json_dir, "bets.json")
 
         self._offset = 0
+        self._saved_offset = None
         self._load_state()
         self._loop.start()
 
@@ -68,9 +71,15 @@ class BetPageAnnouncer(commands.Cog):
     def _load_state(self):
         data = _json_read(self.state_path, {})
         self._offset = int(data.get("offset") or 0) if isinstance(data, dict) else 0
+        self._saved_offset = self._offset
 
     def _save_state(self):
+        # Avoid rewriting state on every poll when no new commands were read.
+        # This significantly reduces filesystem churn on busy/long-lived hosts.
+        if self._saved_offset == int(self._offset):
+            return
         _json_write_atomic(self.state_path, {"offset": int(self._offset)})
+        self._saved_offset = int(self._offset)
 
     def _load_config(self) -> dict:
         return _json_read(os.path.join(self.base_dir, "config.json"), {})
