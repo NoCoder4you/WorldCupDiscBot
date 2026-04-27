@@ -48,6 +48,74 @@ class SpectatorVerify(commands.Cog):
         save_json_file(VERIFICATION_CODES_PATH, self.verification_data)
         save_json_file(VERIFIED_PATH, self.verified_data)
 
+    def _build_avatar_url(self, user: discord.abc.User) -> str:
+        """Build a stable avatar URL for the verified record."""
+        avatar_hash = user.avatar.key if user.avatar else None
+        if avatar_hash:
+            return f"https://cdn.discordapp.com/avatars/{user.id}/{avatar_hash}.png?size=256"
+        return f"https://cdn.discordapp.com/embed/avatars/{user.id % 5}.png"
+
+    def _find_member_by_username(self, guild: discord.Guild, username: str):
+        """
+        Resolve a guild member from a free-form username.
+
+        The command accepts common username styles (display name, global name,
+        account name, and legacy name#discriminator) so staff can verify people
+        quickly even when they do not have a mention or user ID handy.
+        """
+        needle = (username or "").strip().lower()
+        if not needle:
+            return None
+
+        # Exact match first to avoid ambiguity when there are similar names.
+        for member in guild.members:
+            candidates = {
+                (member.display_name or "").strip().lower(),
+                (member.name or "").strip().lower(),
+                (member.global_name or "").strip().lower(),
+                (str(member) or "").strip().lower(),
+            }
+            if needle in candidates:
+                return member
+
+        # Fallback to partial match for moderator convenience.
+        for member in guild.members:
+            candidates = [
+                (member.display_name or "").strip().lower(),
+                (member.name or "").strip().lower(),
+                (member.global_name or "").strip().lower(),
+                (str(member) or "").strip().lower(),
+            ]
+            if any(needle in c for c in candidates if c):
+                return member
+        return None
+
+    async def _enrich_verified_habbo_name(self, discord_id: str, habbo: str):
+        """
+        Best-effort background enrichment that updates the canonical Habbo name.
+
+        This intentionally runs after the force-verify command returns so mods
+        can continue processing users without waiting on third-party API latency.
+        """
+        try:
+            url = f"https://www.habbo.com/api/public/users?name={habbo}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        return
+                    data = await response.json()
+            canonical_name = str(data.get("name") or "").strip()
+            if not canonical_name:
+                return
+            for entry in self.verified_data.get("verified_users", []):
+                if str(entry.get("discord_id")) == str(discord_id):
+                    entry["habbo_name"] = canonical_name
+                    self.save_all()
+                    return
+        except Exception:
+            # Network/API issues are non-fatal for force verification.
+            return
+
     @app_commands.command(name="verify", description="Verify yourself and get the Spectators role.")
     @app_commands.describe(habbo="Your Habbo username")
     async def verify(self, interaction: discord.Interaction, habbo: str):
@@ -110,12 +178,7 @@ class SpectatorVerify(commands.Cog):
                                     await member.edit(nick=habbo_name)
                                 except Exception:
                                     pass
-                            # Build Discord avatar URL
-                            avatar_hash = interaction.user.avatar.key if interaction.user.avatar else None
-                            if avatar_hash:
-                                avatar_url = f"https://cdn.discordapp.com/avatars/{interaction.user.id}/{avatar_hash}.png?size=256"
-                            else:
-                                avatar_url = f"https://cdn.discordapp.com/embed/avatars/{interaction.user.id % 5}.png"
+                            avatar_url = self._build_avatar_url(interaction.user)
 
                             # Save full Discord identifiers
                             self.verified_data.setdefault("verified_users", []).append({
@@ -185,6 +248,75 @@ class SpectatorVerify(commands.Cog):
         embed.set_footer(text="World Cup 2026 - Habbo Verification")
         embed.set_thumbnail(url=f"https://www.habbo.com/habbo-imaging/avatarimage?user={habbo}&direction=3&head_direction=3&gesture=nor&action=wav&size=l")
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @commands.command(name="forceverify", help="Admin: force-verify a user by username and Habbo name.")
+    @commands.has_permissions(administrator=True)
+    async def force_verify(self, ctx: commands.Context, username: str, *, habbo: str):
+        """
+        Forcefully mark a user as verified and grant Spectators immediately.
+
+        Usage:
+          wc forceverify <discord_username> <habbo_name>
+        """
+        if ctx.guild is None:
+            await ctx.send("❌ This command can only be used inside a server.")
+            return
+
+        # Ensure member cache is present before searching by username.
+        await ctx.guild.chunk()
+
+        member = self._find_member_by_username(ctx.guild, username)
+        if member is None:
+            await ctx.send(f"❌ I couldn't find a member matching `{username}`.")
+            return
+
+        user_id = str(member.id)
+        existing = next(
+            (entry for entry in self.verified_data.get("verified_users", []) if entry.get("discord_id") == user_id),
+            None,
+        )
+        if existing:
+            await ctx.send(f"ℹ️ `{member.display_name}` is already verified as `{existing.get('habbo_name', 'unknown')}`.")
+            return
+
+        spectators_role = ctx.guild.get_role(SPECTATORS_ROLE_ID)
+        unverified_role = ctx.guild.get_role(UNVERIFIED_ROLE_ID)
+
+        # Persist the minimum verified record immediately so downstream systems
+        # can treat the user as verified even if background enrichment fails.
+        self.verified_data.setdefault("verified_users", []).append({
+            "discord_id": user_id,
+            "habbo_name": habbo.strip(),
+            "discord_username": member.name,
+            "discord_global_name": member.global_name,
+            "discord_display_name": member.display_name,
+            "discord_avatar": self._build_avatar_url(member),
+        })
+        self.verification_data.get("verification_data", {}).pop(user_id, None)
+        self.save_all()
+
+        if spectators_role and spectators_role not in member.roles:
+            try:
+                await member.add_roles(spectators_role, reason=f"Force-verified by {ctx.author} ({ctx.author.id})")
+            except Exception:
+                pass
+        if unverified_role and unverified_role in member.roles:
+            try:
+                await member.remove_roles(unverified_role, reason=f"Force-verified by {ctx.author} ({ctx.author.id})")
+            except Exception:
+                pass
+        try:
+            await member.edit(nick=habbo.strip())
+        except Exception:
+            pass
+
+        # Enrich Habbo canonical name asynchronously; do not block moderators.
+        self.bot.loop.create_task(self._enrich_verified_habbo_name(user_id, habbo.strip()))
+
+        await ctx.send(
+            f"✅ Force-verified `{member.display_name}` as `{habbo.strip()}`.\n"
+            f"I'll keep gathering any remaining Habbo profile details in the background."
+        )
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
