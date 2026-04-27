@@ -14,6 +14,8 @@ PLAYERS_FILE = JSON_DIR / "players.json"
 REQUESTS_FILE = JSON_DIR / "split_requests.json"
 SPLIT_REQUESTS_LOG_FILE = JSON_DIR / "split_requests_log.json"
 VERIFIED_FILE = JSON_DIR / "verified.json"
+MAX_PENDING_SPLIT_REQUESTS_PER_USER = 3
+SPLIT_REQUEST_COOLDOWN_SECONDS = 300
 
 log = logging.getLogger(__name__)
 
@@ -116,6 +118,67 @@ def can_request_split(players, verified_blob, user_id):
         return True
 
     return user_is_verified(verified_blob, uid)
+
+def evaluate_split_request_abuse(requests, requester_id, now_ts):
+    """
+    Basic anti-abuse guardrails for /split.
+
+    Rules:
+    1) A user may only have a limited number of active requests at once.
+    2) A user must wait a short cooldown between new requests.
+
+    We read both `created_at` (new schema) and a timestamp embedded in
+    request_id (legacy schema) so old data keeps working.
+    """
+    requester_id = str(requester_id)
+    requester_requests = [
+        req for req in requests.values() if str(req.get("requester_id")) == requester_id
+    ]
+
+    if len(requester_requests) >= MAX_PENDING_SPLIT_REQUESTS_PER_USER:
+        return (
+            False,
+            "Too Many Pending Requests",
+            (
+                "You currently have too many active split requests. "
+                f"Please wait until one resolves before creating more (limit: {MAX_PENDING_SPLIT_REQUESTS_PER_USER})."
+            ),
+        )
+
+    latest_created_at = 0.0
+    for req_id, req in requests.items():
+        if str(req.get("requester_id")) != requester_id:
+            continue
+
+        created_at = req.get("created_at")
+        if created_at is None:
+            # Backward-compatible fallback for older request records that
+            # encoded epoch seconds at the end of request_id.
+            req_id_parts = str(req_id).rsplit("_", 1)
+            if len(req_id_parts) == 2 and req_id_parts[1].isdigit():
+                created_at = float(req_id_parts[1])
+        try:
+            created_at = float(created_at) if created_at is not None else None
+        except (TypeError, ValueError):
+            created_at = None
+
+        if created_at:
+            latest_created_at = max(latest_created_at, created_at)
+
+    if latest_created_at > 0:
+        elapsed = now_ts - latest_created_at
+        if elapsed < SPLIT_REQUEST_COOLDOWN_SECONDS:
+            wait_seconds = int(SPLIT_REQUEST_COOLDOWN_SECONDS - elapsed)
+            return (
+                False,
+                "Slow Down",
+                (
+                    "Please wait before sending another split request. "
+                    f"You can request again in about {wait_seconds} seconds."
+                ),
+            )
+
+    return True, None, None
 
 def format_share_percent(total_owners):
     if total_owners <= 0:
@@ -687,9 +750,25 @@ class SplitOwnership(commands.Cog):
                 await interaction.followup.send(embed=embed, ephemeral=True)
                 return
 
+        now = datetime.now(timezone.utc)
+        allowed, abuse_title, abuse_description = evaluate_split_request_abuse(
+            requests=requests,
+            requester_id=requester_id,
+            now_ts=now.timestamp()
+        )
+        if not allowed:
+            embed = discord.Embed(
+                title=abuse_title,
+                description=abuse_description,
+                colour=discord.Colour.orange()
+            )
+            embed.set_footer(text="World Cup 2026 · Abuse prevention")
+            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
         main_owner = await self.bot.fetch_user(main_owner_id)
         request_id = f"{requester_id}_{team}_{int(datetime.now().timestamp())}"
-        now = datetime.now(timezone.utc)
         expires_at = (now + timedelta(hours=48)).timestamp()
         split_count = len(main_team_obj["ownership"].get("split_with", []))
         remaining = calculate_remaining_percentage(split_count)
@@ -713,6 +792,7 @@ class SplitOwnership(commands.Cog):
             "requester_id": requester_id,
             "main_owner_id": main_owner_id,
             "team": team,
+            "created_at": now.timestamp(),
             "expires_at": expires_at,
             "requested_percentage": requested_percentage
         }
