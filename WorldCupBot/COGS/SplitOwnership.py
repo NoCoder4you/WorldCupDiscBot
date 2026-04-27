@@ -13,6 +13,7 @@ ISO_FILE = JSON_DIR / "team_iso.json"
 PLAYERS_FILE = JSON_DIR / "players.json"
 REQUESTS_FILE = JSON_DIR / "split_requests.json"
 SPLIT_REQUESTS_LOG_FILE = JSON_DIR / "split_requests_log.json"
+VERIFIED_FILE = JSON_DIR / "verified.json"
 
 log = logging.getLogger(__name__)
 
@@ -77,6 +78,44 @@ def find_team_main_owner(players, team):
 
 def user_has_any_team(players, user_id):
     return any(players.get(str(user_id), {}).get("teams", []))
+
+def user_is_verified(verified_blob, user_id):
+    """
+    Return True when the given Discord user ID exists in verified.json.
+
+    verified.json may be either:
+    - {"verified_users": [{...}]}
+    - {"verified_users": ["123", ...]}
+    - a top-level list with either of the above entry shapes
+    """
+    raw_verified = verified_blob.get("verified_users") if isinstance(verified_blob, dict) else verified_blob
+    if not isinstance(raw_verified, list):
+        return False
+
+    target_id = str(user_id)
+    for entry in raw_verified:
+        if isinstance(entry, dict):
+            if str(entry.get("discord_id")) == target_id:
+                return True
+        elif str(entry) == target_id:
+            return True
+    return False
+
+def can_request_split(players, verified_blob, user_id):
+    """
+    A user can request a split when they already own a team, OR when
+    they are present in verified.json.
+
+    NOTE:
+    Verified users do not need to exist in players.json. This allows
+    newly verified users to request split ownership before they have
+    a player record with teams.
+    """
+    uid = str(user_id)
+    if user_has_any_team(players, uid):
+        return True
+
+    return user_is_verified(verified_blob, uid)
 
 def format_share_percent(total_owners):
     if total_owners <= 0:
@@ -584,10 +623,14 @@ class SplitOwnership(commands.Cog):
         team_input = team.strip().lower()
         requester_id = str(interaction.user.id)
 
-        if not user_has_any_team(players, requester_id):
+        verified = load_json(VERIFIED_FILE)
+        if not can_request_split(players, verified, requester_id):
             embed = discord.Embed(
-                title="You must own a team!",
-                description="You cannot request to split ownership unless you already own at least one team.",
+                title="You are not eligible to split yet!",
+                description=(
+                    "You can request a split if you either own at least one team, "
+                    "or if you are verified."
+                ),
                 colour=discord.Colour.red()
             )
             embed.set_footer(text="World Cup 2026 · Eligibility check")
