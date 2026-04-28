@@ -15,6 +15,7 @@ TEAMS_FILE = JSON_DIR / "teams.json"
 PLAYERS_FILE = JSON_DIR / "players.json"
 ISO_FILE = JSON_DIR / "team_iso.json"
 COUNTRYROLES_FILE = JSON_DIR / "countryroles.json"
+COUNTRY_GROUP_LINKS_FILE = JSON_DIR / "country_group_links.json"
 
 log = logging.getLogger(__name__)
 
@@ -156,6 +157,42 @@ class TeamsDistribution(commands.Cog):
                 countryroles[country] = role.id
             save_json(COUNTRYROLES_FILE, countryroles)
         return role
+
+    async def get_existing_country_role(self, guild, country, existing_roles, countryroles):
+        """Resolve an already-provisioned country role without creating new roles.
+
+        Reveal should only assign existing roles. Role creation is handled separately
+        by role provisioning/admin flows, not by the reveal command.
+        """
+        if not guild or not country:
+            return None
+
+        role = existing_roles.get(country)
+        stored = countryroles.get(country)
+        stored_role_id = stored.get("role_id") if isinstance(stored, dict) else stored
+
+        if not role and stored_role_id:
+            role = guild.get_role(int(stored_role_id))
+            if role:
+                existing_roles[country] = role
+        return role
+
+    async def get_group_role_for_country(self, guild, country):
+        """Resolve a country's linked group role from persisted provisioning metadata.
+
+        This keeps reveal behavior deterministic: once countries are revealed, we assign
+        both the country role and its associated tournament group role (Group A-L) when
+        metadata is available.
+        """
+        if not guild or not country:
+            return None
+
+        country_group_links = load_json(COUNTRY_GROUP_LINKS_FILE)
+        link = country_group_links.get(country, {}) if isinstance(country_group_links, dict) else {}
+        group_role_id = link.get("group_role_id") if isinstance(link, dict) else None
+        if group_role_id:
+            return guild.get_role(int(group_role_id))
+        return None
 
     @app_commands.command(
         name="addplayer",
@@ -374,10 +411,16 @@ class TeamsDistribution(commands.Cog):
             user_avatar = user.display_avatar.url if user else None
             flag = flag_url(country, self.iso_mapping)
 
-            country_role = await self.get_or_create_country_role(guild, country, existing_roles, countryroles)
+            country_role = await self.get_existing_country_role(guild, country, existing_roles, countryroles)
+            group_role = await self.get_group_role_for_country(guild, country)
             if user_member and country_role:
                 try:
                     await user_member.add_roles(country_role, reason="World Cup Team Assignment")
+                except Exception:
+                    pass
+            if user_member and group_role:
+                try:
+                    await user_member.add_roles(group_role, reason="World Cup Group Assignment")
                 except Exception:
                     pass
 
@@ -438,6 +481,64 @@ class TeamsDistribution(commands.Cog):
 
         await interaction.followup.send(
             "All assignments have been revealed (in alphabetical order) and sent. See the players-and-teams channel.",
+            ephemeral=True
+        )
+
+    @app_commands.command(
+        name="assignrevealedroles",
+        description="Retry assigning country/group roles for already revealed teams."
+    )
+    async def assignrevealedroles(self, interaction: discord.Interaction):
+        """Retry role assignment for revealed teams when the initial reveal had role errors."""
+        if not await check_referee_interaction(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("This command must be run in a server.", ephemeral=True)
+            return
+
+        players = load_json(PLAYERS_FILE)
+        countryroles = load_json(COUNTRYROLES_FILE)
+        existing_roles = {role.name: role for role in guild.roles}
+        applied = 0
+
+        for pid, pdata in players.items():
+            for entry in pdata.get("teams", []):
+                if not isinstance(entry, dict):
+                    continue
+                country = entry.get("team")
+                ownership = entry.get("ownership") or {}
+                owner_ids = set()
+                main_owner = ownership.get("main_owner")
+                if main_owner:
+                    owner_ids.add(int(main_owner))
+                for split_uid in ownership.get("split_with", []):
+                    owner_ids.add(int(split_uid))
+
+                if not country or not owner_ids:
+                    continue
+
+                country_role = await self.get_existing_country_role(guild, country, existing_roles, countryroles)
+                group_role = await self.get_group_role_for_country(guild, country)
+                if not country_role and not group_role:
+                    continue
+
+                for owner_id in owner_ids:
+                    member = guild.get_member(owner_id)
+                    if not member:
+                        continue
+                    try:
+                        roles_to_add = [r for r in (country_role, group_role) if r and r not in member.roles]
+                        if roles_to_add:
+                            await member.add_roles(*roles_to_add, reason="World Cup role assignment retry")
+                            applied += len(roles_to_add)
+                    except Exception:
+                        continue
+
+        await interaction.followup.send(
+            f"Role assignment retry complete. Added {applied} role grant(s).",
             ephemeral=True
         )
 
