@@ -158,7 +158,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
 
     (
         "## 15. Enjoy the Football",
-        "- Compete hard, stay respectful, and remember this is a community event."
+        "- Stay respectful and remember this is a community event."
     ),
 ]
 
