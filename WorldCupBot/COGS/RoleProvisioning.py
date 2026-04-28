@@ -11,6 +11,7 @@ JSON_DIR = BASE_DIR / "JSON"
 TEAM_META_FILE = JSON_DIR / "team_meta.json"
 COUNTRYROLES_FILE = JSON_DIR / "countryroles.json"
 GROUPROLES_FILE = JSON_DIR / "grouproles.json"
+COUNTRY_GROUP_LINKS_FILE = JSON_DIR / "country_group_links.json"
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +29,19 @@ def save_json(path: Path, data) -> None:
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
+
+
+def coerce_country_role_ids(country_roles: dict) -> dict:
+    """Return a compatibility-safe mapping of country -> scalar role_id."""
+    out = {}
+    for team, raw in (country_roles or {}).items():
+        if isinstance(raw, dict):
+            role_id = raw.get("role_id")
+            if role_id:
+                out[team] = role_id
+        elif raw:
+            out[team] = raw
+    return out
 
 def group_label(group_key: str) -> str:
     """Normalize stored group keys (A, B...) into role names (Group A, Group B...)."""
@@ -63,6 +77,7 @@ class RoleProvisioning(commands.Cog):
         existing_roles = {r.name: r for r in ctx.guild.roles}
         country_roles = load_json(COUNTRYROLES_FILE, {})
         group_roles = load_json(GROUPROLES_FILE, {})
+        country_group_links = load_json(COUNTRY_GROUP_LINKS_FILE, {})
 
         created_groups = 0
         created_countries = 0
@@ -84,8 +99,9 @@ class RoleProvisioning(commands.Cog):
 
             group_roles[g_label] = role.id
 
-            # Keep each country linked to the group role id so existing assignment logic
-            # can resolve both country role IDs and their parent group relationship.
+            # Keep countryroles.json scalar (country -> role_id) for compatibility with
+            # announcers that cast mapping values directly with int(...). Group linkage
+            # metadata is persisted separately in country_group_links.json.
             for country in countries:
                 if not country or country == "TBA":
                     continue
@@ -100,14 +116,19 @@ class RoleProvisioning(commands.Cog):
                     existing_roles[country] = country_role
                     created_countries += 1
 
-                country_roles[country] = {
-                    "role_id": country_role.id,
+                country_roles[country] = country_role.id
+                country_group_links[country] = {
                     "group": g_label,
                     "group_role_id": role.id,
                 }
 
+        # If older runs stored dict entries in countryroles.json, coerce them back
+        # to scalar IDs to restore ID lookups in announcer cogs.
+        country_roles = coerce_country_role_ids(country_roles)
+
         save_json(COUNTRYROLES_FILE, country_roles)
         save_json(GROUPROLES_FILE, group_roles)
+        save_json(COUNTRY_GROUP_LINKS_FILE, country_group_links)
 
         summary = (
             f"Group roles synced: {len(group_roles)} total ({created_groups} created).\n"
