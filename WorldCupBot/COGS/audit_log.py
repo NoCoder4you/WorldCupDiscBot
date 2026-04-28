@@ -193,8 +193,8 @@ class AuditLogCog(commands.Cog):
                 detail_content = details.get("content")
                 if isinstance(detail_content, str) and detail_content:
                     embed.add_field(name="Deleted Content", value=detail_content[:1000], inline=False)
-            elif entry.get("action") in {"role_added", "role_removed"}:
-                # Show which role changed for member updates and mention it directly.
+            elif entry.get("action") in {"role_added", "role_removed", "role_created", "role_deleted"}:
+                # Show which role changed and mention it directly for role/member events.
                 role_name = str(details.get("role_name", "unknown"))
                 role_id = str(details.get("role_id", "unknown"))
                 role_mention = f"<@&{role_id}>" if role_id.isdigit() else role_name
@@ -403,11 +403,31 @@ class AuditLogCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
-        await self.log_action("role_created", "server", None, None, role.guild, details={"role_id": str(role.id), "name": role.name})
+        # Resolve the creator from the audit log so creation events mirror role update attribution.
+        entry = await self._try_get_audit_entry(role.guild, discord.AuditLogAction.role_create, role.id)
+        await self.log_action(
+            "role_created",
+            "server",
+            entry.user if entry else None,
+            role,
+            role.guild,
+            reason=entry.reason if entry else None,
+            details={"role_id": str(role.id), "role_name": role.name},
+        )
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role):
-        await self.log_action("role_deleted", "server", None, None, role.guild, details={"role_id": str(role.id), "name": role.name})
+        # Resolve the deleter from the audit log so deletion events mirror role update attribution.
+        entry = await self._try_get_audit_entry(role.guild, discord.AuditLogAction.role_delete, role.id)
+        await self.log_action(
+            "role_deleted",
+            "server",
+            entry.user if entry else None,
+            role,
+            role.guild,
+            reason=entry.reason if entry else None,
+            details={"role_id": str(role.id), "role_name": role.name},
+        )
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
