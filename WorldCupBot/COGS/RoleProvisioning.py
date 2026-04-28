@@ -2,11 +2,9 @@ import json
 import logging
 from pathlib import Path
 
-import discord
-from discord import app_commands
 from discord.ext import commands
 
-from COGS.role_utils import check_root_interaction
+from COGS.role_utils import has_root
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 JSON_DIR = BASE_DIR / "JSON"
@@ -43,28 +41,26 @@ class RoleProvisioning(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(
-        name="setupgrouproles",
-        description="Create/refresh role IDs for Group A-L and all countries from team metadata."
-    )
-    async def setup_group_roles(self, interaction: discord.Interaction):
-        if not await check_root_interaction(interaction):
+    @commands.command(name="setupgrouproles")
+    async def setup_group_roles(self, ctx: commands.Context):
+        """Text command: create/refresh Group A-L and country roles from team metadata."""
+        # Keep this as a text command (`wc setupgrouproles`) per admin workflow.
+        if not has_root(ctx.author):
+            await ctx.send("You are not authorized to use this command. (Root role required)")
             return
 
-        await interaction.response.defer(ephemeral=True)
-
-        if not interaction.guild:
-            await interaction.followup.send("This command must be used in a server.", ephemeral=True)
+        if not ctx.guild:
+            await ctx.send("This command must be used in a server.")
             return
 
         team_meta = load_json(TEAM_META_FILE, {"groups": {}})
         groups = team_meta.get("groups", {}) if isinstance(team_meta, dict) else {}
 
         if not groups:
-            await interaction.followup.send("No group data found in team_meta.json.", ephemeral=True)
+            await ctx.send("No group data found in team_meta.json.")
             return
 
-        existing_roles = {r.name: r for r in interaction.guild.roles}
+        existing_roles = {r.name: r for r in ctx.guild.roles}
         country_roles = load_json(COUNTRYROLES_FILE, {})
         group_roles = load_json(GROUPROLES_FILE, {})
 
@@ -78,7 +74,7 @@ class RoleProvisioning(commands.Cog):
 
             role = existing_roles.get(g_label)
             if not role:
-                role = await interaction.guild.create_role(
+                role = await ctx.guild.create_role(
                     name=g_label,
                     mentionable=True,
                     reason="World Cup group role provisioning"
@@ -96,7 +92,7 @@ class RoleProvisioning(commands.Cog):
 
                 country_role = existing_roles.get(country)
                 if not country_role:
-                    country_role = await interaction.guild.create_role(
+                    country_role = await ctx.guild.create_role(
                         name=country,
                         mentionable=True,
                         reason=f"World Cup country role provisioning ({g_label})"
@@ -117,8 +113,8 @@ class RoleProvisioning(commands.Cog):
             f"Group roles synced: {len(group_roles)} total ({created_groups} created).\n"
             f"Country roles synced: {len(country_roles)} total ({created_countries} created)."
         )
-        await interaction.followup.send(summary, ephemeral=True)
-        log.info("Role provisioning completed in guild %s by %s", interaction.guild.id, interaction.user.id)
+        await ctx.send(summary)
+        log.info("Role provisioning completed in guild %s by %s", ctx.guild.id, ctx.author.id)
 
 
 async def setup(bot):
