@@ -12,6 +12,7 @@ from discord.ext import commands
 
 MAX_AUDIT_LOG_ENTRIES = 10000
 MESSAGE_CONTENT_LIMIT = 500
+AUDIT_CHANNEL_NAME = "bot-audit-log"
 
 
 class AuditLogCog(commands.Cog):
@@ -125,6 +126,47 @@ class AuditLogCog(commands.Cog):
                 await self._write_entries(entries)
             except OSError:
                 self._logger.exception("Failed to write audit log entry")
+                await self.log_system_event("json_write_failed", details={"file": str(self._audit_file)})
+                return
+
+        # Post a concise copy to Discord for server-local visibility.
+        await self._post_to_audit_channel(guild, entry)
+
+
+    async def _post_to_audit_channel(self, guild: Optional[discord.Guild], entry: dict[str, Any]) -> None:
+        """Post a concise summary to #bot-audit-log when the channel exists."""
+        if guild is None:
+            return
+
+        channel = discord.utils.get(guild.text_channels, name=AUDIT_CHANNEL_NAME)
+        if channel is None:
+            return
+
+        me = guild.me
+        if me is None:
+            return
+
+        perms = channel.permissions_for(me)
+        if not perms.send_messages:
+            await self.log_system_event("webhook_failed", details={"reason": "missing_send_messages", "channel": AUDIT_CHANNEL_NAME})
+            return
+
+        try:
+            actor_name = entry["actor"].get("display_name", "Unknown")
+            target_name = entry["target"].get("display_name", "Unknown")
+            summary = (
+                f"`{entry['timestamp']}` **{entry['action']}** "
+                f"(category: `{entry['category']}`, result: `{entry['result']}`) "
+                f"actor: **{actor_name}** target: **{target_name}**"
+            )
+            await channel.send(summary[:1900])
+        except discord.Forbidden:
+            await self.log_system_event("webhook_failed", details={"reason": "forbidden", "channel": AUDIT_CHANNEL_NAME})
+        except discord.HTTPException as exc:
+            # Rate-limit (429) and other API delivery issues are logged as system events.
+            if getattr(exc, "status", None) == 429:
+                await self.log_system_event("discord_rate_limit_warning", details={"channel": AUDIT_CHANNEL_NAME})
+            await self.log_system_event("api_error", details={"error": str(exc), "channel": AUDIT_CHANNEL_NAME})
 
     async def _try_get_audit_entry(
         self,
