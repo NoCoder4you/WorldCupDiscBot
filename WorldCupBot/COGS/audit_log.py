@@ -163,7 +163,8 @@ class AuditLogCog(commands.Cog):
                 timestamp=datetime.now(timezone.utc),
             )
             # Keep header minimal: do not show category/result/guild-id fields.
-            embed.add_field(name="Actor", value=f"{actor_name} (`{entry['actor'].get('id', 'unknown')}`)", inline=False)
+            # Use a clearer label than "Actor" for audit readability.
+            embed.add_field(name="Performed By", value=f"{actor_name} (`{entry['actor'].get('id', 'unknown')}`)", inline=False)
             embed.add_field(name="Target", value=f"{target_name} (`{entry['target'].get('id', 'unknown')}`)", inline=False)
 
             # Channel appears in its own field, and channel mentions are clickable in Discord.
@@ -331,12 +332,15 @@ class AuditLogCog(commands.Cog):
         after_roles = {r.id for r in after.roles}
         added = after_roles - before_roles
         removed = before_roles - after_roles
+        # Try to resolve who changed roles from Discord audit logs so "Performed By" is populated.
+        audit_entry = await self._try_get_audit_entry(after.guild, discord.AuditLogAction.member_role_update, after.id)
+        performed_by = audit_entry.user if audit_entry and audit_entry.user else after
         for role_id in added:
             role = after.guild.get_role(role_id)
-            await self.log_action("role_added", "moderation", None, after, after.guild, details={"role_id": str(role_id), "role_name": role.name if role else "unknown"})
+            await self.log_action("role_added", "moderation", performed_by, after, after.guild, reason=audit_entry.reason if audit_entry else None, details={"role_id": str(role_id), "role_name": role.name if role else "unknown"})
         for role_id in removed:
             role = after.guild.get_role(role_id)
-            await self.log_action("role_removed", "moderation", None, after, after.guild, details={"role_id": str(role_id), "role_name": role.name if role else "unknown"})
+            await self.log_action("role_removed", "moderation", performed_by, after, after.guild, reason=audit_entry.reason if audit_entry else None, details={"role_id": str(role_id), "role_name": role.name if role else "unknown"})
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
