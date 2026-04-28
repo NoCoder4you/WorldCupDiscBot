@@ -61,6 +61,16 @@ class AuditLogCog(commands.Cog):
             "display_name": str(display_name),
         }
 
+
+    @staticmethod
+    def _format_reason(reason: Any) -> str:
+        """Return a user-friendly reason for audit embed descriptions."""
+        if isinstance(reason, str):
+            cleaned_reason = reason.strip()
+            if cleaned_reason:
+                return cleaned_reason[:500]
+        return "No information is provided and should be."
+
     async def _read_entries(self) -> list[dict[str, Any]]:
         try:
             raw = self._audit_file.read_text(encoding="utf-8")
@@ -158,7 +168,7 @@ class AuditLogCog(commands.Cog):
             # Use embeds for readability in the bot-audit-log channel.
             embed = discord.Embed(
                 title=f"Audit: {entry['action']}",
-                description=(entry.get("reason") or "No reason provided.")[:500],
+                description=self._format_reason(entry.get("reason")),
                 color=discord.Color.blurple(),
                 timestamp=datetime.now(timezone.utc),
             )
@@ -172,6 +182,19 @@ class AuditLogCog(commands.Cog):
             channel_id = str(details.get("channel_id", "")).strip()
             if channel_id.isdigit():
                 embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
+
+            invite_url = str(details.get("invite_url", "")).strip()
+            if invite_url:
+                embed.add_field(name="Invite Link", value=invite_url, inline=False)
+
+            inviter_name = str(details.get("inviter_name", "")).strip()
+            inviter_id = str(details.get("inviter_id", "")).strip()
+            if inviter_name or inviter_id:
+                embed.add_field(
+                    name="Invite Created By",
+                    value=f"{inviter_name or 'Unknown'} (`{inviter_id or 'unknown'}`)",
+                    inline=False,
+                )
 
             category_name = str(details.get("category_name", "")).strip()
             category_id = str(details.get("category_id", "")).strip()
@@ -238,6 +261,29 @@ class AuditLogCog(commands.Cog):
                 if entry.created_at < after_ts:
                     continue
                 if entry.target and getattr(entry.target, "id", None) == target_id:
+                    return entry
+        except (discord.Forbidden, discord.HTTPException):
+            return None
+        return None
+
+    async def _try_get_invite_delete_entry(
+        self,
+        guild: discord.Guild,
+        invite_code: str,
+        seconds: int = 20,
+    ) -> Optional[discord.AuditLogEntry]:
+        """Best-effort resolver for invite_delete actor by matching the invite code."""
+        perms = guild.me.guild_permissions if guild.me else None
+        if not perms or not perms.view_audit_log:
+            return None
+
+        after_ts = datetime.now(timezone.utc) - timedelta(seconds=seconds)
+        try:
+            async for entry in guild.audit_logs(limit=8, action=discord.AuditLogAction.invite_delete):
+                if entry.created_at < after_ts:
+                    continue
+                target_code = getattr(entry.target, "code", None)
+                if str(target_code or "").strip() == invite_code:
                     return entry
         except (discord.Forbidden, discord.HTTPException):
             return None
@@ -446,11 +492,39 @@ class AuditLogCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_invite_create(self, invite: discord.Invite):
-        await self.log_action("invite_created", "server", invite.inviter, None, invite.guild, details={"code": invite.code, "channel_id": str(invite.channel.id) if invite.channel else "unknown"})
+        # Include invite URL and creator metadata so moderators can audit exactly what was shared.
+        await self.log_action(
+            "invite_created",
+            "server",
+            invite.inviter,
+            None,
+            invite.guild,
+            details={
+                "code": invite.code,
+                "invite_url": f"https://discord.gg/{invite.code}",
+                "inviter_id": str(invite.inviter.id) if invite.inviter else "unknown",
+                "inviter_name": str(invite.inviter) if invite.inviter else "Unknown",
+                "channel_id": str(invite.channel.id) if invite.channel else "unknown",
+            },
+        )
 
     @commands.Cog.listener()
     async def on_invite_delete(self, invite: discord.Invite):
-        await self.log_action("invite_deleted", "server", None, None, invite.guild, details={"code": invite.code, "channel_id": str(invite.channel.id) if invite.channel else "unknown"})
+        # Invite delete events do not always include an actor; resolve from audit logs when possible.
+        entry = await self._try_get_invite_delete_entry(invite.guild, invite.code)
+        await self.log_action(
+            "invite_deleted",
+            "server",
+            entry.user if entry else None,
+            None,
+            invite.guild,
+            reason=entry.reason if entry else None,
+            details={
+                "code": invite.code,
+                "invite_url": f"https://discord.gg/{invite.code}",
+                "channel_id": str(invite.channel.id) if invite.channel else "unknown",
+            },
+        )
 
     @commands.group(name="auditlog", invoke_without_command=True)
     @commands.has_permissions(administrator=True)
