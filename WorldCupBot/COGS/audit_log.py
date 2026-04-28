@@ -69,7 +69,6 @@ class AuditLogCog(commands.Cog):
             cleaned_reason = reason.strip()
             if cleaned_reason:
                 return cleaned_reason[:500]
-        return "No information is provided and should be."
 
     async def _read_entries(self) -> list[dict[str, Any]]:
         try:

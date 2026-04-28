@@ -3,7 +3,7 @@ from COGS.audit_log import AuditLogCog
 
 def test_format_reason_uses_fallback_when_reason_missing():
     """Missing reason should use the updated fallback copy for audit embeds."""
-    assert AuditLogCog._format_reason(None) == "No information is provided and should be."
+    assert AuditLogCog._format_reason(None) is None
 
 
 def test_format_reason_returns_trimmed_reason_when_present():
