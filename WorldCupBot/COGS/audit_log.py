@@ -186,6 +186,11 @@ class AuditLogCog(commands.Cog):
                 detail_content = details.get("content")
                 if isinstance(detail_content, str) and detail_content:
                     embed.add_field(name="Deleted Content", value=detail_content[:1000], inline=False)
+            elif entry.get("action") in {"role_added", "role_removed"}:
+                # Show which role changed for member role updates.
+                role_name = str(details.get("role_name", "unknown"))
+                role_id = str(details.get("role_id", "unknown"))
+                embed.add_field(name="Role", value=f"{role_name} (`{role_id}`)", inline=False)
 
             await channel.send(embed=embed)
         except discord.Forbidden:
