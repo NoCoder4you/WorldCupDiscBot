@@ -1,8 +1,10 @@
 import pytest
+import asyncio
 
 discord = pytest.importorskip("discord")
 
-from COGS.TeamsDistribution import calculate_teams_left
+from COGS import TeamsDistribution as teams_distribution_module
+from COGS.TeamsDistribution import TeamsDistribution, calculate_teams_left
 
 
 def test_calculate_teams_left_counts_pending_and_assigned_slots():
@@ -23,3 +25,27 @@ def test_calculate_teams_left_never_goes_negative():
     }
 
     assert calculate_teams_left(players, teams) == 0
+
+
+def test_get_group_role_for_country_uses_linked_group_role_id(monkeypatch):
+    class DummyGuild:
+        def __init__(self):
+            self.requested_role_id = None
+
+        def get_role(self, role_id):
+            self.requested_role_id = role_id
+            return f"role-{role_id}"
+
+    # The cog only needs a bot reference for this helper, so a simple object works.
+    cog = TeamsDistribution(bot=object())
+    guild = DummyGuild()
+
+    monkeypatch.setattr(
+        teams_distribution_module,
+        "load_json",
+        lambda _path: {"France": {"group": "Group B", "group_role_id": 9876}},
+    )
+
+    role = asyncio.run(cog.get_group_role_for_country(guild, "France"))
+    assert role == "role-9876"
+    assert guild.requested_role_id == 9876
