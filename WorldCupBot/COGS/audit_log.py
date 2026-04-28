@@ -193,12 +193,25 @@ class AuditLogCog(commands.Cog):
                 detail_content = details.get("content")
                 if isinstance(detail_content, str) and detail_content:
                     embed.add_field(name="Deleted Content", value=detail_content[:1000], inline=False)
-            elif entry.get("action") in {"role_added", "role_removed"}:
-                # Show which role changed for member updates and mention it directly.
+            elif entry.get("action") in {"role_added", "role_removed", "role_created", "role_deleted"}:
+                # Show which role changed and mention it directly for role/member events.
                 role_name = str(details.get("role_name", "unknown"))
                 role_id = str(details.get("role_id", "unknown"))
                 role_mention = f"<@&{role_id}>" if role_id.isdigit() else role_name
                 embed.add_field(name="Role", value=f"{role_mention} (`{role_id}`)", inline=False)
+            elif entry.get("action") == "role_updated":
+                # Show the specific rename delta so these entries are meaningful at a glance.
+                role_id = str(details.get("role_id", "unknown"))
+                role_mention = f"<@&{role_id}>" if role_id.isdigit() else "Unknown role"
+                before_name = str(details.get("before_name", ""))
+                after_name = str(details.get("after_name", ""))
+                embed.add_field(name="Role", value=f"{role_mention} (`{role_id}`)", inline=False)
+                if before_name or after_name:
+                    embed.add_field(
+                        name="Name Change",
+                        value=f"{before_name or 'unknown'} → {after_name or 'unknown'}",
+                        inline=False,
+                    )
 
             await channel.send(embed=embed)
         except discord.Forbidden:
@@ -390,15 +403,46 @@ class AuditLogCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
-        await self.log_action("role_created", "server", None, None, role.guild, details={"role_id": str(role.id), "name": role.name})
+        # Resolve the creator from the audit log so creation events mirror role update attribution.
+        entry = await self._try_get_audit_entry(role.guild, discord.AuditLogAction.role_create, role.id)
+        await self.log_action(
+            "role_created",
+            "server",
+            entry.user if entry else None,
+            role,
+            role.guild,
+            reason=entry.reason if entry else None,
+            details={"role_id": str(role.id), "role_name": role.name},
+        )
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role):
-        await self.log_action("role_deleted", "server", None, None, role.guild, details={"role_id": str(role.id), "name": role.name})
+        # Resolve the deleter from the audit log so deletion events mirror role update attribution.
+        entry = await self._try_get_audit_entry(role.guild, discord.AuditLogAction.role_delete, role.id)
+        await self.log_action(
+            "role_deleted",
+            "server",
+            entry.user if entry else None,
+            role,
+            role.guild,
+            reason=entry.reason if entry else None,
+            details={"role_id": str(role.id), "role_name": role.name},
+        )
 
     @commands.Cog.listener()
     async def on_guild_role_update(self, before: discord.Role, after: discord.Role):
-        await self.log_action("role_updated", "server", None, None, after.guild, details={"role_id": str(after.id), "before_name": before.name, "after_name": after.name})
+        # Resolve the responsible moderator/admin from the Discord audit log whenever possible.
+        # This prevents "Performed By: Unknown" for role rename/permission edits.
+        entry = await self._try_get_audit_entry(after.guild, discord.AuditLogAction.role_update, after.id)
+        await self.log_action(
+            "role_updated",
+            "server",
+            entry.user if entry else None,
+            after,
+            after.guild,
+            reason=entry.reason if entry else None,
+            details={"role_id": str(after.id), "before_name": before.name, "after_name": after.name},
+        )
 
     @commands.Cog.listener()
     async def on_invite_create(self, invite: discord.Invite):
