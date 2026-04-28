@@ -66,9 +66,9 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     (
         "## 5. Entry, Eligibility, and Refunds",
         "- Entry requires: server join + verification + registration + entry fee payment, unless a Referee grants a waiver.\n"
-        "- Entry fees are a one-time Habbo credits payment per entry and are non-refundable once paid.\n"
-        "- Entry closes at **23:59 UTC** on the announced date. Late entries are not guaranteed.\n"
-        "- Multiple entries are allowed only if each entry fee is paid and each entry is registered separately.\n"
+        "- Each entry requires a one-time payment of **150 Habbo credits** and is non-refundable once paid.\n"
+        "- Entry closes at **23:59 UTC on 31 May 2026** unless an earlier operational cutoff is announced.\n"
+        "- Entry limits: up to **2 entries initially**; from **1 May 2026**, up to **3 total entries** if approved and available.\n"
         "- Leaving the Event, being removed, or being disqualified does not create any right to a refund.\n"
         "- Referees may refuse or revoke entry at any time to protect fairness or safety."
     ),
@@ -79,6 +79,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
         "- Team assignments are final. No swaps, sales, trades, transfers, or reassignment except via approved mechanisms in the Terms.\n"
         "- The bot record and the #players-and-teams tracking record are the authoritative source of ownership.\n"
         "- Referees may correct administrative errors, data mismatches, or record issues at any time.\n"
+        "- No new player entries or new team allocations are made after official tournament kick-off.\n"
         "- If the tournament is postponed or cancelled (force majeure), assigned teams and status remain until it resumes or is closed."
     ),
 
@@ -141,8 +142,8 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     (
         "## 13. Leaving, Removal, Wait-List, and Reserves",
         "- If a Player leaves or is removed before the Final, their teams and eligibility are forfeited.\n"
-        "- A forfeited team may be offered to the next wait-listed eligible user, who has **24 hours** to accept and pay.\n"
-        "- If not claimed within 24 hours, the team and any associated points may revert to the prize pool.\n"
+        "- A forfeited team may be offered to the next wait-listed eligible user with an acceptance/payment deadline set by Referees.\n"
+        "- If not claimed within the stated deadline, the team may be reassigned or dissolved into the prize pool by Referee decision.\n"
         "- Reserve teams, if used, may be assigned to eligible late entrants before kick-off. Unclaimed reserves dissolve into the prize pool.\n"
         "- Active bets involving a departing or removed user may be voided unless a Referee rules otherwise."
     ),
