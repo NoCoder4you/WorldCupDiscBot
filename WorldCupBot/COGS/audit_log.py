@@ -162,9 +162,7 @@ class AuditLogCog(commands.Cog):
                 color=discord.Color.blurple(),
                 timestamp=datetime.now(timezone.utc),
             )
-            embed.add_field(name="Category", value=str(entry.get("category", "unknown")), inline=True)
-            embed.add_field(name="Result", value=str(entry.get("result", "unknown")), inline=True)
-            embed.add_field(name="Guild ID", value=str(entry.get("guild_id", "unknown")), inline=True)
+            # Keep header minimal: do not show category/result/guild-id fields.
             embed.add_field(name="Actor", value=f"{actor_name} (`{entry['actor'].get('id', 'unknown')}`)", inline=False)
             embed.add_field(name="Target", value=f"{target_name} (`{entry['target'].get('id', 'unknown')}`)", inline=False)
 
