@@ -173,6 +173,12 @@ class AuditLogCog(commands.Cog):
             if channel_id.isdigit():
                 embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
 
+            category_name = str(details.get("category_name", "")).strip()
+            category_id = str(details.get("category_id", "")).strip()
+            if category_name or category_id:
+                category_value = f"<#{category_id}>" if category_id.isdigit() else (category_name or "No Category")
+                embed.add_field(name="Category", value=category_value, inline=True)
+
             # Message-specific rendering:
             # - message_edit: show both before + after content
             # - message_delete: show deleted message content
@@ -223,6 +229,14 @@ class AuditLogCog(commands.Cog):
         except (discord.Forbidden, discord.HTTPException):
             return None
         return None
+
+    @staticmethod
+    def _channel_parent_payload(channel: discord.abc.GuildChannel) -> dict[str, str]:
+        """Build a consistent category payload for channel audit events."""
+        category = getattr(channel, "category", None)
+        if category is None:
+            return {"category_id": "", "category_name": "No Category"}
+        return {"category_id": str(category.id), "category_name": category.name}
 
     async def log_system_event(self, action: str, details: Optional[dict[str, Any]] = None) -> None:
         await self.log_action(
@@ -344,11 +358,31 @@ class AuditLogCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel: discord.abc.GuildChannel):
-        await self.log_action("channel_created", "server", None, None, channel.guild, details={"channel_id": str(channel.id), "name": channel.name})
+        entry = await self._try_get_audit_entry(channel.guild, discord.AuditLogAction.channel_create, channel.id)
+        details = {"channel_id": str(channel.id), "name": channel.name, **self._channel_parent_payload(channel)}
+        await self.log_action(
+            "channel_created",
+            "server",
+            entry.user if entry else None,
+            channel,
+            channel.guild,
+            reason=entry.reason if entry else None,
+            details=details,
+        )
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
-        await self.log_action("channel_deleted", "server", None, None, channel.guild, details={"channel_id": str(channel.id), "name": channel.name})
+        entry = await self._try_get_audit_entry(channel.guild, discord.AuditLogAction.channel_delete, channel.id)
+        details = {"channel_id": str(channel.id), "name": channel.name, **self._channel_parent_payload(channel)}
+        await self.log_action(
+            "channel_deleted",
+            "server",
+            entry.user if entry else None,
+            channel,
+            channel.guild,
+            reason=entry.reason if entry else None,
+            details=details,
+        )
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
