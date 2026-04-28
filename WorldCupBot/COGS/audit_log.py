@@ -174,10 +174,20 @@ class AuditLogCog(commands.Cog):
             if channel_id.isdigit():
                 embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
 
-            # Per request: Details field should only show message content.
-            detail_content = details.get("content")
-            if isinstance(detail_content, str) and detail_content:
-                embed.add_field(name="Details", value=detail_content[:1000], inline=False)
+            # Message-specific rendering:
+            # - message_edit: show both before + after content
+            # - message_delete: show deleted message content
+            if entry.get("action") == "message_edit":
+                before_text = details.get("before")
+                after_text = details.get("after")
+                if isinstance(before_text, str) and before_text:
+                    embed.add_field(name="Before", value=before_text[:1000], inline=False)
+                if isinstance(after_text, str) and after_text:
+                    embed.add_field(name="After", value=after_text[:1000], inline=False)
+            elif entry.get("action") == "message_delete":
+                detail_content = details.get("content")
+                if isinstance(detail_content, str) and detail_content:
+                    embed.add_field(name="Deleted Content", value=detail_content[:1000], inline=False)
 
             await channel.send(embed=embed)
         except discord.Forbidden:
