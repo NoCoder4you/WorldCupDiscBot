@@ -154,12 +154,27 @@ class AuditLogCog(commands.Cog):
         try:
             actor_name = entry["actor"].get("display_name", "Unknown")
             target_name = entry["target"].get("display_name", "Unknown")
-            summary = (
-                f"`{entry['timestamp']}` **{entry['action']}** "
-                f"(category: `{entry['category']}`, result: `{entry['result']}`) "
-                f"actor: **{actor_name}** target: **{target_name}**"
+
+            # Use embeds for readability in the bot-audit-log channel.
+            embed = discord.Embed(
+                title=f"Audit: {entry['action']}",
+                description=(entry.get("reason") or "No reason provided.")[:500],
+                color=discord.Color.blurple(),
+                timestamp=datetime.now(timezone.utc),
             )
-            await channel.send(summary[:1900])
+            embed.add_field(name="Category", value=str(entry.get("category", "unknown")), inline=True)
+            embed.add_field(name="Result", value=str(entry.get("result", "unknown")), inline=True)
+            embed.add_field(name="Guild ID", value=str(entry.get("guild_id", "unknown")), inline=True)
+            embed.add_field(name="Actor", value=f"{actor_name} (`{entry['actor'].get('id', 'unknown')}`)", inline=False)
+            embed.add_field(name="Target", value=f"{target_name} (`{entry['target'].get('id', 'unknown')}`)", inline=False)
+
+            # Keep details concise and safe in Discord output.
+            details = entry.get("details", {})
+            if details:
+                compact = json.dumps(details, ensure_ascii=False)[:1000]
+                embed.add_field(name="Details", value=f"```json\n{compact}\n```", inline=False)
+
+            await channel.send(embed=embed)
         except discord.Forbidden:
             await self.log_system_event("webhook_failed", details={"reason": "forbidden", "channel": AUDIT_CHANNEL_NAME})
         except discord.HTTPException as exc:
