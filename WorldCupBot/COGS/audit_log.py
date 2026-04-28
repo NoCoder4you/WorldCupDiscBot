@@ -168,11 +168,16 @@ class AuditLogCog(commands.Cog):
             embed.add_field(name="Actor", value=f"{actor_name} (`{entry['actor'].get('id', 'unknown')}`)", inline=False)
             embed.add_field(name="Target", value=f"{target_name} (`{entry['target'].get('id', 'unknown')}`)", inline=False)
 
-            # Keep details concise and safe in Discord output.
+            # Channel appears in its own field, and channel mentions are clickable in Discord.
             details = entry.get("details", {})
-            if details:
-                compact = json.dumps(details, ensure_ascii=False)[:1000]
-                embed.add_field(name="Details", value=f"```json\n{compact}\n```", inline=False)
+            channel_id = str(details.get("channel_id", "")).strip()
+            if channel_id.isdigit():
+                embed.add_field(name="Channel", value=f"<#{channel_id}>", inline=True)
+
+            # Per request: Details field should only show message content.
+            detail_content = details.get("content")
+            if isinstance(detail_content, str) and detail_content:
+                embed.add_field(name="Details", value=detail_content[:1000], inline=False)
 
             await channel.send(embed=embed)
         except discord.Forbidden:
