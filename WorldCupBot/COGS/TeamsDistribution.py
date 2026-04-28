@@ -6,7 +6,7 @@ from discord import app_commands
 from discord.ext import commands
 import logging
 from COGS.role_utils import (
-    check_root_interaction, check_referee_interaction
+    check_root_interaction, check_referee_interaction, has_referee
 )
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -484,21 +484,21 @@ class TeamsDistribution(commands.Cog):
             ephemeral=True
         )
 
-    @app_commands.command(
-        name="assignrevealedroles",
-        description="Retry assigning country/group roles for already revealed teams."
-    )
-    async def assignrevealedroles(self, interaction: discord.Interaction):
-        """Retry role assignment for revealed teams when the initial reveal had role errors."""
-        if not await check_referee_interaction(interaction):
-            return
-        await interaction.response.defer(ephemeral=True)
+    @commands.command(name="assignrevealedroles")
+    async def assignrevealedroles(self, ctx: commands.Context):
+        """Text command retry for revealed-team role assignment failures.
 
-        guild = interaction.guild
-        if not guild:
-            await interaction.followup.send("This command must be run in a server.", ephemeral=True)
+        This is intentionally a prefix command (e.g., `wc assignrevealedroles`)
+        to match admin moderation workflows that are run from staff channels.
+        """
+        if not ctx.guild:
+            await ctx.send("This command must be run in a server.")
+            return
+        if not has_referee(ctx.author):
+            await ctx.send("You are not authorized to use this command. (Referee role required)")
             return
 
+        guild = ctx.guild
         players = load_json(PLAYERS_FILE)
         countryroles = load_json(COUNTRYROLES_FILE)
         existing_roles = {role.name: role for role in guild.roles}
@@ -537,10 +537,7 @@ class TeamsDistribution(commands.Cog):
                     except Exception:
                         continue
 
-        await interaction.followup.send(
-            f"Role assignment retry complete. Added {applied} role grant(s).",
-            ephemeral=True
-        )
+        await ctx.send(f"Role assignment retry complete. Added {applied} role grant(s).")
 
 async def setup(bot):
     await bot.add_cog(TeamsDistribution(bot))
