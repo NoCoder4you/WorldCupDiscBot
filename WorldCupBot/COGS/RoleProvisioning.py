@@ -1,0 +1,125 @@
+import json
+import logging
+from pathlib import Path
+
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+from COGS.role_utils import check_root_interaction
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+JSON_DIR = BASE_DIR / "JSON"
+TEAM_META_FILE = JSON_DIR / "team_meta.json"
+COUNTRYROLES_FILE = JSON_DIR / "countryroles.json"
+GROUPROLES_FILE = JSON_DIR / "grouproles.json"
+
+log = logging.getLogger(__name__)
+
+
+def load_json(path: Path, default):
+    """Load JSON content from disk and gracefully return a default value."""
+    if not path.exists():
+        return default
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_json(path: Path, data) -> None:
+    """Persist JSON data with indentation for easy manual inspection."""
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+
+
+def group_label(group_key: str) -> str:
+    """Normalize stored group keys (A, B...) into role names (Group A, Group B...)."""
+    cleaned = str(group_key or "").strip().upper()
+    return f"Group {cleaned}" if cleaned else ""
+
+
+class RoleProvisioning(commands.Cog):
+    """Create and store role IDs for teams and groups used in the World Cup flow."""
+
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(
+        name="setupgrouproles",
+        description="Create/refresh role IDs for Group A-L and all countries from team metadata."
+    )
+    async def setup_group_roles(self, interaction: discord.Interaction):
+        if not await check_root_interaction(interaction):
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        if not interaction.guild:
+            await interaction.followup.send("This command must be used in a server.", ephemeral=True)
+            return
+
+        team_meta = load_json(TEAM_META_FILE, {"groups": {}})
+        groups = team_meta.get("groups", {}) if isinstance(team_meta, dict) else {}
+
+        if not groups:
+            await interaction.followup.send("No group data found in team_meta.json.", ephemeral=True)
+            return
+
+        existing_roles = {r.name: r for r in interaction.guild.roles}
+        country_roles = load_json(COUNTRYROLES_FILE, {})
+        group_roles = load_json(GROUPROLES_FILE, {})
+
+        created_groups = 0
+        created_countries = 0
+
+        for group_key, countries in groups.items():
+            g_label = group_label(group_key)
+            if not g_label:
+                continue
+
+            role = existing_roles.get(g_label)
+            if not role:
+                role = await interaction.guild.create_role(
+                    name=g_label,
+                    mentionable=True,
+                    reason="World Cup group role provisioning"
+                )
+                existing_roles[g_label] = role
+                created_groups += 1
+
+            group_roles[g_label] = role.id
+
+            # Keep each country linked to the group role id so existing assignment logic
+            # can resolve both country role IDs and their parent group relationship.
+            for country in countries:
+                if not country or country == "TBA":
+                    continue
+
+                country_role = existing_roles.get(country)
+                if not country_role:
+                    country_role = await interaction.guild.create_role(
+                        name=country,
+                        mentionable=True,
+                        reason=f"World Cup country role provisioning ({g_label})"
+                    )
+                    existing_roles[country] = country_role
+                    created_countries += 1
+
+                country_roles[country] = {
+                    "role_id": country_role.id,
+                    "group": g_label,
+                    "group_role_id": role.id,
+                }
+
+        save_json(COUNTRYROLES_FILE, country_roles)
+        save_json(GROUPROLES_FILE, group_roles)
+
+        summary = (
+            f"Group roles synced: {len(group_roles)} total ({created_groups} created).\n"
+            f"Country roles synced: {len(country_roles)} total ({created_countries} created)."
+        )
+        await interaction.followup.send(summary, ephemeral=True)
+        log.info("Role provisioning completed in guild %s by %s", interaction.guild.id, interaction.user.id)
+
+
+async def setup(bot):
+    await bot.add_cog(RoleProvisioning(bot))

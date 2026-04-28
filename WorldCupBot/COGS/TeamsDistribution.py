@@ -124,16 +124,36 @@ class TeamsDistribution(commands.Cog):
 
     async def get_or_create_country_role(self, guild, country, existing_roles, countryroles, reason="World Cup Team Assignment"):
         role = existing_roles.get(country)
+
+        # Support both legacy flat IDs and new metadata objects
+        # ({"role_id": ..., "group": ..., "group_role_id": ...}).
+        stored = countryroles.get(country)
+        if isinstance(stored, dict):
+            stored_role_id = stored.get("role_id")
+        else:
+            stored_role_id = stored
+
+        if not role and guild and stored_role_id:
+            role = guild.get_role(int(stored_role_id))
+            if role:
+                existing_roles[country] = role
+
         if not role and guild:
             try:
                 role = await guild.create_role(name=country, mentionable=True, reason=reason)
                 existing_roles[country] = role
-                countryroles[country] = role.id
+                if isinstance(countryroles.get(country), dict):
+                    countryroles[country]["role_id"] = role.id
+                else:
+                    countryroles[country] = role.id
                 save_json(COUNTRYROLES_FILE, countryroles)
             except Exception:
                 role = None
         elif role:
-            countryroles[country] = role.id
+            if isinstance(countryroles.get(country), dict):
+                countryroles[country]["role_id"] = role.id
+            else:
+                countryroles[country] = role.id
             save_json(COUNTRYROLES_FILE, countryroles)
         return role
 
