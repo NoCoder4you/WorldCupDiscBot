@@ -151,3 +151,36 @@ def test_permission_state_label_maps_to_allowed_neutral_denied():
     assert AuditLogCog._permission_state_label(True) == "✅ allowed"
     assert AuditLogCog._permission_state_label(None) == "⚪ neutral"
     assert AuditLogCog._permission_state_label(False) == "❌ denied"
+
+
+def test_channel_update_events_are_coalesced_into_single_log_action():
+    """Rapid channel update events should be merged so only one embed/log entry is emitted."""
+    cog = AuditLogCog(SimpleNamespace())
+    captured = []
+
+    async def _fake_try_get_channel_update_entry(guild, channel_id):
+        return None
+
+    async def _fake_log_action(action, category, actor, target, guild, result="success", reason=None, details=None):
+        captured.append((action, details or {}))
+
+    cog._try_get_channel_update_entry = _fake_try_get_channel_update_entry
+    cog.log_action = _fake_log_action
+
+    guild = SimpleNamespace()
+    before_a = SimpleNamespace(id=123, name="bot-audit-log", guild=guild, overwrites={_Target(1, "R1"): _Overwrite(1, 0)})
+    after_a = SimpleNamespace(id=123, name="bot-audit-log", guild=guild, overwrites={_Target(1, "R1"): _Overwrite(1, 0), _Target(2, "R2"): _Overwrite(0, 2)})
+    before_b = after_a
+    after_b = SimpleNamespace(id=123, name="bot-audit-log", guild=guild, overwrites={_Target(1, "R1"): _Overwrite(4, 0), _Target(2, "R2"): _Overwrite(0, 2)})
+
+    async def _run():
+        await cog.on_guild_channel_update(before_a, after_a)
+        await cog.on_guild_channel_update(before_b, after_b)
+        await asyncio.sleep(1.7)
+
+    asyncio.run(_run())
+
+    assert len(captured) == 1
+    assert captured[0][0] == "channel_updated"
+    assert captured[0][1]["permission_overwrite_created"] == 1
+    assert captured[0][1]["permission_overwrite_updated"] == 1
