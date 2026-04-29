@@ -297,6 +297,32 @@ class AuditLogCog(commands.Cog):
             return None
         return None
 
+    async def _try_get_channel_update_entry(
+        self,
+        guild: discord.Guild,
+        channel_id: int,
+        seconds: int = 20,
+    ) -> Optional[discord.AuditLogEntry]:
+        """Best-effort resolver for channel update actor, including overwrite updates."""
+        perms = guild.me.guild_permissions if guild.me else None
+        if not perms or not perms.view_audit_log:
+            return None
+        after_ts = datetime.now(timezone.utc) - timedelta(seconds=seconds)
+        try:
+            async for entry in guild.audit_logs(limit=12, action=discord.AuditLogAction.channel_update):
+                if entry.created_at < after_ts:
+                    continue
+                # For rename/move updates, target is often the channel itself.
+                if entry.target and getattr(entry.target, "id", None) == channel_id:
+                    return entry
+                # For overwrite-specific updates, Discord often sets `extra.channel`.
+                extra_channel = getattr(getattr(entry, "extra", None), "channel", None)
+                if extra_channel and getattr(extra_channel, "id", None) == channel_id:
+                    return entry
+        except (discord.Forbidden, discord.HTTPException):
+            return None
+        return None
+
     async def _try_get_invite_delete_entry(
         self,
         guild: discord.Guild,
@@ -565,7 +591,8 @@ class AuditLogCog(commands.Cog):
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
         # Fetch actor/reason from audit logs and include overwrite delta so moderators can audit permission edits.
-        entry = await self._try_get_audit_entry(after.guild, discord.AuditLogAction.channel_update, after.id)
+        # Use a specialized channel-update resolver so overwrite edits still identify "Performed By".
+        entry = await self._try_get_channel_update_entry(after.guild, after.id)
         permission_delta = self._channel_permission_delta(before, after)
         overwrite_details = self._channel_overwrite_details(before, after)
         details = {

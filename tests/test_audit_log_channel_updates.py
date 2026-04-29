@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from COGS.audit_log import AuditLogCog
 import asyncio
+from datetime import datetime, timezone
 
 
 class _Overwrite:
@@ -114,3 +115,26 @@ def test_channel_update_embed_omits_name_change_when_name_is_unchanged():
     assert fake_channel.sent_embed is not None
     field_names = [field.name for field in fake_channel.sent_embed.fields]
     assert "Name Change" not in field_names
+
+
+def test_try_get_channel_update_entry_matches_extra_channel_for_overwrite_events():
+    """Resolver should use audit entry extra.channel when target is not the channel object."""
+    cog = AuditLogCog(SimpleNamespace())
+    now = datetime.now(timezone.utc)
+    expected_entry = SimpleNamespace(
+        created_at=now,
+        target=SimpleNamespace(id=999),  # not matching channel id
+        extra=SimpleNamespace(channel=SimpleNamespace(id=123)),
+    )
+
+    class _FakeGuild:
+        def __init__(self):
+            self.me = SimpleNamespace(guild_permissions=SimpleNamespace(view_audit_log=True))
+
+        def audit_logs(self, limit, action):
+            async def _iter():
+                yield expected_entry
+            return _iter()
+
+    resolved = asyncio.run(cog._try_get_channel_update_entry(_FakeGuild(), 123))
+    assert resolved is expected_entry
