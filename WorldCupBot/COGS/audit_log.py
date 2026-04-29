@@ -252,6 +252,19 @@ class AuditLogCog(commands.Cog):
                         value=f"Added: `{created}` • Removed: `{deleted}` • Updated: `{updated}`",
                         inline=False,
                     )
+                added_targets = details.get("permission_overwrite_added_targets", [])
+                if isinstance(added_targets, list) and added_targets:
+                    embed.add_field(name="Added For", value="\n".join(str(item) for item in added_targets[:6]), inline=False)
+                removed_targets = details.get("permission_overwrite_removed_targets", [])
+                if isinstance(removed_targets, list) and removed_targets:
+                    embed.add_field(name="Removed From", value="\n".join(str(item) for item in removed_targets[:6]), inline=False)
+                changed_permissions = details.get("permission_overwrite_changed_permissions", [])
+                if isinstance(changed_permissions, list) and changed_permissions:
+                    embed.add_field(
+                        name="Permissions Changed",
+                        value="\n".join(str(item) for item in changed_permissions[:6]),
+                        inline=False,
+                    )
 
             await channel.send(embed=embed)
         except discord.Forbidden:
@@ -347,6 +360,60 @@ class AuditLogCog(commands.Cog):
             "permission_overwrite_deleted": deleted,
             "permission_overwrite_updated": updated,
         }
+
+    @staticmethod
+    def _channel_overwrite_details(
+        before: discord.abc.GuildChannel,
+        after: discord.abc.GuildChannel,
+    ) -> dict[str, Any]:
+        """Return detailed overwrite changes (which group/member and which permissions changed)."""
+        before_overwrites = getattr(before, "overwrites", {}) or {}
+        after_overwrites = getattr(after, "overwrites", {}) or {}
+        before_map = {getattr(target, "id", None): (target, overwrite) for target, overwrite in before_overwrites.items()}
+        after_map = {getattr(target, "id", None): (target, overwrite) for target, overwrite in after_overwrites.items()}
+
+        added_targets: list[str] = []
+        removed_targets: list[str] = []
+        changed_permissions: list[str] = []
+
+        for target_id in sorted(set(before_map) | set(after_map), key=lambda t: str(t)):
+            before_item = before_map.get(target_id)
+            after_item = after_map.get(target_id)
+            if before_item is None and after_item is not None:
+                after_target, _ = after_item
+                added_targets.append(AuditLogCog._format_overwrite_target(after_target))
+                continue
+            if before_item is not None and after_item is None:
+                before_target, _ = before_item
+                removed_targets.append(AuditLogCog._format_overwrite_target(before_target))
+                continue
+            if before_item is None or after_item is None:
+                continue
+            before_target, before_overwrite = before_item
+            _, after_overwrite = after_item
+            before_perms = dict(before_overwrite)
+            after_perms = dict(after_overwrite)
+            perm_names = sorted(set(before_perms) | set(after_perms))
+            changed_perm_names = [name for name in perm_names if before_perms.get(name) != after_perms.get(name)]
+            if changed_perm_names:
+                changed_permissions.append(
+                    f"{AuditLogCog._format_overwrite_target(before_target)}: {', '.join(changed_perm_names[:8])}"
+                )
+
+        return {
+            "permission_overwrite_added_targets": added_targets,
+            "permission_overwrite_removed_targets": removed_targets,
+            "permission_overwrite_changed_permissions": changed_permissions,
+        }
+
+    @staticmethod
+    def _format_overwrite_target(target: Any) -> str:
+        """Format overwrite target as role/member mention + id for audit readability."""
+        target_id = str(getattr(target, "id", "unknown"))
+        target_name = str(getattr(target, "name", getattr(target, "display_name", "Unknown")))
+        is_role = hasattr(target, "permissions")
+        mention = f"<@&{target_id}>" if is_role and target_id.isdigit() else (f"<@{target_id}>" if target_id.isdigit() else target_name)
+        return f"{mention} ({target_name}, `{target_id}`)"
 
     async def log_system_event(self, action: str, details: Optional[dict[str, Any]] = None) -> None:
         await self.log_action(
@@ -499,11 +566,13 @@ class AuditLogCog(commands.Cog):
         # Fetch actor/reason from audit logs and include overwrite delta so moderators can audit permission edits.
         entry = await self._try_get_audit_entry(after.guild, discord.AuditLogAction.channel_update, after.id)
         permission_delta = self._channel_permission_delta(before, after)
+        overwrite_details = self._channel_overwrite_details(before, after)
         details = {
             "channel_id": str(after.id),
             "before_name": before.name,
             "after_name": after.name,
             **permission_delta,
+            **overwrite_details,
         }
         await self.log_action(
             "channel_updated",
