@@ -22,6 +22,8 @@ class AuditLogCog(commands.Cog):
         self.bot = bot
         self._write_lock = asyncio.Lock()
         self._logger = logging.getLogger(__name__)
+        self._channel_update_pending: dict[int, dict[str, Any]] = {}
+        self._channel_update_tasks: dict[int, asyncio.Task] = {}
         base_dir = Path(__file__).resolve().parent.parent
         self._audit_file = base_dir / "JSON" / "audit_log.json"
         self._backup_file = base_dir / "JSON" / "audit_log.backup.json"
@@ -250,7 +252,7 @@ class AuditLogCog(commands.Cog):
                 if created or deleted or updated:
                     embed.add_field(
                         name="Permission Overwrites",
-                        value=f"Added: `{created}` • Removed: `{deleted}` • Updated: `{updated}`",
+                        value=f"➕ Added: `{created}` • ➖ Removed: `{deleted}` • 🔁 Updated: `{updated}`",
                         inline=False,
                     )
                 added_targets = details.get("permission_overwrite_added_targets", [])
@@ -421,10 +423,18 @@ class AuditLogCog(commands.Cog):
             before_perms = dict(before_overwrite)
             after_perms = dict(after_overwrite)
             perm_names = sorted(set(before_perms) | set(after_perms))
-            changed_perm_names = [name for name in perm_names if before_perms.get(name) != after_perms.get(name)]
-            if changed_perm_names:
+            changed_perm_entries = []
+            for name in perm_names:
+                before_value = before_perms.get(name)
+                after_value = after_perms.get(name)
+                if before_value == after_value:
+                    continue
+                changed_perm_entries.append(
+                    f"{name}: {AuditLogCog._permission_state_label(before_value)} → {AuditLogCog._permission_state_label(after_value)}"
+                )
+            if changed_perm_entries:
                 changed_permissions.append(
-                    f"{AuditLogCog._format_overwrite_target(before_target)}: {', '.join(changed_perm_names[:8])}"
+                    f"{AuditLogCog._format_overwrite_target(before_target)}\n" + "\n".join(changed_perm_entries[:8])
                 )
 
         return {
@@ -442,6 +452,15 @@ class AuditLogCog(commands.Cog):
         mention = f"<@&{target_id}>" if is_role and target_id.isdigit() else (f"<@{target_id}>" if target_id.isdigit() else target_name)
         return f"{mention} ({target_name}, `{target_id}`)"
 
+    @staticmethod
+    def _permission_state_label(value: Any) -> str:
+        """Map Discord overwrite tri-state values to human-readable labels."""
+        if value is True:
+            return "✅ allowed"
+        if value is False:
+            return "❌ denied"
+        return "⚪ neutral"
+
     async def log_system_event(self, action: str, details: Optional[dict[str, Any]] = None) -> None:
         await self.log_action(
             action=action,
@@ -451,6 +470,25 @@ class AuditLogCog(commands.Cog):
             guild=None,
             details=details or {},
         )
+
+    async def _flush_channel_update_event(self, channel_id: int) -> None:
+        """Flush a coalesced channel update event so multiple rapid updates appear in one embed."""
+        try:
+            await asyncio.sleep(1.5)
+            payload = self._channel_update_pending.pop(channel_id, None)
+            if not payload:
+                return
+            await self.log_action(
+                "channel_updated",
+                "server",
+                payload.get("actor"),
+                payload.get("target"),
+                payload.get("guild"),
+                reason=payload.get("reason"),
+                details=payload.get("details", {}),
+            )
+        finally:
+            self._channel_update_tasks.pop(channel_id, None)
 
     # --- World Cup helper methods (call these from other cogs/services) ---
     async def log_bet_placed(self, actor, guild, bet_id, fixture_id, team, amount):
@@ -602,15 +640,35 @@ class AuditLogCog(commands.Cog):
             **permission_delta,
             **overwrite_details,
         }
-        await self.log_action(
-            "channel_updated",
-            "server",
-            entry.user if entry else None,
-            after,
-            after.guild,
-            reason=entry.reason if entry else None,
-            details=details,
-        )
+        channel_id = after.id
+        pending = self._channel_update_pending.get(channel_id)
+        if pending is None:
+            self._channel_update_pending[channel_id] = {
+                "actor": entry.user if entry else None,
+                "target": after,
+                "guild": after.guild,
+                "reason": entry.reason if entry else None,
+                "details": details,
+            }
+        else:
+            # Merge rapid update bursts into a single payload to avoid split embeds.
+            merged = pending["details"]
+            merged["permission_overwrite_created"] = int(merged.get("permission_overwrite_created", 0)) + int(details.get("permission_overwrite_created", 0))
+            merged["permission_overwrite_deleted"] = int(merged.get("permission_overwrite_deleted", 0)) + int(details.get("permission_overwrite_deleted", 0))
+            merged["permission_overwrite_updated"] = int(merged.get("permission_overwrite_updated", 0)) + int(details.get("permission_overwrite_updated", 0))
+            for key in ("permission_overwrite_added_targets", "permission_overwrite_removed_targets", "permission_overwrite_changed_permissions"):
+                existing = list(merged.get(key, []))
+                for item in details.get(key, []):
+                    if item not in existing:
+                        existing.append(item)
+                merged[key] = existing
+            pending["actor"] = pending.get("actor") or (entry.user if entry else None)
+            pending["reason"] = pending.get("reason") or (entry.reason if entry else None)
+            pending["target"] = after
+            pending["guild"] = after.guild
+
+        if channel_id not in self._channel_update_tasks:
+            self._channel_update_tasks[channel_id] = asyncio.create_task(self._flush_channel_update_event(channel_id))
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
