@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from COGS.audit_log import AuditLogCog
+import asyncio
 
 
 class _Overwrite:
@@ -76,3 +77,40 @@ def test_channel_overwrite_details_lists_targets_and_permissions():
     assert len(details["permission_overwrite_changed_permissions"]) == 1
     assert "Moderators" in details["permission_overwrite_changed_permissions"][0]
     assert "send_messages" in details["permission_overwrite_changed_permissions"][0]
+
+
+def test_channel_update_embed_omits_name_change_when_name_is_unchanged():
+    """Name Change should not be shown when before/after channel names are identical."""
+    cog = AuditLogCog(SimpleNamespace())
+
+    class _FakeChannel:
+        def __init__(self):
+            self.name = "bot-audit-log"
+            self.sent_embed = None
+
+        def permissions_for(self, _member):
+            return SimpleNamespace(send_messages=True)
+
+        async def send(self, embed):
+            self.sent_embed = embed
+
+    fake_channel = _FakeChannel()
+    guild = SimpleNamespace(text_channels=[fake_channel], me=SimpleNamespace())
+    entry = {
+        "action": "channel_updated",
+        "actor": {"display_name": "Unknown", "id": "unknown"},
+        "target": {"display_name": "admin-general", "id": "123"},
+        "details": {
+            "channel_id": "123",
+            "before_name": "admin-general",
+            "after_name": "admin-general",
+            "permission_overwrite_updated": 1,
+            "permission_overwrite_changed_permissions": ["@Role: manage_channels"],
+        },
+    }
+
+    asyncio.run(cog._post_to_audit_channel(guild, entry))
+
+    assert fake_channel.sent_embed is not None
+    field_names = [field.name for field in fake_channel.sent_embed.fields]
+    assert "Name Change" not in field_names

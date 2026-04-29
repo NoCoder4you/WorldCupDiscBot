@@ -237,7 +237,8 @@ class AuditLogCog(commands.Cog):
             elif entry.get("action") == "channel_updated":
                 before_name = str(details.get("before_name", "")).strip()
                 after_name = str(details.get("after_name", "")).strip()
-                if before_name or after_name:
+                # Only show a name-change field when the channel name actually changed.
+                if before_name != after_name and (before_name or after_name):
                     embed.add_field(
                         name="Name Change",
                         value=f"{before_name or 'unknown'} → {after_name or 'unknown'}",
