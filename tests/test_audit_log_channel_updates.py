@@ -82,8 +82,8 @@ def test_channel_overwrite_details_lists_targets_and_permissions():
     assert "Legacy" in details["permission_overwrite_removed_targets"][0]
     assert len(details["permission_overwrite_changed_permissions"]) == 1
     assert "Moderators" in details["permission_overwrite_changed_permissions"][0]
-    assert "send_messages: allowed → neutral" in details["permission_overwrite_changed_permissions"][0]
-    assert "manage_messages: neutral → allowed" in details["permission_overwrite_changed_permissions"][0]
+    assert "send_messages: ✅ allowed → ⚪ neutral" in details["permission_overwrite_changed_permissions"][0]
+    assert "manage_messages: ⚪ neutral → ✅ allowed" in details["permission_overwrite_changed_permissions"][0]
 
 
 def test_channel_update_embed_omits_name_change_when_name_is_unchanged():
@@ -148,6 +148,6 @@ def test_try_get_channel_update_entry_matches_extra_channel_for_overwrite_events
 
 def test_permission_state_label_maps_to_allowed_neutral_denied():
     """Permission state labels should match Discord overwrite tri-state semantics."""
-    assert AuditLogCog._permission_state_label(True) == "allowed"
-    assert AuditLogCog._permission_state_label(None) == "neutral"
-    assert AuditLogCog._permission_state_label(False) == "denied"
+    assert AuditLogCog._permission_state_label(True) == "✅ allowed"
+    assert AuditLogCog._permission_state_label(None) == "⚪ neutral"
+    assert AuditLogCog._permission_state_label(False) == "❌ denied"

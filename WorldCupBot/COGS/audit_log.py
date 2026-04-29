@@ -250,7 +250,7 @@ class AuditLogCog(commands.Cog):
                 if created or deleted or updated:
                     embed.add_field(
                         name="Permission Overwrites",
-                        value=f"Added: `{created}` • Removed: `{deleted}` • Updated: `{updated}`",
+                        value=f"➕ Added: `{created}` • ➖ Removed: `{deleted}` • 🔁 Updated: `{updated}`",
                         inline=False,
                     )
                 added_targets = details.get("permission_overwrite_added_targets", [])
@@ -454,10 +454,10 @@ class AuditLogCog(commands.Cog):
     def _permission_state_label(value: Any) -> str:
         """Map Discord overwrite tri-state values to human-readable labels."""
         if value is True:
-            return "allowed"
+            return "✅ allowed"
         if value is False:
-            return "denied"
-        return "neutral"
+            return "❌ denied"
+        return "⚪ neutral"
 
     async def log_system_event(self, action: str, details: Optional[dict[str, Any]] = None) -> None:
         await self.log_action(
