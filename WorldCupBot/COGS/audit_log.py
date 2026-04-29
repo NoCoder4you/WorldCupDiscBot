@@ -234,6 +234,24 @@ class AuditLogCog(commands.Cog):
                         value=f"{before_name or 'unknown'} → {after_name or 'unknown'}",
                         inline=False,
                     )
+            elif entry.get("action") == "channel_updated":
+                before_name = str(details.get("before_name", "")).strip()
+                after_name = str(details.get("after_name", "")).strip()
+                if before_name or after_name:
+                    embed.add_field(
+                        name="Name Change",
+                        value=f"{before_name or 'unknown'} → {after_name or 'unknown'}",
+                        inline=False,
+                    )
+                created = int(details.get("permission_overwrite_created", 0) or 0)
+                deleted = int(details.get("permission_overwrite_deleted", 0) or 0)
+                updated = int(details.get("permission_overwrite_updated", 0) or 0)
+                if created or deleted or updated:
+                    embed.add_field(
+                        name="Permission Overwrites",
+                        value=f"Added: `{created}` • Removed: `{deleted}` • Updated: `{updated}`",
+                        inline=False,
+                    )
 
             await channel.send(embed=embed)
         except discord.Forbidden:
@@ -295,6 +313,40 @@ class AuditLogCog(commands.Cog):
         if category is None:
             return {"category_id": "", "category_name": "No Category"}
         return {"category_id": str(category.id), "category_name": category.name}
+
+    @staticmethod
+    def _channel_permission_delta(
+        before: discord.abc.GuildChannel,
+        after: discord.abc.GuildChannel,
+    ) -> dict[str, int]:
+        """Return overwrite-level add/remove/update counts for channel permission changes."""
+        before_overwrites = getattr(before, "overwrites", {}) or {}
+        after_overwrites = getattr(after, "overwrites", {}) or {}
+
+        before_map = {getattr(target, "id", None): overwrite for target, overwrite in before_overwrites.items()}
+        after_map = {getattr(target, "id", None): overwrite for target, overwrite in after_overwrites.items()}
+        all_target_ids = set(before_map) | set(after_map)
+
+        created = 0
+        deleted = 0
+        updated = 0
+        for target_id in all_target_ids:
+            before_overwrite = before_map.get(target_id)
+            after_overwrite = after_map.get(target_id)
+            if before_overwrite is None and after_overwrite is not None:
+                created += 1
+                continue
+            if before_overwrite is not None and after_overwrite is None:
+                deleted += 1
+                continue
+            if before_overwrite is not None and after_overwrite is not None and before_overwrite.pair() != after_overwrite.pair():
+                updated += 1
+
+        return {
+            "permission_overwrite_created": created,
+            "permission_overwrite_deleted": deleted,
+            "permission_overwrite_updated": updated,
+        }
 
     async def log_system_event(self, action: str, details: Optional[dict[str, Any]] = None) -> None:
         await self.log_action(
@@ -444,7 +496,24 @@ class AuditLogCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
-        await self.log_action("channel_updated", "server", None, None, after.guild, details={"channel_id": str(after.id), "before_name": before.name, "after_name": after.name})
+        # Fetch actor/reason from audit logs and include overwrite delta so moderators can audit permission edits.
+        entry = await self._try_get_audit_entry(after.guild, discord.AuditLogAction.channel_update, after.id)
+        permission_delta = self._channel_permission_delta(before, after)
+        details = {
+            "channel_id": str(after.id),
+            "before_name": before.name,
+            "after_name": after.name,
+            **permission_delta,
+        }
+        await self.log_action(
+            "channel_updated",
+            "server",
+            entry.user if entry else None,
+            after,
+            after.guild,
+            reason=entry.reason if entry else None,
+            details=details,
+        )
 
     @commands.Cog.listener()
     async def on_guild_role_create(self, role: discord.Role):
