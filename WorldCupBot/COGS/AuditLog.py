@@ -252,7 +252,7 @@ class AuditLogCog(commands.Cog):
                 if created or deleted or updated:
                     embed.add_field(
                         name="Permission Overwrites",
-                        value=f"➕ Added: `{created}` • ➖ Removed: `{deleted}` • 🔁 Updated: `{updated}`",
+                        value=f"➕ Added: `{created}`\n➖ Removed: `{deleted}`\n🔁 Updated: `{updated}`",
                         inline=False,
                     )
                 added_targets = details.get("permission_overwrite_added_targets", [])
@@ -395,7 +395,6 @@ class AuditLogCog(commands.Cog):
         before: discord.abc.GuildChannel,
         after: discord.abc.GuildChannel,
     ) -> dict[str, Any]:
-        """Return detailed overwrite changes (which group/member and which permissions changed)."""
         before_overwrites = getattr(before, "overwrites", {}) or {}
         after_overwrites = getattr(after, "overwrites", {}) or {}
         before_map = {getattr(target, "id", None): (target, overwrite) for target, overwrite in before_overwrites.items()}
@@ -628,8 +627,6 @@ class AuditLogCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel):
-        # Fetch actor/reason from audit logs and include overwrite delta so moderators can audit permission edits.
-        # Use a specialized channel-update resolver so overwrite edits still identify "Performed By".
         entry = await self._try_get_channel_update_entry(after.guild, after.id)
         permission_delta = self._channel_permission_delta(before, after)
         overwrite_details = self._channel_overwrite_details(before, after)
