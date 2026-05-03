@@ -144,6 +144,27 @@ class AuditLogCog(commands.Cog):
         await self._post_to_audit_channel(guild, entry)
 
 
+
+    @staticmethod
+    def _flatten_command_options(options: list[dict[str, Any]] | None, prefix: str = "") -> list[str]:
+        """Flatten nested slash-command options into key=value strings for readable audit embeds."""
+        if not isinstance(options, list):
+            return []
+
+        flattened: list[str] = []
+        for option in options:
+            if not isinstance(option, dict):
+                continue
+            option_name = str(option.get("name", "")).strip()
+            option_path = f"{prefix}.{option_name}" if prefix and option_name else (option_name or prefix)
+            if "value" in option:
+                value = option.get("value")
+                flattened.append(f"{option_path}={value!r}")
+            nested_options = option.get("options")
+            if isinstance(nested_options, list) and nested_options:
+                flattened.extend(AuditLogCog._flatten_command_options(nested_options, option_path))
+        return flattened
+
     async def _post_to_audit_channel(self, guild: Optional[discord.Guild], entry: dict[str, Any]) -> None:
         """Post a concise summary to #bot-audit-log when the channel exists."""
         if guild is None:
@@ -236,6 +257,19 @@ class AuditLogCog(commands.Cog):
                         value=f"{before_name or 'unknown'} → {after_name or 'unknown'}",
                         inline=False,
                     )
+            elif entry.get("action") == "slash_command_used":
+                command_path = str(details.get("command_path", "")).strip()
+                if command_path:
+                    embed.add_field(name="Command", value=f"`/{command_path}`", inline=False)
+                flattened_arguments = self._flatten_command_options(details.get("arguments"))
+                if flattened_arguments:
+                    embed.add_field(
+                        name="Arguments",
+                        value="\n".join(f"• `{item[:180]}`" for item in flattened_arguments[:12]),
+                        inline=False,
+                    )
+                else:
+                    embed.add_field(name="Arguments", value="No arguments provided.", inline=False)
             elif entry.get("action") == "channel_updated":
                 before_name = str(details.get("before_name", "")).strip()
                 after_name = str(details.get("after_name", "")).strip()
