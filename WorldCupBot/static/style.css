@@ -3202,6 +3202,11 @@ select.select-dark:disabled {
 .country.self {
     fill: #00F8FF;
     opacity: 1;
+    /*
+     * Self-owned countries should stand out at a glance on the world map.
+     * A layered drop-shadow creates a soft neon glow without changing ownership logic.
+     */
+    filter: drop-shadow(0 0 3px #00f8ffcc) drop-shadow(0 0 9px #00f8ff99);
 }
 
 .country.nq {
@@ -3415,6 +3420,11 @@ select.select-dark:disabled {
 .country-owned-self,
 .country-owned-self * {
     fill: #00F8FF;
+    /*
+     * Keep the dedicated "self-owned" class visually consistent with .country.self
+     * so both rendering paths show the same glow treatment.
+     */
+    filter: drop-shadow(0 0 3px #00f8ffcc) drop-shadow(0 0 9px #00f8ff99);
 }
 
 .country-owned-self.active,
