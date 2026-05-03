@@ -375,6 +375,7 @@
       <div>
         <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
         <div class="muted mono">${viewTag}</div>
+        ${viewRole ? `<div class="muted">${viewRole}</div>` : ''}
         ${adminLine}
       </div>
     </div>`;
