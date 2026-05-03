@@ -263,6 +263,47 @@
   let viewAvatar =
     user.discord_avatar || user.avatar_url || user.avatar || '';
 
+  // Derive the user's highest Discord role for profile display.
+  // We intentionally exclude the special "root" role so only gameplay/staff roles are shown.
+  const resolveHighestRoleName = (sourceUser) => {
+    const rawRoles =
+      sourceUser?.discord_roles ||
+      sourceUser?.roles ||
+      sourceUser?.guild_roles ||
+      [];
+
+    if (!Array.isArray(rawRoles) || rawRoles.length === 0) {
+      return '';
+    }
+
+    const normalized = rawRoles
+      .map((role) => {
+        if (typeof role === 'string') {
+          return { name: role, position: Number.NEGATIVE_INFINITY };
+        }
+        if (role && typeof role === 'object') {
+          return {
+            name: String(role.name || role.role_name || role.label || '').trim(),
+            position: Number(role.position ?? role.rank ?? Number.NEGATIVE_INFINITY)
+          };
+        }
+        return { name: '', position: Number.NEGATIVE_INFINITY };
+      })
+      .filter((role) => role.name && role.name.toLowerCase() !== 'root');
+
+    if (normalized.length === 0) {
+      return '';
+    }
+
+    normalized.sort((a, b) => {
+      if (b.position !== a.position) return b.position - a.position;
+      return a.name.localeCompare(b.name);
+    });
+
+    return normalized[0].name;
+  };
+
+  let viewRole = resolveHighestRoleName(user);
   let masqDisplay = '';
 
   // ---------- override with masqueraded target from verified.json ----------
@@ -297,6 +338,7 @@
       viewTag    = tidyTag(tUserName) || viewTag;
       viewId     = tId || viewId;
       viewAvatar = tAvatar || viewAvatar;
+      viewRole   = resolveHighestRoleName(target) || viewRole;
     } else {
       masqDisplay = String(masqueradingAs);
     }
@@ -307,6 +349,26 @@
   const adminLine = inAdminView
     ? `<div class="muted mono">ID: ${viewId}</div>`
     : '';
+
+
+  // Keep role text visually prominent in the unused profile-card whitespace (not under username).
+  // Show the role banner only for self-view; hide it while masquerading.
+  const showRoleBanner = Boolean(viewRole) && !masqueradingAs;
+
+  const roleBannerStyle = `
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    align-self:stretch;
+    min-width:220px;
+    padding:10px 14px;
+    font-size:1.35rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    color:#00f8ff;
+    text-shadow:0 0 10px rgba(0,248,255,.35);
+  `;
 
   const title = `<div style="display:flex;align-items:center;gap:10px">
       ${avatarHtml}
@@ -373,6 +435,7 @@
           <div class="user-profile-main">
             ${title}
           </div>
+          ${showRoleBanner ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
           ${masqControls}
         </div>
       </div>
