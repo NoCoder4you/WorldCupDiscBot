@@ -352,6 +352,9 @@
 
 
   // Keep role text visually prominent in the unused profile-card whitespace (not under username).
+  // Show the role banner only for self-view; hide it while masquerading.
+  const showRoleBanner = Boolean(viewRole) && !masqueradingAs;
+
   const roleBannerStyle = `
     display:flex;
     align-items:center;
@@ -433,7 +436,7 @@
           <div class="user-profile-main">
             ${title}
           </div>
-          ${viewRole ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
+          ${showRoleBanner ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
           ${masqControls}
         </div>
       </div>
