@@ -727,6 +727,9 @@ function stagePill(stage){
       const nextUserId = loggedIn ? String(user.discord_id || user.id) : null;
       const userChanged = nextUserId !== state.userId;
       state.userId = nextUserId;
+      // Keep a body-level auth class so CSS can style public-only affordances
+      // (for example, calling attention to the User nav tab for sign-in).
+      document.body.classList.toggle('logged-out', !loggedIn);
       const fabIcon = document.getElementById('fab-icon');
       const btnLogin = document.getElementById('btn-discord-login');
       const btnLogout = document.getElementById('btn-discord-logout');

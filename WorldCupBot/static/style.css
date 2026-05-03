@@ -225,6 +225,25 @@ li.offline-warning > a[data-page="dashboard"]::after {
     color: #0b1320
 }
 
+/* Highlight the User tab for signed-out visitors so it's clearer where to sign in. */
+body.logged-out .menu a[data-page="user"] {
+    color: #b6fff2;
+    box-shadow: 0 0 0 1px #00ffd54a, 0 0 12px #00ffd585;
+    text-shadow: 0 0 8px #00ffd5b3;
+    animation: user-nav-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes user-nav-glow {
+    0%, 100% {
+        box-shadow: 0 0 0 1px #00ffd54a, 0 0 10px #00ffd570;
+        text-shadow: 0 0 6px #00ffd599;
+    }
+    50% {
+        box-shadow: 0 0 0 1px #00ffd575, 0 0 18px #00ffd5cc;
+        text-shadow: 0 0 12px #00ffd5e0;
+    }
+}
+
 @media (max-width:900px) {
     .nav-wrap {
         justify-content: flex-start
