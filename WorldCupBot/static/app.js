@@ -7415,6 +7415,9 @@ document.addEventListener('DOMContentLoaded', () => {
             notify('Failed to declare winner', false);
           }
           await refreshVisibleCards();
+          // Keep Knockout Pathways in sync immediately after a winner is declared.
+          // This reloads fixtures + winners and re-runs bracket auto-progression.
+          await loadFixtures();
         } catch (e) {
           console.error(e);
           notify('Failed to declare winner', false);
