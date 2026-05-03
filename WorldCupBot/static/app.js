@@ -5992,7 +5992,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function winnerSideForFixture(fixture, winnersMap) {
-    // Knockout auto-progression should be controlled by declared Match Votes winners.
+    // Knockout auto-progression should be controlled by declared Match Picks winners.
     // Do not infer winners from scorelines here.
     if (!winnersMap || typeof winnersMap !== 'object') return '';
     const fid = String(fixture?.id || '').trim();

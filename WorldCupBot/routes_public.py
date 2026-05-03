@@ -1904,10 +1904,10 @@ def create_public_routes(ctx):
                     "id": f"fz:{rid}",
                     "type": "fanzone",
                     "severity": sev,
-                    "title": ev.get("title") or "Match Votes result",
+                    "title": ev.get("title") or "Match Picks result",
                     "body": ev.get("body") or (
-                        "You won a Match Votes pick." if res == "win"
-                        else "You lost a Match Votes pick."
+                        "You won a Match Picks pick." if res == "win"
+                        else "You lost a Match Picks pick."
                     ),
                     "action": {"kind": "page", "page": "fanzone"},
                     "ts": int(ev.get("ts") or now)
@@ -2593,8 +2593,8 @@ def create_public_routes(ctx):
             if eid in existing_ids:
                 continue
 
-            title = f"Match Votes: {resolved_winner_team} declared" if resolved_winner_team else "Match Votes result"
-            body_txt = "You won your Match Votes pick." if result == "win" else "You lost your Match Votes pick."
+            title = f"Match Picks: {resolved_winner_team} declared" if resolved_winner_team else "Match Picks result"
+            body_txt = "You won your Match Picks pick." if result == "win" else "You lost your Match Picks pick."
 
             evs.append({
                 "id": eid,
