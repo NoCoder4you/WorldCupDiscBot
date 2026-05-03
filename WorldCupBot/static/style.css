@@ -705,8 +705,18 @@ body.user-admin-view .dashboard-grid .card {
 
 /* Highlight the Discord connect CTA so users can easily spot where to link accounts. */
 .btn-discord-glow {
+    /* Use Discord's brand blurple so the button colour matches the Discord logo. */
+    background: #5865F2;
+    /* Keep the label readable against the brand colour. */
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 0 0 1px rgba(88, 101, 242, 0.45), 0 0 14px rgba(88, 101, 242, 0.65), 0 0 28px rgba(88, 101, 242, 0.45);
     animation: discord-glow-pulse 2.2s ease-in-out infinite;
+}
+
+/* Keep hover state in the same Discord palette rather than falling back to the generic button hover colour. */
+.btn-discord-glow:hover {
+    background: #4752C4;
 }
 
 @keyframes discord-glow-pulse {
