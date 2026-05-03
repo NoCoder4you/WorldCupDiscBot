@@ -263,9 +263,9 @@
   let viewAvatar =
     user.discord_avatar || user.avatar_url || user.avatar || '';
 
-  // Derive the user's highest Discord role for profile display.
-  // We intentionally exclude the special "root" role so only gameplay/staff roles are shown.
-  const resolveHighestRoleName = (sourceUser) => {
+  // Resolve the public-facing profile role label from Discord roles.
+  // Requirement: only show one of "Referee", "Player", or "Spectator".
+  const resolveProfileRoleLabel = (sourceUser) => {
     const rawRoles =
       sourceUser?.discord_roles ||
       sourceUser?.roles ||
@@ -276,34 +276,24 @@
       return '';
     }
 
-    const normalized = rawRoles
+    const roleNames = rawRoles
       .map((role) => {
-        if (typeof role === 'string') {
-          return { name: role, position: Number.NEGATIVE_INFINITY };
-        }
-        if (role && typeof role === 'object') {
-          return {
-            name: String(role.name || role.role_name || role.label || '').trim(),
-            position: Number(role.position ?? role.rank ?? Number.NEGATIVE_INFINITY)
-          };
-        }
-        return { name: '', position: Number.NEGATIVE_INFINITY };
+        if (typeof role === 'string') return role;
+        if (role && typeof role === 'object') return role.name || role.role_name || role.label || '';
+        return '';
       })
-      .filter((role) => role.name && role.name.toLowerCase() !== 'root');
+      .map((name) => String(name).trim().toLowerCase())
+      .filter(Boolean);
 
-    if (normalized.length === 0) {
-      return '';
-    }
+    // Priority order keeps staff/game-management role dominant when multiple roles exist.
+    if (roleNames.some((name) => name.includes('referee'))) return 'Referee';
+    if (roleNames.some((name) => name.includes('player'))) return 'Player';
+    if (roleNames.some((name) => name.includes('spectator') || name.includes('viewer') || name.includes('fan'))) return 'Spectator';
 
-    normalized.sort((a, b) => {
-      if (b.position !== a.position) return b.position - a.position;
-      return a.name.localeCompare(b.name);
-    });
-
-    return normalized[0].name;
+    return '';
   };
 
-  let viewRole = resolveHighestRoleName(user);
+  let viewRole = resolveProfileRoleLabel(user);
   let masqDisplay = '';
 
   // ---------- override with masqueraded target from verified.json ----------
@@ -338,7 +328,7 @@
       viewTag    = tidyTag(tUserName) || viewTag;
       viewId     = tId || viewId;
       viewAvatar = tAvatar || viewAvatar;
-      viewRole   = resolveHighestRoleName(target) || viewRole;
+      viewRole   = resolveProfileRoleLabel(target) || viewRole;
     } else {
       masqDisplay = String(masqueradingAs);
     }
@@ -375,7 +365,6 @@
       <div>
         <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
         <div class="muted mono">${viewTag}</div>
-        ${viewRole ? `<div class="muted">${viewRole}</div>` : ''}
         ${adminLine}
       </div>
     </div>`;
