@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 from flask import Flask
@@ -134,3 +135,28 @@ def test_admin_fixture_result_rejects_invalid_score(tmp_path):
     payload = bad.get_json()
     assert payload["ok"] is False
     assert payload["error"] == "invalid_score"
+
+
+def test_auto_backup_runs_on_any_admin_request_when_due(tmp_path):
+    """Auto backup should run from admin traffic without opening the backups page."""
+    client, json_dir = _build_admin_client(tmp_path)
+    settings_path = json_dir / "admin_settings.json"
+    now = int(time.time())
+    settings_path.write_text(
+        json.dumps(
+            {
+                "AUTO_BACKUP_ENABLED": True,
+                "AUTO_BACKUP_INTERVAL_HOURS": 6,
+                # Make the next request clearly overdue.
+                "AUTO_BACKUP_LAST_TS": now - (7 * 3600),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resp = client.get("/admin/auth/status")
+    assert resp.status_code == 200
+
+    backups_dir = tmp_path / "BACKUPS"
+    backups = list(backups_dir.glob("*.zip"))
+    assert backups, "expected a backup zip to be created by the before_request scheduler"

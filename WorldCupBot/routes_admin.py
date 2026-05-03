@@ -467,6 +467,13 @@ def _is_admin(ctx):
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__)
 
+    @bp.before_request
+    def _run_auto_backup_scheduler():
+        """Run due auto backups on admin traffic so schedule is not page-dependent."""
+        # This makes backup cadence consistent for active admins even when they
+        # never open the dedicated backups page.
+        _auto_backup_if_due(ctx)
+
     # ---------- Auth endpoints (Discord-session based) ----------
     @bp.get("/admin/auth/status")
     def auth_status():
@@ -490,8 +497,6 @@ def create_admin_routes(ctx):
     @bp.get("/api/backups")
     def backups_list():
         base = ctx.get("BASE_DIR", "")
-        # Auto backups are triggered opportunistically when admins view the backups page.
-        _auto_backup_if_due(ctx)
         files = _list_backups(base)
         folders = [{
             "display": "JSON snapshots",
