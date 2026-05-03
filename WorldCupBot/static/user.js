@@ -350,6 +350,23 @@
     ? `<div class="muted mono">ID: ${viewId}</div>`
     : '';
 
+
+  // Keep role text visually prominent in the unused profile-card whitespace (not under username).
+  const roleBannerStyle = `
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    align-self:stretch;
+    min-width:220px;
+    padding:10px 14px;
+    font-size:1.35rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    color:#00f8ff;
+    text-shadow:0 0 10px rgba(0,248,255,.35);
+  `;
+
   const title = `<div style="display:flex;align-items:center;gap:10px">
       ${avatarHtml}
       <div>
@@ -416,6 +433,7 @@
           <div class="user-profile-main">
             ${title}
           </div>
+          ${viewRole ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
           ${masqControls}
         </div>
       </div>
