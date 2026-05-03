@@ -582,6 +582,41 @@ class AuditLogCog(commands.Cog):
         )
 
     @commands.Cog.listener()
+    async def on_interaction(self, interaction: discord.Interaction):
+        """Log slash command usage with resolved arguments for moderation visibility."""
+        if interaction.type != discord.InteractionType.application_command:
+            return
+        if interaction.guild is None:
+            return
+
+        command_name = ""
+        command_path = ""
+        if getattr(interaction, "command", None) is not None:
+            command_name = getattr(interaction.command, "name", "") or ""
+            command_path = getattr(interaction.command, "qualified_name", "") or command_name
+
+        data = interaction.data or {}
+        if not command_name:
+            command_name = str(data.get("name", "unknown"))
+        if not command_path:
+            command_path = command_name
+
+        options_payload = data.get("options", [])
+        await self.log_action(
+            "slash_command_used",
+            "command",
+            interaction.user,
+            interaction.user,
+            interaction.guild,
+            details={
+                "command_name": command_name,
+                "command_path": command_path,
+                "arguments": options_payload if isinstance(options_payload, list) else [],
+                "channel_id": str(interaction.channel_id) if interaction.channel_id else "unknown",
+            },
+        )
+
+    @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
         before_roles = {r.id for r in before.roles}
         after_roles = {r.id for r in after.roles}
