@@ -351,10 +351,15 @@
     : '';
 
 
+  // Keep role text visually prominent in the unused profile-card whitespace (not under username).
   const roleBannerStyle = `
-    display:inline-block;
-    margin-top:6px;
-    font-size:1.05rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    align-self:stretch;
+    min-width:220px;
+    padding:10px 14px;
+    font-size:1.35rem;
     font-weight:900;
     letter-spacing:.02em;
     text-transform:uppercase;
@@ -367,7 +372,6 @@
       <div>
         <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
         <div class="muted mono">${viewTag}</div>
-        ${viewRole ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
         ${adminLine}
       </div>
     </div>`;
@@ -428,6 +432,7 @@
           <div class="user-profile-main">
             ${title}
           </div>
+          ${viewRole ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
           ${masqControls}
         </div>
       </div>
