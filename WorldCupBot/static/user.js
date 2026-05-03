@@ -263,6 +263,47 @@
   let viewAvatar =
     user.discord_avatar || user.avatar_url || user.avatar || '';
 
+  // Derive the user's highest Discord role for profile display.
+  // We intentionally exclude the special "root" role so only gameplay/staff roles are shown.
+  const resolveHighestRoleName = (sourceUser) => {
+    const rawRoles =
+      sourceUser?.discord_roles ||
+      sourceUser?.roles ||
+      sourceUser?.guild_roles ||
+      [];
+
+    if (!Array.isArray(rawRoles) || rawRoles.length === 0) {
+      return '';
+    }
+
+    const normalized = rawRoles
+      .map((role) => {
+        if (typeof role === 'string') {
+          return { name: role, position: Number.NEGATIVE_INFINITY };
+        }
+        if (role && typeof role === 'object') {
+          return {
+            name: String(role.name || role.role_name || role.label || '').trim(),
+            position: Number(role.position ?? role.rank ?? Number.NEGATIVE_INFINITY)
+          };
+        }
+        return { name: '', position: Number.NEGATIVE_INFINITY };
+      })
+      .filter((role) => role.name && role.name.toLowerCase() !== 'root');
+
+    if (normalized.length === 0) {
+      return '';
+    }
+
+    normalized.sort((a, b) => {
+      if (b.position !== a.position) return b.position - a.position;
+      return a.name.localeCompare(b.name);
+    });
+
+    return normalized[0].name;
+  };
+
+  let viewRole = resolveHighestRoleName(user);
   let masqDisplay = '';
 
   // ---------- override with masqueraded target from verified.json ----------
@@ -297,6 +338,7 @@
       viewTag    = tidyTag(tUserName) || viewTag;
       viewId     = tId || viewId;
       viewAvatar = tAvatar || viewAvatar;
+      viewRole   = resolveHighestRoleName(target) || viewRole;
     } else {
       masqDisplay = String(masqueradingAs);
     }
@@ -308,11 +350,24 @@
     ? `<div class="muted mono">ID: ${viewId}</div>`
     : '';
 
+
+  const roleBannerStyle = `
+    display:inline-block;
+    margin-top:6px;
+    font-size:1.05rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    color:#00f8ff;
+    text-shadow:0 0 10px rgba(0,248,255,.35);
+  `;
+
   const title = `<div style="display:flex;align-items:center;gap:10px">
       ${avatarHtml}
       <div>
         <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
         <div class="muted mono">${viewTag}</div>
+        ${viewRole ? `<div class="user-role-banner" style="${roleBannerStyle}">${viewRole}</div>` : ''}
         ${adminLine}
       </div>
     </div>`;
