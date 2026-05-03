@@ -79,6 +79,8 @@
     lastBotRunning: null,
     lastHealth: null,
     offlineMode: false,
+    dashboardLastUpdatedTs: null,
+    dashboardAgeTimer: null,
   };
 
   const {
@@ -97,6 +99,7 @@
   const $offlineSync = qs('#offline-sync');
   const $dashboardLinks = () => qsa('#dashboard-link, #main-menu a[data-page="dashboard"]');
   const $botStatusReason = qs('#bot-status-reason');
+  const $dashboardLastUpdated = qs('#dashboard-last-updated');
 
   const DASH_CACHE_KEY = 'wc:dashboardCache';
 
@@ -916,6 +919,7 @@ function stagePill(stage){
       }
 
       state.lastBotRunning = running;
+      updateDashboardLastUpdated();
 
       const $actions = qs('#bot-actions');
       const $start = qs('#start-bot');
@@ -964,8 +968,56 @@ function stagePill(stage){
       state.offlineMode = true;
       applyDashboardWarningState();
       setBotStatusReason(reason);
+      updateDashboardLastUpdated(cached?.ts || nowMs());
       notify(`Dashboard error: ${e.message}`, false);
     }
+  }
+
+
+  function formatDashboardAge(msAgo) {
+    const seconds = Math.max(0, Math.floor(msAgo / 1000));
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  function renderDashboardLastUpdatedLabel() {
+    if (!$dashboardLastUpdated) return;
+    if (!state.dashboardLastUpdatedTs) {
+      $dashboardLastUpdated.textContent = 'Last updated: never';
+      return;
+    }
+    const ts = Number(state.dashboardLastUpdatedTs);
+    const safeTs = Number.isFinite(ts) ? ts : nowMs();
+    const date = new Date(safeTs);
+    const formatted = date.toLocaleString([], {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    const age = formatDashboardAge(nowMs() - safeTs);
+    // Show both absolute and relative age so operators can understand freshness at a glance.
+    $dashboardLastUpdated.textContent = `Last updated: ${formatted} (${age})`;
+  }
+
+  function startDashboardAgeTicker() {
+    if (state.dashboardAgeTimer) return;
+    state.dashboardAgeTimer = setInterval(() => {
+      renderDashboardLastUpdatedLabel();
+    }, 1000);
+  }
+
+  function updateDashboardLastUpdated(ts = nowMs()) {
+    state.dashboardLastUpdatedTs = Number(ts) || nowMs();
+    renderDashboardLastUpdatedLabel();
+    startDashboardAgeTicker();
   }
 
   function clearSystem(){
@@ -4041,6 +4093,8 @@ async function getCogStatus(name){
       wireNotifyUIOnce();
       startNotifPolling();
       wireBotButtons();
+      const cachedDash = readDashCache();
+      if (cachedDash?.ts) updateDashboardLastUpdated(cachedDash.ts);
       setPage(state.currentPage);
       applyDashboardWarningState();
       await routePage();
