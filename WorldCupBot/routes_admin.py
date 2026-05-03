@@ -1993,7 +1993,7 @@ def create_admin_routes(ctx):
             if eid in existing:
                 continue
 
-            title = 'Match Votes result'
+            title = 'Match Picks result'
             if result == 'win':
                 body = f"✅ {winner_team} beat {loser_team} ({home} vs {away})."
             elif result == 'lose':
@@ -2040,8 +2040,8 @@ def create_admin_routes(ctx):
             if eid in existing:
                 continue
 
-            title = f"Match Votes: {winner_team} declared" if winner_team else "Match Votes result"
-            body = "You won your Match Votes pick." if result == "win" else "You lost your Match Votes pick."
+            title = f"Match Picks: {winner_team} declared" if winner_team else "Match Picks result"
+            body = "You won your Match Picks pick." if result == "win" else "You lost your Match Picks pick."
 
             events.append({
                 'id': eid,

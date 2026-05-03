@@ -140,7 +140,7 @@ class FanZoneAnnouncer(commands.Cog):
         is_draw = str(winner or "").strip().lower() == "draw" or not loser
         result_line = f"Result: **Draw**" if is_draw else f"Winner: **{winner}**"
         e = discord.Embed(
-            title="Match Votes Result",
+            title="Match Picks Result",
             description=f"**{home}** vs **{away}**\n{result_line}",
             color=discord.Color.gold()
         )
@@ -148,7 +148,7 @@ class FanZoneAnnouncer(commands.Cog):
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
-        e.set_footer(text="World Cup 2026 Match Votes")
+        e.set_footer(text="World Cup 2026 Match Picks")
         e.timestamp = discord.utils.utcnow()
         return e
 
@@ -162,7 +162,7 @@ class FanZoneAnnouncer(commands.Cog):
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
-        e.set_footer(text="World Cup 2026 Match Votes")
+        e.set_footer(text="World Cup 2026 Match Picks")
         e.timestamp = discord.utils.utcnow()
         return e
 
@@ -176,7 +176,7 @@ class FanZoneAnnouncer(commands.Cog):
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
-        e.set_footer(text="World Cup 2026 Match Votes")
+        e.set_footer(text="World Cup 2026 Match Picks")
         e.timestamp = discord.utils.utcnow()
         return e
 
