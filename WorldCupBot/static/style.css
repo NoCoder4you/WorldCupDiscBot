@@ -227,21 +227,19 @@ li.offline-warning > a[data-page="dashboard"]::after {
 
 /* Highlight the User tab for signed-out visitors so it's clearer where to sign in. */
 body.logged-out .menu a[data-page="user"] {
-    color: #b6fff2;
-    box-shadow: 0 0 0 1px #00ffd54a, 0 0 12px #00ffd585;
-    text-shadow: 0 0 8px #00ffd5b3;
-    animation: user-nav-glow 1.8s ease-in-out infinite;
+    /* Fill the tab so it visually matches the primary "Connect Discord" CTA treatment. */
+    background: #5865F2;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 1px rgba(88, 101, 242, 0.45), 0 0 14px rgba(88, 101, 242, 0.65), 0 0 28px rgba(88, 101, 242, 0.45);
+    /* Reuse the same pulse cadence as the login CTA for a consistent call-to-action rhythm. */
+    animation: discord-glow-pulse 2.2s ease-in-out infinite;
 }
 
-@keyframes user-nav-glow {
-    0%, 100% {
-        box-shadow: 0 0 0 1px #00ffd54a, 0 0 10px #00ffd570;
-        text-shadow: 0 0 6px #00ffd599;
-    }
-    50% {
-        box-shadow: 0 0 0 1px #00ffd575, 0 0 18px #00ffd5cc;
-        text-shadow: 0 0 12px #00ffd5e0;
-    }
+/* Keep the user tab in the same palette when hovered while logged out. */
+body.logged-out .menu a[data-page="user"]:hover {
+    background: #4752C4;
+    color: #fff;
 }
 
 @media (max-width:900px) {
