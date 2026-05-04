@@ -277,7 +277,9 @@ function ensureAdminToggleButton(){
     const next = !getAdminView();
     setAdminView(next);
     btn.textContent = next ? 'Public View' : 'Admin View';
-    routePage();
+    // A full refresh guarantees every section and data fetch reflects
+    // the newly selected admin/public view mode consistently.
+    window.location.reload();
   };
   document.body.appendChild(btn);
 }
@@ -286,7 +288,11 @@ function ensureAdminToggleButton(){
 
 
 window.addEventListener('storage', (e)=>{
-  if (e.key === ADMIN_VIEW_KEY) { applyAdminView(); routePage(); }
+  if (e.key === ADMIN_VIEW_KEY) {
+    // Keep multi-tab behavior aligned with the same full-refresh
+    // semantics used when toggling from the current tab.
+    window.location.reload();
+  }
 });
 
 
