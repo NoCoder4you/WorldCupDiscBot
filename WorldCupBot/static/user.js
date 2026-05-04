@@ -235,7 +235,7 @@
     `);
   }
 
-    async function renderSignedIn(user, owned, split, matches, isAdmin, masqueradingAs, verified){
+    async function renderSignedIn(user, owned, split, matches, isAdmin, masqueradingAs, verified, roleHints){
   if ($btnLogin) $btnLogin.style.display = 'none';
   if ($btnLogout) $btnLogout.style.display = '';
 
@@ -263,37 +263,34 @@
   let viewAvatar =
     user.discord_avatar || user.avatar_url || user.avatar || '';
 
-  // Resolve the public-facing profile role label from Discord roles.
-  // Requirement: only show one of "Referee", "Player", or "Spectator".
-  const resolveProfileRoleLabel = (sourceUser) => {
-    const rawRoles =
-      sourceUser?.discord_roles ||
-      sourceUser?.roles ||
-      sourceUser?.guild_roles ||
-      [];
-
-    if (!Array.isArray(rawRoles) || rawRoles.length === 0) {
-      return '';
-    }
-
-    const roleNames = rawRoles
-      .map((role) => {
-        if (typeof role === 'string') return role;
-        if (role && typeof role === 'object') return role.name || role.role_name || role.label || '';
-        return '';
-      })
-      .map((name) => String(name).trim().toLowerCase())
-      .filter(Boolean);
-
-    // Priority order keeps staff/game-management role dominant when multiple roles exist.
-    if (roleNames.some((name) => name.includes('referee'))) return 'Referee';
-    if (roleNames.some((name) => name.includes('player'))) return 'Player';
-    if (roleNames.some((name) => name.includes('spectator') || name.includes('viewer') || name.includes('fan'))) return 'Spectator';
-
-    return '';
+  // Resolve the profile role label from server-side identity hints.
+  // Rules requested by product:
+  // 1) Dedicated admins are always "Referee".
+  // 2) Users present in players.json are "Player".
+  // 3) Everyone else is "Spectator".
+  const resolveProfileRoleLabel = (isDedicatedAdmin, isInPlayersList) => {
+    if (isDedicatedAdmin) return 'Referee';
+    if (isInPlayersList) return 'Player';
+    return 'Spectator';
   };
 
-  let viewRole = resolveProfileRoleLabel(user);
+  // Default role for the currently authenticated view.
+  let viewRole = resolveProfileRoleLabel(Boolean(roleHints?.isAdmin), Boolean(roleHints?.isInPlayers));
+
+  // Helper that checks players.json membership by user id via /api/me/tos.
+  // NOTE: this endpoint currently evaluates the authenticated session user.
+  // During masquerade, we intentionally preserve the same source of truth to avoid
+  // role drift from stale client-side role arrays.
+  const resolveRoleFromApiIdentity = async (discordId, fallbackRole) => {
+    try {
+      const tos = await jgetAuth('/api/me/tos');
+      const isInPlayers = Boolean(tos && tos.in_players);
+      return resolveProfileRoleLabel(Boolean(roleHints?.isAdmin), isInPlayers);
+    } catch (_) {
+      return fallbackRole;
+    }
+  };
+
   let masqDisplay = '';
 
   // ---------- override with masqueraded target from verified.json ----------
@@ -328,7 +325,7 @@
       viewTag    = tidyTag(tUserName) || viewTag;
       viewId     = tId || viewId;
       viewAvatar = tAvatar || viewAvatar;
-      viewRole   = resolveProfileRoleLabel(target) || viewRole;
+      viewRole   = await resolveRoleFromApiIdentity(tId, viewRole);
     } else {
       masqDisplay = String(masqueradingAs);
     }
@@ -343,7 +340,7 @@
 
   // Keep role text visually prominent in the unused profile-card whitespace (not under username).
   // Show the role banner only for self-view; hide it while masquerading.
-  const showRoleBanner = Boolean(viewRole) && !masqueradingAs;
+  const showRoleBanner = Boolean(viewRole);
 
   const roleBannerStyle = `
     display:flex;
@@ -530,7 +527,8 @@
 
       const promises = [
         jgetAuth('/api/me/ownership'),
-        jgetAuth('/api/me/matches')
+        jgetAuth('/api/me/matches'),
+        jgetAuth('/api/me/tos')
       ];
       if (wantVerified) {
         promises.push(jgetAuth('/api/verified'));
@@ -539,7 +537,8 @@
       const results = await Promise.all(promises);
       const own = results[0] || {};
       const games = results[1] || {};
-      const verified = wantVerified ? (results[2] || []) : null;
+      const tos = results[2] || {};
+      const verified = wantVerified ? (results[3] || []) : null;
 
       await renderSignedIn(
         me.user,
@@ -548,7 +547,11 @@
         (games && games.matches) || [],
         !!me.is_admin,
         me.masquerading_as || null,
-        Array.isArray(verified) ? verified : []
+        Array.isArray(verified) ? verified : [],
+        {
+          isAdmin: !!me.is_admin,
+          isInPlayers: Boolean(tos && tos.in_players)
+        }
       );
     }catch(e){
       console.error('refreshUser failed:', e);
