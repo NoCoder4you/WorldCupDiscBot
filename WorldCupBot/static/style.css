@@ -4372,7 +4372,7 @@ select.select-dark:disabled {
 
 #user .user-profile-layout {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: space-between;
     gap: 24px;
     flex-wrap: wrap;
@@ -4381,6 +4381,13 @@ select.select-dark:disabled {
 #user .user-profile-main {
     flex: 0 0 auto;
     min-width: 220px;
+}
+
+
+#user .user-role-banner {
+    min-height: 72px;
+    display: flex;
+    align-self: stretch;
 }
 
 /* Masquerade controls on the right */

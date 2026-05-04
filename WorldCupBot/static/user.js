@@ -338,20 +338,21 @@
     : '';
 
 
-  // Keep role text visually prominent in the unused profile-card whitespace (not under username).
-  // Show the role banner only for self-view; hide it while masquerading.
+  // Keep role text visually dominant in the profile whitespace area.
+  // The banner intentionally uses large typography and stretched height so it fills the card column.
   const showRoleBanner = Boolean(viewRole);
 
   const roleBannerStyle = `
     display:flex;
-    align-items:center;
-    justify-content:center;
+    align-items:flex-start;
+    justify-content:flex-start;
     align-self:stretch;
-    min-width:220px;
-    padding:10px 14px;
-    font-size:1.35rem;
+    min-width:280px;
+    padding:4px 18px 0 18px;
+    font-size:clamp(2rem, 4.2vw, 3.4rem);
+    line-height:1;
     font-weight:900;
-    letter-spacing:.02em;
+    letter-spacing:.035em;
     text-transform:uppercase;
     color:#00f8ff;
     text-shadow:0 0 10px rgba(0,248,255,.35);
