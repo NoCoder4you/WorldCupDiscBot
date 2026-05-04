@@ -637,7 +637,7 @@ class AuditLogCog(commands.Cog):
 
         options_payload = data.get("options", [])
         await self.log_action(
-            "slash_command_used",
+            "Slash Command",
             "command",
             interaction.user,
             interaction.user,
