@@ -263,13 +263,9 @@
   let viewAvatar =
     user.discord_avatar || user.avatar_url || user.avatar || '';
 
-  // Resolve the profile role label from server-side identity hints.
-  // Rules requested by product:
-  // 1) Dedicated admins are always "Referee".
-  // 2) Users present in players.json are "Player".
-  // 3) Everyone else is "Spectator".
-  const resolveProfileRoleLabel = (isDedicatedAdmin, isInPlayersList) => {
-    if (isDedicatedAdmin) return 'Referee';
+
+  const resolveProfileRoleLabel = (isAdmin, isInPlayersList) => {
+    if (isAdmin) return 'Referee';
     if (isInPlayersList) return 'Player';
     return 'Spectator';
   };
