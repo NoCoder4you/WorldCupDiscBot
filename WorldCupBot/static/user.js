@@ -235,7 +235,7 @@
     `);
   }
 
-    async function renderSignedIn(user, owned, split, matches, isAdmin, masqueradingAs, verified){
+    async function renderSignedIn(user, owned, split, matches, isAdmin, masqueradingAs, verified, roleHints){
   if ($btnLogin) $btnLogin.style.display = 'none';
   if ($btnLogout) $btnLogout.style.display = '';
 
@@ -263,47 +263,34 @@
   let viewAvatar =
     user.discord_avatar || user.avatar_url || user.avatar || '';
 
-  // Derive the user's highest Discord role for profile display.
-  // We intentionally exclude the special "root" role so only gameplay/staff roles are shown.
-  const resolveHighestRoleName = (sourceUser) => {
-    const rawRoles =
-      sourceUser?.discord_roles ||
-      sourceUser?.roles ||
-      sourceUser?.guild_roles ||
-      [];
-
-    if (!Array.isArray(rawRoles) || rawRoles.length === 0) {
-      return '';
-    }
-
-    const normalized = rawRoles
-      .map((role) => {
-        if (typeof role === 'string') {
-          return { name: role, position: Number.NEGATIVE_INFINITY };
-        }
-        if (role && typeof role === 'object') {
-          return {
-            name: String(role.name || role.role_name || role.label || '').trim(),
-            position: Number(role.position ?? role.rank ?? Number.NEGATIVE_INFINITY)
-          };
-        }
-        return { name: '', position: Number.NEGATIVE_INFINITY };
-      })
-      .filter((role) => role.name && role.name.toLowerCase() !== 'root');
-
-    if (normalized.length === 0) {
-      return '';
-    }
-
-    normalized.sort((a, b) => {
-      if (b.position !== a.position) return b.position - a.position;
-      return a.name.localeCompare(b.name);
-    });
-
-    return normalized[0].name;
+  // Resolve the profile role label from server-side identity hints.
+  // Rules requested by product:
+  // 1) Dedicated admins are always "Referee".
+  // 2) Users present in players.json are "Player".
+  // 3) Everyone else is "Spectator".
+  const resolveProfileRoleLabel = (isDedicatedAdmin, isInPlayersList) => {
+    if (isDedicatedAdmin) return 'Referee';
+    if (isInPlayersList) return 'Player';
+    return 'Spectator';
   };
 
-  let viewRole = resolveHighestRoleName(user);
+  // Default role for the currently authenticated view.
+  let viewRole = resolveProfileRoleLabel(Boolean(roleHints?.isAdmin), Boolean(roleHints?.isInPlayers));
+
+  // Helper that checks players.json membership by user id via /api/me/tos.
+  // NOTE: this endpoint currently evaluates the authenticated session user.
+  // During masquerade, we intentionally preserve the same source of truth to avoid
+  // role drift from stale client-side role arrays.
+  const resolveRoleFromApiIdentity = async (discordId, fallbackRole) => {
+    try {
+      const tos = await jgetAuth('/api/me/tos');
+      const isInPlayers = Boolean(tos && tos.in_players);
+      return resolveProfileRoleLabel(Boolean(roleHints?.isAdmin), isInPlayers);
+    } catch (_) {
+      return fallbackRole;
+    }
+  };
+
   let masqDisplay = '';
 
   // ---------- override with masqueraded target from verified.json ----------
@@ -338,7 +325,7 @@
       viewTag    = tidyTag(tUserName) || viewTag;
       viewId     = tId || viewId;
       viewAvatar = tAvatar || viewAvatar;
-      viewRole   = resolveHighestRoleName(target) || viewRole;
+      viewRole   = await resolveRoleFromApiIdentity(tId, viewRole);
     } else {
       masqDisplay = String(masqueradingAs);
     }
@@ -351,20 +338,21 @@
     : '';
 
 
-  // Keep role text visually prominent in the unused profile-card whitespace (not under username).
-  // Show the role banner only for self-view; hide it while masquerading.
-  const showRoleBanner = Boolean(viewRole) && !masqueradingAs;
+  // Keep role text visually dominant in the profile whitespace area.
+  // The banner intentionally uses large typography and stretched height so it fills the card column.
+  const showRoleBanner = Boolean(viewRole);
 
   const roleBannerStyle = `
     display:flex;
-    align-items:center;
-    justify-content:center;
+    align-items:flex-start;
+    justify-content:flex-start;
     align-self:stretch;
-    min-width:220px;
-    padding:10px 14px;
-    font-size:1.35rem;
+    min-width:280px;
+    padding:4px 18px 0 18px;
+    font-size:clamp(2rem, 4.2vw, 3.4rem);
+    line-height:1;
     font-weight:900;
-    letter-spacing:.02em;
+    letter-spacing:.035em;
     text-transform:uppercase;
     color:#00f8ff;
     text-shadow:0 0 10px rgba(0,248,255,.35);
@@ -375,7 +363,6 @@
       <div>
         <div style="font-weight:900;font-size:1.1rem">${viewName}</div>
         <div class="muted mono">${viewTag}</div>
-        ${viewRole ? `<div class="muted">${viewRole}</div>` : ''}
         ${adminLine}
       </div>
     </div>`;
@@ -541,7 +528,8 @@
 
       const promises = [
         jgetAuth('/api/me/ownership'),
-        jgetAuth('/api/me/matches')
+        jgetAuth('/api/me/matches'),
+        jgetAuth('/api/me/tos')
       ];
       if (wantVerified) {
         promises.push(jgetAuth('/api/verified'));
@@ -550,7 +538,8 @@
       const results = await Promise.all(promises);
       const own = results[0] || {};
       const games = results[1] || {};
-      const verified = wantVerified ? (results[2] || []) : null;
+      const tos = results[2] || {};
+      const verified = wantVerified ? (results[3] || []) : null;
 
       await renderSignedIn(
         me.user,
@@ -559,7 +548,11 @@
         (games && games.matches) || [],
         !!me.is_admin,
         me.masquerading_as || null,
-        Array.isArray(verified) ? verified : []
+        Array.isArray(verified) ? verified : [],
+        {
+          isAdmin: !!me.is_admin,
+          isInPlayers: Boolean(tos && tos.in_players)
+        }
       );
     }catch(e){
       console.error('refreshUser failed:', e);
