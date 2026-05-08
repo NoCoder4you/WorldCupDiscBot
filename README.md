@@ -37,7 +37,7 @@ A custom **Discord bot** for running a FIFA World Cup 2026 themed tournament ser
 
 ### Backup & Restore
 - Manual backup/restore commands.
-- Retains up to 25 recent backup files.
+- Retains up to 24 recent backup files.
 
 ### Web Admin Panel
 Accessible via the Flask dashboard (default: `http://localhost:5000`):
@@ -68,7 +68,7 @@ WorldCupDiscBot/
     ├── stage_constants.py   # Tournament constants
     ├── COGS/                # Modular bot features
     ├── JSON/                # Data storage (players, teams, bets, etc.)
-    ├── Backups/             # JSON backups
+    ├── BACKUPS/             # Dedicated JSON backup archives
     └── static/              # Web panel frontend (index.html, style.css, app.js)
 ```
 
@@ -112,7 +112,7 @@ python WorldCupBot/launcher.py
 
 - Manage the bot from **Discord commands** or the **web admin panel**.
 - Logs are written to `WorldCupBot/WC.log` and `WorldCupBot/health.log`.
-- Backups are created manually via the admin panel or command flow.
+- Backups run automatically every hour (when enabled) and are also available manually via the admin panel.
 
 ---
 

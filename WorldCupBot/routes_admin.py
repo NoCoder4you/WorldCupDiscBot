@@ -12,8 +12,9 @@ from stage_constants import (
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
-MAX_BACKUPS = 25
-AUTO_BACKUP_DEFAULT_HOURS = 6.0
+MAX_BACKUPS = 24
+AUTO_BACKUP_DEFAULT_HOURS = 1.0
+BACKUP_FOLDER_NAME = "BACKUPS"
 
 # ---- PATH / IO HELPERS ----
 def _base_dir(ctx):
@@ -27,7 +28,8 @@ def _ensure_dir(path):
     return path
 
 def _backup_dir(base_dir):
-    return _ensure_dir(os.path.join(base_dir, "BACKUPS"))
+    """Store backup archives inside a dedicated backups folder."""
+    return _ensure_dir(os.path.join(base_dir, BACKUP_FOLDER_NAME))
 
 def _list_backups(base_dir):
     bdir = _backup_dir(base_dir)
