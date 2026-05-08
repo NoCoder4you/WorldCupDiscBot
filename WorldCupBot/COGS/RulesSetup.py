@@ -58,14 +58,13 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
         "- **One account rule:** One Discord account per person for participation. No alts for entry, ownership, betting, voting, or influence.\n"
         "- **Identity:** Impersonation of staff, Referees, or other users is forbidden.\n"
         "- **Integrity:** Cheating, scripting, automation abuse, exploit use, or bypassing safeguards is disqualifying.\n"
-        "- **Manipulation:** Collusion, match-fixing, coordinated manipulation, bribery, or outcome interference is prohibited.\n"
         "- Do not share, request, or discuss instructions for breaking rules or exploiting systems.\n"
         "- Referees may require reasonable verification to confirm a single-user identity."
     ),
 
     (
         "## 5. Entry, Eligibility, and Refunds",
-        "- Entry requires: server join + verification + registration + entry fee payment, unless a Referee grants a waiver.\n"
+        "- Entry requires: server join + verification + registration + entry fee payment (for players), unless a Referee grants a waiver.\n"
         "- Each entry requires a one-time payment of **150 Habbo credits** and is non-refundable once paid.\n"
         "- Entry closes at **23:59 UTC on 31 May 2026** unless an earlier operational cutoff is announced.\n"
         "- Entry limits: up to **2 entries initially**; from **1 May 2026**, up to **3 total entries** if approved and available.\n"
@@ -75,7 +74,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
 
     (
         "## 6. Team Assignment, Ownership, and Records",
-        "- Teams are assigned randomly after entry closes. The draw is automated and intended to be impartial.\n"
+        "- Teams are assigned randomly after on the set date of **June 1st 2026** at **13:00 BST**. The draw is automated and intended to be impartial.\n"
         "- Team assignments are final. No swaps, sales, trades, transfers, or reassignment except via approved mechanisms in the Terms.\n"
         "- The bot record and the #players-and-teams tracking record are the authoritative source of ownership.\n"
         "- Referees may correct administrative errors, data mismatches, or record issues at any time.\n"
@@ -98,7 +97,6 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
         "- Official match results are determined by FIFA.\n"
         "- Bot updates reflect official results and are used for administration and leaderboards.\n"
         "- Downtime, API issues, or delays do not change outcomes. Referees may enter results manually.\n"
-        "- Attempting to interfere with standings, results, records, or leaderboard integrity is disqualifying.\n"
         "- Referees may correct calculation or display errors without creating a right to compensation."
     ),
 
@@ -140,7 +138,7 @@ RULES_SECTIONS: List[Tuple[str, str]] = [
     ),
 
     (
-        "## 13. Leaving, Removal, Wait-List, and Reserves",
+        "## 13. Leaving, Removal, and Reserves",
         "- If a Player leaves or is removed before the Final, their teams and eligibility are forfeited.\n"
         "- A forfeited team may be offered to the next wait-listed eligible user with an acceptance/payment deadline set by Referees.\n"
         "- If not claimed within the stated deadline, the team may be reassigned or dissolved into the prize pool by Referee decision.\n"
