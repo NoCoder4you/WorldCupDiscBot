@@ -374,6 +374,90 @@ def test_bets_create_uses_modal_workflow_instead_of_window_prompts():
     assert "createBtn.onclick = () => openBetsCreateModal(loadAndRenderBets);" in app_js
 
 
+def test_fanzone_vote_blocks_repeat_votes_from_same_discord_user(client, app):
+    """A logged-in Discord user should be counted once per fixture across sessions."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "298121351871594497", "username": "alpha"}
+
+    payload = {"fixture_id": "2026-06-17-L-ENG-CRO", "choice": "away"}
+    first = client.post("/api/fanzone/vote", json=payload)
+    assert first.status_code == 200
+    assert first.get_json()["ok"] is True
+
+    second = client.post("/api/fanzone/vote", json=payload)
+    assert second.status_code == 200
+    assert second.get_json()["ok"] is True
+
+    votes = json.loads((json_dir / "fan_votes.json").read_text(encoding="utf-8"))
+    fx = votes["fixtures"]["2026-06-17-L-ENG-CRO"]
+    # Strictly one counted vote for this Discord account.
+    assert fx["away"] == 1
+    assert fx["home"] == 0
+    assert fx["draw"] == 0
+    assert len(fx.get("voters", {})) == 1
+    assert fx["voters"]["298121351871594497"] == "away"
+
+
+def test_fanzone_vote_preexisting_browser_vote_does_not_double_count_new_discord_id(client, app):
+    """Legacy browser voter records should not allow duplicate tally increments."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    votes_path = json_dir / "fan_votes.json"
+    votes_path.write_text(json.dumps({
+        "fixtures": {
+            "fixture-1": {
+                "home": 0,
+                "away": 1,
+                "draw": 0,
+                "voters": {"1120014084679663616": "away"},
+            }
+        }
+    }), encoding="utf-8")
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "1120014084679663616", "username": "bravo"}
+
+    resp = client.post("/api/fanzone/vote", json={"fixture_id": "fixture-1", "choice": "away"})
+    assert resp.status_code == 200
+    assert resp.get_json()["ok"] is True
+
+    votes = json.loads(votes_path.read_text(encoding="utf-8"))
+    fx = votes["fixtures"]["fixture-1"]
+    # Count remains unchanged when the same Discord account retries.
+    assert fx["away"] == 1
+    assert fx["voters"]["1120014084679663616"] == "away"
+
+
+def test_fanzone_fixture_state_uses_logged_in_discord_vote_after_refresh(client, app):
+    """Fixture state should report last_choice from the authenticated Discord voter map."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    (json_dir / "fan_votes.json").write_text(json.dumps({
+        "fixtures": {
+            "fixture-refresh": {
+                "home": 0,
+                "away": 1,
+                "draw": 0,
+                "voters": {"298121351871594497": "away"},
+            }
+        }
+    }), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "298121351871594497", "username": "alpha"}
+
+    resp = client.get("/api/fanzone/fixture-refresh")
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    assert payload["last_choice"] == "away"
+
+
 def test_bets_page_exposes_claim_button_flow():
     """Bets page should keep an explicit claim action in the web table UI."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
