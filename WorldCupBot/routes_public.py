@@ -2423,11 +2423,21 @@ def create_public_routes(ctx):
         if not isinstance(dv, dict):
             dv = {}
             fx["discord_voters"] = dv
-        dv.setdefault(uid, choice)
+        # Enforce one vote per fixture per authenticated Discord account.
+        # We still keep the cookie-backed `voters` map for backwards-compatible
+        # UI state ("You voted") tied to a browser, but the strict anti-duplication
+        # authority is now the Discord identity in `discord_voters`.
+        if uid in dv:
+            _json_save(votes_path, votes_blob)
+            return resp
 
-        # One vote per fixture per anonymous fan id (cookie-based)
+        dv[uid] = choice
+
+        # Also record the browser fan id so the same browser can render prior
+        # selection immediately without needing to infer it from Discord state.
         if fan_id in voters:
-            # If they already voted anonymously, we still persist any discord linkage we just added
+            # If this browser already has a stored vote, we already counted the
+            # Discord vote above and should not increment fixture totals again.
             _json_save(votes_path, votes_blob)
             return resp
 
