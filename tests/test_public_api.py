@@ -492,6 +492,34 @@ def test_fixtures_only_include_matches_within_next_48_hours_for_public(client, a
     assert [f["id"] for f in data["fixtures"]] == ["in-window"]
 
 
+
+
+def test_fixtures_include_all_query_returns_future_matches_beyond_48_hours(client, app):
+    """include_all=1 should expose all future fixtures for world-map next-match rendering."""
+    import datetime
+
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    within = (now + datetime.timedelta(hours=12)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    outside = (now + datetime.timedelta(hours=72)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    (json_dir / "matches.json").write_text(json.dumps([
+        {"id": "in-window", "home": "USA", "away": "Canada", "utc": within},
+        {"id": "out-window", "home": "Spain", "away": "France", "utc": outside},
+    ]), encoding="utf-8")
+
+    resp = client.get("/api/fixtures?include_all=1")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert data["ok"] is True
+    assert data["admin_override"] is False
+    assert [f["id"] for f in data["fixtures"]] == ["in-window", "out-window"]
+
+
 def test_fixtures_admin_view_overrides_48_hour_window(client, app):
     """Configured admins can request admin_view=1 to bypass the 48-hour visibility filter."""
     import datetime

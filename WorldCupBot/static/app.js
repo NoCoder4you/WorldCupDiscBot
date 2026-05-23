@@ -4340,7 +4340,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadFixtures(){
     try {
-      const data = await fetchJSON('/api/fixtures');
+      // Use include_all so world-map "next match" uses the full upcoming
+      // schedule instead of the fan-zone 48-hour visibility subset.
+      const data = await fetchJSON('/api/fixtures?include_all=1');
       return (data && data.fixtures) || [];
     } catch (e) {
       console.warn('loadFixtures failed:', e);
