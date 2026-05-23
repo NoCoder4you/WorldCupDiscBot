@@ -310,6 +310,14 @@ class TeamsDistribution(commands.Cog):
         description="Randomly assign teams to unassigned players."
     )
     async def assignteams(self, interaction: discord.Interaction):
+        # Referee-gated staff workflows are guild-only because role checks
+        # and announcement side effects depend on server context.
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "This command must be run in a server.",
+                ephemeral=True
+            )
+            return
         if not await check_referee_interaction(interaction):
             return
 
@@ -393,6 +401,14 @@ class TeamsDistribution(commands.Cog):
         app_commands.Choice(name="channel", value="channel"),
     ])
     async def announceteams(self, interaction: discord.Interaction, target: app_commands.Choice[str]):
+        # This command requires guild channels/roles, so fail fast in DMs
+        # before running referee role authorization checks.
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "This command must be run in a server.",
+                ephemeral=True
+            )
+            return
         if not await check_referee_interaction(interaction):
             return
 
@@ -532,14 +548,18 @@ class TeamsDistribution(commands.Cog):
     @app_commands.command(name="assignroles", description="Assign country/group roles based on JSON ownership.")
     async def assignroles(self, interaction: discord.Interaction):
         """Assign pre-existing country/group roles to team owners from JSON records."""
+        # Role assignment is inherently guild-scoped and cannot run in DMs.
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "This command must be run in a server.",
+                ephemeral=True
+            )
+            return
         if not await check_referee_interaction(interaction):
             return
 
         await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
-        if not guild:
-            await interaction.followup.send("This command must be run in a server.", ephemeral=True)
-            return
         players = load_json(PLAYERS_FILE)
         countryroles = load_json(COUNTRYROLES_FILE)
         existing_roles = {role.name: role for role in guild.roles}
