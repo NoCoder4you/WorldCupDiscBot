@@ -2361,9 +2361,10 @@ def create_admin_routes(ctx):
         draw_votes = int(fx.get('draw') or 0)
         total_votes = max(0, home_votes + away_votes + draw_votes)
 
-        discord_voters = fx.get('discord_voters')
-        if not isinstance(discord_voters, dict):
-            discord_voters = {}
+        # Match voters are stored as a single `voters` map keyed by Discord ID.
+        voters = fx.get('voters')
+        if not isinstance(voters, dict):
+            voters = {}
 
         snapshots_path = _path(ctx, 'fan_vote_snapshots.json')
         snap_blob = _read_json(snapshots_path, {'fixtures': {}})
@@ -2439,7 +2440,7 @@ def create_admin_routes(ctx):
             _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
         elif side == 'draw':
             _append_fanzone_results(bell_draw_owner_ids, 'draw', home, away, winner_team, loser_team, fixture_id)
-        _append_fanzone_vote_results(_filter_notification_voters(ctx, discord_voters, "matches"), side, winner_team, fixture_id, int(time.time()))
+        _append_fanzone_vote_results(_filter_notification_voters(ctx, voters, "matches"), side, winner_team, fixture_id, int(time.time()))
 
         log.info(
             "Fan zone winner declared by %s (fixture_id=%s winner_side=%s winner_team=%s home_votes=%s away_votes=%s draw_votes=%s)",

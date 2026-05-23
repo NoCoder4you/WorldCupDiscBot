@@ -398,7 +398,8 @@ def test_fanzone_vote_blocks_repeat_votes_from_same_discord_user(client, app):
     assert fx["away"] == 1
     assert fx["home"] == 0
     assert fx["draw"] == 0
-    assert len(fx.get("discord_voters", {})) == 1
+    assert len(fx.get("voters", {})) == 1
+    assert fx["voters"]["298121351871594497"] == "away"
 
 
 def test_fanzone_vote_preexisting_browser_vote_does_not_double_count_new_discord_id(client, app):
@@ -413,13 +414,10 @@ def test_fanzone_vote_preexisting_browser_vote_does_not_double_count_new_discord
                 "home": 0,
                 "away": 1,
                 "draw": 0,
-                "voters": {"legacy-fan-cookie": "away"},
-                "discord_voters": {},
+                "voters": {"1120014084679663616": "away"},
             }
         }
     }), encoding="utf-8")
-
-    client.set_cookie("wc_fan_id", "legacy-fan-cookie")
     with client.session_transaction() as sess:
         sess["wc_user"] = {"discord_id": "1120014084679663616", "username": "bravo"}
 
@@ -429,9 +427,35 @@ def test_fanzone_vote_preexisting_browser_vote_does_not_double_count_new_discord
 
     votes = json.loads(votes_path.read_text(encoding="utf-8"))
     fx = votes["fixtures"]["fixture-1"]
-    # Count remains unchanged even though Discord linkage is now recorded.
+    # Count remains unchanged when the same Discord account retries.
     assert fx["away"] == 1
-    assert fx["discord_voters"]["1120014084679663616"] == "away"
+    assert fx["voters"]["1120014084679663616"] == "away"
+
+
+def test_fanzone_fixture_state_uses_logged_in_discord_vote_after_refresh(client, app):
+    """Fixture state should report last_choice from the authenticated Discord voter map."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    (json_dir / "fan_votes.json").write_text(json.dumps({
+        "fixtures": {
+            "fixture-refresh": {
+                "home": 0,
+                "away": 1,
+                "draw": 0,
+                "voters": {"298121351871594497": "away"},
+            }
+        }
+    }), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "298121351871594497", "username": "alpha"}
+
+    resp = client.get("/api/fanzone/fixture-refresh")
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    assert payload["last_choice"] == "away"
 
 
 def test_bets_page_exposes_claim_button_flow():
