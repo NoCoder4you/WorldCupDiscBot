@@ -4435,6 +4435,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return normalizeTeamName(fromIso);
   }
 
+  function formatMapStageLabel(rawStage){
+    const clean = String(rawStage || '').trim();
+    if (!clean) return '—';
+
+    // Keep bracket stages readable while shortening group-stage wording.
+    if (clean.toLowerCase() === 'group stage') return 'Groups';
+    return clean;
+  }
+
   function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams, teamStages, fixtures){
     const rows       = (merged && merged.rows) || [];
     const teamIsoMap = teamIso || {};
@@ -4717,7 +4726,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
-      let stage = (stageMap[team] || stageMap[normTeam]) || '—';
+      const stage = formatMapStageLabel((stageMap[team] || stageMap[normTeam]) || '');
 
       const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
       const nextMatch = matchObj ? matchObj.label : '';
@@ -4971,7 +4980,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (nameEl)   nameEl.textContent   = name;
       if (flagEl)   flagEl.innerHTML     = flag;
       if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
-      if (stageEl)  stageEl.textContent  = 'Ownership: ' + (stage || '—');
+      if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
       if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
       if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
       if (statusEl) statusEl.textContent = 'Status: ' + status;
