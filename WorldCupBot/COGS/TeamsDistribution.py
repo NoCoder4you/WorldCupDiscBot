@@ -194,12 +194,37 @@ class TeamsDistribution(commands.Cog):
             return guild.get_role(int(group_role_id))
         return None
 
+    async def notify_admin_general(
+        self,
+        guild: discord.Guild | None,
+        message: str,
+    ) -> None:
+        """Post completion updates to the staff-facing admin-general channel.
+
+        This intentionally fails silently so command success is not blocked by
+        missing channel configuration or transient Discord send errors.
+        """
+        if not guild:
+            return
+
+        admin_general_channel = discord.utils.find(
+            lambda channel: getattr(channel, "name", "").lower() == "admin-general",
+            guild.text_channels,
+        )
+        if not admin_general_channel:
+            return
+
+        try:
+            await admin_general_channel.send(message)
+        except Exception:
+            return
+
     @app_commands.command(
         name="addplayer",
         description="Add a user to the World Cup pool."
     )
     async def addplayer(self, interaction: discord.Interaction, user: discord.User):
-        if not await check_root_interaction(interaction):
+        if not await check_referee_interaction(interaction):
             return
 
         await interaction.response.defer(ephemeral=True)
@@ -281,11 +306,19 @@ class TeamsDistribution(commands.Cog):
         log.info("Player added (actor_id=%s target_id=%s)", interaction.user.id, user.id)
 
     @app_commands.command(
-        name="randomiseteams",
+        name="assignteams",
         description="Randomly assign teams to unassigned players."
     )
-    async def randomiseteams(self, interaction: discord.Interaction):
-        if not await check_root_interaction(interaction):
+    async def assignteams(self, interaction: discord.Interaction):
+        # Referee-gated staff workflows are guild-only because role checks
+        # and announcement side effects depend on server context.
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "This command must be run in a server.",
+                ephemeral=True
+            )
+            return
+        if not await check_referee_interaction(interaction):
             return
 
         await interaction.response.defer(ephemeral=True)
@@ -339,6 +372,11 @@ class TeamsDistribution(commands.Cog):
         await interaction.followup.send(
             f"Assigned teams to {len(pending_entries)} pending entry(ies).", ephemeral=True
         )
+        await self.notify_admin_general(
+            guild,
+            f"✅ `/assignteams` complete by {interaction.user.mention}: "
+            f"{len(pending_entries)} team assignment(s) updated.",
+        )
         log.info("Teams randomly assigned (actor_id=%s count=%s)", interaction.user.id, len(pending_entries))
 
         if sum(
@@ -354,10 +392,23 @@ class TeamsDistribution(commands.Cog):
                     pass
 
     @app_commands.command(
-        name="reveal",
-        description="Reveal and DM each player their teams."
+        name="announceteams",
+        description="Announce assigned teams by DM or public channel."
     )
-    async def reveal(self, interaction: discord.Interaction):
+    @app_commands.describe(target="Where to announce assigned teams.")
+    @app_commands.choices(target=[
+        app_commands.Choice(name="DMs", value="dms"),
+        app_commands.Choice(name="channel", value="channel"),
+    ])
+    async def announceteams(self, interaction: discord.Interaction, target: app_commands.Choice[str]):
+        # This command requires guild channels/roles, so fail fast in DMs
+        # before running referee role authorization checks.
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "This command must be run in a server.",
+                ephemeral=True
+            )
+            return
         if not await check_referee_interaction(interaction):
             return
 
@@ -365,8 +416,10 @@ class TeamsDistribution(commands.Cog):
 
         players = load_json(PLAYERS_FILE)
         guild = interaction.guild
+        should_send_channel = target.value == "channel"
+        should_send_dm = target.value == "dms"
         public_channel = None
-        if guild:
+        if should_send_channel and guild:
             for category in guild.categories:
                 if category.name.lower() == "world cup":
                     for channel in category.text_channels:
@@ -375,7 +428,7 @@ class TeamsDistribution(commands.Cog):
                             break
                 if public_channel:
                     break
-        if not public_channel:
+        if should_send_channel and not public_channel:
             await interaction.followup.send(
                 "Could not find a channel named 'players-and-teams' in the 'World Cup' category.",
                 ephemeral=True
@@ -435,70 +488,78 @@ class TeamsDistribution(commands.Cog):
             if split_with_users:
                 main_value = f"{main_value} ({share})"
 
-            public_embed = discord.Embed(
-                title=country,
-                colour=discord.Colour.blue()
-            )
-            public_embed.add_field(name="Main User", value=main_value, inline=False)
-            public_embed.add_field(name="Split With", value=split_with_value, inline=False)
-            if user_avatar:
-                public_embed.set_thumbnail(url=user_avatar)
-            if flag:
-                public_embed.set_image(url=flag)
-            msg = await public_channel.send(embed=public_embed)
-            log.info(
-                "Team reveal embed posted (actor_id=%s team=%s channel_id=%s message_id=%s)",
-                interaction.user.id,
-                country,
-                public_channel.id,
-                msg.id,
-            )
+            if should_send_channel:
+                public_embed = discord.Embed(
+                    title=country,
+                    colour=discord.Colour.blue()
+                )
+                public_embed.add_field(name="Main User", value=main_value, inline=False)
+                public_embed.add_field(name="Split With", value=split_with_value, inline=False)
+                if user_avatar:
+                    public_embed.set_thumbnail(url=user_avatar)
+                if flag:
+                    public_embed.set_image(url=flag)
+                msg = await public_channel.send(embed=public_embed)
+                log.info(
+                    "Team reveal embed posted (actor_id=%s team=%s channel_id=%s message_id=%s)",
+                    interaction.user.id,
+                    country,
+                    public_channel.id,
+                    msg.id,
+                )
 
-            if isinstance(entry, dict):
-                entry["public_message_id"] = msg.id
+                if isinstance(entry, dict):
+                    entry["public_message_id"] = msg.id
 
-            dm_embed = discord.Embed(
-                title=f"World Cup 2026 - {country}",
-                description=(
-                    "Thank you and Welcome to the 2026 World Cup Tournament!\n"
-                    "This will be your main team during this tournament. "
-                    "Players may request to split this team with you but this will solely be your decision.\n\n"
-                    "You may request to split other teams with the command:\n"
-                    "`/split team:COUNTRY`"
-                ),
-                colour=discord.Colour.green()
-            )
-            if bot_avatar:
-                dm_embed.set_thumbnail(url=bot_avatar)
-            if flag:
-                dm_embed.set_image(url=flag)
-            try:
-                await user.send(embed=dm_embed)
-            except Exception:
-                pass
+            if should_send_dm:
+                dm_embed = discord.Embed(
+                    title=f"World Cup 2026 - {country}",
+                    description=(
+                        "Thank you and Welcome to the 2026 World Cup Tournament!\n"
+                        "This will be your main team during this tournament. "
+                        "Players may request to split this team with you but this will solely be your decision.\n\n"
+                        "You may request to split other teams with the command:\n"
+                        "`/split team:COUNTRY`"
+                    ),
+                    colour=discord.Colour.green()
+                )
+                if bot_avatar:
+                    dm_embed.set_thumbnail(url=bot_avatar)
+                if flag:
+                    dm_embed.set_image(url=flag)
+                try:
+                    await user.send(embed=dm_embed)
+                except Exception:
+                    pass
 
         save_json(PLAYERS_FILE, players)
 
-        await interaction.followup.send(
-            "All assignments have been revealed (in alphabetical order) and sent. See the players-and-teams channel.",
-            ephemeral=True
+        if target.value == "channel":
+            result_message = "All assignments have been announced in #players-and-teams (alphabetical order)."
+        else:
+            result_message = "All assignments have been announced by DM where possible; users with closed DMs were skipped."
+
+        await interaction.followup.send(result_message, ephemeral=True)
+        await self.notify_admin_general(
+            guild,
+            f"✅ `/announceteams` complete by {interaction.user.mention}: target={target.value}.",
         )
 
-    @commands.command(name="assignrevealedroles")
-    async def assignrevealedroles(self, ctx: commands.Context):
-        """Text command retry for revealed-team role assignment failures.
-
-        This is intentionally a prefix command (e.g., `wc assignrevealedroles`)
-        to match admin moderation workflows that are run from staff channels.
-        """
-        if not ctx.guild:
-            await ctx.send("This command must be run in a server.")
+    @app_commands.command(name="assignroles", description="Assign country/group roles based on JSON ownership.")
+    async def assignroles(self, interaction: discord.Interaction):
+        """Assign pre-existing country/group roles to team owners from JSON records."""
+        # Role assignment is inherently guild-scoped and cannot run in DMs.
+        if not interaction.guild:
+            await interaction.response.send_message(
+                "This command must be run in a server.",
+                ephemeral=True
+            )
             return
-        if not has_referee(ctx.author):
-            await ctx.send("You are not authorized to use this command. (Referee role required)")
+        if not await check_referee_interaction(interaction):
             return
 
-        guild = ctx.guild
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
         players = load_json(PLAYERS_FILE)
         countryroles = load_json(COUNTRYROLES_FILE)
         existing_roles = {role.name: role for role in guild.roles}
@@ -537,7 +598,15 @@ class TeamsDistribution(commands.Cog):
                     except Exception:
                         continue
 
-        await ctx.send(f"Role assignment retry complete. Added {applied} role grant(s).")
+        await interaction.followup.send(
+            f"Role assignment complete. Added {applied} role grant(s).",
+            ephemeral=True
+        )
+        await self.notify_admin_general(
+            guild,
+            f"✅ `/assignroles` complete by {interaction.user.mention}: "
+            f"{applied} role grant(s) applied.",
+        )
 
 async def setup(bot):
     await bot.add_cog(TeamsDistribution(bot))

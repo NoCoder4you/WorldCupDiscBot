@@ -49,3 +49,28 @@ def test_get_group_role_for_country_uses_linked_group_role_id(monkeypatch):
     role = asyncio.run(cog.get_group_role_for_country(guild, "France"))
     assert role == "role-9876"
     assert guild.requested_role_id == 9876
+
+
+def test_notify_admin_general_sends_message_to_named_channel():
+    class DummyChannel:
+        def __init__(self, name):
+            self.name = name
+            self.messages = []
+
+        async def send(self, message):
+            self.messages.append(message)
+
+    class DummyGuild:
+        def __init__(self):
+            self.text_channels = [
+                DummyChannel("general"),
+                DummyChannel("admin-general"),
+            ]
+
+    cog = TeamsDistribution(bot=object())
+    guild = DummyGuild()
+
+    asyncio.run(cog.notify_admin_general(guild, "done"))
+
+    admin_channel = guild.text_channels[1]
+    assert admin_channel.messages == ["done"]
