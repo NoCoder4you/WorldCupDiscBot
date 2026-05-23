@@ -1378,7 +1378,7 @@ function formatOwnershipPercent(value) {
         const tr = document.createElement('tr');
         tr.className = row.main_owner ? 'row-assigned' : 'row-unassigned';
         const groupKey = normalizeOwnershipTeam(row.country);
-        const groupLabel = ownershipState.groupMap.get(groupKey) || '—';
+        const groupLabel = ownershipState.groupMap.get(groupKey) || '-';
 
         const ownersCount = row.owners_count || ((row.main_owner ? 1 : 0) + ((row.split_with && row.split_with.length) || 0));
         const shareValue = ownersCount > 0 ? (100 / ownersCount) : 0;
@@ -1408,7 +1408,7 @@ function formatOwnershipPercent(value) {
               const splitShare = getShareLabel(s.id);
               return splitShare ? `${s.username || s.id} (${splitShare})` : `${s.username || s.id}`;
             }).join(', ')
-          : '—';
+          : '-';
 
         const current = normalizeStage(
           (ownershipState.stages && ownershipState.stages[row.country]) || ''
@@ -3338,14 +3338,14 @@ window.loadSplits = loadSplits;
           }
           if (maintenanceStatus) {
             maintenanceStatus.textContent = enabled
-              ? 'Enabled — non-admins will see the maintenance page.'
+              ? 'Enabled - non-admins will see the maintenance page.'
               : 'Disabled';
           }
         };
 
         const updateAutoBackupStatus = (enabled, intervalHours, lastTs) => {
           if (!autoBackupStatus) return;
-          const label = Number.isFinite(intervalHours) ? `${intervalHours}h` : '—';
+          const label = Number.isFinite(intervalHours) ? `${intervalHours}h` : '-';
           if (!enabled) {
             autoBackupStatus.textContent = `Auto backups disabled · Interval: ${label}`;
             return;
@@ -4168,7 +4168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!r.ok){
       let body = '';
       try { body = await r.text(); } catch(_){}
-      const err = new Error(`HTTP ${r.status} @ ${url}${body ? ` — ${body.slice(0,200)}` : ''}`);
+      const err = new Error(`HTTP ${r.status} @ ${url}${body ? ` - ${body.slice(0,200)}` : ''}`);
       err.status = r.status;
       err.url = url;
       throw err;
@@ -4437,7 +4437,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatMapStageLabel(rawStage){
     const clean = String(rawStage || '').trim();
-    if (!clean) return '—';
+    if (!clean) return '-';
 
     // Keep bracket stages readable while shortening group-stage wording.
     if (clean.toLowerCase() === 'group stage') return 'Groups';
@@ -4947,7 +4947,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const name        = el.dataset.team   || el.dataset.iso || 'Unknown';
       const flag        = el.dataset.flag   || '';
-      const group       = el.dataset.group  || '—';
+      const group       = el.dataset.group  || '-';
       const owners      = el.dataset.owners || 'Unassigned';
       const stage       = el.dataset.stage  || '';
       const mainOwner   = el.dataset.mainOwner   || '';
@@ -4979,16 +4979,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (nameEl)   nameEl.textContent   = name;
       if (flagEl)   flagEl.innerHTML     = flag;
-      if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
-      if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
-      if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
-      if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
+      if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '-');
+      if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '-');
+      if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '-'));
+      if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '-');
       if (statusEl) statusEl.textContent = 'Status: ' + status;
 
       if (coEl) {
         if (isSplit) {
           coEl.style.display = '';
-          coEl.textContent = 'Co-Owners: ' + (coOwners || '—');
+          coEl.textContent = 'Co-Owners: ' + (coOwners || '-');
         } else {
           coEl.style.display = 'none';
         }
@@ -6622,7 +6622,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const away = String(fixture?.away || 'TBD').trim() || 'TBD';
         const opt = document.createElement('option');
         opt.value = id;
-        opt.textContent = `${id} — ${home} vs ${away}`;
+        opt.textContent = `${id} - ${home} vs ${away}`;
         select.appendChild(opt);
       });
   }

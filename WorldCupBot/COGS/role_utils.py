@@ -63,7 +63,7 @@ async def check_spectator_interaction(interaction):
     return True
 
 class RoleUtils(commands.Cog):
-    """Utility cog for role checks—no commands."""
+    """Utility cog for role checks-no commands."""
     def __init__(self, bot):
         self.bot = bot
 

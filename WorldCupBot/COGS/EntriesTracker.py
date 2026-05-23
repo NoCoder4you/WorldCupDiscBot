@@ -80,7 +80,7 @@ class EntriesTracker(commands.Cog):
     def build_embed(self):
         data = self.get_entries_data()
         embed = discord.Embed(
-            title="World Cup 2026 — Entry Tracker",
+            title="World Cup 2026 - Entry Tracker",
             description="Live list of all players and how many entries (teams) they currently have.",
             colour=discord.Colour.gold()
         )
@@ -89,7 +89,7 @@ class EntriesTracker(commands.Cog):
         else:
             leaderboard = []
             for uid, name, count in data:
-                leaderboard.append(f"<@{uid}> — **{count}** entry{'ies' if count != 1 else ''}")
+                leaderboard.append(f"<@{uid}> - **{count}** entry{'ies' if count != 1 else ''}")
             embed.add_field(name="Leaderboard", value="\n".join(leaderboard), inline=False)
         embed.set_footer(text="Updated after each /addplayer. Use /updateentries to refresh manually.")
         return embed
@@ -181,7 +181,7 @@ async def post_country_assignments_embed(bot, guild):
     for i in range(0, len(lines), batch_size):
         chunk = lines[i:i+batch_size]
         embed = discord.Embed(
-            title=f"World Cup 2026 — Team Assignments ({i+1}-{min(i+batch_size, len(lines))})",
+            title=f"World Cup 2026 - Team Assignments ({i+1}-{min(i+batch_size, len(lines))})",
             description="Country assignments (ABC order):",
             colour=discord.Colour.blue()
         )

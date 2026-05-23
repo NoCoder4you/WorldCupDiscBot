@@ -461,8 +461,8 @@ def test_fanzone_fixture_state_uses_logged_in_discord_vote_after_refresh(client,
 def test_world_map_stage_label_uses_stage_not_ownership():
     """World map country card should label the tournament progression as Stage."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
-    assert "stageEl.textContent  = 'Stage: ' + (stage || '—');" in app_js
-    assert "stageEl.textContent  = 'Ownership: ' + (stage || '—');" not in app_js
+    assert "stageEl.textContent  = 'Stage: ' + (stage || '-');" in app_js
+    assert "stageEl.textContent  = 'Ownership: ' + (stage || '-');" not in app_js
 
 
 def test_bets_page_exposes_claim_button_flow():

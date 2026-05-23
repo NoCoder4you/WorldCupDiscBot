@@ -179,7 +179,7 @@
   }
 
   function betRowHTML(b){
-    const choice = b.your_choice || (b.roles||[]).join(', ') || '—';
+    const choice = b.your_choice || (b.roles||[]).join(', ') || '-';
 
     let label = 'Pending', cls = 'pill-wait-UP';
     if (b.winner_side) {
