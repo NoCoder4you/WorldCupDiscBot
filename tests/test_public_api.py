@@ -463,3 +463,57 @@ def test_bets_page_exposes_claim_button_flow():
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
     assert "claimBtn.textContent = 'Claim Bet';" in app_js
     assert "await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});" in app_js
+
+
+def test_fixtures_only_include_matches_within_next_48_hours_for_public(client, app):
+    """Public fixture feed should only expose matches starting within the next 48 hours."""
+    import datetime
+
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    within = (now + datetime.timedelta(hours=12)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    outside = (now + datetime.timedelta(hours=72)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    (json_dir / "matches.json").write_text(json.dumps([
+        {"id": "in-window", "home": "USA", "away": "Canada", "utc": within},
+        {"id": "out-window", "home": "Spain", "away": "France", "utc": outside},
+    ]), encoding="utf-8")
+
+    resp = client.get("/api/fixtures")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert data["ok"] is True
+    assert data["visibility_hours"] == 48
+    assert data["admin_override"] is False
+    assert [f["id"] for f in data["fixtures"]] == ["in-window"]
+
+
+def test_fixtures_admin_view_overrides_48_hour_window(client, app):
+    """Configured admins can request admin_view=1 to bypass the 48-hour visibility filter."""
+    import datetime
+
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    outside = (now + datetime.timedelta(hours=72)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    (json_dir / "matches.json").write_text(json.dumps([
+        {"id": "out-window", "home": "Spain", "away": "France", "utc": outside},
+    ]), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "123", "username": "admin"}
+
+    resp = client.get("/api/fixtures?admin_view=1")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert data["ok"] is True
+    assert data["admin_override"] is True
+    assert [f["id"] for f in data["fixtures"]] == ["out-window"]
