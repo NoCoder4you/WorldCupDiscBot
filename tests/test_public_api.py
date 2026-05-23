@@ -458,6 +458,13 @@ def test_fanzone_fixture_state_uses_logged_in_discord_vote_after_refresh(client,
     assert payload["last_choice"] == "away"
 
 
+def test_world_map_stage_label_uses_stage_not_ownership():
+    """World map country card should label the tournament progression as Stage."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "stageEl.textContent  = 'Stage: ' + (stage || '—');" in app_js
+    assert "stageEl.textContent  = 'Ownership: ' + (stage || '—');" not in app_js
+
+
 def test_bets_page_exposes_claim_button_flow():
     """Bets page should keep an explicit claim action in the web table UI."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
@@ -490,6 +497,34 @@ def test_fixtures_only_include_matches_within_next_48_hours_for_public(client, a
     assert data["visibility_hours"] == 48
     assert data["admin_override"] is False
     assert [f["id"] for f in data["fixtures"]] == ["in-window"]
+
+
+
+
+def test_fixtures_include_all_query_returns_future_matches_beyond_48_hours(client, app):
+    """include_all=1 should expose all future fixtures for world-map next-match rendering."""
+    import datetime
+
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    within = (now + datetime.timedelta(hours=12)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    outside = (now + datetime.timedelta(hours=72)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    (json_dir / "matches.json").write_text(json.dumps([
+        {"id": "in-window", "home": "USA", "away": "Canada", "utc": within},
+        {"id": "out-window", "home": "Spain", "away": "France", "utc": outside},
+    ]), encoding="utf-8")
+
+    resp = client.get("/api/fixtures?include_all=1")
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert data["ok"] is True
+    assert data["admin_override"] is False
+    assert [f["id"] for f in data["fixtures"]] == ["in-window", "out-window"]
 
 
 def test_fixtures_admin_view_overrides_48_hour_window(client, app):

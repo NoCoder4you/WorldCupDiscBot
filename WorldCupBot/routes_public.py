@@ -2327,6 +2327,10 @@ def create_public_routes(ctx):
         user = session.get(_session_key()) or {}
         real_uid = str(user.get("discord_id") or "").strip()
         wants_admin_view = str(request.args.get("admin_view") or "").strip() in ("1", "true", "yes", "on")
+        # `include_all=1` is used by the world map panel so it can compute each
+        # country's true next fixture even when kickoff is beyond the fan-zone
+        # 48-hour public window.
+        wants_full_public_list = str(request.args.get("include_all") or "").strip() in ("1", "true", "yes", "on")
         allow_full_fixture_list = wants_admin_view and real_uid and _is_admin(base, real_uid)
 
         fixtures = []
@@ -2381,7 +2385,9 @@ def create_public_routes(ctx):
                 if not allow_full_fixture_list:
                     if not start_dt:
                         continue
-                    if start_dt < now_utc or start_dt > visibility_cutoff:
+                    if start_dt < now_utc:
+                        continue
+                    if not wants_full_public_list and start_dt > visibility_cutoff:
                         continue
 
                 fixtures.append({

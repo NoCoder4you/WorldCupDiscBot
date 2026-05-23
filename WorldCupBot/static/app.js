@@ -4340,7 +4340,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadFixtures(){
     try {
-      const data = await fetchJSON('/api/fixtures');
+      // Use include_all so world-map "next match" uses the full upcoming
+      // schedule instead of the fan-zone 48-hour visibility subset.
+      const data = await fetchJSON('/api/fixtures?include_all=1');
       return (data && data.fixtures) || [];
     } catch (e) {
       console.warn('loadFixtures failed:', e);
@@ -4431,6 +4433,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function isoToNormTeam(isoToTeam, iso, fallbackTeam){
     const fromIso = isoToTeam[iso] || fallbackTeam || '';
     return normalizeTeamName(fromIso);
+  }
+
+  function formatMapStageLabel(rawStage){
+    const clean = String(rawStage || '').trim();
+    if (!clean) return '—';
+
+    // Keep bracket stages readable while shortening group-stage wording.
+    if (clean.toLowerCase() === 'group stage') return 'Groups';
+    return clean;
   }
 
   function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams, teamStages, fixtures){
@@ -4715,7 +4726,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
-      let stage = (stageMap[team] || stageMap[normTeam]) || '—';
+      const stage = formatMapStageLabel((stageMap[team] || stageMap[normTeam]) || '');
 
       const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
       const nextMatch = matchObj ? matchObj.label : '';
@@ -4969,7 +4980,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (nameEl)   nameEl.textContent   = name;
       if (flagEl)   flagEl.innerHTML     = flag;
       if (groupEl)  groupEl.textContent  = 'Group: ' + (group || '—');
-      if (stageEl)  stageEl.textContent  = 'Ownership: ' + (stage || '—');
+      if (stageEl)  stageEl.textContent  = 'Stage: ' + (stage || '—');
       if (mainEl)   mainEl.textContent   = 'Main Owner: ' + (mainOwner || (owners !== 'Unassigned' ? owners : '—'));
       if (nextEl)   nextEl.textContent   = 'Next Match: ' + (nextMatch || '—');
       if (statusEl) statusEl.textContent = 'Status: ' + status;
