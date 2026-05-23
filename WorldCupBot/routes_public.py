@@ -2410,28 +2410,33 @@ def create_public_routes(ctx):
             fx = {"home": 0, "away": 0, "draw": 0, "voters": {}}
             fixtures[fixture_id] = fx
 
+        # Canonical map: one entry per Discord account per fixture.
+        # `voters` is now singular source-of-truth for counting + recall.
         voters = fx.setdefault("voters", {})
         if not isinstance(voters, dict):
             voters = {}
             fx["voters"] = voters
 
         resp = make_response(jsonify({"ok": True}))
-        fan_id = _ensure_fan_id(resp)
+        # Preserve fan cookie issuance for existing clients; voting identity is Discord.
+        _ensure_fan_id(resp)
 
-        # Persist a per-Discord vote map for later winner/loss notifications.
-        dv = fx.setdefault("discord_voters", {})
-        if not isinstance(dv, dict):
-            dv = {}
-            fx["discord_voters"] = dv
-        dv.setdefault(uid, choice)
+        # Backward-compat migration: if legacy `discord_voters` exists, merge into
+        # `voters` once so refresh/state reads still work after deploy.
+        legacy_voters = fx.get("discord_voters")
+        if isinstance(legacy_voters, dict):
+            for legacy_uid, legacy_choice in legacy_voters.items():
+                legacy_uid = str(legacy_uid or "").strip()
+                legacy_choice = str(legacy_choice or "").strip().lower()
+                if legacy_uid and legacy_choice in ("home", "away", "draw") and legacy_uid not in voters:
+                    voters[legacy_uid] = legacy_choice
 
-        # One vote per fixture per anonymous fan id (cookie-based)
-        if fan_id in voters:
-            # If they already voted anonymously, we still persist any discord linkage we just added
+        # Enforce one vote per fixture per authenticated Discord account.
+        if uid in voters:
             _json_save(votes_path, votes_blob)
             return resp
 
-        voters[fan_id] = choice
+        voters[uid] = choice
         if choice == "home":
             fx["home"] = int(fx.get("home") or 0) + 1
         elif choice == "away":
@@ -2441,10 +2446,9 @@ def create_public_routes(ctx):
 
         _json_save(votes_path, votes_blob)
         log.info(
-            "Match vote recorded (fixture_id=%s choice=%s fan_id=%s discord_id=%s)",
+            "Match vote recorded (fixture_id=%s choice=%s discord_id=%s)",
             fixture_id,
             choice,
-            fan_id,
             uid or "anonymous",
         )
         return resp
@@ -2557,11 +2561,11 @@ def create_public_routes(ctx):
         _json_save(winners_path, winners_blob)
 
         # ----------------------------
-        # Load votes and voters (discord_voters)
+        # Load votes and voters (Discord IDs keyed in `voters`)
         # ----------------------------
         votes_blob = _json_load(_fz_votes_path(base), {"fixtures": {}})
         fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
-        dv = fx.get("discord_voters") if isinstance(fx, dict) else None
+        dv = fx.get("voters") if isinstance(fx, dict) else None
         if not isinstance(dv, dict):
             dv = {}
 
@@ -2759,10 +2763,11 @@ def create_public_routes(ctx):
         total = max(0, home_n + away_n + draw_n)
 
         last_choice = None
-        fan_id = _get_fan_id()
+        user = session.get(_session_key()) or {}
+        uid = _effective_uid() or str(user.get("discord_id") or "").strip()
         voters = fx.get("voters") if isinstance(fx, dict) else None
-        if fan_id and isinstance(voters, dict):
-            last_choice = voters.get(fan_id)
+        if uid and isinstance(voters, dict):
+            last_choice = voters.get(uid)
 
         home_pct = (home_n / total * 100.0) if total else 0.0
         away_pct = (away_n / total * 100.0) if total else 0.0
@@ -2835,7 +2840,7 @@ def create_public_routes(ctx):
                     continue
 
                 fx = ((votes_blob.get("fixtures") or {}).get(fixture_id) or {}) if isinstance(votes_blob, dict) else {}
-                dv = fx.get("discord_voters") if isinstance(fx, dict) else None
+                dv = fx.get("voters") if isinstance(fx, dict) else None
                 if not isinstance(dv, dict):
                     continue
 
