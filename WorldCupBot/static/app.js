@@ -7073,8 +7073,16 @@ document.addEventListener('DOMContentLoaded', () => {
     : (() => document.body.classList.contains('admin'));
 
   async function getFixtures() {
-    const d = await fetchJSON('/api/fixtures');
-    return (d && d.fixtures) || [];
+    // Pass admin_view when admin mode is enabled so backend can safely bypass
+    // the 48-hour visibility window for trusted admins.
+    const adminView = !!(typeof isAdminUI === 'function' && isAdminUI());
+    const url = adminView ? '/api/fixtures?admin_view=1' : '/api/fixtures';
+    const d = await fetchJSON(url);
+    return {
+      fixtures: (d && d.fixtures) || [],
+      visibilityHours: Number(d?.visibility_hours || 48),
+      adminOverride: !!d?.admin_override,
+    };
   }
 
   async function getStats(fid) {
@@ -7353,15 +7361,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     host.innerHTML = `<div class="muted" style="padding:12px">Loading fixtures…</div>`;
 
-    let fixtures = [];
+    let fixturePayload = { fixtures: [], visibilityHours: 48, adminOverride: false };
     try {
-      fixtures = await getFixtures();
+      fixturePayload = await getFixtures();
     } catch {
       host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
       return;
     }
 
-    
+    const fixtures = fixturePayload.fixtures || [];
+
     fixtures.forEach(f => {
       const gh = teamToGroup.get(normalize(f?.home)) || '';
       const ga = teamToGroup.get(normalize(f?.away)) || '';
@@ -7369,7 +7378,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (!fixtures.length) {
-      host.innerHTML = `<div class="muted" style="padding:12px">No fixtures available.</div>`;
+      const hours = Number(fixturePayload.visibilityHours || 48);
+      const adminBypass = !!fixturePayload.adminOverride;
+      const emptyMessage = adminBypass
+        ? 'No fixtures available.'
+        : `No matches start within the next ${hours} hours.`;
+      host.innerHTML = `<div class="muted" style="padding:12px">${emptyMessage}</div>`;
       return;
     }
 

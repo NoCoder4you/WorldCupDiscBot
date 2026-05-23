@@ -2317,6 +2317,18 @@ def create_public_routes(ctx):
         matches = _json_load(_matches_path(base), [])
         iso_map = _load_team_iso_map(base)
 
+        # Fan Zone visibility defaults to a rolling 48-hour window so users only
+        # see fixtures that start soon. Admin mode can opt out of this filter by
+        # sending `admin_view=1` and being an actual configured admin.
+        now_utc = datetime.datetime.now(datetime.timezone.utc)
+        visibility_hours = 48
+        visibility_cutoff = now_utc + datetime.timedelta(hours=visibility_hours)
+
+        user = session.get(_session_key()) or {}
+        real_uid = str(user.get("discord_id") or "").strip()
+        wants_admin_view = str(request.args.get("admin_view") or "").strip() in ("1", "true", "yes", "on")
+        allow_full_fixture_list = wants_admin_view and real_uid and _is_admin(base, real_uid)
+
         fixtures = []
         if isinstance(matches, list):
             for m in matches:
@@ -2357,6 +2369,21 @@ def create_public_routes(ctx):
                         return None
                 home_score = _score_val(home_score)
                 away_score = _score_val(away_score)
+                # Parse kickoff time for visibility filtering; malformed UTC fields
+                # are excluded for non-admin users to avoid exposing ambiguous data.
+                start_dt = None
+                if utc:
+                    try:
+                        start_dt = datetime.datetime.fromisoformat(utc.replace("Z", "+00:00"))
+                    except Exception:
+                        start_dt = None
+
+                if not allow_full_fixture_list:
+                    if not start_dt:
+                        continue
+                    if start_dt < now_utc or start_dt > visibility_cutoff:
+                        continue
+
                 fixtures.append({
                     "id": mid,
                     "home": home,
@@ -2374,7 +2401,12 @@ def create_public_routes(ctx):
                     fixtures[-1]["home_score"] = home_score
                     fixtures[-1]["away_score"] = away_score
 
-        return jsonify({"ok": True, "fixtures": fixtures})
+        return jsonify({
+            "ok": True,
+            "fixtures": fixtures,
+            "visibility_hours": visibility_hours,
+            "admin_override": bool(allow_full_fixture_list),
+        })
 
 
     @api.post("/fanzone/vote")
