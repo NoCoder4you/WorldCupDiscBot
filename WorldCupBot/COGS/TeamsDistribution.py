@@ -194,6 +194,31 @@ class TeamsDistribution(commands.Cog):
             return guild.get_role(int(group_role_id))
         return None
 
+    async def notify_admin_general(
+        self,
+        guild: discord.Guild | None,
+        message: str,
+    ) -> None:
+        """Post completion updates to the staff-facing admin-general channel.
+
+        This intentionally fails silently so command success is not blocked by
+        missing channel configuration or transient Discord send errors.
+        """
+        if not guild:
+            return
+
+        admin_general_channel = discord.utils.find(
+            lambda channel: getattr(channel, "name", "").lower() == "admin-general",
+            guild.text_channels,
+        )
+        if not admin_general_channel:
+            return
+
+        try:
+            await admin_general_channel.send(message)
+        except Exception:
+            return
+
     @app_commands.command(
         name="addplayer",
         description="Add a user to the World Cup pool."
@@ -338,6 +363,11 @@ class TeamsDistribution(commands.Cog):
 
         await interaction.followup.send(
             f"Assigned teams to {len(pending_entries)} pending entry(ies).", ephemeral=True
+        )
+        await self.notify_admin_general(
+            guild,
+            f"✅ `/assignteams` complete by {interaction.user.mention}: "
+            f"{len(pending_entries)} team assignment(s) updated.",
         )
         log.info("Teams randomly assigned (actor_id=%s count=%s)", interaction.user.id, len(pending_entries))
 
@@ -494,6 +524,10 @@ class TeamsDistribution(commands.Cog):
             result_message = "All assignments have been announced by DM where possible; users with closed DMs were skipped."
 
         await interaction.followup.send(result_message, ephemeral=True)
+        await self.notify_admin_general(
+            guild,
+            f"✅ `/announceteams` complete by {interaction.user.mention}: target={target.value}.",
+        )
 
     @app_commands.command(name="assignroles", description="Assign country/group roles based on JSON ownership.")
     async def assignroles(self, interaction: discord.Interaction):
@@ -547,6 +581,11 @@ class TeamsDistribution(commands.Cog):
         await interaction.followup.send(
             f"Role assignment complete. Added {applied} role grant(s).",
             ephemeral=True
+        )
+        await self.notify_admin_general(
+            guild,
+            f"✅ `/assignroles` complete by {interaction.user.mention}: "
+            f"{applied} role grant(s) applied.",
         )
 
 async def setup(bot):
