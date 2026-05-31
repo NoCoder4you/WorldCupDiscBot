@@ -4753,8 +4753,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const ownerLine  = ownersText ? `Owners: ${escapeHtml(ownersText)}` : 'Owners: Unassigned';
 
         tip.innerHTML = `
-          <div class="map-info">
-            <h3>${teamLine}</h3>
+          <div class="map-tip-card">
+            <h3 class="map-tip-title">${teamLine}</h3>
             <p>${ownerLine}</p>
             ${group ? `<p>Group: ${escapeHtml(group)}</p>` : ''}
           </div>`;
@@ -4801,23 +4801,28 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   
-  const wrap = document.getElementById('map-wrap');
-
   function positionTip(ev) {
-    if (!wrap || !tip) return;
+    if (!tip) return;
 
-    const r       = wrap.getBoundingClientRect();
     const tipRect = tip.getBoundingClientRect();
+    const gutter = 8;
 
-    let x = ev.clientX - r.left + 6;
-    let y = ev.clientY - r.top  - tipRect.height - 2;
+    // Position against the viewport, not the map wrapper, so island countries near
+    // the map edge (for example New Zealand) still get a fully visible tooltip.
+    let x = ev.clientX + 12;
+    let y = ev.clientY - tipRect.height - 8;
 
-    if (y < 2) y = ev.clientY - r.top + 10;
+    if (y < gutter) y = ev.clientY + 14;
 
-    if (x + tipRect.width > r.width - 4) {
-      x = r.width - tipRect.width - 4;
+    if (x + tipRect.width > window.innerWidth - gutter) {
+      x = window.innerWidth - tipRect.width - gutter;
     }
-    if (x < 4) x = 4;
+    if (x < gutter) x = gutter;
+
+    if (y + tipRect.height > window.innerHeight - gutter) {
+      y = window.innerHeight - tipRect.height - gutter;
+    }
+    if (y < gutter) y = gutter;
 
     tip.style.left = `${x}px`;
     tip.style.top  = `${y}px`;
