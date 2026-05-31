@@ -3043,8 +3043,9 @@ select.select-dark:disabled {
 }
 
 .hover-tip {
-    position: absolute;
-    max-width: 380px;
+    /* Keep map hover cards fixed to the viewport so edge countries cannot clip inside the map frame. */
+    position: fixed;
+    max-width: min(380px, calc(100vw - 16px));
     background: #0d141df7;
     border: 1px solid #1f2c3b;
     color: #e7f0fa;
@@ -3064,6 +3065,21 @@ select.select-dark:disabled {
 .hover-tip em {
     color: #91a3b6;
     font-style: italic;
+}
+.hover-tip .map-tip-card {
+    display: grid;
+    gap: 5px;
+}
+.hover-tip .map-tip-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: #bde3ff;
+    font-size: 1rem;
+}
+.hover-tip .map-tip-card p {
+    margin: 0;
 }
 
 .bet-opt span::after {

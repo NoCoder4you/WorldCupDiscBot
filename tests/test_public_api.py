@@ -465,6 +465,19 @@ def test_world_map_stage_label_uses_stage_not_ownership():
     assert "stageEl.textContent  = 'Ownership: ' + (stage || '-');" not in app_js
 
 
+def test_world_map_tooltip_avoids_edge_clipping():
+    """World map hover tooltip should be viewport-positioned and not inherit panel card styles."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+
+    # The tooltip content must not use .map-info because that class is an
+    # absolutely-positioned side panel, which causes wrong measurements/clipping.
+    assert '<div class="map-tip-card">' in app_js
+    assert '<div class="map-info">' not in app_js
+    assert "position: fixed;" in style_css
+    assert "window.innerWidth" in app_js
+    assert "window.innerHeight" in app_js
+
 def test_bets_page_exposes_claim_button_flow():
     """Bets page should keep an explicit claim action in the web table UI."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
