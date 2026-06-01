@@ -2959,6 +2959,14 @@ select.select-dark:disabled {
     box-shadow: 0 0 0 3px #4da4ff40;
 }
 
+#reassign-picker {
+    cursor: text;
+}
+
+#reassign-picker::placeholder {
+    color: #8f9aaa;
+}
+
 #reassign-options,
 #split-create-country-options {
     position: absolute;
@@ -2994,6 +3002,16 @@ select.select-dark:disabled {
 #split-create-country-options li:focus {
     background: #1c2431;
     color: #ffffff;
+}
+
+#reassign-options li.no-results {
+    color: #8f9aaa;
+    cursor: default;
+}
+
+#reassign-options li.no-results:hover {
+    background: transparent;
+    color: #8f9aaa;
 }
 
 /* Hide scrollbar light backgrounds (WebKit) */

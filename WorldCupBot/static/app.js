@@ -1104,8 +1104,56 @@ function stagePill(stage){
       const idBox  = document.getElementById('reassign-id');
       if (!picker || !list || !idBox) return;
 
-      async function populate() {
-        
+      const closeList = () => {
+        list.hidden = true;
+        picker.setAttribute('aria-expanded', 'false');
+      };
+
+      const openList = () => {
+        list.hidden = false;
+        picker.setAttribute('aria-expanded', 'true');
+      };
+
+      const normalizePlayerSearch = (value) => String(value || '').trim().toLowerCase();
+
+      const getCachedEntries = () => Array.isArray(setupVerifiedPicker.entries)
+        ? setupVerifiedPicker.entries
+        : [];
+
+      function renderOptions(query = '') {
+        const needle = normalizePlayerSearch(query);
+        const entries = getCachedEntries();
+        const matches = entries.filter(({ id, name }) => {
+          const label = normalizePlayerSearch(name);
+          return !needle || label.includes(needle) || String(id).includes(needle);
+        });
+
+        list.innerHTML = '';
+        matches.slice(0, 50).forEach(({ id, name }) => {
+          const li = document.createElement('li');
+          li.setAttribute('role', 'option');
+          li.dataset.id = id;
+          li.dataset.label = name;
+          li.textContent = name;
+          list.appendChild(li);
+        });
+
+        if (matches.length === 0) {
+          const li = document.createElement('li');
+          li.className = 'no-results';
+          li.setAttribute('role', 'option');
+          li.setAttribute('aria-disabled', 'true');
+          li.textContent = 'No matching players';
+          list.appendChild(li);
+        }
+      }
+
+      async function populate(force = false) {
+        if (!force && getCachedEntries().length > 0) {
+          renderOptions(picker.value);
+          return;
+        }
+
         let entries = [];
         try {
           const r = await fetch('/api/verified', { credentials: 'include' });
@@ -1119,7 +1167,6 @@ function stagePill(stage){
           }).filter(Boolean);
         } catch {}
 
-        
         if (entries.length === 0) {
           try {
             const r = await fetch('/api/player_names', { credentials: 'include' });
@@ -1128,57 +1175,67 @@ function stagePill(stage){
           } catch {}
         }
 
-        
         entries.sort((a,b) => a.name.localeCompare(b.name));
-        list.innerHTML = '';
-        entries.forEach(({ id, name }) => {
-          const li = document.createElement('li');
-          li.setAttribute('role', 'option');
-          li.dataset.id = id;
-          li.dataset.label = name;
-          li.textContent = name;
-          list.appendChild(li);
-        });
+        setupVerifiedPicker.entries = entries;
+        renderOptions(picker.value);
       }
 
-      
+      function choosePlayer(li) {
+        if (!li || li.classList.contains('no-results')) return;
+        picker.value = li.dataset.label || '';
+        picker.dataset.id = li.dataset.id || '';
+        picker.dataset.label = li.dataset.label || '';
+        idBox.value = li.dataset.id || '';
+        closeList();
+      }
+
       if (!picker.dataset.wired) {
         picker.dataset.wired = '1';
 
-        
-        picker.addEventListener('click', async () => {
-          if (list.childElementCount === 0) {
-            await populate();            
-            if (list.childElementCount === 0) return; 
-          }
-          const open = list.hidden;
-          list.hidden = !open;
-          picker.setAttribute('aria-expanded', String(open));
+        picker.addEventListener('focus', async () => {
+          await populate();
+          renderOptions(picker.value);
+          if (list.childElementCount > 0) openList();
         });
 
-        
+        picker.addEventListener('input', async () => {
+          // Clear the previously selected Discord ID whenever the admin edits
+          // the typed player name, so stale selections cannot be submitted.
+          picker.dataset.id = '';
+          picker.dataset.label = '';
+          idBox.value = '';
+          await populate();
+          renderOptions(picker.value);
+          openList();
+        });
+
+        picker.addEventListener('keydown', (e) => {
+          const firstMatch = list.querySelector('li:not(.no-results)');
+          if (e.key === 'Enter' && !list.hidden && firstMatch) {
+            e.preventDefault();
+            choosePlayer(firstMatch);
+          }
+          if (e.key === 'Escape') closeList();
+        });
+
+        list.addEventListener('mousedown', (e) => {
+          // Prevent the input from blurring before the click can select the row.
+          e.preventDefault();
+        });
+
         list.addEventListener('click', (e) => {
           const li = e.target.closest('li');
-          if (!li) return;
-          picker.textContent = li.dataset.label;
-          idBox.value = li.dataset.id;
-          list.hidden = true;
-          picker.setAttribute('aria-expanded', 'false');
+          choosePlayer(li);
         });
 
-        
         document.addEventListener('click', (e) => {
           if (e.target === picker || e.target.closest('#verified-select')) return;
-          if (!list.hidden) {
-            list.hidden = true;
-            picker.setAttribute('aria-expanded', 'false');
-          }
+          if (!list.hidden) closeList();
         });
       }
 
-      
-      if (preload && list.childElementCount === 0) {
-        try { await populate(); } catch {}
+      if (preload) {
+        try { await populate(true); } catch {}
       }
     }
 
@@ -1884,8 +1941,9 @@ document.addEventListener('change', async (e) => {
       inputT.value = teamName || '';
 
       if (picker) {
-        picker.textContent = '-- Select a player --';
+        picker.value = '';
         picker.dataset.id = '';
+        picker.dataset.label = '';
       }
       if (inputId) inputId.value = '';
 
