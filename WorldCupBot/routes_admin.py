@@ -643,35 +643,87 @@ def create_admin_routes(ctx):
             uid = str(uid)
             if uid not in players or not isinstance(players[uid], dict):
                 players[uid] = {"display_name": uid, "teams": []}
-            players[uid].setdefault("teams", [])
+            if not isinstance(players[uid].get("teams"), list):
+                players[uid]["teams"] = []
             return players[uid]
 
-        # Clear existing main_owner for this team
-        for uid, pdata in list(players.items()):
+        team_key = team.casefold()
+        split_owner_ids = []
+        canonical_public_message_id = None
+        canonical_percentages = {}
+
+        # First gather any split-owner metadata from existing copies of the team.
+        # Reassigning should move main ownership, not leave stale main-owner rows
+        # behind in players.json or accidentally keep the new main owner as a split.
+        for _uid, pdata in list(players.items()):
             if not isinstance(pdata, dict):
                 continue
             for entry in pdata.get("teams", []):
-                if not isinstance(entry, dict):
+                if not isinstance(entry, dict) or str(entry.get("team") or "").casefold() != team_key:
                     continue
-                if entry.get("team") == team:
-                    entry.setdefault("ownership", {})
-                    if str(entry["ownership"].get("main_owner") or "") == str(uid):
-                        entry["ownership"]["main_owner"] = None
 
-        # Set new main
+                if canonical_public_message_id is None and entry.get("public_message_id") is not None:
+                    canonical_public_message_id = entry.get("public_message_id")
+
+                ownership = entry.get("ownership") or {}
+                for sid in ownership.get("split_with") or []:
+                    sid = str(sid).strip()
+                    if sid and sid != new_owner_id and sid not in split_owner_ids:
+                        split_owner_ids.append(sid)
+
+                percentages = ownership.get("percentages")
+                if isinstance(percentages, dict) and percentages:
+                    canonical_percentages = {str(k): v for k, v in percentages.items()}
+
+        # Remove every existing copy for this team before writing the canonical
+        # records back. This makes the JSON reflect the actual reassignment
+        # instead of merely nulling the old owner and leaving duplicate rows.
+        for uid, pdata in list(players.items()):
+            if not isinstance(pdata, dict):
+                continue
+            teams = pdata.get("teams")
+            if not isinstance(teams, list):
+                pdata["teams"] = []
+                continue
+            pdata["teams"] = [
+                entry for entry in teams
+                if not (isinstance(entry, dict) and str(entry.get("team") or "").casefold() == team_key)
+            ]
+
+        main_ownership = {"main_owner": new_owner_id, "split_with": split_owner_ids}
+        if canonical_percentages:
+            # Preserve split percentages when available, but transfer the former
+            # main-owner share onto the newly selected main owner. Malformed
+            # percentage values are ignored so a bad legacy row cannot block a
+            # straightforward admin reassignment.
+            split_set = set(split_owner_ids)
+            main_share = 0.0
+            next_percentages = {}
+            for owner_id, value in canonical_percentages.items():
+                try:
+                    share = float(value)
+                except (TypeError, ValueError):
+                    continue
+                if str(owner_id) in split_set:
+                    next_percentages[str(owner_id)] = share
+                else:
+                    main_share += share
+            if main_share:
+                next_percentages[new_owner_id] = main_share
+            main_ownership["percentages"] = next_percentages
+
         target = ensure_player(new_owner_id)
-        target_entry = None
-        for entry in target.get("teams", []):
-            if isinstance(entry, dict) and entry.get("team") == team:
-                target_entry = entry
-                break
-        if target_entry is None:
-            target_entry = {"team": team, "ownership": {"main_owner": new_owner_id, "split_with": []}}
-            target["teams"].append(target_entry)
-        else:
-            target_entry.setdefault("ownership", {})
-            target_entry["ownership"]["main_owner"] = new_owner_id
-            target_entry["ownership"].setdefault("split_with", [])
+        target_entry = {"team": team, "ownership": main_ownership}
+        if canonical_public_message_id is not None:
+            target_entry["public_message_id"] = canonical_public_message_id
+        target["teams"].append(target_entry)
+
+        for sid in split_owner_ids:
+            split_player = ensure_player(sid)
+            split_entry = {"team": team, "ownership": {"main_owner": new_owner_id, "split_with": []}}
+            if canonical_public_message_id is not None:
+                split_entry["public_message_id"] = canonical_public_message_id
+            split_player["teams"].append(split_entry)
 
         _write_json_atomic(_players_path(ctx), players)
 
@@ -681,9 +733,10 @@ def create_admin_routes(ctx):
             "main_owner": {"id": new_owner_id, "username": vmap.get(new_owner_id, new_owner_id)},
             "split_with": [
                 {"id": sid, "username": vmap.get(str(sid), str(sid))}
-                for sid in target_entry["ownership"].get("split_with", [])
+                for sid in split_owner_ids
             ],
-            "owners_count": 1 + len(target_entry["ownership"].get("split_with", []))
+            "owners_count": 1 + len(split_owner_ids),
+            "percentages": main_ownership.get("percentages", {})
         }
         _enqueue_command(ctx, "ownership_reassign", {"team": team, "new_owner_id": new_owner_id})
         return jsonify({"ok": True, "row": row})

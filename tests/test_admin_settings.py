@@ -160,3 +160,109 @@ def test_auto_backup_runs_on_any_admin_request_when_due(tmp_path):
     backups_dir = tmp_path / "BACKUPS"
     backups = list(backups_dir.glob("*.zip"))
     assert backups, "expected a backup zip to be created by the before_request scheduler"
+
+
+def test_admin_ownership_reassign_rewrites_players_json(tmp_path):
+    """Reassigning ownership should move the team row to the new main owner."""
+    client, json_dir = _build_admin_client(tmp_path)
+    players_path = json_dir / "players.json"
+    players_path.write_text(
+        json.dumps(
+            {
+                "200": {
+                    "display_name": "Old Owner",
+                    "teams": [
+                        {
+                            "team": "Brazil",
+                            "ownership": {
+                                "main_owner": 200,
+                                "split_with": [300],
+                                "percentages": {"200": 70, "300": 30},
+                            },
+                            "public_message_id": "abc123",
+                        }
+                    ],
+                },
+                "300": {
+                    "display_name": "Split Owner",
+                    "teams": [
+                        {"team": "Brazil", "ownership": {"main_owner": 200, "split_with": []}}
+                    ],
+                },
+                "400": {"display_name": "New Owner", "teams": []},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resp = client.post("/admin/ownership/reassign", json={"team": "Brazil", "new_owner_id": "400"})
+
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["ok"] is True
+    assert payload["row"]["main_owner"]["id"] == "400"
+    assert payload["row"]["split_with"] == [{"id": "300", "username": "300"}]
+
+    players = json.loads(players_path.read_text(encoding="utf-8"))
+    assert players["200"]["teams"] == []
+    assert players["400"]["teams"] == [
+        {
+            "team": "Brazil",
+            "ownership": {
+                "main_owner": "400",
+                "split_with": ["300"],
+                "percentages": {"300": 30.0, "400": 70.0},
+            },
+            "public_message_id": "abc123",
+        }
+    ]
+    assert players["300"]["teams"] == [
+        {
+            "team": "Brazil",
+            "ownership": {"main_owner": "400", "split_with": []},
+            "public_message_id": "abc123",
+        }
+    ]
+
+
+def test_admin_ownership_reassign_removes_new_owner_from_split_list(tmp_path):
+    """A split owner promoted to main owner must not remain a split owner too."""
+    client, json_dir = _build_admin_client(tmp_path)
+    players_path = json_dir / "players.json"
+    players_path.write_text(
+        json.dumps(
+            {
+                "200": {
+                    "display_name": "Old Owner",
+                    "teams": [
+                        {"team": "Brazil", "ownership": {"main_owner": 200, "split_with": [300, 400]}}
+                    ],
+                },
+                "300": {
+                    "display_name": "Promoted Split",
+                    "teams": [
+                        {"team": "Brazil", "ownership": {"main_owner": 200, "split_with": []}}
+                    ],
+                },
+                "400": {
+                    "display_name": "Other Split",
+                    "teams": [
+                        {"team": "Brazil", "ownership": {"main_owner": 200, "split_with": []}}
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    resp = client.post("/admin/ownership/reassign", json={"team": "Brazil", "new_owner_id": "300"})
+
+    assert resp.status_code == 200
+    players = json.loads(players_path.read_text(encoding="utf-8"))
+    assert players["200"]["teams"] == []
+    assert players["300"]["teams"] == [
+        {"team": "Brazil", "ownership": {"main_owner": "300", "split_with": ["400"]}}
+    ]
+    assert players["400"]["teams"] == [
+        {"team": "Brazil", "ownership": {"main_owner": "300", "split_with": []}}
+    ]
