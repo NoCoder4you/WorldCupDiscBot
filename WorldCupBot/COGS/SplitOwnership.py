@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import logging
 
+from COGS.role_utils import has_referee
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 JSON_DIR = BASE_DIR / "JSON"
 ISO_FILE = JSON_DIR / "team_iso.json"
@@ -253,49 +255,89 @@ def calculate_split_percentages(existing_owner_ids, requester_id, requested_shar
     percentages[str(requester_id)] = requested_share
     return percentages
 
-async def update_public_embed(bot, guild, team, players):
-    main_owner_id, main_team_obj = find_team_main_owner(players, team)
-    if not main_team_obj or "public_message_id" not in main_team_obj:
-        return
+def calculate_effective_split_percentages(main_owner_id, existing_split_with, requester_id, request):
+    """Calculate the final percentage map for an accepted split request.
 
-    ownership = main_team_obj.get("ownership", {})
-    split_owners = ownership.get("split_with", [])
-    total_owners = 1 + len(split_owners)
-    split_mentions = format_owner_mentions(split_owners, total_owners, ownership) if split_owners else "N/A"
+    This helper is shared by persistence and logging so split_requests_log.json
+    records the exact percentage state that was applied to players.json.
+    """
+    requested_share = (request or {}).get("requested_percentage")
+    if requested_share is None:
+        remaining = calculate_remaining_percentage(len(existing_split_with))
+        requested_share = remaining / 2
+    remaining = calculate_remaining_percentage(len(existing_split_with))
+    requested_share = min(float(requested_share), remaining)
+    existing_owner_ids = [main_owner_id] + [oid for oid in existing_split_with if oid != main_owner_id]
+    return requested_share, calculate_split_percentages(existing_owner_ids, requester_id, requested_share)
 
-    public_channel = None
+def find_public_players_channel(guild):
+    """Find the public players-and-teams channel without scanning ownership data."""
     for category in guild.categories:
         if category.name.lower() == "world cup":
             for channel in category.text_channels:
                 if channel.name.lower() == "players-and-teams":
-                    public_channel = channel
-                    break
-            if public_channel:
-                break
+                    return channel
+    return None
+
+def build_public_team_embed(bot, team, main_owner_id, main_owner_user, main_team_obj):
+    """Build the Discord embed from the same ownership fields used by the website."""
+    ownership = main_team_obj.get("ownership", {})
+    split_owners = ownership.get("split_with", [])
+    total_owners = 1 + len(split_owners)
+    split_mentions = format_owner_mentions(split_owners, total_owners, ownership) if split_owners else "N/A"
+    flag = get_flag_url(team)
+    embed = discord.Embed(title=team, colour=discord.Colour.blue())
+    main_value = main_owner_user.mention if main_owner_user else str(main_owner_id)
+    main_share = format_owner_share_label(main_owner_id, total_owners, ownership)
+    if main_share:
+        main_value = f"{main_value} ({main_share})"
+    embed.add_field(name="Main User", value=main_value, inline=False)
+    embed.add_field(name="Split With", value=split_mentions, inline=False)
+    if main_owner_user and main_owner_user.display_avatar:
+        embed.set_thumbnail(url=main_owner_user.display_avatar.url)
+    if flag:
+        embed.set_image(url=flag)
+    return embed
+
+def embed_matches_expected(existing_embed, expected_embed):
+    """Compare stable user-visible embed fields before deciding whether to edit."""
+    if not existing_embed:
+        return False
+    if existing_embed.title != expected_embed.title:
+        return False
+    existing_fields = [(field.name, field.value) for field in existing_embed.fields]
+    expected_fields = [(field.name, field.value) for field in expected_embed.fields]
+    return existing_fields == expected_fields
+
+async def check_and_correct_public_embed(bot, guild, team, players):
+    """Check one team's public Discord embed against players.json and correct it."""
+    main_owner_id, main_team_obj = find_team_main_owner(players, team)
+    if not main_team_obj or "public_message_id" not in main_team_obj:
+        return "missing_record", f"No public embed message is recorded for {team}."
+
+    public_channel = find_public_players_channel(guild)
     if not public_channel:
-        return
+        return "missing_channel", "Could not find #players-and-teams in the World Cup category."
 
     msg_id = main_team_obj["public_message_id"]
+    msg = await public_channel.fetch_message(msg_id)
+    main_owner_user = bot.get_user(main_owner_id) or await bot.fetch_user(main_owner_id)
+    expected_embed = build_public_team_embed(bot, team, main_owner_id, main_owner_user, main_team_obj)
+    current_embed = msg.embeds[0] if msg.embeds else None
+    if embed_matches_expected(current_embed, expected_embed):
+        return "already_correct", f"{team} embed already matches the website ownership data."
+
+    await msg.edit(embed=expected_embed)
+    return "corrected", f"Corrected the {team} embed to match the website ownership data."
+
+async def update_public_embed(bot, guild, team, players):
     try:
-        msg = await public_channel.fetch_message(msg_id)
-        main_owner_user = bot.get_user(main_owner_id) or await bot.fetch_user(main_owner_id)
-        flag = get_flag_url(team)
-        embed = discord.Embed(
-            title=team,
-            colour=discord.Colour.blue()
-        )
-        main_value = main_owner_user.mention if main_owner_user else str(main_owner_id)
-        main_share = format_owner_share_label(main_owner_id, total_owners, ownership)
-        if main_share:
-            main_value = f"{main_value} ({main_share})"
-        embed.add_field(name="Main User", value=main_value, inline=False)
-        embed.add_field(name="Split With", value=split_mentions, inline=False)
-        if main_owner_user and main_owner_user.display_avatar:
-            embed.set_thumbnail(url=main_owner_user.display_avatar.url)
-        if flag:
-            embed.set_image(url=flag)
-        await msg.edit(embed=embed)
-        log.info("Split public embed updated (team=%s message_id=%s)", team, msg_id)
+        status, message = await check_and_correct_public_embed(bot, guild, team, players)
+        if status == "corrected":
+            main_owner_id, main_team_obj = find_team_main_owner(players, team)
+            log.info("Split public embed updated (team=%s message_id=%s)", team, main_team_obj.get("public_message_id"))
+        elif status not in {"already_correct", "missing_record", "missing_channel"}:
+            log.info("Split public embed check finished (team=%s status=%s message=%s)", team, status, message)
     except Exception as e:
         print(f"Failed to update public embed for {team}: {e}")
         
@@ -516,6 +558,39 @@ class SplitOwnership(commands.Cog):
         self.bot = bot
         self.cleanup_requests.start()
 
+    @commands.command(name="checksplitembed")
+    async def check_split_embed(self, ctx: commands.Context, *, team: str):
+        """Text command: check and repair one team's public ownership embed.
+
+        Usage: `wc checksplitembed Brazil`. The command intentionally checks
+        only the requested team so staff can fix a known mismatch without
+        walking every team embed in the public channel.
+        """
+        if not has_referee(ctx.author) and not getattr(ctx.author.guild_permissions, "administrator", False):
+            await ctx.reply("You are not authorized to use this command. (Referee role required)")
+            return
+
+        if not ctx.guild:
+            await ctx.reply("This command must be used in a server.")
+            return
+
+        players = load_json(PLAYERS_FILE)
+        team_case_map = build_team_case_map_from_players(players)
+        canonical_team = team_case_map.get(team.strip().lower())
+        if not canonical_team:
+            await ctx.reply(f"Could not find an owned team matching `{team}` in players.json.")
+            return
+
+        try:
+            status, message = await check_and_correct_public_embed(self.bot, ctx.guild, canonical_team, players)
+        except Exception as exc:
+            log.exception("Failed to check/correct split embed (team=%s)", canonical_team)
+            await ctx.reply(f"Failed to check `{canonical_team}`: {exc}")
+            return
+
+        prefix = "✅" if status in {"already_correct", "corrected"} else "⚠️"
+        await ctx.reply(f"{prefix} {message}")
+
     @tasks.loop(minutes=15)
     async def cleanup_requests(self):
         requests = load_json(REQUESTS_FILE)
@@ -532,6 +607,7 @@ class SplitOwnership(commands.Cog):
                     "team": req["team"],
                     "main_owner_id": req["main_owner_id"],
                     "requester_id": req["requester_id"],
+                    "requested_percentage": req.get("requested_percentage"),
                     "expires_at": req["expires_at"]
                 })
                 log.info(
@@ -578,6 +654,20 @@ class SplitOwnership(commands.Cog):
         main_owner_id, main_team_obj = find_team_main_owner(players, team)
         uid = str(requester.id)
 
+        # Calculate accepted percentages before logging so history mirrors the
+        # exact split that will be persisted to players.json.
+        requested_share = req.get("requested_percentage")
+        percentages = None
+        existing_split_with = []
+        if accepted and main_team_obj:
+            existing_split_with = list(main_team_obj.get("ownership", {}).get("split_with", []))
+            requested_share, percentages = calculate_effective_split_percentages(
+                main_owner_id,
+                existing_split_with,
+                requester.id,
+                req,
+            )
+
         # Log the result
         status = (
             "timeout" if timeout else
@@ -592,6 +682,8 @@ class SplitOwnership(commands.Cog):
             "team": team,
             "main_owner_id": req.get("main_owner_id"),
             "requester_id": req.get("requester_id"),
+            "requested_percentage": requested_share,
+            "percentages": percentages or {},
             "resolved_by": str(main_owner_id) if not timeout else None,
             "expires_at": req.get("expires_at")
         }
@@ -633,7 +725,6 @@ class SplitOwnership(commands.Cog):
 
         if accepted and main_team_obj:
             split_with = main_team_obj["ownership"].setdefault("split_with", [])
-            existing_split_with = list(split_with)
             if requester.id not in split_with:
                 split_with.append(requester.id)
 
@@ -652,16 +743,6 @@ class SplitOwnership(commands.Cog):
                     },
                     "public_message_id": main_team_obj.get("public_message_id")
                 })
-            requested_share = req.get("requested_percentage")
-            if requested_share is None:
-                remaining = calculate_remaining_percentage(len(existing_split_with))
-                requested_share = remaining / 2
-            remaining = calculate_remaining_percentage(len(existing_split_with))
-            if requested_share > remaining:
-                requested_share = remaining
-            requested_share = float(requested_share)
-            existing_owner_ids = [main_owner_id] + [oid for oid in existing_split_with if oid != main_owner_id]
-            percentages = calculate_split_percentages(existing_owner_ids, requester.id, requested_share)
             for pdata in players.values():
                 for entry in pdata.get("teams", []):
                     if entry.get("team") == team:
