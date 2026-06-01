@@ -2927,6 +2927,16 @@ select.select-dark:focus {
 select.select-dark option {
     background-color: #0f1622;
     color: #e9f1ff;
+    width: 100%;
+    min-width: 100%;
+}
+
+/* The settings timezone menu has many short labels; force option rows to span
+   the native popup so the highlighted/selected state fills the full dropdown. */
+#settings-timezone-select option {
+    display: block;
+    width: 100%;
+    min-width: 100%;
 }
 
 select.select-dark:disabled {
