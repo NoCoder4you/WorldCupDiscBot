@@ -4,7 +4,12 @@ import asyncio
 discord = pytest.importorskip("discord")
 
 from COGS import TeamsDistribution as teams_distribution_module
-from COGS.TeamsDistribution import TeamsDistribution, calculate_teams_left
+from COGS.TeamsDistribution import (
+    TeamsDistribution,
+    calculate_teams_left,
+    format_owner_mentions,
+    format_owner_share_label,
+)
 
 
 def test_calculate_teams_left_counts_pending_and_assigned_slots():
@@ -74,3 +79,15 @@ def test_notify_admin_general_sends_message_to_named_channel():
 
     admin_channel = guild.text_channels[1]
     assert admin_channel.messages == ["done"]
+
+
+def test_reveal_embed_share_labels_follow_stored_percentages():
+    """Initial reveal embeds should match the web page's custom split percentages."""
+    ownership = {
+        "main_owner": "200",
+        "split_with": ["100"],
+        "percentages": {"200": 90, "100": 10},
+    }
+
+    assert format_owner_share_label("200", 2, ownership) == "90%"
+    assert format_owner_mentions([("100", "@Siren")], 2, ownership) == "@Siren (10%)"

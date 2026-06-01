@@ -188,17 +188,37 @@ def format_share_percent(total_owners):
         return f"{int(share)}%"
     return f"{share:.1f}%"
 
-def format_owner_mentions(owner_ids, share):
-    if not owner_ids:
-        return "N/A"
-    return ", ".join(f"<@{oid}> ({share})" for oid in owner_ids)
-
 def format_percent_value(value):
     if value is None:
         return "N/A"
     if float(value).is_integer():
         return f"{int(value)}%"
     return f"{value:.1f}%"
+
+def format_owner_share_label(owner_id, owners_count, ownership):
+    """Return the ownership percentage label used by the web ownership table.
+
+    The public web page is the authoritative display for custom split
+    percentages. When stored percentages exist, mirror that exact per-owner
+    value instead of falling back to equal shares.
+    """
+    percentages = (ownership or {}).get("percentages")
+    if isinstance(percentages, dict) and percentages:
+        value = percentages.get(str(owner_id))
+        return "" if value is None else format_percent_value(float(value))
+
+    return format_share_percent(owners_count) if owners_count > 1 else ""
+
+def format_owner_mentions(owner_ids, owners_count, ownership=None):
+    if not owner_ids:
+        return "N/A"
+
+    mentions = []
+    for oid in owner_ids:
+        share_label = format_owner_share_label(oid, owners_count, ownership)
+        suffix = f" ({share_label})" if share_label else ""
+        mentions.append(f"<@{oid}>{suffix}")
+    return ", ".join(mentions)
 
 def format_owner_count(count):
     label = "owner" if count == 1 else "owners"
@@ -238,10 +258,10 @@ async def update_public_embed(bot, guild, team, players):
     if not main_team_obj or "public_message_id" not in main_team_obj:
         return
 
-    split_owners = main_team_obj["ownership"].get("split_with", [])
+    ownership = main_team_obj.get("ownership", {})
+    split_owners = ownership.get("split_with", [])
     total_owners = 1 + len(split_owners)
-    share = format_share_percent(total_owners)
-    split_mentions = format_owner_mentions(split_owners, share) if split_owners else "N/A"
+    split_mentions = format_owner_mentions(split_owners, total_owners, ownership) if split_owners else "N/A"
 
     public_channel = None
     for category in guild.categories:
@@ -265,8 +285,9 @@ async def update_public_embed(bot, guild, team, players):
             colour=discord.Colour.blue()
         )
         main_value = main_owner_user.mention if main_owner_user else str(main_owner_id)
-        if split_owners:
-            main_value = f"{main_value} ({share})"
+        main_share = format_owner_share_label(main_owner_id, total_owners, ownership)
+        if main_share:
+            main_value = f"{main_value} ({main_share})"
         embed.add_field(name="Main User", value=main_value, inline=False)
         embed.add_field(name="Split With", value=split_mentions, inline=False)
         if main_owner_user and main_owner_user.display_avatar:
@@ -314,14 +335,19 @@ class ConfirmChoiceView(discord.ui.View):
                     if t["team"] == self.team:
                         split_owner_ids += [oid for oid in t["ownership"].get("split_with", []) if oid != main_owner_id]
             split_owner_ids = list(set(split_owner_ids))
+            main_team_ownership = {}
+            if main_owner_id is not None:
+                _, main_team_obj = find_team_main_owner(players, self.team)
+                main_team_ownership = (main_team_obj or {}).get("ownership", {})
             total_owners = 1 + len(split_owner_ids)
-            share = format_share_percent(total_owners)
-            split_with = format_owner_mentions(split_owner_ids, share) if split_owner_ids else "N/A"
+            main_share = format_owner_share_label(main_owner_id, total_owners, main_team_ownership)
+            split_with = format_owner_mentions(split_owner_ids, total_owners, main_team_ownership) if split_owner_ids else "N/A"
+            ownership_share = main_share or format_share_percent(total_owners)
             msg = (
                 f"✅ The split for **{self.team}** has been **accepted**.\n"
                 f"Main owner: <@{main_owner_id}>\n"
                 f"Split with: {split_with}\n"
-                f"Ownership share: {share} each."
+                f"Main owner share: {ownership_share}."
             )
             embed = discord.Embed(
                 title=f"Choice Confirmed - {self.team}",
@@ -646,13 +672,14 @@ class SplitOwnership(commands.Cog):
             for guild in self.bot.guilds:
                 await update_public_embed(self.bot, guild, team, players)
 
-            total_owners = 1 + len(main_team_obj["ownership"]["split_with"])
-            share = format_share_percent(total_owners)
+            ownership = main_team_obj.get("ownership", {})
+            total_owners = 1 + len(ownership.get("split_with", []))
+            requester_share = format_owner_share_label(requester.id, total_owners, ownership)
             embed = discord.Embed(
                 title=f"Split Accepted - {team}",
                 description=(
                     f"You are now a co-owner of **{team}** with <@{main_owner_id}> as the main owner.\n"
-                    f"Ownership share: {share} each."
+                    f"Ownership share: {requester_share or format_share_percent(total_owners)}."
                 ),
                 colour=discord.Colour.green()
             )
