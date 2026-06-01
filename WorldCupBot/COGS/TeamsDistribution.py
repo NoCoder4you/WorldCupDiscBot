@@ -43,10 +43,36 @@ def format_share_percent(total_owners):
         return f"{int(share)}%"
     return f"{share:.1f}%"
 
-def format_owner_mentions(owner_mentions, share):
+def format_percent_value(value):
+    if value is None:
+        return "N/A"
+    if float(value).is_integer():
+        return f"{int(value)}%"
+    return f"{value:.1f}%"
+
+def format_owner_share_label(owner_id, owners_count, ownership):
+    """Return the same ownership percentage label shown by the web table.
+
+    Custom split percentages stored in players.json are authoritative for the
+    public web page, so reveal embeds should display those values too.
+    """
+    percentages = (ownership or {}).get("percentages")
+    if isinstance(percentages, dict) and percentages:
+        value = percentages.get(str(owner_id))
+        return "" if value is None else format_percent_value(float(value))
+
+    return format_share_percent(owners_count) if owners_count > 1 else ""
+
+def format_owner_mentions(owner_mentions, owners_count, ownership=None):
     if not owner_mentions:
         return "N/A"
-    return ", ".join(f"{mention} ({share})" for mention in owner_mentions)
+
+    formatted = []
+    for owner_id, mention in owner_mentions:
+        share_label = format_owner_share_label(owner_id, owners_count, ownership)
+        suffix = f" ({share_label})" if share_label else ""
+        formatted.append(f"{mention}{suffix}")
+    return ", ".join(formatted)
 
 
 def calculate_teams_left(players, teams):
@@ -480,13 +506,14 @@ class TeamsDistribution(commands.Cog):
             split_with_users = []
             for split_uid in country_to_split_with.get(country, []):
                 split_user_obj = guild.get_member(split_uid) or self.bot.get_user(split_uid)
-                split_with_users.append(split_user_obj.mention if split_user_obj else str(split_uid))
+                split_with_users.append((split_uid, split_user_obj.mention if split_user_obj else str(split_uid)))
             total_owners = 1 + len(split_with_users)
-            share = format_share_percent(total_owners)
-            split_with_value = format_owner_mentions(split_with_users, share)
+            ownership = entry.get("ownership", {}) if isinstance(entry, dict) else {}
+            split_with_value = format_owner_mentions(split_with_users, total_owners, ownership)
             main_value = user.mention if user else pid
-            if split_with_users:
-                main_value = f"{main_value} ({share})"
+            main_share = format_owner_share_label(pid, total_owners, ownership)
+            if main_share:
+                main_value = f"{main_value} ({main_share})"
 
             if should_send_channel:
                 public_embed = discord.Embed(

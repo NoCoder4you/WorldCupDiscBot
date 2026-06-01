@@ -1430,6 +1430,8 @@ def create_public_routes(ctx):
             return jsonify({"ok": False, "error": "bad_request"}), 400
 
         names = _player_names_map(base)
+        requested_percentage = entry.get("requested_percentage")
+        percentages = {}
 
         if action == "accept":
             players_path = _players_path(base)
@@ -1459,6 +1461,9 @@ def create_public_routes(ctx):
             owner_team = ensure_team_entry(owner, team)
             owner_team["ownership"]["main_owner"] = int(owner_id) if owner_id.isdigit() else owner_id
             sw = owner_team["ownership"].get("split_with", [])
+            if not isinstance(sw, list):
+                sw = []
+            existing_split_with = list(sw)
             requester_as_num = int(req_id) if req_id.isdigit() else req_id
             if requester_as_num not in sw:
                 sw.append(requester_as_num)
@@ -1468,6 +1473,24 @@ def create_public_routes(ctx):
             req_team = ensure_team_entry(requester, team)
             req_team["ownership"]["main_owner"] = int(owner_id) if owner_id.isdigit() else owner_id
             req_team["ownership"].setdefault("split_with", [])
+
+            # Store the same custom percentage map that the public web page
+            # displays, then include it in split_requests_log.json below.
+            remaining = 100 / (1 + max(len(existing_split_with), 0))
+            requested_percentage = entry.get("requested_percentage")
+            if requested_percentage is None:
+                requested_percentage = remaining / 2
+            requested_percentage = min(float(requested_percentage), remaining)
+            existing_owner_ids = [owner_id] + [str(oid) for oid in existing_split_with if str(oid) != owner_id]
+            existing_share = (100 - requested_percentage) / len(existing_owner_ids) if existing_owner_ids else 0
+            percentages = {str(existing_owner): existing_share for existing_owner in existing_owner_ids}
+            percentages[str(req_id)] = requested_percentage
+            for pdata in players.values():
+                if not isinstance(pdata, dict):
+                    continue
+                for team_entry in pdata.get("teams", []) or []:
+                    if isinstance(team_entry, dict) and team_entry.get("team") == team:
+                        team_entry.setdefault("ownership", {})["percentages"] = percentages
 
             _json_save(players_path, players)
 
@@ -1480,6 +1503,8 @@ def create_public_routes(ctx):
             "from_username": names.get(req_id, req_id),
             "to_username": names.get(owner_id, owner_id),
             "reason": reason,
+            "requested_percentage": requested_percentage,
+            "percentages": percentages,
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 

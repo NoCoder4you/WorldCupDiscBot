@@ -4,8 +4,11 @@ import pytest
 discord = pytest.importorskip("discord")
 
 from COGS.SplitOwnership import (
+    calculate_effective_split_percentages,
     can_request_split,
     evaluate_split_request_abuse,
+    format_owner_mentions,
+    format_owner_share_label,
     MAX_PENDING_SPLIT_REQUESTS_PER_USER,
     SPLIT_REQUEST_COOLDOWN_SECONDS,
 )
@@ -91,3 +94,36 @@ def test_split_abuse_prevention_allows_request_after_cooldown():
     assert allowed is True
     assert title is None
     assert description is None
+
+
+def test_public_embed_share_labels_follow_stored_percentages():
+    """Discord ownership embeds should mirror the web page's custom split percentages."""
+    ownership = {
+        "main_owner": 200,
+        "split_with": [100],
+        "percentages": {"200": 90, "100": 10},
+    }
+
+    assert format_owner_share_label(200, 2, ownership) == "90%"
+    assert format_owner_mentions([100], 2, ownership) == "<@100> (10%)"
+
+
+def test_public_embed_share_labels_fall_back_to_equal_split_without_percentages():
+    """Legacy ownership data without percentages should keep the old equal-share display."""
+    ownership = {"main_owner": 200, "split_with": [100]}
+
+    assert format_owner_share_label(200, 2, ownership) == "50%"
+    assert format_owner_mentions([100], 2, ownership) == "<@100> (50%)"
+
+
+def test_effective_split_percentages_match_logged_and_persisted_share():
+    """Accepted split logging should use the same percentage map written to ownership data."""
+    requested_share, percentages = calculate_effective_split_percentages(
+        200,
+        [300],
+        100,
+        {"requested_percentage": 10},
+    )
+
+    assert requested_share == 10.0
+    assert percentages == {"200": 45.0, "300": 45.0, "100": 10.0}

@@ -181,6 +181,12 @@ def test_split_requests_respond_accept_updates_players_and_history(client, app):
     brazil_requester_row = next(t for t in requester_teams if t["team"] == "Brazil")
     assert brazil_requester_row["ownership"]["main_owner"] == 200
 
+    # Accepted web splits should persist and log the exact percentage map shown by the website.
+    assert brazil_owner_row["ownership"]["percentages"] == {"200": 75.0, "100": 25.0}
+    log_after = json.loads((json_dir / "split_requests_log.json").read_text(encoding="utf-8"))
+    assert log_after[-1]["requested_percentage"] == 25.0
+    assert log_after[-1]["percentages"] == {"200": 75.0, "100": 25.0}
+
 
 def test_split_requests_respond_forbidden_for_non_owner(client, app):
     """Only the receiving main owner can resolve a split request via web API."""
