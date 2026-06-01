@@ -516,6 +516,17 @@ def test_world_map_stage_label_uses_stage_not_ownership():
     assert "stageEl.textContent  = 'Ownership: ' + (stage || '-');" not in app_js
 
 
+def test_world_map_prize_share_uses_ownership_percentages():
+    """World map prize share should mirror the Ownership page percentage data."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "function formatMapPrizeShare(ownerIds, percentages, ownersCount)" in app_js
+    assert "ownership ? ownership.percentages : {}" in app_js
+    assert "percentages: row.percentages || {}" in app_js
+    assert "Object.prototype.hasOwnProperty.call(shareMap, id)" in app_js
+    assert "Older ownership records may not have a percentages map" in app_js
+
+
 def test_world_map_tooltip_avoids_edge_clipping():
     """World map hover tooltip should be viewport-positioned and not inherit panel card styles."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
