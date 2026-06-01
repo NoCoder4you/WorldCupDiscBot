@@ -2982,7 +2982,7 @@ function renderPublicSplitHistory(rows, verifiedMap) {
     const id = ev.id ?? ev.request_id ?? '';
     const team = ev.team || ev.country || ev.country_name || '-';
     const fromId = ev.requester_id ?? ev.from_id ?? ev.from;
-    const toId = ev.main_owner_id ?? ev.to_id ?? ev.to ?? ev.receiver_id;
+    const toId = ev.main_owner_id ?? ev.to_id ?? ev.receiver_id ?? ev.resolved_by ?? ev.main_owner ?? ev.to;
     const fromFallback = ev.from_username || ev.requester_username || ev.from_name || ev.requester_name || ev.from;
     const toFallback = ev.main_owner_username || ev.main_owner_name || ev.main_owner_display_name ||
       ev.to_username || ev.receiver_username || ev.receiver_name || ev.to_name || ev.to_display_name || ev.to;

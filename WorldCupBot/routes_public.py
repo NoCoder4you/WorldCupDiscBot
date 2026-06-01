@@ -1241,7 +1241,46 @@ def create_public_routes(ctx):
                     entry["to"] = entry["to_username"]
         split_log = _json_load(_split_requests_log_path(base), [])
         events = split_log.get("events") if isinstance(split_log, dict) else split_log
-        resolved = events if isinstance(events, list) else []
+        resolved = []
+        if isinstance(events, list):
+            names = _player_names_map(base)
+            for ev in events:
+                if not isinstance(ev, dict):
+                    continue
+
+                # Split history can be written by both the website and the Discord cog.
+                # Normalize the common legacy key variants here so the History table
+                # always receives explicit requester/owner ids plus display names.
+                item = dict(ev)
+                requester_id = str(
+                    ev.get("requester_id")
+                    or ev.get("from_id")
+                    or ev.get("from")
+                    or ""
+                ).strip()
+                owner_id = str(
+                    ev.get("main_owner_id")
+                    or ev.get("to_id")
+                    or ev.get("receiver_id")
+                    or ev.get("resolved_by")
+                    or ev.get("main_owner")
+                    or ev.get("to")
+                    or ""
+                ).strip()
+
+                if requester_id:
+                    item["from_id"] = requester_id
+                    item["from_username"] = item.get("from_username") or names.get(requester_id, requester_id)
+                    item["from"] = item["from_username"]
+                if owner_id:
+                    item["to_id"] = owner_id
+                    item["main_owner_id"] = item.get("main_owner_id") or owner_id
+                    item["to_username"] = item.get("to_username") or names.get(owner_id, owner_id)
+                    item["to"] = item["to_username"]
+                if not item.get("action") and item.get("status"):
+                    item["action"] = item.get("status")
+
+                resolved.append(item)
         data = {"pending": pending, "resolved": resolved}
         return jsonify(data)
 

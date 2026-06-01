@@ -208,6 +208,51 @@ def test_split_requests_respond_forbidden_for_non_owner(client, app):
     assert data["error"] == "forbidden"
 
 
+def test_split_requests_get_normalizes_history_owner_from_resolved_by(client, app):
+    """Resolved split rows should expose the main owner name even for legacy Discord-cog log entries."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    (json_dir / "players.json").write_text(json.dumps({
+        "100": {"display_name": "Siren", "teams": []},
+        "200": {"display_name": "Owner", "teams": []},
+    }), encoding="utf-8")
+    (json_dir / "split_requests_log.json").write_text(json.dumps([
+        {
+            "request_id": "legacy-req",
+            "status": "accepted",
+            "team": "Brazil",
+            "requester_id": 100,
+            "resolved_by": 200,
+            "timestamp": "2026-06-01T13:59:58+00:00",
+        }
+    ]), encoding="utf-8")
+
+    resp = client.get("/api/split_requests")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["pending"] == []
+
+    resolved = data["resolved"]
+    assert len(resolved) == 1
+    row = resolved[0]
+    assert row["action"] == "accepted"
+    assert row["from_id"] == "100"
+    assert row["from_username"] == "Siren"
+    assert row["from"] == "Siren"
+    assert row["to_id"] == "200"
+    assert row["main_owner_id"] == "200"
+    assert row["to_username"] == "Owner"
+    assert row["to"] == "Owner"
+
+
+def test_split_history_renderer_uses_resolved_by_as_owner_fallback():
+    """The browser renderer should understand legacy history rows before API normalization is available."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "ev.receiver_id ?? ev.resolved_by ?? ev.main_owner ?? ev.to" in app_js
+
+
 def test_bot_watcher_handles_maintenance_announcement_commands():
     """Regression guard: runtime command watcher should process maintenance announcements."""
     bot_py = (ROOT / "WorldCupBot" / "bot.py").read_text(encoding="utf-8")

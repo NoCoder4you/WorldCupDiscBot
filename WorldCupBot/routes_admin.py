@@ -1002,7 +1002,7 @@ def create_admin_routes(ctx):
         for ev in events:
             if not isinstance(ev, dict):
                 continue
-            for k in ("requester_id", "main_owner_id", "from_id", "to_id", "from", "to"):
+            for k in ("requester_id", "main_owner_id", "from_id", "to_id", "receiver_id", "resolved_by", "main_owner", "from", "to"):
                 v = ev.get(k)
                 if v:
                     id_bucket.add(str(v))
@@ -1015,13 +1015,27 @@ def create_admin_routes(ctx):
                 continue
             e = dict(ev)
             req_id = str(ev.get("requester_id") or ev.get("from_id") or ev.get("from") or "")
-            own_id = str(ev.get("main_owner_id") or ev.get("to_id") or ev.get("to") or "")
+            own_id = str(
+                ev.get("main_owner_id")
+                or ev.get("to_id")
+                or ev.get("receiver_id")
+                or ev.get("resolved_by")
+                or ev.get("main_owner")
+                or ev.get("to")
+                or ""
+            )
+            # Discord-cog and website history entries have used slightly
+            # different owner fields over time. Keep the admin history response
+            # normalized so older accepted rows still show a TO value.
             e["from_id"] = req_id
             e["to_id"]   = own_id
+            e["main_owner_id"] = e.get("main_owner_id") or own_id
             e["from_username"] = names.get(req_id, req_id)
             e["to_username"]   = names.get(own_id, own_id)
             e["from"] = e["from_username"]
             e["to"]   = e["to_username"]
+            if not e.get("action") and e.get("status"):
+                e["action"] = e.get("status")
             norm.append(e)
 
         try:
