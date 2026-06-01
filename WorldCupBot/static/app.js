@@ -4505,6 +4505,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return clean;
   }
 
+  function formatMapSharePercent(value){
+    // Keep map rendering self-contained so country cards cannot fail when the
+    // ownership table is not initialized on the current page.
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
+    const num = Number(value);
+    return Number.isInteger(num) ? `${num}%` : `${num.toFixed(1)}%`;
+  }
+
   function formatMapPrizeShare(ownerIds, percentages, ownersCount){
     const ids = Array.isArray(ownerIds)
       ? ownerIds.map(id => String(id || '').trim()).filter(Boolean)
@@ -4516,7 +4524,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // The ownership page is the source of truth for custom split percentages,
       // so list shares in the same order: main owner first, then co-owners.
       const explicitParts = ids
-        .map(id => Object.prototype.hasOwnProperty.call(shareMap, id) ? formatOwnershipPercent(shareMap[id]) : '')
+        .map(id => Object.prototype.hasOwnProperty.call(shareMap, id) ? formatMapSharePercent(shareMap[id]) : '')
         .filter(Boolean);
       if (explicitParts.length) return explicitParts.join(' / ');
     }
