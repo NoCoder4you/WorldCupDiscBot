@@ -4505,6 +4505,45 @@ document.addEventListener('DOMContentLoaded', () => {
     return clean;
   }
 
+  function formatMapSharePercent(value){
+    // Keep map rendering self-contained so country cards cannot fail when the
+    // ownership table is not initialized on the current page.
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return '';
+    const num = Number(value);
+    return Number.isInteger(num) ? `${num}%` : `${num.toFixed(1)}%`;
+  }
+
+  function formatMapPrizeShare(ownerIds, percentages, ownersCount){
+    const ids = Array.isArray(ownerIds)
+      ? ownerIds.map(id => String(id || '').trim()).filter(Boolean)
+      : [];
+    const shareMap = percentages && typeof percentages === 'object' ? percentages : {};
+    const hasExplicitShares = Object.keys(shareMap).length > 0;
+
+    if (hasExplicitShares && ids.length) {
+      // The ownership page is the source of truth for custom split percentages,
+      // so list shares in the same order: main owner first, then co-owners.
+      const explicitParts = ids
+        .map(id => Object.prototype.hasOwnProperty.call(shareMap, id) ? formatMapSharePercent(shareMap[id]) : '')
+        .filter(Boolean);
+      if (explicitParts.length) return explicitParts.join(' / ');
+    }
+
+    const count = Number(ownersCount || ids.length || 0);
+    if (count <= 0) return '';
+
+    // Older ownership records may not have a percentages map. Keep the legacy
+    // even-split display only as a fallback for those records.
+    const base = Math.floor(100 / count);
+    const rem  = 100 - base * count;
+    const parts = [];
+    for (let i = 0; i < count; i++) {
+      const v = base + (i < rem ? 1 : 0);
+      parts.push(`${v}%`);
+    }
+    return parts.join(' / ');
+  }
+
   function classifyCountries(svg, teamIso, merged, teamMeta, selfTeams, teamStages, fixtures){
     const rows       = (merged && merged.rows) || [];
     const teamIsoMap = teamIso || {};
@@ -4600,7 +4639,12 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (isSelf && status === 'owned') status = 'self';
 
-      const stateObj = { status, main: row.main_owner, splits: row.split_with };
+      const stateObj = {
+        status,
+        main: row.main_owner,
+        splits: row.split_with,
+        percentages: row.percentages || {}
+      };
 
       if (!teamState[team]) teamState[team] = stateObj;
       if (!teamState[norm]) teamState[norm] = stateObj;
@@ -4749,6 +4793,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       
       const ownerNames = [];
+      const ownerShareIds = [];
       let mainName = '';
       let coNames  = '';
 
@@ -4758,9 +4803,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (main && main.username) {
           mainName = main.username;
           ownerNames.push(main.username);
+          if (main.id) ownerShareIds.push(main.id);
         }
         if (splits && splits.length) {
-          const sNames = splits.map(s => s && s.username).filter(Boolean);
+          const sNames = [];
+          splits.forEach(s => {
+            if (!s || !s.username) return;
+            sNames.push(s.username);
+            if (s.id) ownerShareIds.push(s.id);
+          });
           if (sNames.length) {
             coNames = sNames.join(', ');
             ownerNames.push(...sNames);
@@ -4771,18 +4822,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const ownersText  = ownerNames.length ? ownerNames.join(', ') : 'Unassigned';
       const ownersCount = ownerNames.length;
 
-      
-      let prizeShare = '';
-      if (ownersCount > 0) {
-        const base = Math.floor(100 / ownersCount);
-        const rem  = 100 - base * ownersCount;
-        const parts = [];
-        for (let i = 0; i < ownersCount; i++) {
-          const v = base + (i < rem ? 1 : 0);
-          parts.push(`${v}%`);
-        }
-        prizeShare = parts.join(' / ');
-      }
+      const prizeShare = formatMapPrizeShare(
+        ownerShareIds,
+        ownership ? ownership.percentages : {},
+        ownersCount
+      );
 
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
