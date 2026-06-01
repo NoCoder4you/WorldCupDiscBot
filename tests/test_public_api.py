@@ -478,6 +478,22 @@ def test_world_map_tooltip_avoids_edge_clipping():
     assert "window.innerWidth" in app_js
     assert "window.innerHeight" in app_js
 
+
+def test_reassign_modal_uses_typeahead_player_picker():
+    """Ownership reassignment should let admins type to narrow known players."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert 'id="reassign-picker"' in index_html
+    assert 'role="combobox"' in index_html
+    assert 'placeholder="Type a player name..."' in index_html
+    assert "picker.addEventListener('input'" in app_js
+    assert 'label.includes(needle)' in app_js
+    assert "li.textContent = 'No matching players';" in app_js
+    assert '#reassign-picker::placeholder' in style_css
+
+
 def test_bets_page_exposes_claim_button_flow():
     """Bets page should keep an explicit claim action in the web table UI."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")

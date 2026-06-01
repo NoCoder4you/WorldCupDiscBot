@@ -708,11 +708,18 @@
                   <label for="reassign-team">Team</label>
                   <input id="reassign-team" type="text" readonly>
 
-                    <label>Pick known player</label>
+                    <label for="reassign-picker">Pick known player</label>
                     <div class="select-dark" id="verified-select">
-                      <button type="button" id="reassign-picker" aria-haspopup="listbox" aria-expanded="false">
-                        -- Select a player --
-                      </button>
+                      <input
+                        id="reassign-picker"
+                        type="text"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-controls="reassign-options"
+                        aria-expanded="false"
+                        autocomplete="off"
+                        placeholder="Type a player name..."
+                      >
                       <ul id="reassign-options" role="listbox" tabindex="-1" hidden></ul>
                     </div>
 
