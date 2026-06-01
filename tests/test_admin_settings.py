@@ -266,3 +266,35 @@ def test_admin_ownership_reassign_removes_new_owner_from_split_list(tmp_path):
     assert players["400"]["teams"] == [
         {"team": "Brazil", "ownership": {"main_owner": "300", "split_with": []}}
     ]
+
+
+def test_admin_split_history_normalizes_owner_from_resolved_by(tmp_path):
+    """Admin history should show the TO owner for legacy Discord-cog split logs."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "verified.json").write_text(json.dumps({
+        "verified_users": [
+            {"discord_id": "100", "display_name": "Siren"},
+            {"discord_id": "200", "display_name": "Owner"},
+        ]
+    }), encoding="utf-8")
+    (json_dir / "split_requests_log.json").write_text(json.dumps([
+        {
+            "request_id": "legacy-req",
+            "status": "accepted",
+            "team": "Brazil",
+            "requester_id": 100,
+            "resolved_by": 200,
+            "timestamp": "2026-06-01T13:59:58+00:00",
+        }
+    ]), encoding="utf-8")
+
+    resp = client.get("/admin/splits/history")
+    assert resp.status_code == 200
+    events = resp.get_json()["events"]
+    assert len(events) == 1
+    row = events[0]
+    assert row["action"] == "accepted"
+    assert row["from"] == "Siren"
+    assert row["to"] == "Owner"
+    assert row["to_id"] == "200"
+    assert row["main_owner_id"] == "200"
