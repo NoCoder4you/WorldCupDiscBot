@@ -1463,7 +1463,9 @@ function formatOwnershipPercent(value) {
         const splitStr = (row.split_with && row.split_with.length)
           ? row.split_with.map(s => {
               const splitShare = getShareLabel(s.id);
-              return splitShare ? `${s.username || s.id} (${splitShare})` : `${s.username || s.id}`;
+              const splitName = `${s.username || s.id}`;
+              // Match the main-owner percentage treatment by muting split percentages too.
+              return splitShare ? `${splitName} <span class="muted">(${splitShare})</span>` : splitName;
             }).join(', ')
           : '-';
 
