@@ -398,12 +398,32 @@
     `;
   }
 
+  const normalizeUtcKickoff = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    // Match data is stored as UTC; append Z when older fixtures omit an
+    // explicit timezone so browser parsing does not treat them as local time.
+    return /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw) ? raw : `${raw}Z`;
+  };
+
   const formatMatchTime = (isoString) => {
+    const utcIso = normalizeUtcKickoff(isoString);
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime;
     if (typeof formatter === 'function') {
-      return formatter(isoString || '');
+      return formatter(utcIso);
     }
-    return (isoString || '').replace('T', ' ').replace('Z', ' UTC');
+
+    const date = new Date(utcIso);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleString([], {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    }
+    return utcIso.replace('T', ' ').replace(/Z$/i, '');
   };
 
   const matchRows = (matches || []).map(m => {
@@ -428,7 +448,7 @@
         <div class="card-title">Upcoming Matches</div>
         ${
           matchRows
-            ? `<table class="table"><thead><tr><th>When (UTC)</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
+            ? `<table class="table"><thead><tr><th>When</th><th>Home</th><th>Away</th><th>Stadium</th></tr></thead><tbody>${matchRows}</tbody></table>`
             : `<p class="muted">No upcoming matches found for your teams.</p>`
         }
       </div>
@@ -565,6 +585,9 @@
       const a = e.target.closest('a[data-page="user"]');
       if(a){ setTimeout(refreshUser, 50); }
     });
+    // Re-render match times immediately after the user changes their preferred
+    // timezone in Settings so this page stays in sync without a full refresh.
+    window.addEventListener('timezonechange', refreshUser);
     if($userPage.classList.contains('active-section')){
       refreshUser();
     }
