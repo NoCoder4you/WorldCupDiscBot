@@ -594,6 +594,41 @@ def test_fixtures_only_include_matches_within_next_48_hours_for_public(client, a
 
 
 
+def test_fixtures_include_results_query_keeps_scored_past_and_undated_matches(client, app):
+    """Results view should receive saved scores after fixtures leave the upcoming window."""
+    import datetime
+
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    past = (now - datetime.timedelta(hours=12)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    outside = (now + datetime.timedelta(hours=72)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+    (json_dir / "matches.json").write_text(json.dumps([
+        {"id": "past-result", "home": "USA", "away": "Canada", "utc": past, "home_score": 2, "away_score": 1},
+        {"id": "undated-result", "home": "France", "away": "Germany", "home_score": 0, "away_score": 0},
+        {"id": "hidden-future", "home": "Spain", "away": "Brazil", "utc": outside},
+    ]), encoding="utf-8")
+
+    resp = client.get("/api/fixtures?include_results=1")
+    assert resp.status_code == 200
+    fixtures = resp.get_json()["fixtures"]
+
+    assert [fixture["id"] for fixture in fixtures] == ["past-result", "undated-result"]
+    assert fixtures[0]["home_score"] == 2
+    assert fixtures[0]["away_score"] == 1
+    assert fixtures[1]["home_score"] == 0
+    assert fixtures[1]["away_score"] == 0
+
+
+def test_results_panel_requests_completed_fixture_scores():
+    """The Results panel must opt into completed scores from the fixture API."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "fetchJSON('/api/fixtures?include_results=1')" in app_js
+
+
 def test_fixtures_include_all_query_returns_future_matches_beyond_48_hours(client, app):
     """include_all=1 should expose all future fixtures for world-map next-match rendering."""
     import datetime

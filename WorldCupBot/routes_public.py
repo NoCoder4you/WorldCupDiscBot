@@ -2393,8 +2393,11 @@ def create_public_routes(ctx):
         wants_admin_view = str(request.args.get("admin_view") or "").strip() in ("1", "true", "yes", "on")
         # `include_all=1` is used by the world map panel so it can compute each
         # country's true next fixture even when kickoff is beyond the fan-zone
-        # 48-hour public window.
+        # 48-hour public window. `include_results=1` keeps scored matches in the
+        # response so the Results panel does not lose a result immediately after
+        # an admin saves it merely because kickoff is past or has no valid time.
         wants_full_public_list = str(request.args.get("include_all") or "").strip() in ("1", "true", "yes", "on")
+        wants_completed_results = str(request.args.get("include_results") or "").strip() in ("1", "true", "yes", "on")
         allow_full_fixture_list = wants_admin_view and real_uid and _is_admin(base, real_uid)
 
         fixtures = []
@@ -2446,13 +2449,18 @@ def create_public_routes(ctx):
                     except Exception:
                         start_dt = None
 
+                has_result = home_score is not None and away_score is not None
                 if not allow_full_fixture_list:
-                    if not start_dt:
-                        continue
-                    if start_dt < now_utc:
-                        continue
-                    if not wants_full_public_list and start_dt > visibility_cutoff:
-                        continue
+                    # Scored fixtures are safe to retain when explicitly requested:
+                    # they are historical results, not hidden future schedule data.
+                    include_completed = wants_completed_results and has_result
+                    if not include_completed:
+                        if not start_dt:
+                            continue
+                        if start_dt < now_utc:
+                            continue
+                        if not wants_full_public_list and start_dt > visibility_cutoff:
+                            continue
 
                 fixtures.append({
                     "id": mid,

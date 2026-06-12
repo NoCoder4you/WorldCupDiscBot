@@ -6585,7 +6585,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeGroup = String(groupSel?.value || 'ALL').toUpperCase();
     try {
       const [fx, st, wn, bs, iso, meta] = await Promise.all([
-        fetchJSON('/api/fixtures'),
+        // Keep completed scores available even after their fixture leaves the
+        // normal 48-hour upcoming-match window.
+        fetchJSON('/api/fixtures?include_results=1'),
         fetchJSON('/api/team_stage'),
         fetchJSON('/api/fanzone/winners'),
         fetchJSON('/api/bracket_slots'),
