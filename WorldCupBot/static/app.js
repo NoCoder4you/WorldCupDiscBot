@@ -5769,10 +5769,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const home = String(f.home || '').trim();
       const away = String(f.away || '').trim();
       if (!home || !away) return;
-      const winnerRec = winnersMap?.[f.id] || null;
-      let winnerSide = String(winnerRec?.winner_side || winnerRec?.winner || '').toLowerCase();
+      // Winner records can be keyed as `1`, `Match 1`, or the fixture's exact id.
+      // Use the shared resolver so the Last 5 form agrees with Match Picks and
+      // knockout progression regardless of which supported key format was saved.
+      const winnerSide = winnerSideForFixture(f, winnersMap);
 
-      if (winnerSide !== 'home' && winnerSide !== 'away' && winnerSide !== 'draw') return;
+      if (!winnerSide) return;
 
       const homeRec = rec.get(home) || { w: 0, d: 0, l: 0, form: [] };
       const awayRec = rec.get(away) || { w: 0, d: 0, l: 0, form: [] };
