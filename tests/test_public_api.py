@@ -645,3 +645,19 @@ def test_fixtures_admin_view_overrides_48_hour_window(client, app):
     assert data["ok"] is True
     assert data["admin_override"] is True
     assert [f["id"] for f in data["fixtures"]] == ["out-window"]
+
+
+def test_fixture_form_uses_declared_winner_key_resolver():
+    """Last-5 form should find declarations saved under supported match-id aliases."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+
+    compute_records = app_js[
+        app_js.index("  function computeRecords(fixtures, winnersMap){"):
+        app_js.index("  function recordBar(rec){")
+    ]
+    assert "const winnerSide = winnerSideForFixture(f, winnersMap);" in compute_records
+    assert "winnersMap?.[f.id]" not in compute_records
+
+    # The shared resolver accepts the alternate keys emitted by legacy and
+    # current fixture feeds, preventing a declared result from rendering empty.
+    assert "candidateKeys.push(String(matchNo), `Match ${matchNo}`);" in app_js
