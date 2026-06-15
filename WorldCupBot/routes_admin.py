@@ -1593,6 +1593,7 @@ def create_admin_routes(ctx):
 
         container, fixtures, key = _load_matches_payload()
         updated = False
+        matched_fixture = None
         for fixture in fixtures:
             if not isinstance(fixture, dict):
                 continue
@@ -1602,6 +1603,7 @@ def create_admin_routes(ctx):
             fixture["home_score"] = home_score
             fixture["away_score"] = away_score
             updated = True
+            matched_fixture = fixture
             break
 
         if not updated:
@@ -1614,11 +1616,28 @@ def create_admin_routes(ctx):
                 container[key] = fixtures
             _write_json_atomic(_matches_path(ctx), container)
 
+        # Saving the score must run the complete Match Picks settlement flow,
+        # not just publish an embed. The shared helper locks voting, snapshots
+        # picks, updates leaderboards, and sends owner/voter notifications.
+        winner_side = "draw"
+        if home_score > away_score:
+            winner_side = "home"
+        elif away_score > home_score:
+            winner_side = "away"
+        settlement = _apply_fanzone_declaration(
+            matched_fixture or {},
+            match_id,
+            winner_side,
+        )
+
         return jsonify({
             "ok": True,
             "id": match_id,
             "home_score": home_score,
             "away_score": away_score,
+            "winner_side": winner_side,
+            "winner_team": settlement["winner_team"],
+            "loser_team": settlement["loser_team"],
         })
 
     @bp.post("/admin/bracket_slots")
@@ -2311,161 +2330,100 @@ def create_admin_routes(ctx):
                     container[key] = fixtures
                 _write_json_atomic(_matches_path(ctx), container)
 
-    @bp.post("/admin/fanzone/declare")
-    def fanzone_declare_winner():
-        resp = require_admin()
-        if resp is not None:
-            return resp
+    def _apply_fanzone_declaration(f: dict, fixture_id: str, side: str, winner_iso: str = ""):
+        """Settle Match Picks and return the data exposed by the admin endpoint.
 
-        body = request.get_json(silent=True) or {}
+        Both the legacy declaration endpoint and the fixture score form use this
+        helper so voting locks, snapshots, leaderboards, and notifications can
+        never drift from the official score.
+        """
+        home = str(f.get("home") or f.get("home_team") or f.get("team1") or "").strip()
+        away = str(f.get("away") or f.get("away_team") or f.get("team2") or "").strip()
+        utc = str(f.get("utc") or f.get("time") or "").strip()
+        if side not in ("home", "away", "draw"):
+            raise ValueError("invalid_winner")
 
-        # Accept either match_id or fixture_id from the panel
-        match_id = str(body.get('match_id') or body.get('fixture_id') or '').strip()
-        if not match_id:
-            return jsonify({'ok': False, 'error': 'missing_match_id'}), 400
+        winner_team = home if side == "home" else away if side == "away" else "Draw"
+        loser_team = away if side == "home" else home if side == "away" else ""
+        derived_id = _fanzone_fixture_id_from_fixture({"home": home, "away": away, "utc": utc})
+        alias_ids = [derived_id] if derived_id and derived_id != fixture_id else []
+        declared_at = int(time.time())
 
-        f = _find_fixture_any(match_id)
-        if not f:
-            return jsonify({'ok': False, 'error': 'fixture_not_found'}), 404
-
-        home = str(f.get('home') or f.get('home_team') or f.get('team1') or '').strip()
-        away = str(f.get('away') or f.get('away_team') or f.get('team2') or '').strip()
-        utc = str(f.get('utc') or f.get('time') or '').strip()
-
-        fixture_id = match_id
-
-        derived_id = _fanzone_fixture_id_from_fixture({'home': home, 'away': away, 'utc': utc})
-        alias_ids = []
-        if derived_id and derived_id != fixture_id:
-            alias_ids.append(derived_id)
-
-        # Winner can be provided as side (home|away) or as team name.
-        side = str(body.get('winner') or '').strip().lower()  # 'home' | 'away' | 'draw'
-        winner_team_in = str(body.get('winner_team') or body.get('winnerTeam') or '').strip()
-        winner_iso_in = str(body.get('winner_iso') or body.get('winnerIso') or '').strip().lower()
-
-        clear = bool(body.get('clear'))
-
-        winner_team = ''
-        loser_team = ''
-
-        if clear:
-            winner_team = ''
-            loser_team = ''
-        elif side in ('home', 'away'):
-            winner_team = home if side == 'home' else away
-            loser_team = away if side == 'home' else home
-        elif side == 'draw':
-            winner_team = 'Draw'
-            loser_team = ''
-        elif winner_team_in:
-            if winner_team_in.lower() == home.lower():
-                winner_team = home
-                loser_team = away
-                side = 'home'
-            elif winner_team_in.lower() == away.lower():
-                winner_team = away
-                loser_team = home
-                side = 'away'
-            else:
-                return jsonify({'ok': False, 'error': 'invalid_winner_team'}), 400
-        else:
-            return jsonify({'ok': False, 'error': 'invalid_winner'}), 400
-
-        # Save winner record + lock voting (JSON path matches routes_public.py)
-        winners_path = _path(ctx, 'fan_winners.json')
+        winners_path = _path(ctx, "fan_winners.json")
         winners = _read_json(winners_path, {})
         if not isinstance(winners, dict):
             winners = {}
-
-        if clear:
-            winners.pop(fixture_id, None)
-            for aid in alias_ids:
-                winners.pop(aid, None)
-            _write_json_atomic(winners_path, winners)
-            log.info("Fan zone winner cleared by %s (fixture_id=%s)", _user_label(), fixture_id)
-            return jsonify({'ok': True, 'cleared': True, 'fixture_id': fixture_id})
-
         rec = {
-            'fixture_id': fixture_id,
-            'home': home,
-            'away': away,
-            'utc': utc,
-            'winner': side,  # <- your public stats endpoint reads this
-            'winner_side': side,
-            'winner_team': winner_team,
-            'winner_iso': winner_iso_in,
-            'ts': int(time.time())
+            "fixture_id": fixture_id,
+            "home": home,
+            "away": away,
+            "utc": utc,
+            "winner": side,
+            "winner_side": side,
+            "winner_team": winner_team,
+            "winner_iso": winner_iso,
+            "ts": declared_at,
         }
-
         winners[fixture_id] = rec
-        for aid in alias_ids:
-            winners[aid] = rec  # alias lock
+        for alias_id in alias_ids:
+            winners[alias_id] = rec
         _write_json_atomic(winners_path, winners)
         _auto_create_progression_matches()
 
-        # Snapshot votes at declare-time for fairness/audit
-        votes_path = _fanzone_votes_path(ctx)
-        votes_blob = _read_json(votes_path, {'fixtures': {}})
+        votes_blob = _read_json(_fanzone_votes_path(ctx), {"fixtures": {}})
         if not isinstance(votes_blob, dict):
-            votes_blob = {'fixtures': {}}
-
-        fixtures_votes = votes_blob.get('fixtures') or {}
+            votes_blob = {"fixtures": {}}
+        fixtures_votes = votes_blob.get("fixtures") or {}
         if not isinstance(fixtures_votes, dict):
             fixtures_votes = {}
-
-        fx = fixtures_votes.get(fixture_id, {})
-        if not isinstance(fx, dict) and alias_ids:
-            for aid in alias_ids:
-                fx = fixtures_votes.get(aid, {})
-                if isinstance(fx, dict):
+        fixture_votes = fixtures_votes.get(fixture_id, {})
+        if not isinstance(fixture_votes, dict):
+            for alias_id in alias_ids:
+                fixture_votes = fixtures_votes.get(alias_id, {})
+                if isinstance(fixture_votes, dict):
                     break
-        if not isinstance(fx, dict):
-            fx = {}
+        if not isinstance(fixture_votes, dict):
+            fixture_votes = {}
 
-        home_votes = int(fx.get('home') or 0)
-        away_votes = int(fx.get('away') or 0)
-        draw_votes = int(fx.get('draw') or 0)
+        home_votes = int(fixture_votes.get("home") or 0)
+        away_votes = int(fixture_votes.get("away") or 0)
+        draw_votes = int(fixture_votes.get("draw") or 0)
         total_votes = max(0, home_votes + away_votes + draw_votes)
-
-        # Match voters are stored as a single `voters` map keyed by Discord ID.
-        voters = fx.get('voters')
+        voters = fixture_votes.get("voters")
         if not isinstance(voters, dict):
             voters = {}
 
-        snapshots_path = _path(ctx, 'fan_vote_snapshots.json')
-        snap_blob = _read_json(snapshots_path, {'fixtures': {}})
-        if not isinstance(snap_blob, dict):
-            snap_blob = {'fixtures': {}}
-
-        snap_fixtures = snap_blob.setdefault('fixtures', {})
-        if not isinstance(snap_fixtures, dict):
-            snap_fixtures = {}
-            snap_blob['fixtures'] = snap_fixtures
-
-        snap_fixtures[fixture_id] = {
-            'fixture_id': fixture_id,
-            'home': home,
-            'away': away,
-            'utc': utc,
-            'winner_side': side,
-            'winner_team': winner_team,
-            'loser_team': loser_team,
-            'declared_at': int(time.time()),
-            'home_votes': home_votes,
-            'away_votes': away_votes,
-            'draw_votes': draw_votes,
-            'total': total_votes
+        snapshots_path = _path(ctx, "fan_vote_snapshots.json")
+        snapshots = _read_json(snapshots_path, {"fixtures": {}})
+        if not isinstance(snapshots, dict):
+            snapshots = {"fixtures": {}}
+        snapshot_fixtures = snapshots.setdefault("fixtures", {})
+        if not isinstance(snapshot_fixtures, dict):
+            snapshot_fixtures = {}
+            snapshots["fixtures"] = snapshot_fixtures
+        snapshot_fixtures[fixture_id] = {
+            "fixture_id": fixture_id,
+            "home": home,
+            "away": away,
+            "utc": utc,
+            "winner_side": side,
+            "winner_team": winner_team,
+            "loser_team": loser_team,
+            "declared_at": declared_at,
+            "home_votes": home_votes,
+            "away_votes": away_votes,
+            "draw_votes": draw_votes,
+            "total": total_votes,
         }
-        _write_json_atomic(snapshots_path, snap_blob)
+        _write_json_atomic(snapshots_path, snapshots)
 
-        # Determine owners for DM + site notifications
-        winner_owner_ids = _owners_for_team(ctx, winner_team) if side in ('home', 'away') else []
-        loser_owner_ids = _owners_for_team(ctx, loser_team) if side in ('home', 'away') else []
+        winner_owner_ids = _owners_for_team(ctx, winner_team) if side in ("home", "away") else []
+        loser_owner_ids = _owners_for_team(ctx, loser_team) if side in ("home", "away") else []
         draw_owner_ids = []
-        if side == 'draw':
-            draw_owner_ids = _owners_for_team(ctx, home) + _owners_for_team(ctx, away)
-            draw_owner_ids = list(dict.fromkeys(draw_owner_ids))
+        if side == "draw":
+            draw_owner_ids = list(dict.fromkeys(
+                _owners_for_team(ctx, home) + _owners_for_team(ctx, away)
+            ))
         dm_winner_owner_ids = _filter_notification_ids(ctx, winner_owner_ids, "dms", "matches")
         dm_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "dms", "matches")
         dm_draw_owner_ids = _filter_notification_ids(ctx, draw_owner_ids, "dms", "matches")
@@ -2473,67 +2431,115 @@ def create_admin_routes(ctx):
         bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell", "matches")
         bell_draw_owner_ids = _filter_notification_ids(ctx, draw_owner_ids, "bell", "matches")
 
-        # Queue bot announcement + DMs
-        cfg = _read_json(_path(ctx, 'config.json'), {})
+        cfg = _read_json(_path(ctx, "config.json"), {})
         channel_name = _resolve_fanzone_channel(f, home, away)
         if not channel_name:
-            channel_name = str(cfg.get('FANZONE_CHANNEL_NAME') or cfg.get('FANZONE_CHANNEL') or 'fanzone')
-
-        _enqueue_command(ctx, 'fanzone_winner', {
-            'fixture_id': fixture_id,
-            'home': home,
-            'away': away,
-            'utc': utc,
-            'group': str(f.get('group') or ''),
-            'stage': str(f.get('stage') or f.get('round') or f.get('phase') or ''),
-            'winner_side': side,
-            'winner_team': winner_team,
-            'loser_team': loser_team,
-            'winner_iso': winner_iso_in,
-            'loser_iso': '',
-            'winner_owner_ids': dm_winner_owner_ids,
-            'loser_owner_ids': dm_loser_owner_ids,
-            'draw_owner_ids': dm_draw_owner_ids,
-            'channel': channel_name,
-            'home_votes': home_votes,
-            'away_votes': away_votes,
-            'draw_votes': draw_votes,
-            'total_votes': total_votes
+            channel_name = str(cfg.get("FANZONE_CHANNEL_NAME") or cfg.get("FANZONE_CHANNEL") or "fanzone")
+        _enqueue_command(ctx, "fanzone_winner", {
+            "fixture_id": fixture_id,
+            "home": home,
+            "away": away,
+            "utc": utc,
+            "group": str(f.get("group") or ""),
+            "stage": str(f.get("stage") or f.get("round") or f.get("phase") or ""),
+            "winner_side": side,
+            "winner_team": winner_team,
+            "loser_team": loser_team,
+            "winner_iso": winner_iso,
+            "loser_iso": "",
+            "winner_owner_ids": dm_winner_owner_ids,
+            "loser_owner_ids": dm_loser_owner_ids,
+            "draw_owner_ids": dm_draw_owner_ids,
+            "channel": channel_name,
+            "home_score": f.get("home_score"),
+            "away_score": f.get("away_score"),
+            "home_votes": home_votes,
+            "away_votes": away_votes,
+            "draw_votes": draw_votes,
+            "total_votes": total_votes,
         })
 
-        # Website bell notifications
-        if side in ('home', 'away'):
-            _append_fanzone_results(bell_winner_owner_ids, 'win', home, away, winner_team, loser_team, fixture_id)
-            _append_fanzone_results(bell_loser_owner_ids, 'lose', home, away, winner_team, loser_team, fixture_id)
-        elif side == 'draw':
-            _append_fanzone_results(bell_draw_owner_ids, 'draw', home, away, winner_team, loser_team, fixture_id)
-        _append_fanzone_vote_results(_filter_notification_voters(ctx, voters, "matches"), side, winner_team, fixture_id, int(time.time()))
-
-        log.info(
-            "Fan zone winner declared by %s (fixture_id=%s winner_side=%s winner_team=%s home_votes=%s away_votes=%s draw_votes=%s)",
-            _user_label(),
-            fixture_id,
+        if side in ("home", "away"):
+            _append_fanzone_results(bell_winner_owner_ids, "win", home, away, winner_team, loser_team, fixture_id)
+            _append_fanzone_results(bell_loser_owner_ids, "lose", home, away, winner_team, loser_team, fixture_id)
+        else:
+            _append_fanzone_results(bell_draw_owner_ids, "draw", home, away, winner_team, loser_team, fixture_id)
+        _append_fanzone_vote_results(
+            _filter_notification_voters(ctx, voters, "matches"),
             side,
             winner_team,
-            home_votes,
-            away_votes,
-            draw_votes,
+            fixture_id,
+            declared_at,
         )
 
-        return jsonify({
-            'ok': True,
-            'fixture_id': fixture_id,
-            'winner_side': side,
-            'winner_team': winner_team,
-            'loser_team': loser_team,
-            'winner_owner_ids': winner_owner_ids,
-            'loser_owner_ids': loser_owner_ids,
-            'home_votes': home_votes,
-            'away_votes': away_votes,
-            'draw_votes': draw_votes,
-            'total_votes': total_votes
-        })
+        log.info(
+            "Fan zone result settled by %s (fixture_id=%s winner_side=%s winner_team=%s home_votes=%s away_votes=%s draw_votes=%s)",
+            _user_label(), fixture_id, side, winner_team, home_votes, away_votes, draw_votes,
+        )
+        return {
+            "ok": True,
+            "fixture_id": fixture_id,
+            "winner_side": side,
+            "winner_team": winner_team,
+            "loser_team": loser_team,
+            "winner_owner_ids": winner_owner_ids,
+            "loser_owner_ids": loser_owner_ids,
+            "home_votes": home_votes,
+            "away_votes": away_votes,
+            "draw_votes": draw_votes,
+            "total_votes": total_votes,
+        }
 
+    @bp.post("/admin/fanzone/declare")
+    def fanzone_declare_winner():
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("match_id") or body.get("fixture_id") or "").strip()
+        if not match_id:
+            return jsonify({"ok": False, "error": "missing_match_id"}), 400
+        fixture = _find_fixture_any(match_id)
+        if not fixture:
+            return jsonify({"ok": False, "error": "fixture_not_found"}), 404
+
+        if bool(body.get("clear")):
+            home = str(fixture.get("home") or "").strip()
+            away = str(fixture.get("away") or "").strip()
+            utc = str(fixture.get("utc") or fixture.get("time") or "").strip()
+            derived_id = _fanzone_fixture_id_from_fixture({"home": home, "away": away, "utc": utc})
+            winners_path = _path(ctx, "fan_winners.json")
+            winners = _read_json(winners_path, {})
+            if not isinstance(winners, dict):
+                winners = {}
+            winners.pop(match_id, None)
+            if derived_id:
+                winners.pop(derived_id, None)
+            _write_json_atomic(winners_path, winners)
+            return jsonify({"ok": True, "cleared": True, "fixture_id": match_id})
+
+        side = str(body.get("winner") or "").strip().lower()
+        winner_team = str(body.get("winner_team") or body.get("winnerTeam") or "").strip()
+        home = str(fixture.get("home") or "").strip()
+        away = str(fixture.get("away") or "").strip()
+        if side not in ("home", "away", "draw") and winner_team:
+            if winner_team.lower() == home.lower():
+                side = "home"
+            elif winner_team.lower() == away.lower():
+                side = "away"
+            else:
+                return jsonify({"ok": False, "error": "invalid_winner_team"}), 400
+        if side not in ("home", "away", "draw"):
+            return jsonify({"ok": False, "error": "invalid_winner"}), 400
+
+        result = _apply_fanzone_declaration(
+            fixture,
+            match_id,
+            side,
+            str(body.get("winner_iso") or body.get("winnerIso") or "").strip().lower(),
+        )
+        return jsonify(result)
 
     return bp
 log = logging.getLogger("launcher")

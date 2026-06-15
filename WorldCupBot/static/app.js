@@ -6124,8 +6124,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function winnerSideForFixture(fixture, winnersMap) {
-    // Knockout auto-progression should be controlled by declared Match Picks winners.
-    // Do not infer winners from scorelines here.
+    // A saved score is the source of truth for form and bracket progression.
+    // This keeps one admin action ("Add result") responsible for win/loss/draw.
+    const homeScore = parseScore(fixture?.home_score);
+    const awayScore = parseScore(fixture?.away_score);
+    if (homeScore !== null && awayScore !== null) {
+      if (homeScore > awayScore) return 'home';
+      if (awayScore > homeScore) return 'away';
+      return 'draw';
+    }
+
+    // Keep legacy declarations readable until every historical fixture has a
+    // score, but never let one override an explicitly saved result.
     if (!winnersMap || typeof winnersMap !== 'object') return '';
     const fid = String(fixture?.id || '').trim();
     const matchNo = parseMatchNumber(fid);
@@ -7269,20 +7279,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const lockedClass = isLocked ? 'locked' : '';
     const winnerClass = isLocked ? `winner-${winner}` : '';
 
-    const adminControls = (isAdminUI()) ? `
-      <span class="fan-win-wrap" data-admin="true">
-        <button class="btn xs fan-win" type="button" data-side="home" data-team="${f.home}" data-iso="${f.home_iso || ''}">
-          Declare ${f.home}
-        </button>
-        <button class="btn xs fan-win" type="button" data-side="draw">
-          Declare Draw
-        </button>
-        <button class="btn xs fan-win" type="button" data-side="away" data-team="${f.away}" data-iso="${f.away_iso || ''}">
-          Declare ${f.away}
-        </button>
-      </span>
-    ` : '';
-
     return `
       <div class="fan-card ${votedClass} ${lockedClass} ${winnerClass}" data-fid="${f.id}" data-utc="${escAttr(f.utc || '')}" data-group="${escAttr(f._group || '')}" data-teams="${escAttr(`${f.home} ${f.away}`)}" data-home="${escAttr(f.home)}" data-away="${escAttr(f.away)}" data-winner="${isLocked ? winner : ''}">
         <div class="fan-head">
@@ -7331,7 +7327,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="fan-foot">
           <span class="muted">Total votes: <strong class="fan-total">${total}</strong></span>
           ${last ? `<span class="pill pill-ok">You voted: ${last === 'home' ? f.home : last === 'away' ? f.away : 'Draw'}</span>` : ''}
-          ${adminControls}
         </div>
       </div>
     `;
