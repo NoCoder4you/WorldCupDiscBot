@@ -1110,6 +1110,8 @@ function stagePill(stage){
     const winnerSide = document.getElementById('quick-winner-side');
     const picker = document.getElementById('quick-option-picker');
     const confirmation = document.getElementById('quick-full-time-confirm');
+    const backButton = document.getElementById('quick-full-time-back');
+    const submitButton = document.getElementById('quick-full-time-submit');
     const countryOptions = document.getElementById('quick-country-options');
     if (!backdrop || !modal || !countryOptions) return;
     let liveStats = [];
@@ -1130,6 +1132,8 @@ function stagePill(stage){
     if (status) status.textContent = '';
     if (picker) picker.hidden = false;
     if (confirmation) confirmation.hidden = true;
+    if (backButton) backButton.hidden = true;
+    if (submitButton) submitButton.hidden = true;
     countryOptions.innerHTML = [quickAnnouncementFixture.home, quickAnnouncementFixture.away].map((country) => `
       <button class="quick-country-option" type="button" data-country="${esc(country)}">
         ${flagHTML(country)} <span>${esc(country)}</span>
@@ -1150,6 +1154,8 @@ function stagePill(stage){
     if (eventType === 'full_time') {
       document.getElementById('quick-option-picker').hidden = true;
       document.getElementById('quick-full-time-confirm').hidden = false;
+      document.getElementById('quick-full-time-back').hidden = false;
+      document.getElementById('quick-full-time-submit').hidden = false;
       updateQuickFinalStats();
       return;
     }
@@ -1245,7 +1251,11 @@ function stagePill(stage){
     const openButton = event.target.closest('.dashboard-quick-announce');
     if (openButton) openQuickAnnouncementModal(openButton);
     if (event.target.id === 'dashboard-live-refresh') loadDashboardLiveGames();
-    if (event.target.id === 'quick-announce-close' || event.target.id === 'quick-announce-backdrop') {
+    if (
+      event.target.id === 'quick-announce-close'
+      || event.target.id === 'quick-announce-cancel'
+      || event.target.id === 'quick-announce-backdrop'
+    ) {
       closeQuickAnnouncementModal();
     }
     const eventButton = event.target.closest('.quick-event');
@@ -1260,6 +1270,8 @@ function stagePill(stage){
     if (event.target.id === 'quick-full-time-back') {
       document.getElementById('quick-option-picker').hidden = false;
       document.getElementById('quick-full-time-confirm').hidden = true;
+      event.target.hidden = true;
+      document.getElementById('quick-full-time-submit').hidden = true;
     }
     if (event.target.id === 'quick-full-time-submit') confirmQuickFullTime(event.target);
   });

@@ -153,14 +153,12 @@
           <div id="quick-announce-backdrop" class="quick-announce-backdrop" style="display:none;">
               <div id="quick-announce-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="quick-announce-title" tabindex="-1">
                   <div class="modal-head">
-                      <div>
-                          <h3 id="quick-announce-title">Match Options</h3>
-                          <div id="quick-announce-match" class="card-subtext"></div>
-                      </div>
+                      <h3 id="quick-announce-title">Match Options</h3>
                       <button class="modal-close" id="quick-announce-close" aria-label="Close">×</button>
                   </div>
                   <div class="modal-body">
                       <div id="quick-option-picker">
+                          <div id="quick-announce-match" class="quick-match-name"></div>
                           <div class="quick-step-label">Country</div>
                           <div id="quick-country-options" class="quick-country-options"></div>
                           <div class="quick-step-label">Action</div>
@@ -201,12 +199,13 @@
                               <div><span>Yellow Cards</span><strong id="quick-yellow-cards">0–0</strong></div>
                               <div><span>Red Cards</span><strong id="quick-red-cards">0–0</strong></div>
                           </div>
-                          <div class="modal-foot">
-                              <button id="quick-full-time-back" class="btn btn-outline" type="button">Back</button>
-                              <button id="quick-full-time-submit" class="btn quick-full-time-submit" type="button">Confirm Full Time</button>
-                          </div>
                       </div>
                       <div id="quick-announce-status" class="settings-status" aria-live="polite"></div>
+                  </div>
+                  <div class="modal-foot">
+                      <button id="quick-announce-cancel" class="btn btn-outline" type="button">Cancel</button>
+                      <button id="quick-full-time-back" class="btn btn-outline" type="button" hidden>Back</button>
+                      <button id="quick-full-time-submit" class="btn quick-full-time-submit" type="button" hidden>Confirm Full Time</button>
                   </div>
               </div>
           </div>

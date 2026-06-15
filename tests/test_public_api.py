@@ -562,6 +562,7 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     """Dashboard match controls should use structured options without duplicate cards."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
     index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
 
     assert index_html.count('id="dashboard-live-games"') == 1
     assert index_html.count('id="dashboard-live-refresh"') == 1
@@ -572,6 +573,9 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert 'id="quick-final-score"' in index_html
     assert 'id="quick-yellow-cards"' in index_html
     assert 'id="quick-red-cards"' in index_html
+    assert 'id="quick-announce-cancel"' in index_html
+    assert '#quick-announce-modal .modal-foot' in style_css
+    assert 'width: min(92vw, 520px);' in style_css
     assert "elapsed <= QUICK_MATCH_WINDOW_MS || !fixture.completed" in app_js
 
 
