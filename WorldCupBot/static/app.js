@@ -4410,6 +4410,129 @@ async function getCogStatus(name){
     if($start) $start.onclick=async()=>{ try{ await postAdmin('start'); notify('Start requested'); await loadDash(); }catch(e){ notify(`Start failed: ${e.message}`, false);} };
   }
 
+  const TABLES_CACHE_KEY = 'wc:standings';
+  const tablesState = { filter: 'ALL', data: null, loading: null, filtersWired: false };
+
+  function readTablesCache(){
+    try {
+      const cached = JSON.parse(localStorage.getItem(TABLES_CACHE_KEY) || 'null');
+      return cached && Array.isArray(cached.groups) ? cached : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeTablesCache(data){
+    try { localStorage.setItem(TABLES_CACHE_KEY, JSON.stringify({ ...data, cached_at: Date.now() })); } catch {}
+  }
+
+  function standingsFlagHTML(country){
+    const code = resolveIsoCode(country);
+    if (!code) return '<span class="standings-flag-placeholder" aria-hidden="true"></span>';
+    const safeCode = esc(String(code).toLowerCase());
+    const safeName = esc(country);
+    const fallback = esc(codeToEmoji(code));
+    return `<img class="flag-img" src="https://flagcdn.com/24x18/${safeCode}.png" alt="${safeName} flag"
+      onerror="this.replaceWith(document.createTextNode('${fallback}'));">`;
+  }
+
+  function renderTables(){
+    const grid = document.getElementById('tables-grid');
+    const status = document.getElementById('tables-status');
+    if (!grid || !status) return;
+    const groups = Array.isArray(tablesState.data?.groups) ? tablesState.data.groups : [];
+    const visible = tablesState.filter === 'ALL'
+      ? groups : groups.filter((entry) => entry?.group === tablesState.filter);
+    grid.classList.toggle('single-group', tablesState.filter !== 'ALL');
+    if (!visible.length) {
+      grid.textContent = '';
+      status.textContent = groups.length ? `No data is available for Group ${tablesState.filter}.` : 'No group data available.';
+      return;
+    }
+    grid.innerHTML = visible.map((entry) => {
+      const group = String(entry?.group || '').toUpperCase();
+      const teams = Array.isArray(entry?.teams) ? entry.teams : [];
+      if (!/^[A-L]$/.test(group) || teams.length !== 4) {
+        return `<article class="standings-card standings-card-error"><div class="standings-kicker">World Cup</div>
+          <h2>Group ${esc(group || '?')}</h2><p class="muted">This group's data is malformed.</p></article>`;
+      }
+      const rows = teams.map((team, index) => {
+        const name = String(team?.team || '');
+        const gd = Number(team?.gd) || 0;
+        return `<tr><td class="standings-position">${index + 1}</td>
+          <th scope="row" class="standings-team">${standingsFlagHTML(name)}<span>${esc(name)}</span></th>
+          <td>${Number(team?.mp) || 0}</td><td>${Number(team?.w) || 0}</td>
+          <td>${Number(team?.d) || 0}</td><td>${Number(team?.l) || 0}</td>
+          <td>${gd > 0 ? `+${gd}` : gd}</td><td class="standings-points">${Number(team?.pts) || 0}</td></tr>`;
+      }).join('');
+      return `<article class="standings-card"><header class="standings-head">
+          <div class="standings-kicker">World Cup</div><h2>Group ${esc(group)}</h2></header>
+        <div class="standings-table-scroll"><table class="standings-table">
+          <thead><tr><th class="visually-hidden" scope="col">Position</th><th scope="col">Team</th>
+          <th scope="col">MP</th><th scope="col">W</th><th scope="col">D</th><th scope="col">L</th>
+          <th scope="col">GD</th><th scope="col">Pts</th></tr></thead><tbody>${rows}</tbody>
+        </table></div></article>`;
+    }).join('');
+    const completed = Number(tablesState.data?.completed_matches) || 0;
+    const errors = Array.isArray(tablesState.data?.errors) ? tablesState.data.errors : [];
+    status.textContent = errors.length ? `Showing available standings. ${errors.join(' ')}`
+      : completed ? `${completed} completed group-stage match${completed === 1 ? '' : 'es'} included.`
+      : 'No completed results yet. All teams start on zero points.';
+  }
+
+  function setTablesFilter(group){
+    tablesState.filter = /^[A-L]$/.test(group) ? group : 'ALL';
+    document.querySelectorAll('[data-tables-group]').forEach((button) => {
+      const selected = button.dataset.tablesGroup === tablesState.filter;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+    renderTables();
+  }
+
+  function wireTablesFilters(){
+    const filters = document.getElementById('tables-filters');
+    if (!filters || tablesState.filtersWired) return;
+    tablesState.filtersWired = true;
+    filters.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-tables-group]');
+      if (button) setTablesFilter(button.dataset.tablesGroup || 'ALL');
+    });
+  }
+
+  async function loadTables(){
+    wireTablesFilters();
+    const status = document.getElementById('tables-status');
+    const cached = tablesState.data || readTablesCache();
+    if (cached) {
+      tablesState.data = cached;
+      renderTables();
+    } else if (status) {
+      status.textContent = 'Loading standings…';
+    }
+    if (tablesState.loading) return tablesState.loading;
+    tablesState.loading = (async () => {
+      try {
+        const [data] = await Promise.all([fetchJSON('/api/standings'), ensureTeamIsoLoaded()]);
+        if (!data || !Array.isArray(data.groups)) throw new Error('Malformed standings response');
+        tablesState.data = data;
+        writeTablesCache(data);
+        renderTables();
+      } catch (error) {
+        if (cached) {
+          tablesState.data = cached;
+          renderTables();
+          if (status) status.textContent = `Unable to refresh standings. Showing cached data. ${error.message}`;
+        } else if (status) {
+          status.textContent = `Failed to load standings: ${error.message}`;
+        }
+      } finally {
+        tablesState.loading = null;
+      }
+    })();
+    return tablesState.loading;
+  }
+
   async function routePage(){
     switch(state.currentPage){
       case 'dashboard':
@@ -4417,6 +4540,7 @@ async function getCogStatus(name){
         break;
       case 'bets': await loadAndRenderBets(); break;
       case 'ownership': await loadOwnershipPage(); break;
+      case 'tables': await loadTables(); break;
       case 'settings': await loadSettings(); break;
       case 'splits': await loadSplits(); break;
       case 'backups': if(isAdminUI()) await loadBackups(); else setPage('dashboard'); break;
