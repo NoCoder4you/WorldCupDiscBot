@@ -262,7 +262,7 @@ class FanZoneAnnouncer(commands.Cog):
         home_score = int(data.get("home_score") or 0)
         away_score = int(data.get("away_score") or 0)
         embed = discord.Embed(
-            title=f"{icons.get(event_type, '📣')} - {label}{title_timing}",
+            title=f"{icons.get(event_type, '📣')} {label}{title_timing}",
             color=colors.get(event_type, discord.Color.blurple()),
         )
         # The title communicates the action, so the body only needs the current
