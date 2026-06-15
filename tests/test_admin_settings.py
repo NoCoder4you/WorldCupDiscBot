@@ -527,6 +527,34 @@ def test_admin_tied_fixture_result_accepts_penalty_winner(tmp_path):
     assert winners["M97"]["winner_team"] == "Canada"
 
 
+def test_admin_tied_fixture_result_derives_winner_from_penalty_score(tmp_path):
+    """A shootout score should determine the advancing side without manual input."""
+    client, json_dir = _build_admin_client(tmp_path)
+    matches_path = json_dir / "matches.json"
+    matches_path.write_text(
+        json.dumps([{"id": "M97", "home": "USA", "away": "Canada", "stage": "Quarter-finals"}]),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={
+            "match_id": "M97",
+            "home_score": 1,
+            "away_score": 1,
+            "home_penalties": 4,
+            "away_penalties": 5,
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["winner_side"] == "away"
+    stored = json.loads(matches_path.read_text(encoding="utf-8"))
+    assert stored[0]["winner_side"] == "away"
+    assert stored[0]["home_penalties"] == 4
+    assert stored[0]["away_penalties"] == 5
+
+
 def test_admin_fixture_result_rejects_penalty_winner_for_non_tied_score(tmp_path):
     """A shootout winner must not conflict with a decisive official score."""
     client, json_dir = _build_admin_client(tmp_path)

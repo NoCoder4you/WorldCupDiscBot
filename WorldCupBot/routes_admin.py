@@ -1737,7 +1737,12 @@ def create_admin_routes(ctx):
         if requested_winner_side and home_score != away_score:
             return jsonify({"ok": False, "error": "winner_side_requires_tied_score"}), 400
         home_penalties = away_penalties = None
-        if requested_winner_side and home_penalties_raw not in (None, "") and away_penalties_raw not in (None, ""):
+        penalties_supplied = home_penalties_raw not in (None, "") or away_penalties_raw not in (None, "")
+        if penalties_supplied:
+            if home_score != away_score:
+                return jsonify({"ok": False, "error": "penalty_score_requires_tied_score"}), 400
+            if home_penalties_raw in (None, "") or away_penalties_raw in (None, ""):
+                return jsonify({"ok": False, "error": "invalid_penalty_score"}), 400
             try:
                 home_penalties = int(str(home_penalties_raw).strip())
                 away_penalties = int(str(away_penalties_raw).strip())
@@ -1746,8 +1751,11 @@ def create_admin_routes(ctx):
             if home_penalties < 0 or away_penalties < 0 or home_penalties == away_penalties:
                 return jsonify({"ok": False, "error": "invalid_penalty_score"}), 400
             penalty_winner = "home" if home_penalties > away_penalties else "away"
-            if penalty_winner != requested_winner_side:
+            if requested_winner_side and penalty_winner != requested_winner_side:
                 return jsonify({"ok": False, "error": "penalty_score_winner_mismatch"}), 400
+            # The shootout score is authoritative, removing the need for a
+            # separate manual winner control in result-entry interfaces.
+            requested_winner_side = penalty_winner
 
         # Resolve the final outcome before touching storage so we can compare
         # it with an existing settlement and make repeat saves idempotent.

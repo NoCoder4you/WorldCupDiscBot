@@ -894,14 +894,19 @@ def test_quick_full_time_uses_live_score_and_only_offers_knockout_penalties():
         index_html.index('id="quick-announce-status"')
     ]
 
-    assert "<span>Penalties</span>" in modal_html
-    assert "Winner after penalties" not in modal_html
+    assert 'id="quick-winner-side"' not in modal_html
+    assert 'id="quick-home-penalties"' in modal_html
+    assert 'id="quick-away-penalties"' in modal_html
     assert 'data-stage="${esc(fixture.stage || \'\')}"' in app_js
     assert "Math.max(quickAnnouncementFixture.homeScore, announcedHomeGoals)" in app_js
     assert "const allowPenalties = isTied && isKnockout;" in app_js
-    assert "if (penaltyWinner) penaltyWinner.hidden = !allowPenalties;" in app_js
-    assert ".quick-score-grid .quick-penalty-winner" in style_css
-    assert "grid-column: 1 / -1;" in style_css
+    assert "field.hidden = !allowPenalties;" in app_js
+    assert "The larger penalty score determines the winner automatically." in app_js
+    assert "winner_side: winnerSide" not in app_js[
+        app_js.index("  async function confirmQuickFullTime"):
+        app_js.index("  document.addEventListener('click'", app_js.index("  async function confirmQuickFullTime"))
+    ]
+    assert ".quick-score-grid .quick-penalty-score" in style_css
 
 
 def test_quick_event_success_uses_toast_without_inline_confirmation():
