@@ -1479,9 +1479,82 @@ def create_admin_routes(ctx):
                 "home": home,
                 "away": away,
                 "utc": utc,
+                "group": str(fixture.get("group") or "").strip().upper(),
+                "stage": str(
+                    fixture.get("stage")
+                    or fixture.get("round")
+                    or fixture.get("phase")
+                    or fixture.get("tournament_stage")
+                    or ""
+                ).strip(),
+                "completed": fixture.get("home_score") is not None and fixture.get("away_score") is not None,
                 "winner_side": str(fixture.get("winner_side") or "").strip().lower(),
             })
         return jsonify({"ok": True, "fixtures": out})
+
+    @bp.post("/admin/fixtures/quick-announce")
+    def admin_fixture_quick_announce():
+        """Queue a staff-written live-match update for the fixture's dedicated channel."""
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("match_id") or "").strip()
+        event_type = str(body.get("event_type") or "").strip().lower()
+        message = str(body.get("message") or "").strip()
+        allowed_events = {
+            "goal": "Goal",
+            "yellow_card": "Yellow Card",
+            "red_card": "Red Card",
+            "half_time": "Half Time",
+        }
+        if not match_id:
+            return jsonify({"ok": False, "error": "missing_match_id"}), 400
+        if event_type not in allowed_events:
+            return jsonify({"ok": False, "error": "invalid_event_type"}), 400
+        if not message:
+            return jsonify({"ok": False, "error": "missing_message"}), 400
+        if len(message) > 1000:
+            return jsonify({"ok": False, "error": "message_too_long"}), 400
+
+        _, fixtures, _ = _load_matches_payload()
+        fixture = next(
+            (
+                item for item in fixtures
+                if isinstance(item, dict)
+                and str(item.get("id") or item.get("fixture_id") or "").strip() == match_id
+            ),
+            None,
+        )
+        if fixture is None:
+            return jsonify({"ok": False, "error": "fixture_not_found"}), 404
+
+        home = str(fixture.get("home") or "").strip()
+        away = str(fixture.get("away") or "").strip()
+        channel = _resolve_fanzone_channel(fixture, home, away)
+        _enqueue_command(ctx, "quick_match_announcement", {
+            "fixture_id": match_id,
+            "home": home,
+            "away": away,
+            "event_type": event_type,
+            "event_label": allowed_events[event_type],
+            "message": message,
+            "channel": channel,
+        })
+        log.info(
+            "Quick match announcement queued by %s (fixture_id=%s event_type=%s channel=%s)",
+            _user_label(),
+            match_id,
+            event_type,
+            channel,
+        )
+        return jsonify({
+            "ok": True,
+            "fixture_id": match_id,
+            "event_type": event_type,
+            "channel": channel,
+        })
 
     @bp.post("/admin/fixtures")
     def admin_fixtures_set():

@@ -62,9 +62,23 @@
 
                   <!-- C -->
                   <div class="card card-c">
-                      <div class="card-title">Bot Process</div>
-                      <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
-                      <div class="card-subtext" id="bot-status-reason"></div>
+                      <!-- Public dashboard keeps the process summary, while the
+                           explicit admin view uses this same center card for
+                           live-match controls instead of adding another row. -->
+                      <div class="dashboard-process-panel">
+                          <div class="card-title">Bot Process</div>
+                          <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
+                          <div class="card-subtext" id="bot-status-reason"></div>
+                      </div>
+                      <div class="dashboard-live-panel admin-only">
+                          <div class="dashboard-live-head">
+                              <div class="card-title">Ongoing Games</div>
+                              <button id="dashboard-live-refresh" class="btn btn-outline sm" type="button">Refresh</button>
+                          </div>
+                          <div id="dashboard-live-games" class="dashboard-live-games">
+                              <div class="muted">Loading ongoing games…</div>
+                          </div>
+                      </div>
                   </div>
 
                   <!-- D - admin-only -->
@@ -133,6 +147,32 @@
               <div class="dashboard-banner" aria-hidden="true">
                   <img src="wc2026banner.png" alt="World Cup 2026 neon stadium banner" loading="lazy">
               </div>
+
+          <!-- Keep the live-update dialog inside the dashboard section so it
+               cannot remain visible after an operator navigates elsewhere. -->
+          <div id="quick-announce-backdrop" class="quick-announce-backdrop" style="display:none;">
+              <div id="quick-announce-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="quick-announce-title" tabindex="-1">
+                  <div class="modal-head">
+                      <div>
+                          <h3 id="quick-announce-title">Quick Match Update</h3>
+                          <div id="quick-announce-match" class="card-subtext"></div>
+                      </div>
+                      <button class="modal-close" id="quick-announce-close" aria-label="Close">×</button>
+                  </div>
+                  <div class="modal-body">
+                      <label for="quick-announce-message">Announcement details</label>
+                      <textarea id="quick-announce-message" rows="4" maxlength="1000" placeholder="e.g. 23' Lionel Messi scores — Argentina lead 1–0."></textarea>
+                      <div class="hint">Choose an event below to send this message immediately.</div>
+                      <div class="quick-announce-options">
+                          <button class="btn quick-event goal" data-event-type="goal" type="button">⚽ Goal</button>
+                          <button class="btn quick-event yellow" data-event-type="yellow_card" type="button">🟨 Yellow Card</button>
+                          <button class="btn quick-event red" data-event-type="red_card" type="button">🟥 Red Card</button>
+                          <button class="btn quick-event half-time" data-event-type="half_time" type="button">⏸ Half Time</button>
+                      </div>
+                      <div id="quick-announce-status" class="settings-status" aria-live="polite"></div>
+                  </div>
+              </div>
+          </div>
           </section>
 
           <!-- LOGS -->
