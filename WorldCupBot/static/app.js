@@ -1081,6 +1081,7 @@ function stagePill(stage){
               data-fixture-id="${esc(fixture.id)}"
               data-home="${esc(fixture.home)}"
               data-away="${esc(fixture.away)}"
+              data-stage="${esc(fixture.stage || '')}"
               data-home-score="${esc(fixture.home_score ?? 0)}"
               data-away-score="${esc(fixture.away_score ?? 0)}"
               data-live-stats="${esc(JSON.stringify(fixture.live_stats || []))}">Options</button>
@@ -1123,6 +1124,9 @@ function stagePill(stage){
       id: String(button.dataset.fixtureId || ''),
       home: String(button.dataset.home || ''),
       away: String(button.dataset.away || ''),
+      stage: String(button.dataset.stage || ''),
+      homeScore: Number.parseInt(button.dataset.homeScore || '0', 10) || 0,
+      awayScore: Number.parseInt(button.dataset.awayScore || '0', 10) || 0,
       selectedCountry: '',
       liveStats
     };
@@ -1131,8 +1135,8 @@ function stagePill(stage){
     if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
     if (homePenaltiesLabel) homePenaltiesLabel.textContent = `${quickAnnouncementFixture.home} penalties`;
     if (awayPenaltiesLabel) awayPenaltiesLabel.textContent = `${quickAnnouncementFixture.away} penalties`;
-    if (homeScore) homeScore.value = String(button.dataset.homeScore || '0');
-    if (awayScore) awayScore.value = String(button.dataset.awayScore || '0');
+    if (homeScore) homeScore.value = String(quickAnnouncementFixture.homeScore);
+    if (awayScore) awayScore.value = String(quickAnnouncementFixture.awayScore);
     if (winnerSide) winnerSide.value = '';
     document.getElementById('quick-home-penalties').value = '';
     document.getElementById('quick-away-penalties').value = '';
@@ -1164,9 +1168,17 @@ function stagePill(stage){
     if (!quickAnnouncementFixture?.id) return;
 
     if (eventType === 'full_time') {
-      // Preserve the fixture score loaded with the Options button. Live event
-      // logs may be partial or may predate structured country metadata, so
-      // deriving a score from them could silently submit an incorrect result.
+      // Quick goal announcements are the bot's freshest score information.
+      // Prefer their totals when present, while retaining a fixture score that
+      // may have been supplied by another live-score source.
+      const goalCount = (country) => (quickAnnouncementFixture.liveStats || [])
+        .filter((stat) => stat.event_type === 'goal' && stat.country === country).length;
+      const announcedHomeGoals = goalCount(quickAnnouncementFixture.home);
+      const announcedAwayGoals = goalCount(quickAnnouncementFixture.away);
+      document.getElementById('quick-home-score').value =
+        String(Math.max(quickAnnouncementFixture.homeScore, announcedHomeGoals));
+      document.getElementById('quick-away-score').value =
+        String(Math.max(quickAnnouncementFixture.awayScore, announcedAwayGoals));
       document.getElementById('quick-option-picker').hidden = true;
       document.getElementById('quick-full-time-confirm').hidden = false;
       document.getElementById('quick-full-time-back').hidden = false;
@@ -1191,7 +1203,7 @@ function stagePill(stage){
     }
     const buttons = document.querySelectorAll('.quick-event');
     buttons.forEach((item) => { item.disabled = true; });
-    if (status) status.textContent = 'Saving match event…';
+    if (status) status.textContent = '';
     try {
       const response = await fetch('/admin/fixtures/quick-announce', {
         method: 'POST',
@@ -1209,7 +1221,8 @@ function stagePill(stage){
       quickAnnouncementFixture.liveStats = data.live_stats || quickAnnouncementFixture.liveStats;
       const savedFor = country ? ` for ${country}` : '';
       notify(`${data.event_type.replaceAll('_', ' ')} saved${savedFor}`, true);
-      if (status) status.textContent = 'Event saved and queued.';
+      // Successful actions use the toast; reserve this inline area for errors.
+      if (status) status.textContent = '';
       document.getElementById('quick-event-time').value = '';
     } catch (error) {
       if (status) status.textContent = `Unable to save: ${error.message}`;
@@ -1224,11 +1237,16 @@ function stagePill(stage){
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
     const winnerSide = document.getElementById('quick-winner-side');
     const isTied = homeScore === awayScore;
-    if (!isTied && winnerSide) winnerSide.value = '';
-    if (winnerSide) winnerSide.disabled = !isTied;
+    const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
+      || quickAnnouncementFixture?.stage || '';
+    const isKnockout = Boolean(stage) && stage !== 'Group Stage';
+    const allowPenalties = isTied && isKnockout;
+    const penaltyWinner = document.querySelector('.quick-penalty-winner');
+    if (!allowPenalties && winnerSide) winnerSide.value = '';
+    if (penaltyWinner) penaltyWinner.hidden = !allowPenalties;
     // Shootout scores are only relevant after an operator selects a penalty
     // winner; hiding them for "Not applicable" keeps the form unambiguous.
-    const showPenaltyScores = isTied && Boolean(winnerSide?.value);
+    const showPenaltyScores = allowPenalties && Boolean(winnerSide?.value);
     document.querySelectorAll('.quick-penalty-score').forEach((field) => {
       field.hidden = !showPenaltyScores;
     });
@@ -1261,7 +1279,7 @@ function stagePill(stage){
         return;
       }
       button.disabled = true;
-      if (status) status.textContent = 'Saving result and posting full time…';
+      if (status) status.textContent = '';
       try {
         const data = await fetchJSON('/admin/fixtures/result', {
           method: 'POST',

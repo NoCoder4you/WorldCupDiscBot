@@ -686,8 +686,8 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert "eventType === 'half_time' ? '' : quickAnnouncementFixture.selectedCountry" in app_js
     assert "async function openQuickAnnouncementModal(button)" in app_js
     assert "await ensureTeamIsoLoaded();" in app_js
-    assert "const goalCount = (country)" not in app_js
-    assert "deriving a score from them could silently submit an incorrect result" in app_js
+    assert "const goalCount = (country)" in app_js
+    assert "Quick goal announcements are the bot's freshest score information." in app_js
     assert "elapsed <= QUICK_MATCH_WINDOW_MS || !fixture.completed" in app_js
 
 
@@ -882,3 +882,33 @@ def test_result_form_submits_separate_penalty_winner_side():
     assert '<option value="away">Away team advances</option>' in index_html
     assert "winner_side: winnerSide" in app_js
     assert "A penalty shootout winner can only be selected when the score is tied." in app_js
+
+
+def test_quick_full_time_uses_live_score_and_only_offers_knockout_penalties():
+    """The dashboard result modal should reflect bot events and valid shootouts."""
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+    modal_html = index_html[
+        index_html.index('id="quick-full-time-confirm"'):
+        index_html.index('id="quick-announce-status"')
+    ]
+
+    assert "<span>Penalties</span>" in modal_html
+    assert "Winner after penalties" not in modal_html
+    assert 'data-stage="${esc(fixture.stage || \'\')}"' in app_js
+    assert "Math.max(quickAnnouncementFixture.homeScore, announcedHomeGoals)" in app_js
+    assert "const allowPenalties = isTied && isKnockout;" in app_js
+    assert "if (penaltyWinner) penaltyWinner.hidden = !allowPenalties;" in app_js
+    assert ".quick-score-grid .quick-penalty-winner" in style_css
+    assert "grid-column: 1 / -1;" in style_css
+
+
+def test_quick_event_success_uses_toast_without_inline_confirmation():
+    """Inline quick-event status text is reserved for actionable errors."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "Event saved and queued." not in app_js
+    assert "Saving match event…" not in app_js
+    assert "Saving result and posting full time…" not in app_js
+    assert "if (status) status.textContent = '';" in app_js
