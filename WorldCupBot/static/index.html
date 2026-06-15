@@ -174,12 +174,31 @@
                   <div class="modal-body">
                       <label for="quick-announce-message">Announcement details</label>
                       <textarea id="quick-announce-message" rows="4" maxlength="1000" placeholder="e.g. 23' Lionel Messi scores — Argentina lead 1–0."></textarea>
+                      <div class="quick-score-grid">
+                          <label>
+                              <span id="quick-home-label">Home score</span>
+                              <input id="quick-home-score" type="number" min="0" step="1" value="0">
+                          </label>
+                          <label>
+                              <span id="quick-away-label">Away score</span>
+                              <input id="quick-away-score" type="number" min="0" step="1" value="0">
+                          </label>
+                          <label>
+                              <span>Winner after penalties</span>
+                              <select id="quick-winner-side" class="select-dark">
+                                  <option value="">Not applicable</option>
+                                  <option value="home">Home team</option>
+                                  <option value="away">Away team</option>
+                              </select>
+                          </label>
+                      </div>
                       <div class="hint">Choose an event below to send this message immediately.</div>
                       <div class="quick-announce-options">
                           <button class="btn quick-event goal" data-event-type="goal" type="button">⚽ Goal</button>
                           <button class="btn quick-event yellow" data-event-type="yellow_card" type="button">🟨 Yellow Card</button>
                           <button class="btn quick-event red" data-event-type="red_card" type="button">🟥 Red Card</button>
                           <button class="btn quick-event half-time" data-event-type="half_time" type="button">⏸ Half Time</button>
+                          <button class="btn quick-event full-time" data-event-type="full_time" type="button">🏁 Full Time</button>
                       </div>
                       <div id="quick-announce-status" class="settings-status" aria-live="polite"></div>
                   </div>
@@ -500,9 +519,6 @@
                           </button>
                           <button id="fixtures-edit-slot" class="btn btn-outline sm admin-only" type="button">
                               Edit bracket slot
-                          </button>
-                          <button id="fixtures-add-result" class="btn btn-outline sm admin-only" type="button">
-                              Add result
                           </button>
                           <button id="fixtures-refresh" class="btn sm">Refresh</button>
                       </div>

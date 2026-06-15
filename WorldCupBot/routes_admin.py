@@ -1487,7 +1487,10 @@ def create_admin_routes(ctx):
                     or fixture.get("tournament_stage")
                     or ""
                 ).strip(),
+                "home_score": fixture.get("home_score"),
+                "away_score": fixture.get("away_score"),
                 "completed": fixture.get("home_score") is not None and fixture.get("away_score") is not None,
+                "live_stats": fixture.get("live_stats") if isinstance(fixture.get("live_stats"), list) else [],
                 "winner_side": str(fixture.get("winner_side") or "").strip().lower(),
             })
         return jsonify({"ok": True, "fixtures": out})
@@ -1518,7 +1521,7 @@ def create_admin_routes(ctx):
         if len(message) > 1000:
             return jsonify({"ok": False, "error": "message_too_long"}), 400
 
-        _, fixtures, _ = _load_matches_payload()
+        container, fixtures, key = _load_matches_payload()
         fixture = next(
             (
                 item for item in fixtures
@@ -1533,6 +1536,22 @@ def create_admin_routes(ctx):
         home = str(fixture.get("home") or "").strip()
         away = str(fixture.get("away") or "").strip()
         channel = _resolve_fanzone_channel(fixture, home, away)
+        live_stats = fixture.get("live_stats")
+        if not isinstance(live_stats, list):
+            live_stats = []
+        live_stats.append({
+            "event_type": event_type,
+            "label": allowed_events[event_type],
+            "message": message,
+            "ts": int(time.time()),
+        })
+        fixture["live_stats"] = live_stats[-100:]
+        if container is None:
+            _write_json_atomic(_matches_path(ctx), fixtures)
+        else:
+            if key:
+                container[key] = fixtures
+            _write_json_atomic(_matches_path(ctx), container)
         _enqueue_command(ctx, "quick_match_announcement", {
             "fixture_id": match_id,
             "home": home,
@@ -1541,6 +1560,7 @@ def create_admin_routes(ctx):
             "event_label": allowed_events[event_type],
             "message": message,
             "channel": channel,
+            "live_stats": fixture["live_stats"],
         })
         log.info(
             "Quick match announcement queued by %s (fixture_id=%s event_type=%s channel=%s)",
@@ -1818,6 +1838,11 @@ def create_admin_routes(ctx):
             "winner_side": winner_side,
             "channel": settlement["channel"],
             "corrected": is_correction,
+            "live_stats": (
+                (matched_fixture or {}).get("live_stats")
+                if isinstance((matched_fixture or {}).get("live_stats"), list)
+                else []
+            ),
         })
 
         return jsonify({

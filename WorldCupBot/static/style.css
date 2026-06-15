@@ -445,6 +445,28 @@ body:not(.user-admin-view) .dashboard-live-panel {
     gap: 10px;
 }
 
+.quick-score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.quick-score-grid label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.quick-score-grid input,
+.quick-score-grid select {
+    width: 100%;
+}
+
+.quick-event.full-time {
+    background: #16a34a;
+}
+
 .quick-event.yellow {
     color: #171717;
     background: #facc15;
@@ -465,6 +487,10 @@ body:not(.user-admin-view) .dashboard-live-panel {
     }
 
     .quick-announce-options {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-score-grid {
         grid-template-columns: 1fr;
     }
 }

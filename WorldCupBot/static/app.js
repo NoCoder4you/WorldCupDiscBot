@@ -1080,7 +1080,9 @@ function stagePill(stage){
             <button class="btn sm dashboard-quick-announce" type="button"
               data-fixture-id="${esc(fixture.id)}"
               data-home="${esc(fixture.home)}"
-              data-away="${esc(fixture.away)}">Quick options</button>
+              data-away="${esc(fixture.away)}"
+              data-home-score="${esc(fixture.home_score ?? 0)}"
+              data-away-score="${esc(fixture.away_score ?? 0)}">Quick options</button>
           </div>`;
       }).join('');
     } catch (error) {
@@ -1101,6 +1103,11 @@ function stagePill(stage){
     const match = document.getElementById('quick-announce-match');
     const message = document.getElementById('quick-announce-message');
     const status = document.getElementById('quick-announce-status');
+    const homeScore = document.getElementById('quick-home-score');
+    const awayScore = document.getElementById('quick-away-score');
+    const homeLabel = document.getElementById('quick-home-label');
+    const awayLabel = document.getElementById('quick-away-label');
+    const winnerSide = document.getElementById('quick-winner-side');
     if (!backdrop || !modal || !message) return;
     quickAnnouncementFixture = {
       id: String(button.dataset.fixtureId || ''),
@@ -1108,6 +1115,11 @@ function stagePill(stage){
       away: String(button.dataset.away || '')
     };
     if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
+    if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
+    if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
+    if (homeScore) homeScore.value = String(button.dataset.homeScore || '0');
+    if (awayScore) awayScore.value = String(button.dataset.awayScore || '0');
+    if (winnerSide) winnerSide.value = '';
     if (status) status.textContent = '';
     message.value = '';
     backdrop.style.display = 'flex';
@@ -1123,7 +1135,45 @@ function stagePill(stage){
     const message = document.getElementById('quick-announce-message');
     const status = document.getElementById('quick-announce-status');
     const detail = String(message?.value || '').trim();
-    if (!quickAnnouncementFixture?.id || !detail) {
+    if (!quickAnnouncementFixture?.id) return;
+
+    if (eventType === 'full_time') {
+      const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '', 10);
+      const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '', 10);
+      const winnerSide = String(document.getElementById('quick-winner-side')?.value || '');
+      if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
+        if (status) status.textContent = 'Enter valid non-negative scores before full time.';
+        return;
+      }
+      if (winnerSide && homeScore !== awayScore) {
+        if (status) status.textContent = 'Only select a penalty winner when the score is tied.';
+        return;
+      }
+      button.disabled = true;
+      if (status) status.textContent = 'Saving result and posting full time…';
+      try {
+        const data = await fetchJSON('/admin/fixtures/result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            match_id: quickAnnouncementFixture.id,
+            home_score: homeScore,
+            away_score: awayScore,
+            winner_side: winnerSide
+          })
+        });
+        notify(data?.unchanged ? 'Full-time result already saved' : 'Full-time result posted', true);
+        closeQuickAnnouncementModal();
+        await loadDashboardLiveGames();
+      } catch (error) {
+        if (status) status.textContent = `Unable to save result: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+      return;
+    }
+
+    if (!detail) {
       if (status) status.textContent = 'Enter announcement details before choosing an event.';
       message?.focus();
       return;
@@ -1145,7 +1195,10 @@ function stagePill(stage){
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || `send_failed_${response.status}`);
       notify(`Update queued for #${data.channel}`, true);
-      closeQuickAnnouncementModal();
+      // Keep the selected match open so staff can record several events in
+      // quick succession without finding the fixture again.
+      if (message) message.value = '';
+      if (status) status.textContent = `${data.event_type.replaceAll('_', ' ')} saved and queued.`;
     } catch (error) {
       if (status) status.textContent = `Unable to send: ${error.message}`;
       button?.focus();

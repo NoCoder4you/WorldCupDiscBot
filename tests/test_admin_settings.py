@@ -231,6 +231,13 @@ def test_quick_match_announcement_uses_group_channel(tmp_path):
     assert command["data"]["message"] == "23' Argentina score and lead 1–0."
     assert command["data"]["channel"] == "group-j"
 
+    stored = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
+    assert len(stored[0]["live_stats"]) == 1
+    assert stored[0]["live_stats"][0]["event_type"] == "goal"
+    assert stored[0]["live_stats"][0]["label"] == "Goal"
+    assert stored[0]["live_stats"][0]["message"] == "23' Argentina score and lead 1–0."
+    assert isinstance(stored[0]["live_stats"][0]["ts"], int)
+
 
 def test_quick_match_announcement_uses_knockout_channel(tmp_path):
     """Knockout updates should use the dedicated channel mapped from their stage."""
@@ -280,6 +287,49 @@ def test_quick_match_announcement_validates_event_and_message(tmp_path):
     assert invalid_event.get_json()["error"] == "invalid_event_type"
     assert blank_message.status_code == 400
     assert blank_message.get_json()["error"] == "missing_message"
+
+
+def test_full_time_result_command_includes_persisted_live_stats(tmp_path):
+    """Full time should automatically attach recorded events to the result embed payload."""
+    client, json_dir = _build_admin_client(tmp_path)
+    live_stats = [
+        {
+            "event_type": "goal",
+            "label": "Goal",
+            "message": "12' Team A opened the scoring.",
+            "ts": 100,
+        },
+        {
+            "event_type": "yellow_card",
+            "label": "Yellow Card",
+            "message": "44' Booking for Team B.",
+            "ts": 200,
+        },
+    ]
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M20",
+            "home": "Team A",
+            "away": "Team B",
+            "group": "A",
+            "live_stats": live_stats,
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M20", "home_score": 2, "away_score": 1},
+    )
+
+    assert response.status_code == 200
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    result_command = next(command for command in commands if command["kind"] == "fixture_result")
+    assert result_command["data"]["live_stats"] == live_stats
 
 
 def test_admin_fixture_result_correction_replaces_events_without_owner_dms(tmp_path):

@@ -178,6 +178,7 @@ class FanZoneAnnouncer(commands.Cog):
         home_score: int,
         away_score: int,
         winner_side: str = "",
+        live_stats: list | None = None,
     ):
         """Build the official score embed sent to the fixture's Discord channel."""
         side = str(winner_side or "").strip().lower()
@@ -205,6 +206,17 @@ class FanZoneAnnouncer(commands.Cog):
             ),
             color=color,
         )
+        stats_lines = []
+        for stat in live_stats or []:
+            if not isinstance(stat, dict):
+                continue
+            label = str(stat.get("label") or "Update").strip()
+            message = str(stat.get("message") or "").strip()
+            if message:
+                stats_lines.append(f"**{label}:** {message}")
+        if stats_lines:
+            # Discord embed fields are limited to 1024 characters.
+            embed.add_field(name="Match Stats", value="\n".join(stats_lines)[-1024:], inline=False)
         embed.set_footer(text="World Cup 2026 Fixtures")
         embed.timestamp = discord.utils.utcnow()
         return embed
@@ -342,6 +354,7 @@ class FanZoneAnnouncer(commands.Cog):
                             int(data.get("home_score") or 0),
                             int(data.get("away_score") or 0),
                             str(data.get("winner_side") or ""),
+                            data.get("live_stats") if isinstance(data.get("live_stats"), list) else [],
                         ))
                     except Exception:
                         pass
