@@ -229,7 +229,9 @@ def test_quick_match_announcement_uses_group_channel(tmp_path):
     )
     assert command["kind"] == "quick_match_announcement"
     assert command["data"]["event_label"] == "Goal"
-    assert command["data"]["message"] == "Argentina 23'"
+    assert command["data"]["message"] == "Argentina 1 - 0 Algeria"
+    assert command["data"]["home_score"] == 1
+    assert command["data"]["away_score"] == 0
     assert command["data"]["country"] == "Argentina"
     assert command["data"]["channel"] == "group-j"
 
@@ -237,7 +239,7 @@ def test_quick_match_announcement_uses_group_channel(tmp_path):
     assert len(stored[0]["live_stats"]) == 1
     assert stored[0]["live_stats"][0]["event_type"] == "goal"
     assert stored[0]["live_stats"][0]["label"] == "Goal"
-    assert stored[0]["live_stats"][0]["message"] == "Argentina 23'"
+    assert stored[0]["live_stats"][0]["message"] == "Argentina 1 - 0 Algeria"
     assert stored[0]["live_stats"][0]["country"] == "Argentina"
     assert stored[0]["live_stats"][0]["match_time"] == "23"
     assert isinstance(stored[0]["live_stats"][0]["ts"], int)
@@ -329,7 +331,9 @@ def test_half_time_quick_announcement_does_not_require_country_or_match_time(tmp
     command = json.loads(
         (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
     )
-    assert command["data"]["message"] == "A 1–1 B"
+    assert command["data"]["message"] == "A 1 - 1 B"
+    assert command["data"]["home_score"] == 1
+    assert command["data"]["away_score"] == 1
     assert command["data"]["country"] == ""
 
 

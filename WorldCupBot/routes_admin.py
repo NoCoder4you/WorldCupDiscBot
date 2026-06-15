@@ -1547,23 +1547,34 @@ def create_admin_routes(ctx):
         live_stats = fixture.get("live_stats")
         if not isinstance(live_stats, list):
             live_stats = []
-        if event_type == "half_time":
-            # The half-time score only includes goals recorded in the first
-            # half, including stoppage time represented as 45+x.
-            def first_half_goals(team):
-                return sum(
-                    1
-                    for stat in live_stats
-                    if isinstance(stat, dict)
-                    and stat.get("event_type") == "goal"
-                    and stat.get("country") == team
-                    and str(stat.get("match_time") or "").split("+", 1)[0].isdigit()
-                    and int(str(stat.get("match_time")).split("+", 1)[0]) <= 45
-                )
+        # Keep one score calculation as the source of truth for both the
+        # persisted event and its Discord card. Half time excludes second-half
+        # goals; other updates include every goal through the new event.
+        score_stats = live_stats + [{
+            "event_type": event_type,
+            "country": country,
+            "match_time": match_time,
+        }]
 
-            message = f"{home} {first_half_goals(home)}–{first_half_goals(away)} {away}"
-        else:
-            message = f"{country} {match_time}'"
+        def goals_for(team):
+            goals = [
+                stat for stat in score_stats
+                if isinstance(stat, dict)
+                and stat.get("event_type") == "goal"
+                and stat.get("country") == team
+            ]
+            if event_type != "half_time":
+                return len(goals)
+            return sum(
+                1
+                for stat in goals
+                if str(stat.get("match_time") or "").split("+", 1)[0].isdigit()
+                and int(str(stat.get("match_time")).split("+", 1)[0]) <= 45
+            )
+
+        home_score = goals_for(home)
+        away_score = goals_for(away)
+        message = f"{home} {home_score} - {away_score} {away}"
         live_stats.append({
             "event_type": event_type,
             "label": allowed_events[event_type],
@@ -1586,6 +1597,8 @@ def create_admin_routes(ctx):
             "event_type": event_type,
             "event_label": allowed_events[event_type],
             "message": message,
+            "home_score": home_score,
+            "away_score": away_score,
             # Team incidents use this value for the embed flag. Half time
             # deliberately leaves it blank because neither team owns the event.
             "country": country,
