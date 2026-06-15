@@ -115,10 +115,23 @@ def test_admin_fixture_result_updates_match_scores(tmp_path):
     assert payload["ok"] is True
     assert payload["home_score"] == 2
     assert payload["away_score"] == 1
+    assert payload["winner_side"] == "home"
 
     stored = json.loads(matches_path.read_text(encoding="utf-8"))
     assert stored[0]["home_score"] == 2
     assert stored[0]["away_score"] == 1
+
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    result_command = next(command for command in commands if command.get("kind") == "fixture_result")
+    assert result_command["data"]["home"] == "2A"
+    assert result_command["data"]["away"] == "2B"
+    assert result_command["data"]["home_score"] == 2
+    assert result_command["data"]["away_score"] == 1
+    assert result_command["data"]["winner_side"] == "home"
 
 
 def test_admin_fixture_result_rejects_invalid_score(tmp_path):

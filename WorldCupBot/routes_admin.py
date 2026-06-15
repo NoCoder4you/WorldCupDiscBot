@@ -1593,6 +1593,7 @@ def create_admin_routes(ctx):
 
         container, fixtures, key = _load_matches_payload()
         updated = False
+        matched_fixture = None
         for fixture in fixtures:
             if not isinstance(fixture, dict):
                 continue
@@ -1602,6 +1603,7 @@ def create_admin_routes(ctx):
             fixture["home_score"] = home_score
             fixture["away_score"] = away_score
             updated = True
+            matched_fixture = fixture
             break
 
         if not updated:
@@ -1614,11 +1616,40 @@ def create_admin_routes(ctx):
                 container[key] = fixtures
             _write_json_atomic(_matches_path(ctx), container)
 
+        # Saving the score also publishes the official result. This replaces
+        # the separate "Declare COUNTRY" workflow and guarantees Discord sees
+        # the same scoreline that drives the website's W/D/L calculations.
+        home = str((matched_fixture or {}).get("home") or "").strip()
+        away = str((matched_fixture or {}).get("away") or "").strip()
+        winner_side = "draw"
+        if home_score > away_score:
+            winner_side = "home"
+        elif away_score > home_score:
+            winner_side = "away"
+        channel_name = _resolve_fanzone_channel(matched_fixture or {}, home, away)
+        if not channel_name:
+            cfg = _read_json(_path(ctx, "config.json"), {})
+            channel_name = str(
+                cfg.get("FANZONE_CHANNEL_NAME")
+                or cfg.get("FANZONE_CHANNEL")
+                or "fanzone"
+            )
+        _enqueue_command(ctx, "fixture_result", {
+            "fixture_id": match_id,
+            "home": home,
+            "away": away,
+            "home_score": home_score,
+            "away_score": away_score,
+            "winner_side": winner_side,
+            "channel": channel_name,
+        })
+
         return jsonify({
             "ok": True,
             "id": match_id,
             "home_score": home_score,
             "away_score": away_score,
+            "winner_side": winner_side,
         })
 
     @bp.post("/admin/bracket_slots")
