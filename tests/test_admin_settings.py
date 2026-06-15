@@ -182,6 +182,85 @@ def test_admin_fixture_result_rejects_invalid_score(tmp_path):
     assert payload["error"] == "invalid_score"
 
 
+def test_admin_tied_fixture_result_accepts_penalty_winner(tmp_path):
+    """A tied knockout score may settle to the separately selected advancing side."""
+    client, json_dir = _build_admin_client(tmp_path)
+    matches_path = json_dir / "matches.json"
+    matches_path.write_text(
+        json.dumps([{"id": "M97", "home": "USA", "away": "Canada", "stage": "Quarter-finals"}]),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={
+            "match_id": "M97",
+            "home_score": 1,
+            "away_score": 1,
+            "winner_side": "away",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["winner_side"] == "away"
+    stored = json.loads(matches_path.read_text(encoding="utf-8"))
+    assert stored[0]["home_score"] == 1
+    assert stored[0]["away_score"] == 1
+    assert stored[0]["winner_side"] == "away"
+    winners = json.loads((json_dir / "fan_winners.json").read_text(encoding="utf-8"))
+    assert winners["M97"]["winner_side"] == "away"
+    assert winners["M97"]["winner_team"] == "Canada"
+
+
+def test_admin_fixture_result_rejects_penalty_winner_for_non_tied_score(tmp_path):
+    """A shootout winner must not conflict with a decisive official score."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M97", "home": "USA", "away": "Canada"}]),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={
+            "match_id": "M97",
+            "home_score": 2,
+            "away_score": 1,
+            "winner_side": "away",
+        },
+    )
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "winner_side_requires_tied_score"
+
+
+def test_admin_fixture_result_rejects_penalty_winner_for_group_match(tmp_path):
+    """Only knockout fixtures can name an advancing side after a tied score."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M10",
+            "home": "USA",
+            "away": "Canada",
+            "stage": "Group Stage",
+        }]),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={
+            "match_id": "M10",
+            "home_score": 1,
+            "away_score": 1,
+            "winner_side": "home",
+        },
+    )
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "winner_side_requires_knockout_match"
+
+
 def test_auto_backup_runs_on_any_admin_request_when_due(tmp_path):
     """Auto backup should run from admin traffic without opening the backups page."""
     client, json_dir = _build_admin_client(tmp_path)

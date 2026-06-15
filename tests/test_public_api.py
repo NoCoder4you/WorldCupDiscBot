@@ -629,6 +629,32 @@ def test_results_panel_requests_completed_fixture_scores():
     assert "fetchJSON('/api/fixtures?include_results=1')" in app_js
 
 
+def test_fixtures_api_exposes_penalty_winner_for_tied_result(client, app):
+    """The frontend needs the shootout winner to progress a tied knockout match."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M97",
+            "home": "USA",
+            "away": "Canada",
+            "home_score": 1,
+            "away_score": 1,
+            "winner_side": "away",
+        }]),
+        encoding="utf-8",
+    )
+
+    resp = client.get("/api/fixtures?include_results=1")
+
+    assert resp.status_code == 200
+    fixture = resp.get_json()["fixtures"][0]
+    assert fixture["home_score"] == 1
+    assert fixture["away_score"] == 1
+    assert fixture["winner_side"] == "away"
+
+
 def test_fixtures_include_all_query_returns_future_matches_beyond_48_hours(client, app):
     """include_all=1 should expose all future fixtures for world-map next-match rendering."""
     import datetime
@@ -694,6 +720,8 @@ def test_fixture_form_uses_saved_score_before_legacy_declaration():
     assert "winnersMap?.[f.id]" not in compute_records
     assert "if (homeScore > awayScore) return 'home';" in app_js
     assert "if (awayScore > homeScore) return 'away';" in app_js
+    assert "const tiedWinner = String(fixture?.winner_side || '').toLowerCase();" in app_js
+    assert "if (tiedWinner === 'home' || tiedWinner === 'away') return tiedWinner;" in app_js
 
     # Legacy declarations remain a fallback for old fixtures without scores.
     assert "candidateKeys.push(String(matchNo), `Match ${matchNo}`);" in app_js
@@ -709,3 +737,15 @@ def test_fixtures_page_removes_manual_declare_country_controls():
     assert "Declare ${f.home}" not in card_html
     assert "Declare Draw" not in card_html
     assert "Declare ${f.away}" not in card_html
+
+
+def test_result_form_submits_separate_penalty_winner_side():
+    """The sole result UI should submit an advancing side for tied shootouts."""
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="fixtures-result-winner-side"' in index_html
+    assert '<option value="home">Home team advances</option>' in index_html
+    assert '<option value="away">Away team advances</option>' in index_html
+    assert "winner_side: winnerSide" in app_js
+    assert "A penalty shootout winner can only be selected when the score is tied." in app_js

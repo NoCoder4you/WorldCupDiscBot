@@ -2478,6 +2478,9 @@ def create_public_routes(ctx):
                 if home_score is not None and away_score is not None:
                     fixtures[-1]["home_score"] = home_score
                     fixtures[-1]["away_score"] = away_score
+                    winner_side = str(m.get("winner_side") or "").strip().lower()
+                    if winner_side in ("home", "away"):
+                        fixtures[-1]["winner_side"] = winner_side
 
         return jsonify({
             "ok": True,

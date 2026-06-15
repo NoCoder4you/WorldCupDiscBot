@@ -6131,6 +6131,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (homeScore !== null && awayScore !== null) {
       if (homeScore > awayScore) return 'home';
       if (awayScore > homeScore) return 'away';
+      // Knockout scores remain level after extra time, so a separately saved
+      // shootout winner must take precedence over the otherwise drawn score.
+      const tiedWinner = String(fixture?.winner_side || '').toLowerCase();
+      if (tiedWinner === 'home' || tiedWinner === 'away') return tiedWinner;
       return 'draw';
     }
 
@@ -6716,9 +6720,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const matchEl = document.getElementById('fixtures-result-match');
     const homeEl = document.getElementById('fixtures-result-home-score');
     const awayEl = document.getElementById('fixtures-result-away-score');
+    const winnerSideEl = document.getElementById('fixtures-result-winner-side');
     if (matchEl) matchEl.value = '';
     if (homeEl) homeEl.value = '';
     if (awayEl) awayEl.value = '';
+    if (winnerSideEl) winnerSideEl.value = '';
   }
 
   async function populateResultMatchOptions() {
@@ -6788,6 +6794,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const matchId = String(document.getElementById('fixtures-result-match')?.value || '').trim();
     const homeRaw = String(document.getElementById('fixtures-result-home-score')?.value || '').trim();
     const awayRaw = String(document.getElementById('fixtures-result-away-score')?.value || '').trim();
+    const winnerSide = String(document.getElementById('fixtures-result-winner-side')?.value || '').trim();
 
     if (!matchId) {
       notify('Please select a match.', false);
@@ -6802,6 +6809,10 @@ document.addEventListener('DOMContentLoaded', () => {
       notify('Scores must be non-negative whole numbers.', false);
       return;
     }
+    if (winnerSide && homeScore !== awayScore) {
+      notify('A penalty shootout winner can only be selected when the score is tied.', false);
+      return;
+    }
 
     try {
       await fetchJSON('/admin/fixtures/result', {
@@ -6811,6 +6822,7 @@ document.addEventListener('DOMContentLoaded', () => {
           match_id: matchId,
           home_score: homeScore,
           away_score: awayScore,
+          winner_side: winnerSide,
         })
       });
       notify('Result saved', true);

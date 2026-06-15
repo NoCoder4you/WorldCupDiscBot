@@ -1479,6 +1479,7 @@ def create_admin_routes(ctx):
                 "home": home,
                 "away": away,
                 "utc": utc,
+                "winner_side": str(fixture.get("winner_side") or "").strip().lower(),
             })
         return jsonify({"ok": True, "fixtures": out})
 
@@ -1577,6 +1578,7 @@ def create_admin_routes(ctx):
         match_id = str(body.get("id") or body.get("match_id") or "").strip()
         home_score_raw = body.get("home_score")
         away_score_raw = body.get("away_score")
+        requested_winner_side = str(body.get("winner_side") or "").strip().lower()
 
         if not match_id:
             return jsonify({"ok": False, "error": "missing_match_id"}), 400
@@ -1590,6 +1592,10 @@ def create_admin_routes(ctx):
             return jsonify({"ok": False, "error": "invalid_score"}), 400
         if home_score < 0 or away_score < 0:
             return jsonify({"ok": False, "error": "invalid_score"}), 400
+        if requested_winner_side not in ("", "home", "away"):
+            return jsonify({"ok": False, "error": "invalid_winner_side"}), 400
+        if requested_winner_side and home_score != away_score:
+            return jsonify({"ok": False, "error": "winner_side_requires_tied_score"}), 400
 
         container, fixtures, key = _load_matches_payload()
         updated = False
@@ -1600,8 +1606,34 @@ def create_admin_routes(ctx):
             fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
             if fid != match_id:
                 continue
+            if requested_winner_side:
+                stage = normalize_stage(str(
+                    fixture.get("stage")
+                    or fixture.get("round")
+                    or fixture.get("phase")
+                    or ""
+                ))
+                knockout_stages = {
+                    "Round of 32",
+                    "Round of 16",
+                    "Quarter-finals",
+                    "Semi-finals",
+                    "Third Place Play-off",
+                    "Final",
+                }
+                if stage not in knockout_stages:
+                    return jsonify({
+                        "ok": False,
+                        "error": "winner_side_requires_knockout_match",
+                    }), 400
             fixture["home_score"] = home_score
             fixture["away_score"] = away_score
+            # Penalty shootouts select an advancing side without changing the
+            # official tied score displayed in fixture results.
+            if requested_winner_side:
+                fixture["winner_side"] = requested_winner_side
+            else:
+                fixture.pop("winner_side", None)
             updated = True
             matched_fixture = fixture
             break
@@ -1619,7 +1651,7 @@ def create_admin_routes(ctx):
         # Saving the score must run the complete Match Picks settlement flow,
         # not just publish an embed. The shared helper locks voting, snapshots
         # picks, updates leaderboards, and sends owner/voter notifications.
-        winner_side = "draw"
+        winner_side = requested_winner_side or "draw"
         if home_score > away_score:
             winner_side = "home"
         elif away_score > home_score:
