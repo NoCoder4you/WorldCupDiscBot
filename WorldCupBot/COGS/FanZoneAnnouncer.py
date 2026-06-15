@@ -160,7 +160,7 @@ class FanZoneAnnouncer(commands.Cog):
             score_line = f"\n**{home_score} – {away_score}**"
         e = discord.Embed(
             title="FULL TIME RESULT",
-            description=f"**{home_display}** vs **{away_display}**{score_line}\n{result_line}",
+            description=f"**{home_display}** vs **{away_display}**{score_line}\n\n{result_line}",
             color=discord.Color.gold()
         )
         e.add_field(name="Stats", value="COMING SOON", inline=False)
