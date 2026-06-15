@@ -112,12 +112,17 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
     assert 'data-page="tables">Tables</a>' in index_html
     assert '<section id="tables" class="page-section">' in index_html
+    assert 'class="table-wrap tables-card"' in index_html
+    assert 'class="table-title tables-title">Group Tables</h1>' in index_html
     assert [f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")] == [
         token for token in (
             f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")
         ) if token in index_html
     ]
     assert "case 'tables': await loadTables(); break;" in app_js
+    assert "const TABLE_GROUPS = [...'ABCDEFGHIJKL'];" in app_js
+    assert "Standings response does not contain 12 complete groups" in app_js
+    assert "12 complete group tables" in app_js
     assert "wc:lastPage" in app_js
     assert "filtersWired" in app_js
 

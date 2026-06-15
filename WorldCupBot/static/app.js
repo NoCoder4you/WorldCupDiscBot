@@ -4411,12 +4411,24 @@ async function getCogStatus(name){
   }
 
   const TABLES_CACHE_KEY = 'wc:standings';
+  const TABLE_GROUPS = [...'ABCDEFGHIJKL'];
   const tablesState = { filter: 'ALL', data: null, loading: null, filtersWired: false };
+
+  function hasAllTables(data){
+    if (!data || !Array.isArray(data.groups) || data.groups.length !== TABLE_GROUPS.length) return false;
+    const groups = new Map(data.groups.map((entry) => [String(entry?.group || '').toUpperCase(), entry]));
+    return TABLE_GROUPS.every((group) => {
+      const teams = groups.get(group)?.teams;
+      return Array.isArray(teams) && teams.length === 4;
+    });
+  }
 
   function readTablesCache(){
     try {
       const cached = JSON.parse(localStorage.getItem(TABLES_CACHE_KEY) || 'null');
-      return cached && Array.isArray(cached.groups) ? cached : null;
+      // Do not restore an older partial payload: ALL must always mean twelve
+      // complete four-team tables, not however many groups happened to cache.
+      return hasAllTables(cached) ? cached : null;
     } catch {
       return null;
     }
@@ -4475,9 +4487,10 @@ async function getCogStatus(name){
     }).join('');
     const completed = Number(tablesState.data?.completed_matches) || 0;
     const errors = Array.isArray(tablesState.data?.errors) ? tablesState.data.errors : [];
-    status.textContent = errors.length ? `Showing available standings. ${errors.join(' ')}`
-      : completed ? `${completed} completed group-stage match${completed === 1 ? '' : 'es'} included.`
-      : 'No completed results yet. All teams start on zero points.';
+    const tableCount = groups.filter((entry) => Array.isArray(entry?.teams) && entry.teams.length === 4).length;
+    status.textContent = errors.length ? `Showing ${tableCount} of 12 group tables. ${errors.join(' ')}`
+      : completed ? `12 complete group tables · ${completed} completed group-stage match${completed === 1 ? '' : 'es'} included.`
+      : '12 complete group tables · No completed results yet. All teams start on zero points.';
   }
 
   function setTablesFilter(group){
@@ -4508,13 +4521,13 @@ async function getCogStatus(name){
       tablesState.data = cached;
       renderTables();
     } else if (status) {
-      status.textContent = 'Loading standings…';
+      status.textContent = 'Loading 12 group tables…';
     }
     if (tablesState.loading) return tablesState.loading;
     tablesState.loading = (async () => {
       try {
         const [data] = await Promise.all([fetchJSON('/api/standings'), ensureTeamIsoLoaded()]);
-        if (!data || !Array.isArray(data.groups)) throw new Error('Malformed standings response');
+        if (!hasAllTables(data)) throw new Error('Standings response does not contain 12 complete groups');
         tablesState.data = data;
         writeTablesCache(data);
         renderTables();
