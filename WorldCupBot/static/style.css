@@ -524,6 +524,14 @@ body:not(.user-admin-view) .dashboard-live-panel {
     gap: 10px;
 }
 
+.quick-announce-options {
+    /* Keep the square action buttons in a compact row instead of allowing
+       each one to use the modal's full width and become excessively tall. */
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
 .quick-announce-options .quick-event {
     width: 100%;
     aspect-ratio: 1;
@@ -649,6 +657,8 @@ body:not(.user-admin-view) .dashboard-live-panel {
     }
 
     .quick-announce-options {
+        /* Two columns preserve comfortable touch targets without making the
+           options taller than the mobile viewport. */
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 

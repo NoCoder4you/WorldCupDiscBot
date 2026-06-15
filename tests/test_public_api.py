@@ -672,6 +672,9 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert 'id="quick-announce-cancel"' in index_html
     assert 'id="quick-full-time-open"' in index_html
     assert 'grid-template-columns: repeat(4, minmax(0, 1fr));' in style_css
+    assert '.quick-announce-options {' in style_css
+    assert 'display: grid;' in style_css
+    assert 'grid-template-columns: repeat(2, minmax(0, 1fr));' in style_css
     assert '#quick-announce-modal .modal-foot' in style_css
     assert 'width: min(92vw, 520px);' in style_css
     assert "eventType !== 'half_time'" in app_js
