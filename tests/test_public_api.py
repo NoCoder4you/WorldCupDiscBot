@@ -682,8 +682,8 @@ def test_fixtures_admin_view_overrides_48_hour_window(client, app):
     assert [f["id"] for f in data["fixtures"]] == ["out-window"]
 
 
-def test_fixture_form_uses_declared_winner_key_resolver():
-    """Last-5 form should find declarations saved under supported match-id aliases."""
+def test_fixture_form_uses_saved_score_before_legacy_declaration():
+    """Last-5 form and progression should derive outcomes from the saved score."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
 
     compute_records = app_js[
@@ -692,7 +692,20 @@ def test_fixture_form_uses_declared_winner_key_resolver():
     ]
     assert "const winnerSide = winnerSideForFixture(f, winnersMap);" in compute_records
     assert "winnersMap?.[f.id]" not in compute_records
+    assert "if (homeScore > awayScore) return 'home';" in app_js
+    assert "if (awayScore > homeScore) return 'away';" in app_js
 
-    # The shared resolver accepts the alternate keys emitted by legacy and
-    # current fixture feeds, preventing a declared result from rendering empty.
+    # Legacy declarations remain a fallback for old fixtures without scores.
     assert "candidateKeys.push(String(matchNo), `Match ${matchNo}`);" in app_js
+
+
+def test_fixtures_page_removes_manual_declare_country_controls():
+    """Adding a score should replace the separate Declare COUNTRY controls."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    card_html = app_js[
+        app_js.index("  function cardHTML(f, stats) {"):
+        app_js.index("    function applyStatsToCard(card, stats) {")
+    ]
+    assert "Declare ${f.home}" not in card_html
+    assert "Declare Draw" not in card_html
+    assert "Declare ${f.away}" not in card_html
