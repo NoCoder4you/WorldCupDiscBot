@@ -48,17 +48,57 @@ def _read_config() -> Dict[str, Any]:
     return cfg if isinstance(cfg, dict) else {}
 
 # ---------- Discord helpers ----------
-async def _fetch_message(bot: commands.Bot, channel_id: int, message_id: int) -> Optional[discord.Message]:
+async def _edit_bet_message(
+    bot: commands.Bot,
+    channel_id: int,
+    message_id: int,
+    embed: discord.Embed,
+) -> Optional[str]:
+    """Edit a bet message without fetching it first.
+
+    A partial message avoids the extra GET request that fetch_message creates.
+    This function therefore makes at most one Discord request for the edit.
+    """
     channel = bot.get_channel(channel_id)
     if channel is None:
         try:
             channel = await bot.fetch_channel(channel_id)
-        except Exception:
+        except Exception as exc:
+            log.warning(
+                "Bet channel lookup failed (channel_id=%s error=%s)",
+                channel_id,
+                exc,
+            )
             return None
+
+    if not hasattr(channel, "get_partial_message"):
+        log.warning("Channel does not support partial messages (channel_id=%s)", channel_id)
+        return await _message_url(bot, channel_id, message_id)
+
     try:
-        return await channel.fetch_message(message_id)
-    except Exception:
-        return None
+        partial_message = channel.get_partial_message(message_id)
+        await partial_message.edit(embed=embed)
+    except discord.NotFound:
+        log.warning(
+            "Bet message no longer exists (channel_id=%s message_id=%s)",
+            channel_id,
+            message_id,
+        )
+    except discord.Forbidden:
+        log.warning(
+            "Missing permission to edit bet message (channel_id=%s message_id=%s)",
+            channel_id,
+            message_id,
+        )
+    except discord.HTTPException as exc:
+        log.warning(
+            "Bet message edit failed (channel_id=%s message_id=%s error=%s)",
+            channel_id,
+            message_id,
+            exc,
+        )
+
+    return await _message_url(bot, channel_id, message_id)
 
 async def _message_url(bot: commands.Bot, channel_id: int, message_id: int) -> Optional[str]:
     if not channel_id or not message_id:
@@ -301,74 +341,95 @@ class WinnerWatcher(commands.Cog):
 
     @tasks.loop(seconds=30)
     async def poll(self):
-        await self.bot.wait_until_ready()
         bets = _read_bets()
         if not isinstance(bets, list):
             log.warning("bets.json malformed or empty")
             return
+
+        bets_changed = False
 
         for bet in bets:
             bet_id = str(bet.get("bet_id") or "").strip()
             if not bet_id:
                 continue
 
-            winner = bet.get("winner")
-            prev_winner = self._last_winner.get(bet_id)
-            changed_now = (winner != prev_winner)
+            winner = str(bet.get("winner") or "").strip().lower()
             notified_for = str(bet.get("admin_notified") or "").strip().lower()
-            already_notified = winner in ("option1", "option2") and notified_for == winner
 
-            chan_id = int(bet.get("channel_id") or 0)
-            msg_id = int(bet.get("message_id") or 0)
+            # No Discord requests are needed unless this result has not yet been
+            # processed. The persisted admin_notified value also survives restarts.
+            needs_processing = (
+                winner in ("option1", "option2")
+                and notified_for != winner
+            )
+
+            if not needs_processing:
+                self._last_winner[bet_id] = winner or None
+                continue
+
+            try:
+                chan_id = int(bet.get("channel_id") or 0)
+                msg_id = int(bet.get("message_id") or 0)
+            except (TypeError, ValueError):
+                chan_id = 0
+                msg_id = 0
+
             msg_url = None
-
-            if winner in ("option1", "option2") and chan_id and msg_id:
-                msg = await _fetch_message(self.bot, chan_id, msg_id)
-                if msg is not None:
-                    try:
-                        await msg.edit(embed=_rebuild_bet_embed(bet, self.bot.user))
-                        msg_url = msg.jump_url
-                    except Exception as e:
-                        log.warning("Bet message edit failed (bet_id=%s error=%s)", bet_id, e)
-                elif not msg_url:
-                    msg_url = await _message_url(self.bot, chan_id, msg_id)
-
-            if changed_now and winner in ("option1", "option2") and not already_notified:
-                log.info(
-                    "Bet settled (bet_id=%s winner=%s option1_user_id=%s option2_user_id=%s)",
-                    bet_id,
-                    winner,
-                    bet.get("option1_user_id"),
-                    bet.get("option2_user_id"),
+            if chan_id and msg_id:
+                msg_url = await _edit_bet_message(
+                    self.bot,
+                    chan_id,
+                    msg_id,
+                    _rebuild_bet_embed(bet, self.bot.user),
                 )
-                admin_embed = _build_admin_bet_settled_embed(bet, msg_url, chan_id)
-                if admin_embed:
-                    admin_chan = await _resolve_admin_channel(self.bot, self._admin_bet_channel, self._admin_category)
-                    if admin_chan:
-                        try:
-                            await admin_chan.send(embed=admin_embed)
-                            log.info("Bet winner embed posted (bet_id=%s channel=%s)", bet_id, admin_chan.name)
-                        except Exception as e:
-                            log.warning("Bet winner embed send failed (bet_id=%s error=%s)", bet_id, e)
-                    else:
-                        log.warning("Admin bet channel not found (bet_id=%s)", bet_id)
 
-                opt1_id = str(bet.get("option1_user_id") or "").strip()
-                opt2_id = str(bet.get("option2_user_id") or "").strip()
-                if winner == "option1":
-                    await _dm_bet_result(self.bot, opt1_id, bet, msg_url)
-                    await _dm_bet_result(self.bot, opt2_id, bet, msg_url)
-                elif winner == "option2":
-                    await _dm_bet_result(self.bot, opt1_id, bet, msg_url)
-                    await _dm_bet_result(self.bot, opt2_id, bet, msg_url)
+            log.info(
+                "Bet settled (bet_id=%s winner=%s option1_user_id=%s option2_user_id=%s)",
+                bet_id,
+                winner,
+                bet.get("option1_user_id"),
+                bet.get("option2_user_id"),
+            )
 
-                _append_bet_results(bet)
+            admin_embed = _build_admin_bet_settled_embed(bet, msg_url, chan_id)
+            if admin_embed:
+                admin_chan = await _resolve_admin_channel(
+                    self.bot,
+                    self._admin_bet_channel,
+                    self._admin_category,
+                )
+                if admin_chan:
+                    try:
+                        await admin_chan.send(embed=admin_embed)
+                        log.info(
+                            "Bet winner embed posted (bet_id=%s channel=%s)",
+                            bet_id,
+                            admin_chan.name,
+                        )
+                    except discord.HTTPException as exc:
+                        log.warning(
+                            "Bet winner embed send failed (bet_id=%s error=%s)",
+                            bet_id,
+                            exc,
+                        )
+                else:
+                    log.warning("Admin bet channel not found (bet_id=%s)", bet_id)
 
-                _append_bet_results(bet)
-                bet["admin_notified"] = winner
-                _write_bets(bets)
+            opt1_id = str(bet.get("option1_user_id") or "").strip()
+            opt2_id = str(bet.get("option2_user_id") or "").strip()
+            await _dm_bet_result(self.bot, opt1_id, bet, msg_url)
+            await _dm_bet_result(self.bot, opt2_id, bet, msg_url)
 
+            _append_bet_results(bet)
+
+            # Mark the exact winning option as processed so later polls and bot
+            # restarts do not fetch, edit, notify, or DM for it again.
+            bet["admin_notified"] = winner
+            bets_changed = True
             self._last_winner[bet_id] = winner
+
+        if bets_changed:
+            _write_bets(bets)
 
     @poll.before_loop
     async def before_poll(self):
