@@ -187,31 +187,30 @@ class FanZoneAnnouncer(commands.Cog):
         away_score: int,
         winner_side: str = "",
         live_stats: list | None = None,
+        home_penalties: int | None = None,
+        away_penalties: int | None = None,
     ):
         """Build the official score embed sent to the fixture's Discord channel."""
         side = str(winner_side or "").strip().lower()
         if home_score > away_score or (home_score == away_score and side == "home"):
             home_display = f"🏆 {home}"
             away_display = away
-            outcome = f"**{home} won**"
             color = discord.Color.green()
         elif away_score > home_score or (home_score == away_score and side == "away"):
             home_display = home
             away_display = f"{away} 🏆"
-            outcome = f"**{away} won**"
             color = discord.Color.green()
         else:
             home_display = home
             away_display = away
-            outcome = "🤝 **Draw**"
             color = discord.Color.gold()
 
+        penalty_line = ""
+        if home_penalties is not None and away_penalties is not None:
+            penalty_line = f"\n**Penalties: {home} {home_penalties} – {away_penalties} {away}**"
         embed = discord.Embed(
             title="FULL TIME RESULT",
-            description=(
-                f"**{home_display} {home_score} – {away_score} {away_display}**\n"
-                f"{outcome}"
-            ),
+            description=f"**{home_display} {home_score} – {away_score} {away_display}**{penalty_line}",
             color=color,
         )
         stats_lines = []
@@ -249,7 +248,7 @@ class FanZoneAnnouncer(commands.Cog):
         away = str(data.get("away") or "").strip()
         embed = discord.Embed(
             title=f"{icons.get(event_type, '📣')} {label}",
-            description=str(data.get("message") or "").strip(),
+            description=f"{label.upper()}: {str(data.get('message') or '').strip()}",
             color=colors.get(event_type, discord.Color.blurple()),
         )
         embed.add_field(name="Match", value=f"**{home}** vs **{away}**", inline=False)
@@ -368,6 +367,8 @@ class FanZoneAnnouncer(commands.Cog):
                             int(data.get("away_score") or 0),
                             str(data.get("winner_side") or ""),
                             data.get("live_stats") if isinstance(data.get("live_stats"), list) else [],
+                            data.get("home_penalties"),
+                            data.get("away_penalties"),
                         ))
                     except Exception:
                         pass

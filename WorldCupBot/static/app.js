@@ -1107,6 +1107,8 @@ function stagePill(stage){
     const awayScore = document.getElementById('quick-away-score');
     const homeLabel = document.getElementById('quick-home-label');
     const awayLabel = document.getElementById('quick-away-label');
+    const homePenaltiesLabel = document.getElementById('quick-home-penalties-label');
+    const awayPenaltiesLabel = document.getElementById('quick-away-penalties-label');
     const winnerSide = document.getElementById('quick-winner-side');
     const picker = document.getElementById('quick-option-picker');
     const confirmation = document.getElementById('quick-full-time-confirm');
@@ -1127,9 +1129,13 @@ function stagePill(stage){
     if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
     if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
     if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
+    if (homePenaltiesLabel) homePenaltiesLabel.textContent = `${quickAnnouncementFixture.home} penalties`;
+    if (awayPenaltiesLabel) awayPenaltiesLabel.textContent = `${quickAnnouncementFixture.away} penalties`;
     if (homeScore) homeScore.value = String(button.dataset.homeScore || '0');
     if (awayScore) awayScore.value = String(button.dataset.awayScore || '0');
     if (winnerSide) winnerSide.value = '';
+    document.getElementById('quick-home-penalties').value = '';
+    document.getElementById('quick-away-penalties').value = '';
     if (status) status.textContent = '';
     if (picker) picker.hidden = false;
     if (confirmation) confirmation.hidden = true;
@@ -1226,6 +1232,8 @@ function stagePill(stage){
       const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '', 10);
       const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '', 10);
       const winnerSide = String(document.getElementById('quick-winner-side')?.value || '');
+      const homePenalties = document.getElementById('quick-home-penalties')?.value || '';
+      const awayPenalties = document.getElementById('quick-away-penalties')?.value || '';
       if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
         if (status) status.textContent = 'Enter valid non-negative scores before full time.';
         return;
@@ -1244,7 +1252,9 @@ function stagePill(stage){
             match_id: quickAnnouncementFixture.id,
             home_score: homeScore,
             away_score: awayScore,
-            winner_side: winnerSide
+            winner_side: winnerSide,
+            home_penalties: homePenalties,
+            away_penalties: awayPenalties
           })
         });
         notify(data?.unchanged ? 'Full-time result already saved' : 'Full-time result posted', true);
