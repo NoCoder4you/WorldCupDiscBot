@@ -58,6 +58,25 @@ def test_official_tied_result_embed_displays_penalty_score():
     assert "USA won" not in embed.description
 
 
+def test_official_result_embed_labels_live_stats_with_match_times():
+    """The final match summary should retain the clock time for each incident."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._result_embed(
+        "Spain",
+        "Cape Verde",
+        1,
+        0,
+        live_stats=[{
+            "label": "Yellow Card",
+            "message": "Spain 1 - 0 Cape Verde",
+            "match_time": "38",
+        }],
+    )
+
+    assert embed.fields[0].value == "**Yellow Card (38'):** Spain 1 - 0 Cape Verde"
+
+
 def test_match_picks_embed_includes_score_from_settlement():
     """The normal settlement embed should include scores entered in the UI."""
     announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
@@ -94,6 +113,7 @@ def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
         "away": "Morocco",
         "home_score": 1,
         "away_score": 0,
+        "match_time": "32",
     })
 
     assert embed.thumbnail.url == "https://flagcdn.com/w80/br.png"
@@ -101,6 +121,8 @@ def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
     assert embed.description is None
     assert embed.fields[0].name == "Match"
     assert embed.fields[0].value == "**Brazil 1 - 0 Morocco**"
+    assert embed.fields[1].name == "Match time"
+    assert embed.fields[1].value == "**32'**"
 
 
 def test_quick_announcement_embed_omits_thumbnail_without_known_flag():

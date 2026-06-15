@@ -627,6 +627,37 @@ body:not(.user-admin-view) .dashboard-live-panel {
 .quick-score-grid input,
 .quick-score-grid select {
     width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #35506b;
+    border-radius: 9px;
+    background: #0d1b2b;
+    color: #edf6ff;
+    font: inherit;
+    color-scheme: dark;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.quick-score-grid input:hover,
+.quick-score-grid select:hover {
+    border-color: #4d7295;
+}
+
+.quick-score-grid input:focus,
+.quick-score-grid select:focus {
+    border-color: #63b3ed;
+    background: #102238;
+    box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.18);
+}
+
+.quick-score-grid select:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.quick-score-grid input::placeholder {
+    color: #7890a8;
 }
 
 .quick-event.full-time {

@@ -219,6 +219,9 @@ class FanZoneAnnouncer(commands.Cog):
                 continue
             label = str(stat.get("label") or "Update").strip()
             message = str(stat.get("message") or "").strip()
+            match_time = str(stat.get("match_time") or "").strip()
+            if match_time:
+                label = f"{label} ({match_time}')"
             if message:
                 stats_lines.append(f"**{label}:** {message}")
         if stats_lines:
@@ -259,6 +262,9 @@ class FanZoneAnnouncer(commands.Cog):
             value=f"**{home} {home_score} - {away_score} {away}**",
             inline=False,
         )
+        match_time = str(data.get("match_time") or "").strip()
+        if match_time:
+            embed.add_field(name="Match time", value=f"**{match_time}'**", inline=False)
         country = str(data.get("country") or "").strip()
         country_iso = self._iso_for_team(country, data.get("country_iso"))
         flag_url = self._flag_url(country_iso)

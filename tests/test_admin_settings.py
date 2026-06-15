@@ -335,6 +335,7 @@ def test_half_time_quick_announcement_does_not_require_country_or_match_time(tmp
     assert command["data"]["home_score"] == 1
     assert command["data"]["away_score"] == 1
     assert command["data"]["country"] == ""
+    assert command["data"]["match_time"] == ""
 
 
 def test_fixture_result_includes_penalty_score_in_command(tmp_path):
