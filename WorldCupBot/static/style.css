@@ -433,16 +433,68 @@ body:not(.user-admin-view) .dashboard-live-panel {
     gap: 12px;
 }
 
-#quick-announce-message {
-    width: 100%;
-    min-height: 110px;
-    resize: vertical;
-}
-
 .quick-announce-options {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+}
+
+.quick-step-label {
+    margin: 4px 0 8px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.quick-country-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.quick-country-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    padding: 12px;
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+}
+
+.quick-country-option.selected {
+    border-color: var(--accent);
+    background: rgba(0, 229, 255, 0.14);
+}
+
+.quick-time-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.quick-time-field input {
+    width: 100%;
+}
+
+.quick-final-stats {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0;
+}
+
+.quick-final-stats div {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .quick-score-grid {
@@ -464,6 +516,10 @@ body:not(.user-admin-view) .dashboard-live-panel {
 }
 
 .quick-event.full-time {
+    background: #16a34a;
+}
+
+.quick-full-time-submit {
     background: #16a34a;
 }
 
