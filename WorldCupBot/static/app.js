@@ -1110,7 +1110,6 @@ function stagePill(stage){
     const awayLabel = document.getElementById('quick-away-label');
     const homePenaltiesLabel = document.getElementById('quick-home-penalties-label');
     const awayPenaltiesLabel = document.getElementById('quick-away-penalties-label');
-    const winnerSide = document.getElementById('quick-winner-side');
     const picker = document.getElementById('quick-option-picker');
     const confirmation = document.getElementById('quick-full-time-confirm');
     const backButton = document.getElementById('quick-full-time-back');
@@ -1137,7 +1136,6 @@ function stagePill(stage){
     if (awayPenaltiesLabel) awayPenaltiesLabel.textContent = `${quickAnnouncementFixture.away} penalties`;
     if (homeScore) homeScore.value = String(quickAnnouncementFixture.homeScore);
     if (awayScore) awayScore.value = String(quickAnnouncementFixture.awayScore);
-    if (winnerSide) winnerSide.value = '';
     document.getElementById('quick-home-penalties').value = '';
     document.getElementById('quick-away-penalties').value = '';
     if (status) status.textContent = '';
@@ -1235,22 +1233,17 @@ function stagePill(stage){
   function updateQuickFinalStats() {
     const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
-    const winnerSide = document.getElementById('quick-winner-side');
     const isTied = homeScore === awayScore;
     const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
       || quickAnnouncementFixture?.stage || '';
     const isKnockout = Boolean(stage) && stage !== 'Group Stage';
     const allowPenalties = isTied && isKnockout;
-    const penaltyWinner = document.querySelector('.quick-penalty-winner');
-    if (!allowPenalties && winnerSide) winnerSide.value = '';
-    if (penaltyWinner) penaltyWinner.hidden = !allowPenalties;
-    // Shootout scores are only relevant after an operator selects a penalty
-    // winner; hiding them for "Not applicable" keeps the form unambiguous.
-    const showPenaltyScores = allowPenalties && Boolean(winnerSide?.value);
+    // A tied knockout match is the only situation where a shootout score is
+    // applicable. The larger penalty score determines the winner automatically.
     document.querySelectorAll('.quick-penalty-score').forEach((field) => {
-      field.hidden = !showPenaltyScores;
+      field.hidden = !allowPenalties;
     });
-    if (!showPenaltyScores) {
+    if (!allowPenalties) {
       document.getElementById('quick-home-penalties').value = '';
       document.getElementById('quick-away-penalties').value = '';
     }
@@ -1267,15 +1260,26 @@ function stagePill(stage){
     const status = document.getElementById('quick-announce-status');
       const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '', 10);
       const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '', 10);
-      const winnerSide = String(document.getElementById('quick-winner-side')?.value || '');
       const homePenalties = document.getElementById('quick-home-penalties')?.value || '';
       const awayPenalties = document.getElementById('quick-away-penalties')?.value || '';
       if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
         if (status) status.textContent = 'Enter valid non-negative scores before full time.';
         return;
       }
-      if (winnerSide && homeScore !== awayScore) {
-        if (status) status.textContent = 'Only select a penalty winner when the score is tied.';
+      const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
+        || quickAnnouncementFixture?.stage || '';
+      const requiresPenalties = homeScore === awayScore && Boolean(stage) && stage !== 'Group Stage';
+      const parsedHomePenalties = Number.parseInt(homePenalties, 10);
+      const parsedAwayPenalties = Number.parseInt(awayPenalties, 10);
+      if (
+        requiresPenalties
+        && (!Number.isInteger(parsedHomePenalties)
+          || !Number.isInteger(parsedAwayPenalties)
+          || parsedHomePenalties < 0
+          || parsedAwayPenalties < 0
+          || parsedHomePenalties === parsedAwayPenalties)
+      ) {
+        if (status) status.textContent = 'Enter a valid, non-tied penalty shootout score.';
         return;
       }
       button.disabled = true;
@@ -1288,7 +1292,6 @@ function stagePill(stage){
             match_id: quickAnnouncementFixture.id,
             home_score: homeScore,
             away_score: awayScore,
-            winner_side: winnerSide,
             home_penalties: homePenalties,
             away_penalties: awayPenalties
           })
@@ -1333,7 +1336,7 @@ function stagePill(stage){
     if (event.target.id === 'quick-full-time-submit') confirmQuickFullTime(event.target);
   });
 
-  ['quick-home-score', 'quick-away-score', 'quick-winner-side'].forEach((id) => {
+  ['quick-home-score', 'quick-away-score'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', updateQuickFinalStats);
   });
 
