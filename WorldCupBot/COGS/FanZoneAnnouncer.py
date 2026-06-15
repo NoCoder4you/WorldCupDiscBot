@@ -246,12 +246,19 @@ class FanZoneAnnouncer(commands.Cog):
         label = str(data.get("event_label") or "Match Update").strip()
         home = str(data.get("home") or "").strip()
         away = str(data.get("away") or "").strip()
+        home_score = int(data.get("home_score") or 0)
+        away_score = int(data.get("away_score") or 0)
         embed = discord.Embed(
-            title=f"{icons.get(event_type, '📣')} {label}",
-            description=f"{label.upper()}: {str(data.get('message') or '').strip()}",
+            title=f"{icons.get(event_type, '📣')} - {label}",
             color=colors.get(event_type, discord.Color.blurple()),
         )
-        embed.add_field(name="Match", value=f"**{home}** vs **{away}**", inline=False)
+        # The title communicates the action, so the body only needs the current
+        # scoreline rather than repeating the event label and matchup.
+        embed.add_field(
+            name="Match",
+            value=f"**{home} {home_score} - {away_score} {away}**",
+            inline=False,
+        )
         country = str(data.get("country") or "").strip()
         country_iso = self._iso_for_team(country, data.get("country_iso"))
         flag_url = self._flag_url(country_iso)

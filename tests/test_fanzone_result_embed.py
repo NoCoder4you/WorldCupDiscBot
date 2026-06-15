@@ -92,10 +92,15 @@ def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
         "country": "Brazil",
         "home": "Brazil",
         "away": "Morocco",
+        "home_score": 1,
+        "away_score": 0,
     })
 
     assert embed.thumbnail.url == "https://flagcdn.com/w80/br.png"
-    assert embed.description == "GOAL: Brazil 32'"
+    assert embed.title == "⚽ - Goal"
+    assert embed.description is None
+    assert embed.fields[0].name == "Match"
+    assert embed.fields[0].value == "**Brazil 1 - 0 Morocco**"
 
 
 def test_quick_announcement_embed_omits_thumbnail_without_known_flag():
@@ -113,3 +118,22 @@ def test_quick_announcement_embed_omits_thumbnail_without_known_flag():
     })
 
     assert embed.thumbnail.url is None
+
+
+def test_half_time_embed_does_not_repeat_event_or_matchup():
+    """Half time should use the compact action title and one scored matchup."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+    announcer.team_iso = {}
+
+    embed = announcer._quick_announcement_embed({
+        "event_type": "half_time",
+        "event_label": "Half Time",
+        "home": "Spain",
+        "away": "Cape Verde",
+        "home_score": 0,
+        "away_score": 0,
+    })
+
+    assert embed.title == "⏸️ - Half Time"
+    assert embed.description is None
+    assert embed.fields[0].value == "**Spain 0 - 0 Cape Verde**"
