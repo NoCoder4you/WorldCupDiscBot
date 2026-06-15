@@ -576,6 +576,14 @@
                           <span>Away score</span>
                           <input id="fixtures-result-away-score" type="number" min="0" step="1" placeholder="e.g. 1" />
                       </label>
+                      <label>
+                          <span>Winner after penalties (tied scores only)</span>
+                          <select id="fixtures-result-winner-side" class="select-dark">
+                              <option value="">No shootout winner / draw</option>
+                              <option value="home">Home team advances</option>
+                              <option value="away">Away team advances</option>
+                          </select>
+                      </label>
                       <div class="hint">Matches are loaded from <code>matches.json</code> through the admin fixtures endpoint.</div>
                   </div>
                   <div class="modal-foot">
