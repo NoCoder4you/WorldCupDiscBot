@@ -1176,9 +1176,11 @@ function stagePill(stage){
       return;
     }
 
-    const country = quickAnnouncementFixture.selectedCountry;
+    // Half time describes the fixture as a whole, so it must not inherit or
+    // require whichever team the operator happened to select previously.
+    const country = eventType === 'half_time' ? '' : quickAnnouncementFixture.selectedCountry;
     const matchTime = String(document.getElementById('quick-event-time')?.value || '').trim();
-    if (!country) {
+    if (eventType !== 'half_time' && !country) {
       if (status) status.textContent = 'Choose a country before selecting an action.';
       return;
     }
@@ -1205,7 +1207,8 @@ function stagePill(stage){
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || `send_failed_${response.status}`);
       quickAnnouncementFixture.liveStats = data.live_stats || quickAnnouncementFixture.liveStats;
-      notify(`${data.event_type.replaceAll('_', ' ')} saved for ${country}`, true);
+      const savedFor = country ? ` for ${country}` : '';
+      notify(`${data.event_type.replaceAll('_', ' ')} saved${savedFor}`, true);
       if (status) status.textContent = 'Event saved and queued.';
       document.getElementById('quick-event-time').value = '';
     } catch (error) {

@@ -300,8 +300,8 @@ def test_quick_match_announcement_validates_event_country_and_time(tmp_path):
     assert invalid_time.get_json()["error"] == "invalid_match_time"
 
 
-def test_half_time_quick_announcement_does_not_require_match_time(tmp_path):
-    """Half-time updates should post without asking the operator for a minute."""
+def test_half_time_quick_announcement_does_not_require_country_or_match_time(tmp_path):
+    """Half-time updates should post without asking for a team or minute."""
     client, json_dir = _build_admin_client(tmp_path)
     (json_dir / "matches.json").write_text(
         json.dumps([{
@@ -320,14 +320,17 @@ def test_half_time_quick_announcement_does_not_require_match_time(tmp_path):
 
     response = client.post(
         "/admin/fixtures/quick-announce",
-        json={"match_id": "M12", "event_type": "half_time", "country": "A"},
+        json={"match_id": "M12", "event_type": "half_time"},
     )
 
     assert response.status_code == 200
+    saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
+    assert saved_match["live_stats"][-1]["country"] == ""
     command = json.loads(
         (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
     )
     assert command["data"]["message"] == "A 1–1 B"
+    assert command["data"]["country"] == ""
 
 
 def test_fixture_result_includes_penalty_score_in_command(tmp_path):
