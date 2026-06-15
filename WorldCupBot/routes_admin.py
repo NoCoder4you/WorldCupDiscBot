@@ -1597,6 +1597,7 @@ def create_admin_routes(ctx):
             "event_type": event_type,
             "event_label": allowed_events[event_type],
             "message": message,
+            "match_time": match_time,
             "home_score": home_score,
             "away_score": away_score,
             # Team incidents use this value for the embed flag. Half time

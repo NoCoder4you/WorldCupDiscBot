@@ -1222,6 +1222,20 @@ function stagePill(stage){
   function updateQuickFinalStats() {
     const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
+    const winnerSide = document.getElementById('quick-winner-side');
+    const isTied = homeScore === awayScore;
+    if (!isTied && winnerSide) winnerSide.value = '';
+    if (winnerSide) winnerSide.disabled = !isTied;
+    // Shootout scores are only relevant after an operator selects a penalty
+    // winner; hiding them for "Not applicable" keeps the form unambiguous.
+    const showPenaltyScores = isTied && Boolean(winnerSide?.value);
+    document.querySelectorAll('.quick-penalty-score').forEach((field) => {
+      field.hidden = !showPenaltyScores;
+    });
+    if (!showPenaltyScores) {
+      document.getElementById('quick-home-penalties').value = '';
+      document.getElementById('quick-away-penalties').value = '';
+    }
     const counts = (type, country) => (quickAnnouncementFixture?.liveStats || [])
       .filter((stat) => stat.event_type === type && stat.country === country).length;
     document.getElementById('quick-final-score').textContent = `${homeScore}–${awayScore}`;
@@ -1301,7 +1315,7 @@ function stagePill(stage){
     if (event.target.id === 'quick-full-time-submit') confirmQuickFullTime(event.target);
   });
 
-  ['quick-home-score', 'quick-away-score'].forEach((id) => {
+  ['quick-home-score', 'quick-away-score', 'quick-winner-side'].forEach((id) => {
     document.getElementById(id)?.addEventListener('input', updateQuickFinalStats);
   });
 

@@ -218,9 +218,17 @@ class FanZoneAnnouncer(commands.Cog):
             if not isinstance(stat, dict):
                 continue
             label = str(stat.get("label") or "Update").strip()
-            message = str(stat.get("message") or "").strip()
-            if message:
-                stats_lines.append(f"**{label}:** {message}")
+            match_time = str(stat.get("match_time") or "").strip()
+            event_type = str(stat.get("event_type") or "").strip().lower()
+            country = str(stat.get("country") or "").strip()
+            # Half time has a standard clock value even though the dashboard
+            # does not ask the operator to enter one. Final summaries describe
+            # the incident itself instead of repeating the score after every
+            # event, which keeps the score exclusive to the result heading.
+            display_time = match_time or ("45" if event_type == "half_time" else "")
+            timing = f" — {display_time}'" if display_time else ""
+            country_text = f" — {country}" if country else ""
+            stats_lines.append(f"**{label}**{timing}{country_text}")
         if stats_lines:
             # Discord embed fields are limited to 1024 characters.
             embed.add_field(name="Match Stats", value="\n".join(stats_lines)[-1024:], inline=False)
@@ -244,12 +252,17 @@ class FanZoneAnnouncer(commands.Cog):
             "half_time": "⏸️",
         }
         label = str(data.get("event_label") or "Match Update").strip()
+        match_time = str(data.get("match_time") or "").strip()
+        # Put the clock in the title so the event and its timing are visible
+        # together in Discord notifications and compact embed previews.
+        display_time = match_time or ("45" if event_type == "half_time" else "")
+        title_timing = f" — {display_time}'" if display_time else ""
         home = str(data.get("home") or "").strip()
         away = str(data.get("away") or "").strip()
         home_score = int(data.get("home_score") or 0)
         away_score = int(data.get("away_score") or 0)
         embed = discord.Embed(
-            title=f"{icons.get(event_type, '📣')} - {label}",
+            title=f"{icons.get(event_type, '📣')} - {label}{title_timing}",
             color=colors.get(event_type, discord.Color.blurple()),
         )
         # The title communicates the action, so the body only needs the current
