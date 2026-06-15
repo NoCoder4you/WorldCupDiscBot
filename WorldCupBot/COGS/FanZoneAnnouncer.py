@@ -226,8 +226,8 @@ class FanZoneAnnouncer(commands.Cog):
             # the incident itself instead of repeating the score after every
             # event, which keeps the score exclusive to the result heading.
             display_time = match_time or ("45" if event_type == "half_time" else "")
-            timing = f" — {display_time}'" if display_time else ""
-            country_text = f" — {country}" if country else ""
+            timing = f" - {display_time}'" if display_time else ""
+            country_text = f"  {country}" if country else ""
             stats_lines.append(f"**{label}**{timing}{country_text}")
         if stats_lines:
             # Discord embed fields are limited to 1024 characters.
@@ -256,7 +256,7 @@ class FanZoneAnnouncer(commands.Cog):
         # Put the clock in the title so the event and its timing are visible
         # together in Discord notifications and compact embed previews.
         display_time = match_time or ("45" if event_type == "half_time" else "")
-        title_timing = f" — {display_time}'" if display_time else ""
+        title_timing = f"  {display_time}'" if display_time else ""
         home = str(data.get("home") or "").strip()
         away = str(data.get("away") or "").strip()
         home_score = int(data.get("home_score") or 0)

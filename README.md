@@ -101,29 +101,6 @@ playwright install chromium
 python WorldCupBot/launcher.py
 ```
 
-### FIFA Match Centre snapshots
-
-Discord does not render third-party website iframes inside messages. The
-`FifaMatchCentre` cog therefore renders the configured FIFA page in headless
-Chromium, captures the iframe or match area, and posts the resulting image with
-a link to the interactive source.
-
-No JSON editing is required. A server administrator can manage everything from
-Discord:
-
-- `/fifamatchsetup` — paste the FIFA match URL, select its fixture ID, choose
-  the update interval, and enable automatic posts. Fixture IDs are suggested
-  automatically from the match schedule, and there is no default match.
-- `/fifamatchstatus` — display the saved channel, URL, interval, and status.
-- `/fifamatchdisable` — stop automatic posts without losing the other settings.
-- `/refreshfifamatch` — force an immediate snapshot.
-
-The settings are saved automatically under `WorldCupBot/JSON`. The cog only
-posts automatic captures when the rendered image changes. Its destination is
-derived from the selected fixture: group-stage games post in `#group-a` through
-`#group-l`, while knockout games post in their matching stage channel. No
-default Discord channel is used.
-
 ---
 
 ## 🔑 Configuration

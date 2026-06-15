@@ -76,7 +76,7 @@ def test_official_result_embed_lists_event_times_without_repeating_scores():
         }],
     )
 
-    assert embed.fields[0].value == "**Yellow Card** — 38' — Spain"
+    assert embed.fields[0].value == "**Yellow Card**  38'  Spain"
     assert "Spain 1 - 0 Cape Verde" not in embed.fields[0].value
 
 
@@ -96,7 +96,7 @@ def test_official_result_embed_uses_standard_half_time_clock():
         }],
     )
 
-    assert embed.fields[0].value == "**Half Time** — 45'"
+    assert embed.fields[0].value == "**Half Time**  45'"
 
 
 def test_match_picks_embed_includes_score_from_settlement():
@@ -139,7 +139,7 @@ def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
     })
 
     assert embed.thumbnail.url == "https://flagcdn.com/w80/br.png"
-    assert embed.title == "⚽ - Goal — 32'"
+    assert embed.title == "⚽ - Goal  32'"
     assert embed.description is None
     assert embed.fields[0].name == "Match"
     assert embed.fields[0].value == "**Brazil 1 - 0 Morocco**"
@@ -177,6 +177,6 @@ def test_half_time_embed_does_not_repeat_event_or_matchup():
         "away_score": 0,
     })
 
-    assert embed.title == "⏸️ - Half Time — 45'"
+    assert embed.title == "⏸️ - Half Time  45'"
     assert embed.description is None
     assert embed.fields[0].value == "**Spain 0 - 0 Cape Verde**"
