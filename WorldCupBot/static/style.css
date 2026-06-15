@@ -624,6 +624,16 @@ body:not(.user-admin-view) .dashboard-live-panel {
     font-size: 0.8rem;
 }
 
+.quick-score-grid .quick-penalty-winner {
+    grid-column: 1 / -1;
+    width: calc(50% - 5px);
+    justify-self: center;
+}
+
+.quick-score-grid .quick-penalty-score {
+    grid-row: 3;
+}
+
 .quick-score-grid input,
 .quick-score-grid select {
     width: 100%;
@@ -695,6 +705,14 @@ body:not(.user-admin-view) .dashboard-live-panel {
 
     .quick-score-grid {
         grid-template-columns: 1fr;
+    }
+
+    .quick-score-grid .quick-penalty-winner {
+        width: 100%;
+    }
+
+    .quick-score-grid .quick-penalty-score {
+        grid-row: auto;
     }
 }
 
