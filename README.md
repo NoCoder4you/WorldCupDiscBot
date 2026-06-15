@@ -94,9 +94,31 @@ source WCenv/bin/activate
 # Install dependencies
 pip install -r WorldCupBot/requirements.txt
 
+# Install the headless Chromium binary used for FIFA match-centre captures.
+playwright install chromium
+
 # Start launcher (Flask panel + bot)
 python WorldCupBot/launcher.py
 ```
+
+### FIFA Match Centre snapshots
+
+Discord does not render third-party website iframes inside messages. The
+`FifaMatchCentre` cog therefore renders the configured FIFA page in headless
+Chromium, captures the iframe or match area, and posts the resulting image with
+a link to the interactive source.
+
+No JSON editing is required. A server administrator can manage everything from
+Discord:
+
+- `/fifamatchsetup` — select the destination channel, paste the FIFA match URL,
+  choose the update interval, and enable automatic posts.
+- `/fifamatchstatus` — display the saved channel, URL, interval, and status.
+- `/fifamatchdisable` — stop automatic posts without losing the other settings.
+- `/refreshfifamatch` — force an immediate snapshot.
+
+The settings are saved automatically under `WorldCupBot/JSON`. The cog only
+posts automatic captures when the rendered image changes.
 
 ---
 
