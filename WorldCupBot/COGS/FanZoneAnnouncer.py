@@ -136,12 +136,26 @@ class FanZoneAnnouncer(commands.Cog):
         except Exception:
             return
 
-    def _public_embed(self, home: str, away: str, winner: str, loser: str, thumb_iso: str | None):
+    def _public_embed(
+        self,
+        home: str,
+        away: str,
+        winner: str,
+        loser: str,
+        thumb_iso: str | None,
+        home_score=None,
+        away_score=None,
+    ):
         is_draw = str(winner or "").strip().lower() == "draw" or not loser
         result_line = f"Result: **Draw**" if is_draw else f"Winner: **{winner}**"
+        # Score-driven settlements include the canonical scoreline. Legacy
+        # declarations omit scores and retain their existing display.
+        score_line = ""
+        if home_score is not None and away_score is not None:
+            score_line = f"\n**{home_score} – {away_score}**"
         e = discord.Embed(
             title="Match Picks Result",
-            description=f"**{home}** vs **{away}**\n{result_line}",
+            description=f"**{home}** vs **{away}**{score_line}\n{result_line}",
             color=discord.Color.gold()
         )
         e.add_field(name="Stats", value="COMING SOON", inline=False)
@@ -287,7 +301,15 @@ class FanZoneAnnouncer(commands.Cog):
 
             if ch:
                 try:
-                    emb = self._public_embed(home, away, winner_team, loser_team, winner_iso)
+                    emb = self._public_embed(
+                        home,
+                        away,
+                        winner_team,
+                        loser_team,
+                        winner_iso,
+                        data.get("home_score"),
+                        data.get("away_score"),
+                    )
                     await ch.send(embed=emb)
                 except Exception:
                     pass

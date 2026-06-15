@@ -24,3 +24,14 @@ def test_official_result_embed_identifies_draw():
 
     assert "France 0 – 0 Germany" in embed.description
     assert "Draw" in embed.description
+
+
+def test_match_picks_embed_includes_score_from_settlement():
+    """The normal settlement embed should include scores entered in the UI."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._public_embed("USA", "Canada", "USA", "Canada", None, 2, 1)
+
+    assert "USA" in embed.description
+    assert "2 – 1" in embed.description
+    assert "Winner: **USA**" in embed.description

@@ -89,7 +89,7 @@ def test_disabling_maintenance_mode_enqueues_disabled_announcement(tmp_path):
 
 
 def test_admin_fixture_result_updates_match_scores(tmp_path):
-    """Admin result endpoint should persist home/away scores for a fixture."""
+    """Saving a score should persist it and run the Match Picks settlement."""
     client, json_dir = _build_admin_client(tmp_path)
     matches_path = json_dir / "matches.json"
     matches_path.write_text(
@@ -103,6 +103,19 @@ def test_admin_fixture_result_updates_match_scores(tmp_path):
                 }
             ]
         ),
+        encoding="utf-8",
+    )
+    (json_dir / "fan_votes.json").write_text(
+        json.dumps({
+            "fixtures": {
+                "M73": {
+                    "home": 1,
+                    "away": 1,
+                    "draw": 0,
+                    "voters": {"10": "home", "20": "away"},
+                }
+            }
+        }),
         encoding="utf-8",
     )
 
@@ -121,12 +134,31 @@ def test_admin_fixture_result_updates_match_scores(tmp_path):
     assert stored[0]["home_score"] == 2
     assert stored[0]["away_score"] == 1
 
+    winners = json.loads((json_dir / "fan_winners.json").read_text(encoding="utf-8"))
+    assert winners["M73"]["winner_side"] == "home"
+    assert winners["M73"]["winner_team"] == "2A"
+
+    snapshots = json.loads((json_dir / "fan_vote_snapshots.json").read_text(encoding="utf-8"))
+    assert snapshots["fixtures"]["M73"]["home_votes"] == 1
+    assert snapshots["fixtures"]["M73"]["away_votes"] == 1
+    assert snapshots["fixtures"]["M73"]["winner_side"] == "home"
+
+    settled_events = json.loads(
+        (json_dir / "fan_zone_results.json").read_text(encoding="utf-8")
+    )["events"]
+    voter_results = {
+        event["discord_id"]: event["result"]
+        for event in settled_events
+        if event.get("fixture_id") == "M73"
+    }
+    assert voter_results == {"10": "win", "20": "lose"}
+
     commands = [
         json.loads(line)
         for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    result_command = next(command for command in commands if command.get("kind") == "fixture_result")
+    result_command = next(command for command in commands if command.get("kind") == "fanzone_winner")
     assert result_command["data"]["home"] == "2A"
     assert result_command["data"]["away"] == "2B"
     assert result_command["data"]["home_score"] == 2
