@@ -497,7 +497,28 @@ body:not(.user-admin-view) .dashboard-live-panel {
     background: #ffffff0a;
 }
 
-.quick-announce-options {
+.quick-final-stats {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0;
+}
+
+.quick-final-stats div {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.quick-step-label {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.quick-country-options {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
