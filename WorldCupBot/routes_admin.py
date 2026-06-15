@@ -1679,10 +1679,14 @@ def create_admin_routes(ctx):
             winner_side = "away"
 
         container, fixtures, key = _load_matches_payload()
+        winners = _read_json(_path(ctx, "fan_winners.json"), {})
+        if not isinstance(winners, dict):
+            winners = {}
         updated = False
         matched_fixture = None
         unchanged = False
         is_correction = False
+        has_existing_settlement = False
         for fixture in fixtures:
             if not isinstance(fixture, dict):
                 continue
@@ -1717,21 +1721,42 @@ def create_admin_routes(ctx):
                 previous_home_score = None
                 previous_away_score = None
                 had_previous_score = False
-            previous_side = str(fixture.get("winner_side") or "").strip().lower()
-            if had_previous_score and previous_home_score > previous_away_score:
-                previous_side = "home"
-            elif had_previous_score and previous_away_score > previous_home_score:
-                previous_side = "away"
-            elif had_previous_score and previous_side not in ("home", "away"):
-                previous_side = "draw"
-
+            # Scores and winner records were historically written by separate
+            # endpoints. A save is only unchanged when both pieces already
+            # exist and agree; score-only production data still needs settling.
+            derived_id = _fanzone_fixture_id_from_fixture(fixture)
+            existing_settlement = winners.get(match_id)
+            if not isinstance(existing_settlement, dict) and derived_id:
+                existing_settlement = winners.get(derived_id)
+            if not isinstance(existing_settlement, dict):
+                existing_settlement = {}
+            settlement_side = str(
+                existing_settlement.get("winner_side")
+                or existing_settlement.get("winner")
+                or ""
+            ).strip().lower()
+            has_existing_settlement = settlement_side in ("home", "away", "draw")
             unchanged = (
                 had_previous_score
                 and previous_home_score == home_score
                 and previous_away_score == away_score
-                and previous_side == winner_side
+                and has_existing_settlement
+                and settlement_side == winner_side
             )
-            is_correction = had_previous_score and not unchanged
+            is_correction = (
+                has_existing_settlement
+                and not unchanged
+                and (
+                    settlement_side != winner_side
+                    or (
+                        had_previous_score
+                        and (
+                            previous_home_score != home_score
+                            or previous_away_score != away_score
+                        )
+                    )
+                )
+            )
             fixture["home_score"] = home_score
             fixture["away_score"] = away_score
             # Penalty shootouts select an advancing side without changing the
@@ -1777,8 +1802,10 @@ def create_admin_routes(ctx):
             matched_fixture or {},
             match_id,
             winner_side,
-            replace_existing=is_correction,
+            replace_existing=has_existing_settlement,
+            suppress_owner_dms=has_existing_settlement,
             suppress_public=True,
+            corrected=is_correction,
         )
         # The dedicated Fixtures announcement is deliberately separate from
         # Match Picks settlement so it uses the official full-time score embed.
@@ -2524,7 +2551,9 @@ def create_admin_routes(ctx):
         winner_iso: str = "",
         *,
         replace_existing: bool = False,
+        suppress_owner_dms: bool = False,
         suppress_public: bool = False,
+        corrected: bool = False,
     ):
         """Settle Match Picks and return the data exposed by the admin endpoint.
 
@@ -2630,9 +2659,11 @@ def create_admin_routes(ctx):
 
         if replace_existing:
             # Corrections replace website notification/leaderboard events.
-            # Owner DMs are intentionally not resent because the original DM
-            # cannot be recalled and a second opposite DM would be misleading.
             _remove_fanzone_result_events(fixture_id)
+        if suppress_owner_dms:
+            # Existing settlements may predate saved scores. Never resend owner
+            # DMs when backfilling or correcting because old DMs cannot be
+            # recalled and a second message may duplicate or contradict them.
             dm_winner_owner_ids = []
             dm_loser_owner_ids = []
             dm_draw_owner_ids = []
@@ -2664,7 +2695,7 @@ def create_admin_routes(ctx):
             "draw_votes": draw_votes,
             "total_votes": total_votes,
             "suppress_public": suppress_public,
-            "corrected": replace_existing,
+            "corrected": corrected,
         })
 
         if side in ("home", "away"):
@@ -2697,7 +2728,7 @@ def create_admin_routes(ctx):
             "draw_votes": draw_votes,
             "total_votes": total_votes,
             "channel": channel_name,
-            "corrected": replace_existing,
+            "corrected": corrected,
         }
 
     @bp.post("/admin/fanzone/declare")
