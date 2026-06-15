@@ -347,6 +347,154 @@ section.page-section.active-section {
     }
 }
 
+.dashboard-process-panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+body.user-admin-view .dashboard-process-panel {
+    display: none;
+}
+
+.dashboard-live-panel {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+}
+
+body:not(.user-admin-view) .dashboard-live-panel {
+    display: none !important;
+}
+
+.dashboard-live-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.dashboard-live-games {
+    display: grid;
+    gap: 7px;
+    margin-top: 10px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.dashboard-live-game {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.dashboard-live-match {
+    font-weight: 700;
+    font-size: 0.84rem;
+}
+
+.dashboard-live-meta {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 0.72rem;
+}
+
+.dashboard-live-game .dashboard-quick-announce {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+    font-size: 0.72rem;
+}
+
+.quick-announce-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(3, 7, 18, 0.78);
+    backdrop-filter: blur(5px);
+}
+
+#quick-announce-modal {
+    width: min(560px, 100%);
+}
+
+#quick-announce-modal .modal-body {
+    display: grid;
+    gap: 12px;
+}
+
+#quick-announce-message {
+    width: 100%;
+    min-height: 110px;
+    resize: vertical;
+}
+
+.quick-announce-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.quick-score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.quick-score-grid label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 0.8rem;
+}
+
+.quick-score-grid input,
+.quick-score-grid select {
+    width: 100%;
+}
+
+.quick-event.full-time {
+    background: #16a34a;
+}
+
+.quick-event.yellow {
+    color: #171717;
+    background: #facc15;
+}
+
+.quick-event.red {
+    background: #dc2626;
+}
+
+.quick-event.half-time {
+    background: #5865f2;
+}
+
+@media (max-width: 620px) {
+    .dashboard-live-game {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .quick-announce-options {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-score-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .dashboard-banner {
     width: min(1200px, 100%);
     margin: 0 auto 40px;

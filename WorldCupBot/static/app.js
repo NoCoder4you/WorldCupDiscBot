@@ -249,6 +249,8 @@ function applyAdminView(){
   });
   
   document.body.classList.toggle('user-admin-view', enabled);
+  // A modal opened in admin view must not survive switching back to user view.
+  if (!enabled) closeQuickAnnouncementModal();
 }
 
 function ensureAdminToggleButton(){
@@ -373,6 +375,9 @@ function stagePill(stage){
     }
 
     if (p !== 'dashboard') {
+      // Live-match controls belong exclusively to the dashboard and should
+      // reset immediately instead of reappearing when the operator returns.
+      closeQuickAnnouncementModal();
       setOfflineBanner({ mode: 'hidden' });
       applyDashboardWarningState();
     }
@@ -929,6 +934,9 @@ function stagePill(stage){
 
       state.lastBotRunning = running;
       updateDashboardLastUpdated();
+      if (state.currentPage === 'dashboard' && isAdminUI()) {
+        await loadDashboardLiveGames();
+      }
 
       const $actions = qs('#bot-actions');
       const $start = qs('#start-bot');
@@ -1028,6 +1036,193 @@ function stagePill(stage){
     renderDashboardLastUpdatedLabel();
     startDashboardAgeTicker();
   }
+
+  const QUICK_MATCH_WINDOW_MS = 150 * 60 * 1000;
+  let quickAnnouncementFixture = null;
+
+  function isQuickAnnouncementContext() {
+    // Require both the explicit admin-view toggle and the active dashboard page.
+    return isAdminUI() && !!document.querySelector('#dashboard.page-section.active-section');
+  }
+
+  function ongoingDashboardFixtures(fixtures) {
+    const now = Date.now();
+    return (Array.isArray(fixtures) ? fixtures : []).filter((fixture) => {
+      const kickoff = Date.parse(String(fixture?.utc || ''));
+      const elapsed = now - kickoff;
+      // Operators may select every fixture that kicked off during the last
+      // 150 minutes, including one whose result was entered unusually early.
+      return Number.isFinite(kickoff)
+        && elapsed >= 0
+        && elapsed <= QUICK_MATCH_WINDOW_MS;
+    });
+  }
+
+  async function loadDashboardLiveGames() {
+    const host = document.getElementById('dashboard-live-games');
+    if (!host || !isQuickAnnouncementContext()) return;
+    host.innerHTML = '<div class="muted">Loading ongoing games…</div>';
+    try {
+      const data = await fetchJSON('/admin/fixtures');
+      const fixtures = ongoingDashboardFixtures(data?.fixtures);
+      if (!fixtures.length) {
+        host.innerHTML = '<div class="muted">No games are currently in progress.</div>';
+        return;
+      }
+      host.innerHTML = fixtures.map((fixture) => {
+        const stage = fixture.stage || (fixture.group ? `Group ${fixture.group}` : 'Tournament match');
+        return `
+          <div class="dashboard-live-game">
+            <div>
+              <div class="dashboard-live-match">${esc(fixture.home)} vs ${esc(fixture.away)}</div>
+              <div class="dashboard-live-meta">${esc(stage)} · Started ${esc(formatDashboardAge(Date.now() - Date.parse(fixture.utc)))}</div>
+            </div>
+            <button class="btn sm dashboard-quick-announce" type="button"
+              data-fixture-id="${esc(fixture.id)}"
+              data-home="${esc(fixture.home)}"
+              data-away="${esc(fixture.away)}"
+              data-home-score="${esc(fixture.home_score ?? 0)}"
+              data-away-score="${esc(fixture.away_score ?? 0)}">Quick options</button>
+          </div>`;
+      }).join('');
+    } catch (error) {
+      host.innerHTML = `<div class="muted">Could not load ongoing games: ${esc(error.message)}</div>`;
+    }
+  }
+
+  function closeQuickAnnouncementModal() {
+    const backdrop = document.getElementById('quick-announce-backdrop');
+    if (backdrop) backdrop.style.display = 'none';
+    quickAnnouncementFixture = null;
+  }
+
+  function openQuickAnnouncementModal(button) {
+    if (!isQuickAnnouncementContext()) return;
+    const backdrop = document.getElementById('quick-announce-backdrop');
+    const modal = document.getElementById('quick-announce-modal');
+    const match = document.getElementById('quick-announce-match');
+    const message = document.getElementById('quick-announce-message');
+    const status = document.getElementById('quick-announce-status');
+    const homeScore = document.getElementById('quick-home-score');
+    const awayScore = document.getElementById('quick-away-score');
+    const homeLabel = document.getElementById('quick-home-label');
+    const awayLabel = document.getElementById('quick-away-label');
+    const winnerSide = document.getElementById('quick-winner-side');
+    if (!backdrop || !modal || !message) return;
+    quickAnnouncementFixture = {
+      id: String(button.dataset.fixtureId || ''),
+      home: String(button.dataset.home || ''),
+      away: String(button.dataset.away || '')
+    };
+    if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
+    if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
+    if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
+    if (homeScore) homeScore.value = String(button.dataset.homeScore || '0');
+    if (awayScore) awayScore.value = String(button.dataset.awayScore || '0');
+    if (winnerSide) winnerSide.value = '';
+    if (status) status.textContent = '';
+    message.value = '';
+    backdrop.style.display = 'flex';
+    modal.focus();
+    message.focus();
+  }
+
+  async function sendQuickAnnouncement(eventType, button) {
+    if (!isQuickAnnouncementContext()) {
+      closeQuickAnnouncementModal();
+      return;
+    }
+    const message = document.getElementById('quick-announce-message');
+    const status = document.getElementById('quick-announce-status');
+    const detail = String(message?.value || '').trim();
+    if (!quickAnnouncementFixture?.id) return;
+
+    if (eventType === 'full_time') {
+      const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '', 10);
+      const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '', 10);
+      const winnerSide = String(document.getElementById('quick-winner-side')?.value || '');
+      if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
+        if (status) status.textContent = 'Enter valid non-negative scores before full time.';
+        return;
+      }
+      if (winnerSide && homeScore !== awayScore) {
+        if (status) status.textContent = 'Only select a penalty winner when the score is tied.';
+        return;
+      }
+      button.disabled = true;
+      if (status) status.textContent = 'Saving result and posting full time…';
+      try {
+        const data = await fetchJSON('/admin/fixtures/result', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            match_id: quickAnnouncementFixture.id,
+            home_score: homeScore,
+            away_score: awayScore,
+            winner_side: winnerSide
+          })
+        });
+        notify(data?.unchanged ? 'Full-time result already saved' : 'Full-time result posted', true);
+        closeQuickAnnouncementModal();
+        await loadDashboardLiveGames();
+      } catch (error) {
+        if (status) status.textContent = `Unable to save result: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+      return;
+    }
+
+    if (!detail) {
+      if (status) status.textContent = 'Enter announcement details before choosing an event.';
+      message?.focus();
+      return;
+    }
+    const buttons = document.querySelectorAll('.quick-event');
+    buttons.forEach((item) => { item.disabled = true; });
+    if (status) status.textContent = 'Sending announcement…';
+    try {
+      const response = await fetch('/admin/fixtures/quick-announce', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: quickAnnouncementFixture.id,
+          event_type: eventType,
+          message: detail
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || `send_failed_${response.status}`);
+      notify(`Update queued for #${data.channel}`, true);
+      // Keep the selected match open so staff can record several events in
+      // quick succession without finding the fixture again.
+      if (message) message.value = '';
+      if (status) status.textContent = `${data.event_type.replaceAll('_', ' ')} saved and queued.`;
+    } catch (error) {
+      if (status) status.textContent = `Unable to send: ${error.message}`;
+      button?.focus();
+    } finally {
+      buttons.forEach((item) => { item.disabled = false; });
+    }
+  }
+
+  document.addEventListener('click', (event) => {
+    const openButton = event.target.closest('.dashboard-quick-announce');
+    if (openButton) openQuickAnnouncementModal(openButton);
+    if (event.target.id === 'dashboard-live-refresh') loadDashboardLiveGames();
+    if (event.target.id === 'quick-announce-close' || event.target.id === 'quick-announce-backdrop') {
+      closeQuickAnnouncementModal();
+    }
+    const eventButton = event.target.closest('.quick-event');
+    if (eventButton) sendQuickAnnouncement(eventButton.dataset.eventType, eventButton);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.getElementById('quick-announce-backdrop')?.style.display === 'flex') {
+      closeQuickAnnouncementModal();
+    }
+  });
 
   function clearSystem(){
     ['mem-bar','cpu-bar','disk-bar'].forEach(id=>{

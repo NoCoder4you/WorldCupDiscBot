@@ -197,6 +197,141 @@ def test_admin_fixture_result_unchanged_save_is_idempotent(tmp_path):
     assert [command["kind"] for command in commands].count("fixture_result") == 1
 
 
+def test_quick_match_announcement_uses_group_channel(tmp_path):
+    """Live group-stage updates should be queued for the fixture's group channel."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M12",
+            "home": "Argentina",
+            "away": "Algeria",
+            "group": "J",
+            "stage": "Group Stage",
+            "utc": "2026-06-15T18:00:00Z",
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={
+            "match_id": "M12",
+            "event_type": "goal",
+            "message": "23' Argentina score and lead 1–0.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["channel"] == "group-j"
+    command = json.loads(
+        (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert command["kind"] == "quick_match_announcement"
+    assert command["data"]["event_label"] == "Goal"
+    assert command["data"]["message"] == "23' Argentina score and lead 1–0."
+    assert command["data"]["channel"] == "group-j"
+
+    stored = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
+    assert len(stored[0]["live_stats"]) == 1
+    assert stored[0]["live_stats"][0]["event_type"] == "goal"
+    assert stored[0]["live_stats"][0]["label"] == "Goal"
+    assert stored[0]["live_stats"][0]["message"] == "23' Argentina score and lead 1–0."
+    assert isinstance(stored[0]["live_stats"][0]["ts"], int)
+
+
+def test_quick_match_announcement_uses_knockout_channel(tmp_path):
+    """Knockout updates should use the dedicated channel mapped from their stage."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M88",
+            "home": "France",
+            "away": "Brazil",
+            "stage": "Quarter-finals",
+            "utc": "2026-07-09T19:00:00Z",
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={
+            "match_id": "M88",
+            "event_type": "yellow_card",
+            "message": "41' Yellow card shown to France.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["channel"] == "quarter-finals"
+
+
+def test_quick_match_announcement_validates_event_and_message(tmp_path):
+    """The quick endpoint must reject unsupported events and blank announcements."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M12", "home": "A", "away": "B", "group": "A"}]),
+        encoding="utf-8",
+    )
+
+    invalid_event = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "full_time", "message": "Done"},
+    )
+    blank_message = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "red_card", "message": "  "},
+    )
+
+    assert invalid_event.status_code == 400
+    assert invalid_event.get_json()["error"] == "invalid_event_type"
+    assert blank_message.status_code == 400
+    assert blank_message.get_json()["error"] == "missing_message"
+
+
+def test_full_time_result_command_includes_persisted_live_stats(tmp_path):
+    """Full time should automatically attach recorded events to the result embed payload."""
+    client, json_dir = _build_admin_client(tmp_path)
+    live_stats = [
+        {
+            "event_type": "goal",
+            "label": "Goal",
+            "message": "12' Team A opened the scoring.",
+            "ts": 100,
+        },
+        {
+            "event_type": "yellow_card",
+            "label": "Yellow Card",
+            "message": "44' Booking for Team B.",
+            "ts": 200,
+        },
+    ]
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M20",
+            "home": "Team A",
+            "away": "Team B",
+            "group": "A",
+            "live_stats": live_stats,
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M20", "home_score": 2, "away_score": 1},
+    )
+
+    assert response.status_code == 200
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    result_command = next(command for command in commands if command["kind"] == "fixture_result")
+    assert result_command["data"]["live_stats"] == live_stats
+
+
 def test_admin_fixture_result_correction_replaces_events_without_owner_dms(tmp_path):
     """Corrections replace stored outcomes and do not send contradictory owner DMs."""
     client, json_dir = _build_admin_client(tmp_path)
