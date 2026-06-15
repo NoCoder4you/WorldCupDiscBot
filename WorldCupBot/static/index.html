@@ -62,9 +62,23 @@
 
                   <!-- C -->
                   <div class="card card-c">
-                      <div class="card-title">Bot Process</div>
-                      <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
-                      <div class="card-subtext" id="bot-status-reason"></div>
+                      <!-- Public dashboard keeps the process summary, while the
+                           explicit admin view uses this same center card for
+                           live-match controls instead of adding another row. -->
+                      <div class="dashboard-process-panel">
+                          <div class="card-title">Bot Process</div>
+                          <div class="card-value-wrapper"><span class="card-value" id="bot-status">Unknown</span></div>
+                          <div class="card-subtext" id="bot-status-reason"></div>
+                      </div>
+                      <div class="dashboard-live-panel admin-only">
+                          <div class="dashboard-live-head">
+                              <div class="card-title">Ongoing Games</div>
+                              <button id="dashboard-live-refresh" class="btn btn-outline sm" type="button">Refresh</button>
+                          </div>
+                          <div id="dashboard-live-games" class="dashboard-live-games">
+                              <div class="muted">Loading ongoing games…</div>
+                          </div>
+                      </div>
                   </div>
 
                   <!-- D - admin-only -->

@@ -1037,7 +1037,7 @@ function stagePill(stage){
     startDashboardAgeTicker();
   }
 
-  const QUICK_MATCH_DURATION_MS = 3 * 60 * 60 * 1000;
+  const QUICK_MATCH_WINDOW_MS = 150 * 60 * 1000;
   let quickAnnouncementFixture = null;
 
   function isQuickAnnouncementContext() {
@@ -1049,10 +1049,12 @@ function stagePill(stage){
     const now = Date.now();
     return (Array.isArray(fixtures) ? fixtures : []).filter((fixture) => {
       const kickoff = Date.parse(String(fixture?.utc || ''));
+      const elapsed = now - kickoff;
+      // Operators may select every fixture that kicked off during the last
+      // 150 minutes, including one whose result was entered unusually early.
       return Number.isFinite(kickoff)
-        && kickoff <= now
-        && now < kickoff + QUICK_MATCH_DURATION_MS
-        && !fixture?.completed;
+        && elapsed >= 0
+        && elapsed <= QUICK_MATCH_WINDOW_MS;
     });
   }
 
@@ -1076,9 +1078,9 @@ function stagePill(stage){
               <div class="dashboard-live-meta">${esc(stage)} · Started ${esc(formatDashboardAge(Date.now() - Date.parse(fixture.utc)))}</div>
             </div>
             <button class="btn sm dashboard-quick-announce" type="button"
-              data-fixture-id="${escAttr(fixture.id)}"
-              data-home="${escAttr(fixture.home)}"
-              data-away="${escAttr(fixture.away)}">Quick options</button>
+              data-fixture-id="${esc(fixture.id)}"
+              data-home="${esc(fixture.home)}"
+              data-away="${esc(fixture.away)}">Quick options</button>
           </div>`;
       }).join('');
     } catch (error) {
