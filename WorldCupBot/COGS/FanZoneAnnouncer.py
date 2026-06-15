@@ -148,14 +148,19 @@ class FanZoneAnnouncer(commands.Cog):
     ):
         is_draw = str(winner or "").strip().lower() == "draw" or not loser
         result_line = f"Result: **Draw**" if is_draw else f"Winner: **{winner}**"
+        # Place the trophy beside the winning country only: before the home
+        # country or after the away country, matching their visual positions.
+        winner_key = str(winner or "").strip().lower()
+        home_display = f"🏆 {home}" if not is_draw and winner_key == home.strip().lower() else home
+        away_display = f"{away} 🏆" if not is_draw and winner_key == away.strip().lower() else away
         # Score-driven settlements include the canonical scoreline. Legacy
         # declarations omit scores and retain their existing display.
         score_line = ""
         if home_score is not None and away_score is not None:
             score_line = f"\n**{home_score} – {away_score}**"
         e = discord.Embed(
-            title="Match Picks Result",
-            description=f"**{home}** vs **{away}**{score_line}\n{result_line}",
+            title="FULL TIME RESULT",
+            description=f"**{home_display}** vs **{away_display}**{score_line}\n\n{result_line}",
             color=discord.Color.gold()
         )
         e.add_field(name="Stats", value="COMING SOON", inline=False)
@@ -169,19 +174,25 @@ class FanZoneAnnouncer(commands.Cog):
     def _result_embed(self, home: str, away: str, home_score: int, away_score: int):
         """Build the official score embed sent to the fixture's Discord channel."""
         if home_score > away_score:
-            outcome = f"🏆 **{home} won**"
+            home_display = f"🏆 {home}"
+            away_display = away
+            outcome = f"**{home} won**"
             color = discord.Color.green()
         elif away_score > home_score:
-            outcome = f"🏆 **{away} won**"
+            home_display = home
+            away_display = f"{away} 🏆"
+            outcome = f"**{away} won**"
             color = discord.Color.green()
         else:
+            home_display = home
+            away_display = away
             outcome = "🤝 **Draw**"
             color = discord.Color.gold()
 
         embed = discord.Embed(
-            title="Official Match Result",
+            title="FULL TIME RESULT",
             description=(
-                f"**{home} {home_score} – {away_score} {away}**\n"
+                f"**{home_display} {home_score} – {away_score} {away_display}**\n"
                 f"{outcome}"
             ),
             color=color,
