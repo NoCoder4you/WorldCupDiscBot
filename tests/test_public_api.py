@@ -26,6 +26,107 @@ def test_teams_reads_from_json(client, app):
     assert resp.get_json() == [{"name": "Alpha"}]
 
 
+def _seed_standings_data(app, matches=None):
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    groups = {
+        group: [f"{group} Team {number}" for number in range(1, 5)]
+        for group in "ABCDEFGHIJKL"
+    }
+    groups["A"] = ["South Korea", "Czech Republic", "Turkey", "Cape Verde"]
+    (json_dir / "team_meta.json").write_text(json.dumps({"groups": groups}), encoding="utf-8")
+    (json_dir / "matches.json").write_text(json.dumps(matches or []), encoding="utf-8")
+    return groups
+
+
+def test_public_standings_returns_all_groups_without_authentication(client, app):
+    groups = _seed_standings_data(app)
+    response = client.get("/api/standings")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert [group["group"] for group in payload["groups"]] == list("ABCDEFGHIJKL")
+    assert all(len(group["teams"]) == 4 for group in payload["groups"])
+    assert payload["completed_matches"] == 0
+    assert payload["groups"][0]["teams"][0]["team"] in groups["A"]
+    assert all(
+        all(team[key] == 0 for key in ("mp", "w", "d", "l", "gf", "ga", "gd", "pts"))
+        for group in payload["groups"] for team in group["teams"]
+    )
+
+
+def test_public_standings_calculates_results_and_sort_order(client, app):
+    _seed_standings_data(app, [
+        {"group": "A", "home": "Korea Republic", "away": "Czechia", "home_score": 3, "away_score": 1},
+        {"group": "A", "home": "Turkey", "away": "Cabo Verde", "home_score": 2, "away_score": 2},
+        {"group": "B", "home": "B Team 1", "away": "B Team 2", "home_score": 2, "away_score": 0},
+        {"group": "B", "home": "B Team 3", "away": "B Team 4", "home_score": 3, "away_score": 1},
+        {"group": "B", "home": "B Team 1", "away": "B Team 3", "home_score": 1, "away_score": 0},
+        {"group": "C", "home": "C Team 1", "away": "C Team 2", "home_score": 3, "away_score": 1},
+        {"group": "C", "home": "C Team 3", "away": "C Team 4", "home_score": 2, "away_score": 0},
+    ])
+    payload = client.get("/api/standings").get_json()
+    group_a = payload["groups"][0]["teams"]
+    assert [team["team"] for team in group_a] == ["South Korea", "Cape Verde", "Turkey", "Czech Republic"]
+    assert group_a[0] == {
+        "team": "South Korea", "mp": 1, "w": 1, "d": 0, "l": 0,
+        "gf": 3, "ga": 1, "gd": 2, "pts": 3,
+    }
+    assert group_a[1]["d"] == 1 and group_a[1]["pts"] == 1 and group_a[1]["gd"] == 0
+    group_b = payload["groups"][1]["teams"]
+    assert [team["team"] for team in group_b[:2]] == ["B Team 1", "B Team 3"]
+    assert group_b[0]["pts"] == 6
+    assert group_b[1]["pts"] == 3
+    group_c = payload["groups"][2]["teams"]
+    assert [team["team"] for team in group_c[:2]] == ["C Team 1", "C Team 3"]
+    assert group_c[0]["pts"] == group_c[1]["pts"] == 3
+    assert group_c[0]["gd"] == group_c[1]["gd"] == 2
+    assert group_c[0]["gf"] > group_c[1]["gf"]
+
+
+def test_public_standings_ignores_non_final_and_malformed_fixtures(client, app):
+    _seed_standings_data(app, [
+        {"group": "A", "home": "South Korea", "away": "Turkey", "home_score": 4, "away_score": 0, "status": "postponed"},
+        {"group": "A", "home": "South Korea", "away": "Turkey", "home_score": "", "away_score": ""},
+        {"group": "A", "home": "South Korea", "away": "Turkey", "home_score": -1, "away_score": 0},
+        {"group": "A", "home": "South Korea", "away": "Turkey", "home_score": 1, "away_score": 0, "stage": "Round of 32"},
+    ])
+    payload = client.get("/api/standings").get_json()
+    assert payload["completed_matches"] == 0
+    assert all(team["mp"] == 0 for team in payload["groups"][0]["teams"])
+
+
+def test_public_standings_handles_missing_or_malformed_sources(client, app):
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    (json_dir / "team_meta.json").write_text("{bad json", encoding="utf-8")
+    (json_dir / "matches.json").write_text('{"not": "a list"}', encoding="utf-8")
+    response = client.get("/api/standings")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["groups"] == []
+    assert payload["errors"]
+
+
+def test_tables_page_is_wired_into_existing_navigation_and_loader():
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert 'data-page="tables">Tables</a>' in index_html
+    assert '<section id="tables" class="page-section">' in index_html
+    assert 'class="table-wrap tables-card"' in index_html
+    assert 'class="table-title tables-title">Group Tables</h1>' in index_html
+    assert [f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")] == [
+        token for token in (
+            f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")
+        ) if token in index_html
+    ]
+    assert "case 'tables': await loadTables(); break;" in app_js
+    assert "const TABLE_GROUPS = [...'ABCDEFGHIJKL'];" in app_js
+    assert "Standings response does not contain 12 complete groups" in app_js
+    assert "12 complete group tables" in app_js
+    assert "wc:lastPage" in app_js
+    assert "filtersWired" in app_js
+
+
 def test_index_uses_document_relative_static_asset_paths(client):
     """
     Index assets should stay document-relative so reverse proxies that mount the

@@ -95,6 +95,152 @@ def _notifications_read_path(base_dir):
 def _notification_settings_path(base_dir):
     return os.path.join(_json_dir(base_dir), "notification_settings.json")
 
+STANDINGS_GROUPS = tuple("ABCDEFGHIJKL")
+_NON_FINAL_MATCH_STATUSES = {
+    "scheduled", "postponed", "cancelled", "canceled", "abandoned",
+    "incomplete", "live", "in progress", "in_progress",
+}
+
+def _standings_score(value):
+    """Return a valid non-negative integer score, or None for placeholders."""
+    if isinstance(value, bool):
+        return None
+    try:
+        text = str(value).strip()
+        if not re.fullmatch(r"\d+", text):
+            return None
+        score = int(text)
+        return score if score >= 0 else None
+    except Exception:
+        return None
+
+def _preferred_team_name(value):
+    """Keep legacy fixture spellings aligned with the panel's canonical names."""
+    name = str(value or "").strip()
+    aliases = {
+        "korea republic": "South Korea",
+        "czechia": "Czech Republic",
+        "türkiye": "Turkey",
+        "turkiye": "Turkey",
+        "cabo verde": "Cape Verde",
+    }
+    return aliases.get(name.casefold(), name)
+
+def _build_standings(team_meta, matches):
+    """Calculate group standings once from canonical team metadata and fixtures."""
+    groups_blob = team_meta.get("groups") if isinstance(team_meta, dict) else None
+    if not isinstance(groups_blob, dict):
+        return {"groups": [], "errors": ["Group metadata is missing or malformed."], "completed_matches": 0}
+
+    group_rows = {}
+    team_lookup = {}
+    errors = []
+    for group in STANDINGS_GROUPS:
+        entries = groups_blob.get(group)
+        if not isinstance(entries, list):
+            errors.append(f"Group {group} is missing or malformed.")
+            continue
+        rows = []
+        for index, entry in enumerate(entries):
+            if isinstance(entry, str):
+                name = _preferred_team_name(entry)
+                rank = None
+            elif isinstance(entry, dict):
+                name = _preferred_team_name(entry.get("team") or entry.get("name"))
+                rank = entry.get("rank") if entry.get("rank") is not None else entry.get("tiebreak")
+            else:
+                continue
+            if not name:
+                continue
+            row = {
+                "team": name, "mp": 0, "w": 0, "d": 0, "l": 0,
+                "gf": 0, "ga": 0, "gd": 0, "pts": 0,
+                "_rank": rank, "_order": index,
+            }
+            rows.append(row)
+            team_lookup[name.casefold()] = (group, row)
+        if len(rows) != 4:
+            errors.append(f"Group {group} must contain exactly four valid teams.")
+            continue
+        group_rows[group] = rows
+
+    completed_matches = 0
+    for fixture in matches if isinstance(matches, list) else []:
+        if not isinstance(fixture, dict):
+            continue
+        status = str(fixture.get("status") or fixture.get("state") or "").strip().casefold()
+        if status in _NON_FINAL_MATCH_STATUSES:
+            continue
+        stage = normalize_stage(str(
+            fixture.get("stage") or fixture.get("round") or fixture.get("phase") or ""
+        ).strip())
+        group = str(fixture.get("group") or "").strip().upper()
+        if stage and stage not in ("Group Stage", "Groups") and not re.fullmatch(r"Group [A-L]", stage, re.I):
+            continue
+        home = _preferred_team_name(fixture.get("home"))
+        away = _preferred_team_name(fixture.get("away"))
+        home_ref = team_lookup.get(home.casefold())
+        away_ref = team_lookup.get(away.casefold())
+        if not home_ref or not away_ref or home_ref[0] != away_ref[0]:
+            continue
+        inferred_group = home_ref[0]
+        if group and group != inferred_group:
+            continue
+        home_score = _standings_score(
+            fixture.get("home_score") if fixture.get("home_score") is not None else fixture.get("score_home")
+        )
+        away_score = _standings_score(
+            fixture.get("away_score") if fixture.get("away_score") is not None else fixture.get("score_away")
+        )
+        if home_score is None or away_score is None:
+            score = fixture.get("score")
+            if isinstance(score, str):
+                parts = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", score)
+                if parts:
+                    home_score = home_score if home_score is not None else int(parts.group(1))
+                    away_score = away_score if away_score is not None else int(parts.group(2))
+        if home_score is None or away_score is None:
+            continue
+
+        home_row, away_row = home_ref[1], away_ref[1]
+        completed_matches += 1
+        for row in (home_row, away_row):
+            row["mp"] += 1
+        home_row["gf"] += home_score
+        home_row["ga"] += away_score
+        away_row["gf"] += away_score
+        away_row["ga"] += home_score
+        if home_score > away_score:
+            home_row["w"] += 1; home_row["pts"] += 3; away_row["l"] += 1
+        elif away_score > home_score:
+            away_row["w"] += 1; away_row["pts"] += 3; home_row["l"] += 1
+        else:
+            home_row["d"] += 1; away_row["d"] += 1
+            home_row["pts"] += 1; away_row["pts"] += 1
+
+    output = []
+    for group in STANDINGS_GROUPS:
+        rows = group_rows.get(group)
+        if not rows:
+            continue
+        for row in rows:
+            row["gd"] = row["gf"] - row["ga"]
+        rows.sort(key=lambda row: (
+            -row["pts"], -row["gd"], -row["gf"],
+            row["_rank"] if isinstance(row["_rank"], (int, float)) else float("inf"),
+            row["team"].casefold(), row["_order"],
+        ))
+        output.append({
+            "group": group,
+            "teams": [
+                {key: value for key, value in row.items() if not key.startswith("_")}
+                for row in rows
+            ],
+        })
+    if not isinstance(matches, list):
+        errors.append("Fixture data is missing or malformed; showing zeroed standings.")
+    return {"groups": output, "errors": errors, "completed_matches": completed_matches}
+
 def _player_names_map(base_dir):
     verified_blob = _json_load(_verified_path(base_dir), {})
     players_blob = _json_load(_players_path(base_dir), {})
@@ -1200,6 +1346,17 @@ def create_public_routes(ctx):
             return jsonify(data)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
+
+    @api.get("/standings")
+    def api_standings():
+        """Public, derived standings; no authentication or duplicate data store."""
+        base = ctx.get("BASE_DIR", "")
+        team_meta = _json_load(os.path.join(_json_dir(base), "team_meta.json"), {})
+        matches = _json_load(_matches_path(base), [])
+        payload = _build_standings(team_meta, matches)
+        response = make_response(jsonify(payload))
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return response
 
     # ---------- Minimal split endpoints exposed publicly ----------
     @api.get("/split_requests")

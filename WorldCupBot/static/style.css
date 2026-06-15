@@ -2030,6 +2030,47 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     color: #07111c;
     border-color: transparent;
 }
+
+/* Public standings reuse the panel cards, controls, colors, and responsive rhythm. */
+.tables-page { width: min(1500px, 100%); margin: 0 auto; padding: 0 4px 28px; }
+.tables-card { max-width: 1500px; }
+.tables-toolbar { align-items: flex-end; gap: 18px; }
+.tables-card-body { padding: 16px; }
+.tables-kicker, .standings-kicker { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.tables-title { margin: 3px 0 0; color: var(--accent); font-size: clamp(24px, 3vw, 34px); line-height: 1.1; }
+.tables-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.tables-filters .btn { min-width: 38px; min-height: 36px; }
+.tables-filters .btn.active { color: #07111c; background: var(--accent); border-color: var(--accent); }
+.tables-filters .btn:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.tables-status { min-height: 22px; margin-bottom: 14px; color: var(--muted); font-size: 13px; }
+.tables-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.tables-grid.single-group { grid-template-columns: minmax(0, 720px); justify-content: center; }
+.standings-card { min-width: 0; overflow: hidden; background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 24px #00000020; }
+.standings-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
+.standings-head h2 { margin: 3px 0 0; font-size: 20px; }
+.standings-table-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.standings-table { width: 100%; min-width: 430px; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.standings-table th, .standings-table td { padding: 11px 8px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.standings-table thead th { color: var(--muted); font-size: 11px; letter-spacing: .03em; }
+.standings-table tbody tr:last-child > * { border-bottom: 0; }
+.standings-table th:nth-child(2) { text-align: left; }
+.standings-position { width: 28px; color: var(--muted); }
+.standings-team { display: flex; align-items: center; gap: 8px; min-width: 145px; color: var(--text); font-weight: 650; white-space: normal !important; }
+.standings-team .flag-img { width: 24px; height: 18px; flex: 0 0 24px; object-fit: cover; border-radius: 2px; }
+.standings-flag-placeholder { width: 24px; height: 18px; flex: 0 0 24px; border: 1px solid var(--border); border-radius: 2px; }
+.standings-points { color: var(--accent); font-weight: 900; }
+.standings-card-error { padding: 18px; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+@media (max-width: 1100px) { .tables-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+    .tables-page { padding-top: 0; }
+    .tables-toolbar { align-items: flex-start; flex-direction: column; }
+    .tables-card-body { padding: 12px; }
+    .tables-filters { justify-content: flex-start; width: 100%; }
+    .tables-filters .btn { min-width: 42px; min-height: 40px; }
+    .tables-grid { grid-template-columns: minmax(0, 1fr); }
+    .standings-card { border-radius: 14px; }
+}
 .btn.sm {
     padding: 6px 10px;
     font-size: 14px;

@@ -18,6 +18,7 @@
               <li><a href="#" id="dashboard-link" data-page="dashboard" class="active">Dashboard</a></li>
               <li><a href="#" data-page="fanzone">Match Picks</a></li>
               <li><a href="#" data-page="fixtures">Fixtures</a></li>
+              <li><a href="#" data-page="tables">Tables</a></li>
               <li><a href="#" data-page="ownership">Ownership</a></li>
               <li><a href="#" data-page="worldmap">World Map</a></li>
               <li><a href="#" data-page="bets">Bets</a></li>
@@ -552,6 +553,41 @@
                       <div class="fixtures-bracket">
                           <div class="fixtures-bracket-title">Knockout Pathways</div>
                           <div id="fixtures-bracket" class="fixtures-bracket-grid"></div>
+                      </div>
+                  </div>
+              </div>
+          </section>
+
+          <!-- TABLES -->
+          <section id="tables" class="page-section">
+              <div class="tables-page">
+                  <!-- Match the established panel pattern: one outer card owns
+                       the page header, controls, status, and responsive content. -->
+                  <div class="table-wrap tables-card">
+                      <div class="table-head tables-toolbar">
+                          <div>
+                              <div class="tables-kicker">World Cup 2026</div>
+                              <h1 class="table-title tables-title">Group Tables</h1>
+                          </div>
+                          <div id="tables-filters" class="tables-filters" aria-label="Filter standings by group">
+                              <button class="btn btn-outline sm active" type="button" data-tables-group="ALL" aria-pressed="true">ALL</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="A" aria-pressed="false">A</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="B" aria-pressed="false">B</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="C" aria-pressed="false">C</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="D" aria-pressed="false">D</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="E" aria-pressed="false">E</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="F" aria-pressed="false">F</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="G" aria-pressed="false">G</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="H" aria-pressed="false">H</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="I" aria-pressed="false">I</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="J" aria-pressed="false">J</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="K" aria-pressed="false">K</button>
+                              <button class="btn btn-outline sm" type="button" data-tables-group="L" aria-pressed="false">L</button>
+                          </div>
+                      </div>
+                      <div class="tables-card-body">
+                          <div id="tables-status" class="tables-status" role="status" aria-live="polite">Loading 12 group tables…</div>
+                          <div id="tables-grid" class="tables-grid" aria-live="polite"></div>
                       </div>
                   </div>
               </div>
