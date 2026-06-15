@@ -1097,7 +1097,7 @@ function stagePill(stage){
     quickAnnouncementFixture = null;
   }
 
-  function openQuickAnnouncementModal(button) {
+  async function openQuickAnnouncementModal(button) {
     if (!isQuickAnnouncementContext()) return;
     const backdrop = document.getElementById('quick-announce-backdrop');
     const modal = document.getElementById('quick-announce-modal');
@@ -1107,11 +1107,14 @@ function stagePill(stage){
     const awayScore = document.getElementById('quick-away-score');
     const homeLabel = document.getElementById('quick-home-label');
     const awayLabel = document.getElementById('quick-away-label');
+    const homePenaltiesLabel = document.getElementById('quick-home-penalties-label');
+    const awayPenaltiesLabel = document.getElementById('quick-away-penalties-label');
     const winnerSide = document.getElementById('quick-winner-side');
     const picker = document.getElementById('quick-option-picker');
     const confirmation = document.getElementById('quick-full-time-confirm');
     const backButton = document.getElementById('quick-full-time-back');
     const submitButton = document.getElementById('quick-full-time-submit');
+    const fullTimeOpenButton = document.getElementById('quick-full-time-open');
     const countryOptions = document.getElementById('quick-country-options');
     if (!backdrop || !modal || !countryOptions) return;
     let liveStats = [];
@@ -1126,14 +1129,23 @@ function stagePill(stage){
     if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
     if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
     if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
+    if (homePenaltiesLabel) homePenaltiesLabel.textContent = `${quickAnnouncementFixture.home} penalties`;
+    if (awayPenaltiesLabel) awayPenaltiesLabel.textContent = `${quickAnnouncementFixture.away} penalties`;
     if (homeScore) homeScore.value = String(button.dataset.homeScore || '0');
     if (awayScore) awayScore.value = String(button.dataset.awayScore || '0');
     if (winnerSide) winnerSide.value = '';
+    document.getElementById('quick-home-penalties').value = '';
+    document.getElementById('quick-away-penalties').value = '';
     if (status) status.textContent = '';
     if (picker) picker.hidden = false;
     if (confirmation) confirmation.hidden = true;
     if (backButton) backButton.hidden = true;
     if (submitButton) submitButton.hidden = true;
+    if (fullTimeOpenButton) fullTimeOpenButton.hidden = false;
+    // The dashboard can be the first page opened in an admin session. Load the
+    // ISO map here rather than relying on the unrelated Ownership page to do it.
+    await ensureTeamIsoLoaded();
+    if (!quickAnnouncementFixture || !isQuickAnnouncementContext()) return;
     countryOptions.innerHTML = [quickAnnouncementFixture.home, quickAnnouncementFixture.away].map((country) => `
       <button class="quick-country-option" type="button" data-country="${esc(country)}">
         ${flagHTML(country)} <span>${esc(country)}</span>
@@ -1152,10 +1164,14 @@ function stagePill(stage){
     if (!quickAnnouncementFixture?.id) return;
 
     if (eventType === 'full_time') {
+      // Preserve the fixture score loaded with the Options button. Live event
+      // logs may be partial or may predate structured country metadata, so
+      // deriving a score from them could silently submit an incorrect result.
       document.getElementById('quick-option-picker').hidden = true;
       document.getElementById('quick-full-time-confirm').hidden = false;
       document.getElementById('quick-full-time-back').hidden = false;
       document.getElementById('quick-full-time-submit').hidden = false;
+      document.getElementById('quick-full-time-open').hidden = true;
       updateQuickFinalStats();
       return;
     }
@@ -1166,7 +1182,8 @@ function stagePill(stage){
       if (status) status.textContent = 'Choose a country before selecting an action.';
       return;
     }
-    if (!/^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$/.test(matchTime)) {
+    // Half time is a match-state update rather than a timed incident.
+    if (eventType !== 'half_time' && !/^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$/.test(matchTime)) {
       if (status) status.textContent = 'Enter a valid match time, such as 23 or 90+1.';
       return;
     }
@@ -1216,6 +1233,8 @@ function stagePill(stage){
       const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '', 10);
       const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '', 10);
       const winnerSide = String(document.getElementById('quick-winner-side')?.value || '');
+      const homePenalties = document.getElementById('quick-home-penalties')?.value || '';
+      const awayPenalties = document.getElementById('quick-away-penalties')?.value || '';
       if (!Number.isInteger(homeScore) || !Number.isInteger(awayScore) || homeScore < 0 || awayScore < 0) {
         if (status) status.textContent = 'Enter valid non-negative scores before full time.';
         return;
@@ -1234,7 +1253,9 @@ function stagePill(stage){
             match_id: quickAnnouncementFixture.id,
             home_score: homeScore,
             away_score: awayScore,
-            winner_side: winnerSide
+            winner_side: winnerSide,
+            home_penalties: homePenalties,
+            away_penalties: awayPenalties
           })
         });
         notify(data?.unchanged ? 'Full-time result already saved' : 'Full-time result posted', true);
@@ -1272,6 +1293,7 @@ function stagePill(stage){
       document.getElementById('quick-full-time-confirm').hidden = true;
       event.target.hidden = true;
       document.getElementById('quick-full-time-submit').hidden = true;
+      document.getElementById('quick-full-time-open').hidden = false;
     }
     if (event.target.id === 'quick-full-time-submit') confirmQuickFullTime(event.target);
   });

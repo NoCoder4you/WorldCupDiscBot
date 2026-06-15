@@ -1517,7 +1517,12 @@ def create_admin_routes(ctx):
             return jsonify({"ok": False, "error": "missing_match_id"}), 400
         if event_type not in allowed_events:
             return jsonify({"ok": False, "error": "invalid_event_type"}), 400
-        if not re.match(r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$", match_time):
+        # Half time is a state transition, not an incident at a specific
+        # minute; goals and cards still require a validated match clock value.
+        if event_type != "half_time" and not re.match(
+            r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$",
+            match_time,
+        ):
             return jsonify({"ok": False, "error": "invalid_match_time"}), 400
 
         container, fixtures, key = _load_matches_payload()
@@ -1536,11 +1541,27 @@ def create_admin_routes(ctx):
         away = str(fixture.get("away") or "").strip()
         if country not in {home, away}:
             return jsonify({"ok": False, "error": "invalid_country"}), 400
-        message = f"{match_time}' {allowed_events[event_type]} — {country}."
         channel = _resolve_fanzone_channel(fixture, home, away)
         live_stats = fixture.get("live_stats")
         if not isinstance(live_stats, list):
             live_stats = []
+        if event_type == "half_time":
+            # The half-time score only includes goals recorded in the first
+            # half, including stoppage time represented as 45+x.
+            def first_half_goals(team):
+                return sum(
+                    1
+                    for stat in live_stats
+                    if isinstance(stat, dict)
+                    and stat.get("event_type") == "goal"
+                    and stat.get("country") == team
+                    and str(stat.get("match_time") or "").split("+", 1)[0].isdigit()
+                    and int(str(stat.get("match_time")).split("+", 1)[0]) <= 45
+                )
+
+            message = f"{home} {first_half_goals(home)}–{first_half_goals(away)} {away}"
+        else:
+            message = f"{country} {match_time}'"
         live_stats.append({
             "event_type": event_type,
             "label": allowed_events[event_type],
@@ -1563,6 +1584,9 @@ def create_admin_routes(ctx):
             "event_type": event_type,
             "event_label": allowed_events[event_type],
             "message": message,
+            # The Discord worker uses the selected team to resolve the flag
+            # shown in the live update embed thumbnail.
+            "country": country,
             "channel": channel,
             "live_stats": fixture["live_stats"],
         })
@@ -1677,6 +1701,8 @@ def create_admin_routes(ctx):
         home_score_raw = body.get("home_score")
         away_score_raw = body.get("away_score")
         requested_winner_side = str(body.get("winner_side") or "").strip().lower()
+        home_penalties_raw = body.get("home_penalties")
+        away_penalties_raw = body.get("away_penalties")
 
         if not match_id:
             return jsonify({"ok": False, "error": "missing_match_id"}), 400
@@ -1694,6 +1720,18 @@ def create_admin_routes(ctx):
             return jsonify({"ok": False, "error": "invalid_winner_side"}), 400
         if requested_winner_side and home_score != away_score:
             return jsonify({"ok": False, "error": "winner_side_requires_tied_score"}), 400
+        home_penalties = away_penalties = None
+        if requested_winner_side and home_penalties_raw not in (None, "") and away_penalties_raw not in (None, ""):
+            try:
+                home_penalties = int(str(home_penalties_raw).strip())
+                away_penalties = int(str(away_penalties_raw).strip())
+            except Exception:
+                return jsonify({"ok": False, "error": "invalid_penalty_score"}), 400
+            if home_penalties < 0 or away_penalties < 0 or home_penalties == away_penalties:
+                return jsonify({"ok": False, "error": "invalid_penalty_score"}), 400
+            penalty_winner = "home" if home_penalties > away_penalties else "away"
+            if penalty_winner != requested_winner_side:
+                return jsonify({"ok": False, "error": "penalty_score_winner_mismatch"}), 400
 
         # Resolve the final outcome before touching storage so we can compare
         # it with an existing settlement and make repeat saves idempotent.
@@ -1788,8 +1826,13 @@ def create_admin_routes(ctx):
             # official tied score displayed in fixture results.
             if requested_winner_side:
                 fixture["winner_side"] = requested_winner_side
+                if home_penalties is not None:
+                    fixture["home_penalties"] = home_penalties
+                    fixture["away_penalties"] = away_penalties
             else:
                 fixture.pop("winner_side", None)
+                fixture.pop("home_penalties", None)
+                fixture.pop("away_penalties", None)
             updated = True
             matched_fixture = fixture
             break
@@ -1841,6 +1884,8 @@ def create_admin_routes(ctx):
             "home_score": home_score,
             "away_score": away_score,
             "winner_side": winner_side,
+            "home_penalties": home_penalties,
+            "away_penalties": away_penalties,
             "channel": settlement["channel"],
             "corrected": is_correction,
             "live_stats": (

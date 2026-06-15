@@ -229,14 +229,15 @@ def test_quick_match_announcement_uses_group_channel(tmp_path):
     )
     assert command["kind"] == "quick_match_announcement"
     assert command["data"]["event_label"] == "Goal"
-    assert command["data"]["message"] == "23' Goal — Argentina."
+    assert command["data"]["message"] == "Argentina 23'"
+    assert command["data"]["country"] == "Argentina"
     assert command["data"]["channel"] == "group-j"
 
     stored = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
     assert len(stored[0]["live_stats"]) == 1
     assert stored[0]["live_stats"][0]["event_type"] == "goal"
     assert stored[0]["live_stats"][0]["label"] == "Goal"
-    assert stored[0]["live_stats"][0]["message"] == "23' Goal — Argentina."
+    assert stored[0]["live_stats"][0]["message"] == "Argentina 23'"
     assert stored[0]["live_stats"][0]["country"] == "Argentina"
     assert stored[0]["live_stats"][0]["match_time"] == "23"
     assert isinstance(stored[0]["live_stats"][0]["ts"], int)
@@ -297,6 +298,69 @@ def test_quick_match_announcement_validates_event_country_and_time(tmp_path):
     assert invalid_country.get_json()["error"] == "invalid_country"
     assert invalid_time.status_code == 400
     assert invalid_time.get_json()["error"] == "invalid_match_time"
+
+
+def test_half_time_quick_announcement_does_not_require_match_time(tmp_path):
+    """Half-time updates should post without asking the operator for a minute."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M12",
+            "home": "A",
+            "away": "B",
+            "group": "A",
+            "live_stats": [
+                {"event_type": "goal", "country": "A", "match_time": "7"},
+                {"event_type": "goal", "country": "B", "match_time": "45+2"},
+                {"event_type": "goal", "country": "A", "match_time": "50"},
+            ],
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "half_time", "country": "A"},
+    )
+
+    assert response.status_code == 200
+    command = json.loads(
+        (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert command["data"]["message"] == "A 1–1 B"
+
+
+def test_fixture_result_includes_penalty_score_in_command(tmp_path):
+    """A tied knockout result should preserve the entered shootout score."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M80",
+            "home": "A",
+            "away": "B",
+            "stage": "Round of 16",
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post("/admin/fixtures/result", json={
+        "match_id": "M80",
+        "home_score": 1,
+        "away_score": 1,
+        "winner_side": "home",
+        "home_penalties": 5,
+        "away_penalties": 4,
+    })
+
+    assert response.status_code == 200
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    fixture_command = next(command for command in commands if command["kind"] == "fixture_result")
+    assert fixture_command["data"]["home_penalties"] == 5
+    assert fixture_command["data"]["away_penalties"] == 4
 
 
 def test_full_time_result_command_includes_persisted_live_stats(tmp_path):

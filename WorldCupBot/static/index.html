@@ -154,7 +154,10 @@
               <div id="quick-announce-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="quick-announce-title" tabindex="-1">
                   <div class="modal-head">
                       <h3 id="quick-announce-title">Match Options</h3>
-                      <button class="modal-close" id="quick-announce-close" aria-label="Close">×</button>
+                      <div class="quick-modal-head-actions">
+                          <button class="btn quick-event full-time" id="quick-full-time-open" data-event-type="full_time" type="button">🏁 Full Time</button>
+                          <button class="modal-close" id="quick-announce-close" aria-label="Close">×</button>
+                      </div>
                   </div>
                   <div class="modal-body">
                       <div id="quick-option-picker">
@@ -171,7 +174,6 @@
                               <button class="btn quick-event yellow" data-event-type="yellow_card" type="button">🟨 Yellow Card</button>
                               <button class="btn quick-event red" data-event-type="red_card" type="button">🟥 Red Card</button>
                               <button class="btn quick-event half-time" data-event-type="half_time" type="button">⏸ Half Time</button>
-                              <button class="btn quick-event full-time" data-event-type="full_time" type="button">🏁 Full Time</button>
                           </div>
                       </div>
                       <div id="quick-full-time-confirm" hidden>
@@ -192,6 +194,14 @@
                                   <option value="home">Home team</option>
                                   <option value="away">Away team</option>
                               </select>
+                          </label>
+                          <label>
+                              <span id="quick-home-penalties-label">Home penalties</span>
+                              <input id="quick-home-penalties" type="number" min="0" step="1" placeholder="e.g. 5">
+                          </label>
+                          <label>
+                              <span id="quick-away-penalties-label">Away penalties</span>
+                              <input id="quick-away-penalties" type="number" min="0" step="1" placeholder="e.g. 4">
                           </label>
                           </div>
                           <div class="quick-final-stats" aria-live="polite">

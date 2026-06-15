@@ -30,9 +30,17 @@ class FanZoneAnnouncer(commands.Cog):
             pass
 
     def _load_team_iso(self):
-        try:
-            if os.path.isfile(self.team_iso_path):
-                with open(self.team_iso_path, "r", encoding="utf-8") as f:
+        # Installations have used both the project root and JSON directory for
+        # this mapping, so check both locations before giving up on thumbnails.
+        candidate_paths = (
+            self.team_iso_path,
+            os.path.join(self.json_dir, "team_iso.json"),
+        )
+        for path in candidate_paths:
+            try:
+                if not os.path.isfile(path):
+                    continue
+                with open(path, "r", encoding="utf-8") as f:
                     m = json.load(f)
                 if isinstance(m, dict):
                     # normalize keys and codes
@@ -42,8 +50,8 @@ class FanZoneAnnouncer(commands.Cog):
                             continue
                         out[str(k).strip().lower()] = str(v).strip().lower()
                     return out
-        except Exception:
-            pass
+            except Exception:
+                continue
         return {}
 
     def _load_settings(self) -> dict:
@@ -179,31 +187,30 @@ class FanZoneAnnouncer(commands.Cog):
         away_score: int,
         winner_side: str = "",
         live_stats: list | None = None,
+        home_penalties: int | None = None,
+        away_penalties: int | None = None,
     ):
         """Build the official score embed sent to the fixture's Discord channel."""
         side = str(winner_side or "").strip().lower()
         if home_score > away_score or (home_score == away_score and side == "home"):
             home_display = f"🏆 {home}"
             away_display = away
-            outcome = f"**{home} won**"
             color = discord.Color.green()
         elif away_score > home_score or (home_score == away_score and side == "away"):
             home_display = home
             away_display = f"{away} 🏆"
-            outcome = f"**{away} won**"
             color = discord.Color.green()
         else:
             home_display = home
             away_display = away
-            outcome = "🤝 **Draw**"
             color = discord.Color.gold()
 
+        penalty_line = ""
+        if home_penalties is not None and away_penalties is not None:
+            penalty_line = f"\n**Penalties: {home} {home_penalties} – {away_penalties} {away}**"
         embed = discord.Embed(
             title="FULL TIME RESULT",
-            description=(
-                f"**{home_display} {home_score} – {away_score} {away_display}**\n"
-                f"{outcome}"
-            ),
+            description=f"**{home_display} {home_score} – {away_score} {away_display}**{penalty_line}",
             color=color,
         )
         stats_lines = []
@@ -222,7 +229,7 @@ class FanZoneAnnouncer(commands.Cog):
         return embed
 
     def _quick_announcement_embed(self, data: dict) -> discord.Embed:
-        """Build a compact live update while preserving the operator's exact detail text."""
+        """Build a compact live update with the selected country's flag thumbnail."""
         event_type = str(data.get("event_type") or "").strip().lower()
         colors = {
             "goal": discord.Color.green(),
@@ -241,10 +248,15 @@ class FanZoneAnnouncer(commands.Cog):
         away = str(data.get("away") or "").strip()
         embed = discord.Embed(
             title=f"{icons.get(event_type, '📣')} {label}",
-            description=str(data.get("message") or "").strip(),
+            description=f"{label.upper()}: {str(data.get('message') or '').strip()}",
             color=colors.get(event_type, discord.Color.blurple()),
         )
         embed.add_field(name="Match", value=f"**{home}** vs **{away}**", inline=False)
+        country = str(data.get("country") or "").strip()
+        country_iso = self._iso_for_team(country, data.get("country_iso"))
+        flag_url = self._flag_url(country_iso)
+        if flag_url:
+            embed.set_thumbnail(url=flag_url)
         embed.set_footer(text="World Cup 2026 Live Update")
         embed.timestamp = discord.utils.utcnow()
         return embed
@@ -355,6 +367,8 @@ class FanZoneAnnouncer(commands.Cog):
                             int(data.get("away_score") or 0),
                             str(data.get("winner_side") or ""),
                             data.get("live_stats") if isinstance(data.get("live_stats"), list) else [],
+                            data.get("home_penalties"),
+                            data.get("away_penalties"),
                         ))
                     except Exception:
                         pass

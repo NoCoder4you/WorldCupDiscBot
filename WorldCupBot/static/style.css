@@ -460,6 +460,18 @@ body:not(.user-admin-view) .dashboard-live-panel {
     cursor: pointer;
 }
 
+.quick-modal-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#quick-full-time-open {
+    min-height: 28px;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
 #quick-announce-modal .modal-body {
     display: grid;
     gap: 10px;
@@ -485,50 +497,6 @@ body:not(.user-admin-view) .dashboard-live-panel {
     background: #ffffff0a;
 }
 
-.quick-step-label {
-    margin: 4px 0 8px;
-    color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.quick-country-options {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
-.quick-country-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    padding: 12px;
-    color: var(--text);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    cursor: pointer;
-}
-
-.quick-country-option.selected {
-    border-color: var(--accent);
-    background: rgba(0, 229, 255, 0.14);
-}
-
-.quick-time-field {
-    display: grid;
-    gap: 6px;
-    margin-bottom: 12px;
-}
-
-.quick-time-field input {
-    width: 100%;
-}
-
 .quick-final-stats {
     display: grid;
     gap: 8px;
@@ -541,6 +509,26 @@ body:not(.user-admin-view) .dashboard-live-panel {
     padding: 10px 12px;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.05);
+}
+
+.quick-step-label {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.quick-country-options {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.quick-announce-options .quick-event {
+    width: 100%;
+    aspect-ratio: 1;
+    padding: 8px;
+    white-space: normal;
 }
 
 .quick-step-label {
@@ -617,7 +605,7 @@ body:not(.user-admin-view) .dashboard-live-panel {
 
 .quick-score-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -661,7 +649,7 @@ body:not(.user-admin-view) .dashboard-live-panel {
     }
 
     .quick-announce-options {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .quick-score-grid {
