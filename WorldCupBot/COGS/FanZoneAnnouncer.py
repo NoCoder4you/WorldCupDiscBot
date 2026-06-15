@@ -30,9 +30,17 @@ class FanZoneAnnouncer(commands.Cog):
             pass
 
     def _load_team_iso(self):
-        try:
-            if os.path.isfile(self.team_iso_path):
-                with open(self.team_iso_path, "r", encoding="utf-8") as f:
+        # Installations have used both the project root and JSON directory for
+        # this mapping, so check both locations before giving up on thumbnails.
+        candidate_paths = (
+            self.team_iso_path,
+            os.path.join(self.json_dir, "team_iso.json"),
+        )
+        for path in candidate_paths:
+            try:
+                if not os.path.isfile(path):
+                    continue
+                with open(path, "r", encoding="utf-8") as f:
                     m = json.load(f)
                 if isinstance(m, dict):
                     # normalize keys and codes
@@ -42,8 +50,8 @@ class FanZoneAnnouncer(commands.Cog):
                             continue
                         out[str(k).strip().lower()] = str(v).strip().lower()
                     return out
-        except Exception:
-            pass
+            except Exception:
+                continue
         return {}
 
     def _load_settings(self) -> dict:
@@ -222,7 +230,7 @@ class FanZoneAnnouncer(commands.Cog):
         return embed
 
     def _quick_announcement_embed(self, data: dict) -> discord.Embed:
-        """Build a compact live update while preserving the operator's exact detail text."""
+        """Build a compact live update with the selected country's flag thumbnail."""
         event_type = str(data.get("event_type") or "").strip().lower()
         colors = {
             "goal": discord.Color.green(),
@@ -245,6 +253,11 @@ class FanZoneAnnouncer(commands.Cog):
             color=colors.get(event_type, discord.Color.blurple()),
         )
         embed.add_field(name="Match", value=f"**{home}** vs **{away}**", inline=False)
+        country = str(data.get("country") or "").strip()
+        country_iso = self._iso_for_team(country, data.get("country_iso"))
+        flag_url = self._flag_url(country_iso)
+        if flag_url:
+            embed.set_thumbnail(url=flag_url)
         embed.set_footer(text="World Cup 2026 Live Update")
         embed.timestamp = discord.utils.utcnow()
         return embed

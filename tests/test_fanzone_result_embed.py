@@ -69,3 +69,37 @@ def test_match_picks_embed_places_trophy_after_away_winner():
 
     assert "**USA** vs **Canada 🏆**" in embed.description
     assert "🏆 USA" not in embed.description
+
+
+def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
+    """Live event cards should display the selected team's flag as their thumbnail."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+    announcer.team_iso = {"brazil": "br", "morocco": "ma"}
+
+    embed = announcer._quick_announcement_embed({
+        "event_type": "goal",
+        "event_label": "Goal",
+        "message": "32' Goal — Brazil.",
+        "country": "Brazil",
+        "home": "Brazil",
+        "away": "Morocco",
+    })
+
+    assert embed.thumbnail.url == "https://flagcdn.com/w80/br.png"
+
+
+def test_quick_announcement_embed_omits_thumbnail_without_known_flag():
+    """Unknown team mappings should not produce a broken thumbnail URL."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+    announcer.team_iso = {}
+
+    embed = announcer._quick_announcement_embed({
+        "event_type": "yellow_card",
+        "event_label": "Yellow Card",
+        "message": "40' Yellow Card — Unknown Team.",
+        "country": "Unknown Team",
+        "home": "Unknown Team",
+        "away": "Morocco",
+    })
+
+    assert embed.thumbnail.url is None

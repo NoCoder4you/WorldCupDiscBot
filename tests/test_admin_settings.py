@@ -217,7 +217,8 @@ def test_quick_match_announcement_uses_group_channel(tmp_path):
         json={
             "match_id": "M12",
             "event_type": "goal",
-            "message": "23' Argentina score and lead 1–0.",
+            "country": "Argentina",
+            "match_time": "23",
         },
     )
 
@@ -228,14 +229,17 @@ def test_quick_match_announcement_uses_group_channel(tmp_path):
     )
     assert command["kind"] == "quick_match_announcement"
     assert command["data"]["event_label"] == "Goal"
-    assert command["data"]["message"] == "23' Argentina score and lead 1–0."
+    assert command["data"]["message"] == "23' Goal — Argentina."
+    assert command["data"]["country"] == "Argentina"
     assert command["data"]["channel"] == "group-j"
 
     stored = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
     assert len(stored[0]["live_stats"]) == 1
     assert stored[0]["live_stats"][0]["event_type"] == "goal"
     assert stored[0]["live_stats"][0]["label"] == "Goal"
-    assert stored[0]["live_stats"][0]["message"] == "23' Argentina score and lead 1–0."
+    assert stored[0]["live_stats"][0]["message"] == "23' Goal — Argentina."
+    assert stored[0]["live_stats"][0]["country"] == "Argentina"
+    assert stored[0]["live_stats"][0]["match_time"] == "23"
     assert isinstance(stored[0]["live_stats"][0]["ts"], int)
 
 
@@ -258,7 +262,8 @@ def test_quick_match_announcement_uses_knockout_channel(tmp_path):
         json={
             "match_id": "M88",
             "event_type": "yellow_card",
-            "message": "41' Yellow card shown to France.",
+            "country": "France",
+            "match_time": "90+1",
         },
     )
 
@@ -266,8 +271,8 @@ def test_quick_match_announcement_uses_knockout_channel(tmp_path):
     assert response.get_json()["channel"] == "quarter-finals"
 
 
-def test_quick_match_announcement_validates_event_and_message(tmp_path):
-    """The quick endpoint must reject unsupported events and blank announcements."""
+def test_quick_match_announcement_validates_event_country_and_time(tmp_path):
+    """Quick options must reject unsupported actions, teams, and match times."""
     client, json_dir = _build_admin_client(tmp_path)
     (json_dir / "matches.json").write_text(
         json.dumps([{"id": "M12", "home": "A", "away": "B", "group": "A"}]),
@@ -276,17 +281,43 @@ def test_quick_match_announcement_validates_event_and_message(tmp_path):
 
     invalid_event = client.post(
         "/admin/fixtures/quick-announce",
-        json={"match_id": "M12", "event_type": "full_time", "message": "Done"},
+        json={"match_id": "M12", "event_type": "full_time", "country": "A", "match_time": "90"},
     )
-    blank_message = client.post(
+    invalid_country = client.post(
         "/admin/fixtures/quick-announce",
-        json={"match_id": "M12", "event_type": "red_card", "message": "  "},
+        json={"match_id": "M12", "event_type": "red_card", "country": "C", "match_time": "45"},
+    )
+    invalid_time = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "goal", "country": "A", "match_time": "90++1"},
     )
 
     assert invalid_event.status_code == 400
     assert invalid_event.get_json()["error"] == "invalid_event_type"
-    assert blank_message.status_code == 400
-    assert blank_message.get_json()["error"] == "missing_message"
+    assert invalid_country.status_code == 400
+    assert invalid_country.get_json()["error"] == "invalid_country"
+    assert invalid_time.status_code == 400
+    assert invalid_time.get_json()["error"] == "invalid_match_time"
+
+
+def test_half_time_quick_announcement_does_not_require_match_time(tmp_path):
+    """Half-time updates should post without asking the operator for a minute."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M12", "home": "A", "away": "B", "group": "A"}]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "half_time", "country": "A"},
+    )
+
+    assert response.status_code == 200
+    command = json.loads(
+        (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert command["data"]["message"] == "Half Time — A."
 
 
 def test_full_time_result_command_includes_persisted_live_stats(tmp_path):

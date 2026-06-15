@@ -1050,11 +1050,11 @@ function stagePill(stage){
     return (Array.isArray(fixtures) ? fixtures : []).filter((fixture) => {
       const kickoff = Date.parse(String(fixture?.utc || ''));
       const elapsed = now - kickoff;
-      // Operators may select every fixture that kicked off during the last
-      // 150 minutes, including one whose result was entered unusually early.
+      // Keep unfinished past matches accessible so a missed result can still
+      // be entered from Quick Options after the normal live-match window.
       return Number.isFinite(kickoff)
         && elapsed >= 0
-        && elapsed <= QUICK_MATCH_WINDOW_MS;
+        && (elapsed <= QUICK_MATCH_WINDOW_MS || !fixture.completed);
     });
   }
 
@@ -1082,7 +1082,8 @@ function stagePill(stage){
               data-home="${esc(fixture.home)}"
               data-away="${esc(fixture.away)}"
               data-home-score="${esc(fixture.home_score ?? 0)}"
-              data-away-score="${esc(fixture.away_score ?? 0)}">Quick options</button>
+              data-away-score="${esc(fixture.away_score ?? 0)}"
+              data-live-stats="${esc(JSON.stringify(fixture.live_stats || []))}">Options</button>
           </div>`;
       }).join('');
     } catch (error) {
@@ -1101,18 +1102,27 @@ function stagePill(stage){
     const backdrop = document.getElementById('quick-announce-backdrop');
     const modal = document.getElementById('quick-announce-modal');
     const match = document.getElementById('quick-announce-match');
-    const message = document.getElementById('quick-announce-message');
     const status = document.getElementById('quick-announce-status');
     const homeScore = document.getElementById('quick-home-score');
     const awayScore = document.getElementById('quick-away-score');
     const homeLabel = document.getElementById('quick-home-label');
     const awayLabel = document.getElementById('quick-away-label');
     const winnerSide = document.getElementById('quick-winner-side');
-    if (!backdrop || !modal || !message) return;
+    const picker = document.getElementById('quick-option-picker');
+    const confirmation = document.getElementById('quick-full-time-confirm');
+    const backButton = document.getElementById('quick-full-time-back');
+    const submitButton = document.getElementById('quick-full-time-submit');
+    const fullTimeOpenButton = document.getElementById('quick-full-time-open');
+    const countryOptions = document.getElementById('quick-country-options');
+    if (!backdrop || !modal || !countryOptions) return;
+    let liveStats = [];
+    try { liveStats = JSON.parse(button.dataset.liveStats || '[]'); } catch (_) { liveStats = []; }
     quickAnnouncementFixture = {
       id: String(button.dataset.fixtureId || ''),
       home: String(button.dataset.home || ''),
-      away: String(button.dataset.away || '')
+      away: String(button.dataset.away || ''),
+      selectedCountry: '',
+      liveStats
     };
     if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
     if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
@@ -1121,10 +1131,18 @@ function stagePill(stage){
     if (awayScore) awayScore.value = String(button.dataset.awayScore || '0');
     if (winnerSide) winnerSide.value = '';
     if (status) status.textContent = '';
-    message.value = '';
+    if (picker) picker.hidden = false;
+    if (confirmation) confirmation.hidden = true;
+    if (backButton) backButton.hidden = true;
+    if (submitButton) submitButton.hidden = true;
+    if (fullTimeOpenButton) fullTimeOpenButton.hidden = false;
+    countryOptions.innerHTML = [quickAnnouncementFixture.home, quickAnnouncementFixture.away].map((country) => `
+      <button class="quick-country-option" type="button" data-country="${esc(country)}">
+        ${flagHTML(country)} <span>${esc(country)}</span>
+      </button>`).join('');
+    document.getElementById('quick-event-time').value = '';
     backdrop.style.display = 'flex';
     modal.focus();
-    message.focus();
   }
 
   async function sendQuickAnnouncement(eventType, button) {
@@ -1132,12 +1150,79 @@ function stagePill(stage){
       closeQuickAnnouncementModal();
       return;
     }
-    const message = document.getElementById('quick-announce-message');
     const status = document.getElementById('quick-announce-status');
-    const detail = String(message?.value || '').trim();
     if (!quickAnnouncementFixture?.id) return;
 
     if (eventType === 'full_time') {
+      // Recorded goal events are the authoritative live score, so prefill the
+      // confirmation inputs instead of requiring the operator to re-enter it.
+      const goalCount = (country) => (quickAnnouncementFixture.liveStats || [])
+        .filter((stat) => stat.event_type === 'goal' && stat.country === country).length;
+      document.getElementById('quick-home-score').value = String(goalCount(quickAnnouncementFixture.home));
+      document.getElementById('quick-away-score').value = String(goalCount(quickAnnouncementFixture.away));
+      document.getElementById('quick-option-picker').hidden = true;
+      document.getElementById('quick-full-time-confirm').hidden = false;
+      document.getElementById('quick-full-time-back').hidden = false;
+      document.getElementById('quick-full-time-submit').hidden = false;
+      document.getElementById('quick-full-time-open').hidden = true;
+      updateQuickFinalStats();
+      return;
+    }
+
+    const country = quickAnnouncementFixture.selectedCountry;
+    const matchTime = String(document.getElementById('quick-event-time')?.value || '').trim();
+    if (!country) {
+      if (status) status.textContent = 'Choose a country before selecting an action.';
+      return;
+    }
+    // Half time is a match-state update rather than a timed incident.
+    if (eventType !== 'half_time' && !/^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$/.test(matchTime)) {
+      if (status) status.textContent = 'Enter a valid match time, such as 23 or 90+1.';
+      return;
+    }
+    const buttons = document.querySelectorAll('.quick-event');
+    buttons.forEach((item) => { item.disabled = true; });
+    if (status) status.textContent = 'Saving match event…';
+    try {
+      const response = await fetch('/admin/fixtures/quick-announce', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: quickAnnouncementFixture.id,
+          event_type: eventType,
+          country,
+          match_time: matchTime
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || `send_failed_${response.status}`);
+      quickAnnouncementFixture.liveStats = data.live_stats || quickAnnouncementFixture.liveStats;
+      notify(`${data.event_type.replaceAll('_', ' ')} saved for ${country}`, true);
+      if (status) status.textContent = 'Event saved and queued.';
+      document.getElementById('quick-event-time').value = '';
+    } catch (error) {
+      if (status) status.textContent = `Unable to save: ${error.message}`;
+      button?.focus();
+    } finally {
+      buttons.forEach((item) => { item.disabled = false; });
+    }
+  }
+
+  function updateQuickFinalStats() {
+    const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
+    const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
+    const counts = (type, country) => (quickAnnouncementFixture?.liveStats || [])
+      .filter((stat) => stat.event_type === type && stat.country === country).length;
+    document.getElementById('quick-final-score').textContent = `${homeScore}–${awayScore}`;
+    document.getElementById('quick-yellow-cards').textContent =
+      `${counts('yellow_card', quickAnnouncementFixture.home)}–${counts('yellow_card', quickAnnouncementFixture.away)}`;
+    document.getElementById('quick-red-cards').textContent =
+      `${counts('red_card', quickAnnouncementFixture.home)}–${counts('red_card', quickAnnouncementFixture.away)}`;
+  }
+
+  async function confirmQuickFullTime(button) {
+    const status = document.getElementById('quick-announce-status');
       const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '', 10);
       const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '', 10);
       const winnerSide = String(document.getElementById('quick-winner-side')?.value || '');
@@ -1170,52 +1255,40 @@ function stagePill(stage){
       } finally {
         button.disabled = false;
       }
-      return;
-    }
-
-    if (!detail) {
-      if (status) status.textContent = 'Enter announcement details before choosing an event.';
-      message?.focus();
-      return;
-    }
-    const buttons = document.querySelectorAll('.quick-event');
-    buttons.forEach((item) => { item.disabled = true; });
-    if (status) status.textContent = 'Sending announcement…';
-    try {
-      const response = await fetch('/admin/fixtures/quick-announce', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          match_id: quickAnnouncementFixture.id,
-          event_type: eventType,
-          message: detail
-        })
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.ok) throw new Error(data.error || `send_failed_${response.status}`);
-      notify(`Update queued for #${data.channel}`, true);
-      // Keep the selected match open so staff can record several events in
-      // quick succession without finding the fixture again.
-      if (message) message.value = '';
-      if (status) status.textContent = `${data.event_type.replaceAll('_', ' ')} saved and queued.`;
-    } catch (error) {
-      if (status) status.textContent = `Unable to send: ${error.message}`;
-      button?.focus();
-    } finally {
-      buttons.forEach((item) => { item.disabled = false; });
-    }
   }
 
   document.addEventListener('click', (event) => {
     const openButton = event.target.closest('.dashboard-quick-announce');
     if (openButton) openQuickAnnouncementModal(openButton);
     if (event.target.id === 'dashboard-live-refresh') loadDashboardLiveGames();
-    if (event.target.id === 'quick-announce-close' || event.target.id === 'quick-announce-backdrop') {
+    if (
+      event.target.id === 'quick-announce-close'
+      || event.target.id === 'quick-announce-cancel'
+      || event.target.id === 'quick-announce-backdrop'
+    ) {
       closeQuickAnnouncementModal();
     }
     const eventButton = event.target.closest('.quick-event');
     if (eventButton) sendQuickAnnouncement(eventButton.dataset.eventType, eventButton);
+    const countryButton = event.target.closest('.quick-country-option');
+    if (countryButton) {
+      quickAnnouncementFixture.selectedCountry = countryButton.dataset.country;
+      document.querySelectorAll('.quick-country-option').forEach((item) => {
+        item.classList.toggle('selected', item === countryButton);
+      });
+    }
+    if (event.target.id === 'quick-full-time-back') {
+      document.getElementById('quick-option-picker').hidden = false;
+      document.getElementById('quick-full-time-confirm').hidden = true;
+      event.target.hidden = true;
+      document.getElementById('quick-full-time-submit').hidden = true;
+      document.getElementById('quick-full-time-open').hidden = false;
+    }
+    if (event.target.id === 'quick-full-time-submit') confirmQuickFullTime(event.target);
+  });
+
+  ['quick-home-score', 'quick-away-score'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', updateQuickFinalStats);
   });
 
   document.addEventListener('keydown', (event) => {

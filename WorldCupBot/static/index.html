@@ -144,18 +144,6 @@
               <div class="dashboard-tools" aria-live="polite">
                   <span id="dashboard-last-updated" class="dashboard-last-updated">Last updated: never</span>
               </div>
-              <div class="card dashboard-live-card admin-only">
-                  <div class="settings-head">
-                      <div>
-                          <div class="card-title">Ongoing Games</div>
-                          <div class="card-subtext">Send live updates to each match's group or knockout channel.</div>
-                      </div>
-                      <button id="dashboard-live-refresh" class="btn btn-outline sm" type="button">Refresh</button>
-                  </div>
-                  <div id="dashboard-live-games" class="dashboard-live-games">
-                      <div class="muted">Loading ongoing games…</div>
-                  </div>
-              </div>
               <div class="dashboard-banner" aria-hidden="true">
                   <img src="wc2026banner.png" alt="World Cup 2026 neon stadium banner" loading="lazy">
               </div>
@@ -165,16 +153,32 @@
           <div id="quick-announce-backdrop" class="quick-announce-backdrop" style="display:none;">
               <div id="quick-announce-modal" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="quick-announce-title" tabindex="-1">
                   <div class="modal-head">
-                      <div>
-                          <h3 id="quick-announce-title">Quick Match Update</h3>
-                          <div id="quick-announce-match" class="card-subtext"></div>
+                      <h3 id="quick-announce-title">Match Options</h3>
+                      <div class="quick-modal-head-actions">
+                          <button class="btn quick-event full-time" id="quick-full-time-open" data-event-type="full_time" type="button">🏁 Full Time</button>
+                          <button class="modal-close" id="quick-announce-close" aria-label="Close">×</button>
                       </div>
-                      <button class="modal-close" id="quick-announce-close" aria-label="Close">×</button>
                   </div>
                   <div class="modal-body">
-                      <label for="quick-announce-message">Announcement details</label>
-                      <textarea id="quick-announce-message" rows="4" maxlength="1000" placeholder="e.g. 23' Lionel Messi scores — Argentina lead 1–0."></textarea>
-                      <div class="quick-score-grid">
+                      <div id="quick-option-picker">
+                          <div id="quick-announce-match" class="quick-match-name"></div>
+                          <div class="quick-step-label">Country</div>
+                          <div id="quick-country-options" class="quick-country-options"></div>
+                          <div class="quick-step-label">Action</div>
+                          <label class="quick-time-field" for="quick-event-time">
+                              <span>Match time</span>
+                              <input id="quick-event-time" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 23 or 90+1">
+                          </label>
+                          <div class="quick-announce-options">
+                              <button class="btn quick-event goal" data-event-type="goal" type="button">⚽ Goal</button>
+                              <button class="btn quick-event yellow" data-event-type="yellow_card" type="button">🟨 Yellow Card</button>
+                              <button class="btn quick-event red" data-event-type="red_card" type="button">🟥 Red Card</button>
+                              <button class="btn quick-event half-time" data-event-type="half_time" type="button">⏸ Half Time</button>
+                          </div>
+                      </div>
+                      <div id="quick-full-time-confirm" hidden>
+                          <h4>Confirm Full Time</h4>
+                          <div class="quick-score-grid">
                           <label>
                               <span id="quick-home-label">Home score</span>
                               <input id="quick-home-score" type="number" min="0" step="1" value="0">
@@ -191,16 +195,19 @@
                                   <option value="away">Away team</option>
                               </select>
                           </label>
-                      </div>
-                      <div class="hint">Choose an event below to send this message immediately.</div>
-                      <div class="quick-announce-options">
-                          <button class="btn quick-event goal" data-event-type="goal" type="button">⚽ Goal</button>
-                          <button class="btn quick-event yellow" data-event-type="yellow_card" type="button">🟨 Yellow Card</button>
-                          <button class="btn quick-event red" data-event-type="red_card" type="button">🟥 Red Card</button>
-                          <button class="btn quick-event half-time" data-event-type="half_time" type="button">⏸ Half Time</button>
-                          <button class="btn quick-event full-time" data-event-type="full_time" type="button">🏁 Full Time</button>
+                          </div>
+                          <div class="quick-final-stats" aria-live="polite">
+                              <div><span>Final Score</span><strong id="quick-final-score">0–0</strong></div>
+                              <div><span>Yellow Cards</span><strong id="quick-yellow-cards">0–0</strong></div>
+                              <div><span>Red Cards</span><strong id="quick-red-cards">0–0</strong></div>
+                          </div>
                       </div>
                       <div id="quick-announce-status" class="settings-status" aria-live="polite"></div>
+                  </div>
+                  <div class="modal-foot">
+                      <button id="quick-announce-cancel" class="btn btn-outline" type="button">Cancel</button>
+                      <button id="quick-full-time-back" class="btn btn-outline" type="button" hidden>Back</button>
+                      <button id="quick-full-time-submit" class="btn quick-full-time-submit" type="button" hidden>Confirm Full Time</button>
                   </div>
               </div>
           </div>
