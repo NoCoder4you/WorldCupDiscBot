@@ -558,6 +558,23 @@ def test_reassign_modal_uses_typeahead_player_picker():
     assert '#reassign-picker::placeholder' in style_css
 
 
+def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
+    """Dashboard match controls should use structured options without duplicate cards."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+
+    assert index_html.count('id="dashboard-live-games"') == 1
+    assert index_html.count('id="dashboard-live-refresh"') == 1
+    assert 'id="quick-announce-message"' not in index_html
+    assert 'id="quick-country-options"' in index_html
+    assert 'placeholder="e.g. 23 or 90+1"' in index_html
+    assert 'id="quick-full-time-confirm"' in index_html
+    assert 'id="quick-final-score"' in index_html
+    assert 'id="quick-yellow-cards"' in index_html
+    assert 'id="quick-red-cards"' in index_html
+    assert "elapsed <= QUICK_MATCH_WINDOW_MS || !fixture.completed" in app_js
+
+
 def test_bets_page_exposes_claim_button_flow():
     """Bets page should keep an explicit claim action in the web table UI."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")

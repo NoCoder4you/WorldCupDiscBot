@@ -1505,7 +1505,8 @@ def create_admin_routes(ctx):
         body = request.get_json(silent=True) or {}
         match_id = str(body.get("match_id") or "").strip()
         event_type = str(body.get("event_type") or "").strip().lower()
-        message = str(body.get("message") or "").strip()
+        country = str(body.get("country") or "").strip()
+        match_time = str(body.get("match_time") or "").strip()
         allowed_events = {
             "goal": "Goal",
             "yellow_card": "Yellow Card",
@@ -1516,10 +1517,8 @@ def create_admin_routes(ctx):
             return jsonify({"ok": False, "error": "missing_match_id"}), 400
         if event_type not in allowed_events:
             return jsonify({"ok": False, "error": "invalid_event_type"}), 400
-        if not message:
-            return jsonify({"ok": False, "error": "missing_message"}), 400
-        if len(message) > 1000:
-            return jsonify({"ok": False, "error": "message_too_long"}), 400
+        if not re.match(r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$", match_time):
+            return jsonify({"ok": False, "error": "invalid_match_time"}), 400
 
         container, fixtures, key = _load_matches_payload()
         fixture = next(
@@ -1535,6 +1534,9 @@ def create_admin_routes(ctx):
 
         home = str(fixture.get("home") or "").strip()
         away = str(fixture.get("away") or "").strip()
+        if country not in {home, away}:
+            return jsonify({"ok": False, "error": "invalid_country"}), 400
+        message = f"{match_time}' {allowed_events[event_type]} — {country}."
         channel = _resolve_fanzone_channel(fixture, home, away)
         live_stats = fixture.get("live_stats")
         if not isinstance(live_stats, list):
@@ -1543,6 +1545,8 @@ def create_admin_routes(ctx):
             "event_type": event_type,
             "label": allowed_events[event_type],
             "message": message,
+            "country": country,
+            "match_time": match_time,
             "ts": int(time.time()),
         })
         fixture["live_stats"] = live_stats[-100:]
@@ -1574,6 +1578,7 @@ def create_admin_routes(ctx):
             "fixture_id": match_id,
             "event_type": event_type,
             "channel": channel,
+            "live_stats": fixture["live_stats"],
         })
 
     @bp.post("/admin/fixtures")
