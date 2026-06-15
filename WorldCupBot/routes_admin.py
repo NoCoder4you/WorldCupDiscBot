@@ -1539,7 +1539,9 @@ def create_admin_routes(ctx):
 
         home = str(fixture.get("home") or "").strip()
         away = str(fixture.get("away") or "").strip()
-        if country not in {home, away}:
+        # Half time belongs to the match rather than either team. Team-specific
+        # incidents still require one of the fixture's countries.
+        if event_type != "half_time" and country not in {home, away}:
             return jsonify({"ok": False, "error": "invalid_country"}), 400
         channel = _resolve_fanzone_channel(fixture, home, away)
         live_stats = fixture.get("live_stats")
@@ -1584,8 +1586,8 @@ def create_admin_routes(ctx):
             "event_type": event_type,
             "event_label": allowed_events[event_type],
             "message": message,
-            # The Discord worker uses the selected team to resolve the flag
-            # shown in the live update embed thumbnail.
+            # Team incidents use this value for the embed flag. Half time
+            # deliberately leaves it blank because neither team owns the event.
             "country": country,
             "channel": channel,
             "live_stats": fixture["live_stats"],

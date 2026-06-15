@@ -683,6 +683,7 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert '#quick-announce-modal .modal-foot' in style_css
     assert 'width: min(92vw, 520px);' in style_css
     assert "eventType !== 'half_time'" in app_js
+    assert "eventType === 'half_time' ? '' : quickAnnouncementFixture.selectedCountry" in app_js
     assert "async function openQuickAnnouncementModal(button)" in app_js
     assert "await ensureTeamIsoLoaded();" in app_js
     assert "const goalCount = (country)" not in app_js
