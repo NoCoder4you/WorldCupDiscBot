@@ -99,6 +99,35 @@ def test_official_result_embed_uses_standard_half_time_clock():
     assert embed.fields[0].value == "**Half Time**  45'"
 
 
+def test_official_result_embed_orders_late_entries_by_match_clock():
+    """Late-entered incidents should appear where they occurred in the match."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._result_embed(
+        "Belgium",
+        "Egypt",
+        1,
+        1,
+        live_stats=[
+            {"event_type": "goal", "label": "Goal", "country": "Belgium", "match_time": "66"},
+            {"event_type": "half_time", "label": "Half Time", "country": "", "match_time": ""},
+            {"event_type": "yellow_card", "label": "Yellow Card", "country": "Egypt", "match_time": "34"},
+            {"event_type": "goal", "label": "Goal", "country": "Egypt", "match_time": "20"},
+            {"event_type": "yellow_card", "label": "Yellow Card", "country": "Belgium", "match_time": "75"},
+            {"event_type": "goal", "label": "Goal", "country": "Egypt", "match_time": "45+2"},
+        ],
+    )
+
+    assert embed.fields[0].value.splitlines() == [
+        "**Goal** - 20'  Egypt",
+        "**Yellow Card** - 34'  Egypt",
+        "**Goal** - 45+2'  Egypt",
+        "**Half Time** - 45'",
+        "**Goal** - 66'  Belgium",
+        "**Yellow Card** - 75'  Belgium",
+    ]
+
+
 def test_match_picks_embed_includes_score_from_settlement():
     """The normal settlement embed should include scores entered in the UI."""
     announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)

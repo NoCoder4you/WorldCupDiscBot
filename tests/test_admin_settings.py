@@ -327,7 +327,11 @@ def test_half_time_quick_announcement_does_not_require_country_or_match_time(tmp
 
     assert response.status_code == 200
     saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
-    assert saved_match["live_stats"][-1]["country"] == ""
+    half_time = next(
+        event for event in saved_match["live_stats"]
+        if event["event_type"] == "half_time"
+    )
+    assert half_time["country"] == ""
     command = json.loads(
         (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
     )
@@ -336,6 +340,41 @@ def test_half_time_quick_announcement_does_not_require_country_or_match_time(tmp
     assert command["data"]["away_score"] == 1
     assert command["data"]["country"] == ""
     assert command["data"]["match_time"] == ""
+
+
+def test_quick_announcement_persists_late_event_in_match_clock_order(tmp_path):
+    """A late-reported incident should be inserted into the saved timeline."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M12",
+            "home": "A",
+            "away": "B",
+            "group": "A",
+            "live_stats": [
+                {"event_type": "half_time", "label": "Half Time", "match_time": ""},
+                {"event_type": "goal", "label": "Goal", "country": "A", "match_time": "66"},
+            ],
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "yellow_card", "country": "B", "match_time": "34"},
+    )
+
+    assert response.status_code == 200
+    saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
+    assert [
+        (event["event_type"], event["match_time"])
+        for event in saved_match["live_stats"]
+    ] == [
+        ("yellow_card", "34"),
+        ("half_time", ""),
+        ("goal", "66"),
+    ]
+    assert response.get_json()["live_stats"] == saved_match["live_stats"]
 
 
 def test_fixture_result_includes_penalty_score_in_command(tmp_path):

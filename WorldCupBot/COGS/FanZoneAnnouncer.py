@@ -2,6 +2,7 @@ import os, json
 import discord
 from discord.ext import commands, tasks
 
+from match_events import sort_match_events
 from queue_utils import compact_command_queue
 
 class FanZoneAnnouncer(commands.Cog):
@@ -214,7 +215,9 @@ class FanZoneAnnouncer(commands.Cog):
             color=color,
         )
         stats_lines = []
-        for stat in live_stats or []:
+        # Sort defensively for older fixtures saved before events were ordered
+        # during entry, ensuring their final result summaries are also fixed.
+        for stat in sort_match_events(live_stats or []):
             if not isinstance(stat, dict):
                 continue
             label = str(stat.get("label") or "Update").strip()
