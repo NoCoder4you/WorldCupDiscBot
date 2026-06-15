@@ -197,6 +197,89 @@ def test_admin_fixture_result_unchanged_save_is_idempotent(tmp_path):
     assert [command["kind"] for command in commands].count("fixture_result") == 1
 
 
+def test_admin_score_only_result_is_backfilled_into_settlement(tmp_path):
+    """Legacy score-only fixtures must still lock voting and run settlement."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M73",
+            "home": "2A",
+            "away": "2B",
+            "home_score": 2,
+            "away_score": 1,
+        }]),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M73", "home_score": 2, "away_score": 1},
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json().get("unchanged") is not True
+    winners = json.loads((json_dir / "fan_winners.json").read_text(encoding="utf-8"))
+    assert winners["M73"]["winner_side"] == "home"
+    assert (json_dir / "fan_vote_snapshots.json").exists()
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert [command["kind"] for command in commands] == ["fanzone_winner", "fixture_result"]
+
+
+def test_admin_legacy_settlement_backfill_does_not_resend_owner_dms(tmp_path):
+    """Adding scores to a legacy declaration should not repeat its owner DMs."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M73", "home": "2A", "away": "2B"}]),
+        encoding="utf-8",
+    )
+    (json_dir / "fan_winners.json").write_text(
+        json.dumps({
+            "M73": {
+                "fixture_id": "M73",
+                "home": "2A",
+                "away": "2B",
+                "winner": "home",
+                "winner_side": "home",
+                "winner_team": "2A",
+            }
+        }),
+        encoding="utf-8",
+    )
+    (json_dir / "players.json").write_text(
+        json.dumps({
+            "record-a": {
+                "teams": [{"team": "2A", "ownership": {"main_owner": "100", "split_with": []}}]
+            },
+            "record-b": {
+                "teams": [{"team": "2B", "ownership": {"main_owner": "200", "split_with": []}}]
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    resp = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M73", "home_score": 2, "away_score": 1},
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["corrected"] is False
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    settlement = next(command for command in commands if command["kind"] == "fanzone_winner")
+    assert settlement["data"]["winner_owner_ids"] == []
+    assert settlement["data"]["loser_owner_ids"] == []
+    assert settlement["data"]["corrected"] is False
+    assert any(command["kind"] == "fixture_result" for command in commands)
+
+
 def test_admin_fixture_result_correction_replaces_events_without_owner_dms(tmp_path):
     """Corrections replace stored outcomes and do not send contradictory owner DMs."""
     client, json_dir = _build_admin_client(tmp_path)
