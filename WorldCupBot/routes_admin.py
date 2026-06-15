@@ -3,6 +3,7 @@ import requests
 from flask import Blueprint, jsonify, request, session, send_file
 import logging
 
+from match_events import sort_match_events
 from stage_constants import (
     STAGE_ALLOWED,
     STAGE_CHANNEL_MAP,
@@ -1583,7 +1584,10 @@ def create_admin_routes(ctx):
             "match_time": match_time,
             "ts": int(time.time()),
         })
-        fixture["live_stats"] = live_stats[-100:]
+        # Operators may learn about an incident after newer updates have
+        # already been entered. Persist match-clock order so every later
+        # consumer receives a chronological timeline.
+        fixture["live_stats"] = sort_match_events(live_stats)[-100:]
         if container is None:
             _write_json_atomic(_matches_path(ctx), fixtures)
         else:
