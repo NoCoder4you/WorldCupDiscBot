@@ -1097,7 +1097,7 @@ function stagePill(stage){
     quickAnnouncementFixture = null;
   }
 
-  function openQuickAnnouncementModal(button) {
+  async function openQuickAnnouncementModal(button) {
     if (!isQuickAnnouncementContext()) return;
     const backdrop = document.getElementById('quick-announce-backdrop');
     const modal = document.getElementById('quick-announce-modal');
@@ -1142,6 +1142,10 @@ function stagePill(stage){
     if (backButton) backButton.hidden = true;
     if (submitButton) submitButton.hidden = true;
     if (fullTimeOpenButton) fullTimeOpenButton.hidden = false;
+    // The dashboard can be the first page opened in an admin session. Load the
+    // ISO map here rather than relying on the unrelated Ownership page to do it.
+    await ensureTeamIsoLoaded();
+    if (!quickAnnouncementFixture || !isQuickAnnouncementContext()) return;
     countryOptions.innerHTML = [quickAnnouncementFixture.home, quickAnnouncementFixture.away].map((country) => `
       <button class="quick-country-option" type="button" data-country="${esc(country)}">
         ${flagHTML(country)} <span>${esc(country)}</span>
@@ -1160,12 +1164,9 @@ function stagePill(stage){
     if (!quickAnnouncementFixture?.id) return;
 
     if (eventType === 'full_time') {
-      // Recorded goal events are the authoritative live score, so prefill the
-      // confirmation inputs instead of requiring the operator to re-enter it.
-      const goalCount = (country) => (quickAnnouncementFixture.liveStats || [])
-        .filter((stat) => stat.event_type === 'goal' && stat.country === country).length;
-      document.getElementById('quick-home-score').value = String(goalCount(quickAnnouncementFixture.home));
-      document.getElementById('quick-away-score').value = String(goalCount(quickAnnouncementFixture.away));
+      // Preserve the fixture score loaded with the Options button. Live event
+      // logs may be partial or may predate structured country metadata, so
+      // deriving a score from them could silently submit an incorrect result.
       document.getElementById('quick-option-picker').hidden = true;
       document.getElementById('quick-full-time-confirm').hidden = false;
       document.getElementById('quick-full-time-back').hidden = false;
