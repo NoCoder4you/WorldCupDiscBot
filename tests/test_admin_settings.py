@@ -164,6 +164,104 @@ def test_admin_fixture_result_updates_match_scores(tmp_path):
     assert result_command["data"]["home_score"] == 2
     assert result_command["data"]["away_score"] == 1
     assert result_command["data"]["winner_side"] == "home"
+    assert result_command["data"]["suppress_public"] is True
+
+    fixture_command = next(command for command in commands if command.get("kind") == "fixture_result")
+    assert fixture_command["data"]["home_score"] == 2
+    assert fixture_command["data"]["away_score"] == 1
+    assert fixture_command["data"]["winner_side"] == "home"
+    assert fixture_command["data"]["channel"] == "fanzone"
+
+
+def test_admin_fixture_result_unchanged_save_is_idempotent(tmp_path):
+    """Re-saving the same result must not repeat announcements or notifications."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M73", "home": "2A", "away": "2B"}]),
+        encoding="utf-8",
+    )
+
+    payload = {"match_id": "M73", "home_score": 2, "away_score": 1}
+    first = client.post("/admin/fixtures/result", json=payload)
+    second = client.post("/admin/fixtures/result", json=payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.get_json()["unchanged"] is True
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert [command["kind"] for command in commands].count("fanzone_winner") == 1
+    assert [command["kind"] for command in commands].count("fixture_result") == 1
+
+
+def test_admin_fixture_result_correction_replaces_events_without_owner_dms(tmp_path):
+    """Corrections replace stored outcomes and do not send contradictory owner DMs."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M73", "home": "2A", "away": "2B"}]),
+        encoding="utf-8",
+    )
+    (json_dir / "fan_votes.json").write_text(
+        json.dumps({
+            "fixtures": {
+                "M73": {
+                    "home": 1,
+                    "away": 1,
+                    "draw": 0,
+                    "voters": {"10": "home", "20": "away"},
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+    (json_dir / "players.json").write_text(
+        json.dumps({
+            "record-a": {
+                "teams": [{"team": "2A", "ownership": {"main_owner": "100", "split_with": []}}]
+            },
+            "record-b": {
+                "teams": [{"team": "2B", "ownership": {"main_owner": "200", "split_with": []}}]
+            },
+        }),
+        encoding="utf-8",
+    )
+
+    first = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M73", "home_score": 2, "away_score": 1},
+    )
+    correction = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M73", "home_score": 1, "away_score": 2},
+    )
+
+    assert first.status_code == 200
+    assert correction.status_code == 200
+    assert correction.get_json()["corrected"] is True
+    events = json.loads((json_dir / "fan_zone_results.json").read_text(encoding="utf-8"))["events"]
+    voter_results = {
+        event["discord_id"]: event["result"]
+        for event in events
+        if event.get("fixture_id") == "M73"
+    }
+    assert voter_results == {"10": "lose", "20": "win"}
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    settlements = [command for command in commands if command.get("kind") == "fanzone_winner"]
+    assert settlements[0]["data"]["winner_owner_ids"] == ["100"]
+    assert settlements[0]["data"]["loser_owner_ids"] == ["200"]
+    assert settlements[1]["data"]["winner_owner_ids"] == []
+    assert settlements[1]["data"]["loser_owner_ids"] == []
+    fixture_results = [command for command in commands if command.get("kind") == "fixture_result"]
+    assert len(fixture_results) == 2
+    assert fixture_results[1]["data"]["corrected"] is True
+    assert fixture_results[1]["data"]["winner_side"] == "away"
 
 
 def test_admin_fixture_result_rejects_invalid_score(tmp_path):

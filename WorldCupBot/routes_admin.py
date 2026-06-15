@@ -1597,9 +1597,19 @@ def create_admin_routes(ctx):
         if requested_winner_side and home_score != away_score:
             return jsonify({"ok": False, "error": "winner_side_requires_tied_score"}), 400
 
+        # Resolve the final outcome before touching storage so we can compare
+        # it with an existing settlement and make repeat saves idempotent.
+        winner_side = requested_winner_side or "draw"
+        if home_score > away_score:
+            winner_side = "home"
+        elif away_score > home_score:
+            winner_side = "away"
+
         container, fixtures, key = _load_matches_payload()
         updated = False
         matched_fixture = None
+        unchanged = False
+        is_correction = False
         for fixture in fixtures:
             if not isinstance(fixture, dict):
                 continue
@@ -1626,6 +1636,29 @@ def create_admin_routes(ctx):
                         "ok": False,
                         "error": "winner_side_requires_knockout_match",
                     }), 400
+            try:
+                previous_home_score = int(str(fixture.get("home_score")).strip())
+                previous_away_score = int(str(fixture.get("away_score")).strip())
+                had_previous_score = True
+            except Exception:
+                previous_home_score = None
+                previous_away_score = None
+                had_previous_score = False
+            previous_side = str(fixture.get("winner_side") or "").strip().lower()
+            if had_previous_score and previous_home_score > previous_away_score:
+                previous_side = "home"
+            elif had_previous_score and previous_away_score > previous_home_score:
+                previous_side = "away"
+            elif had_previous_score and previous_side not in ("home", "away"):
+                previous_side = "draw"
+
+            unchanged = (
+                had_previous_score
+                and previous_home_score == home_score
+                and previous_away_score == away_score
+                and previous_side == winner_side
+            )
+            is_correction = had_previous_score and not unchanged
             fixture["home_score"] = home_score
             fixture["away_score"] = away_score
             # Penalty shootouts select an advancing side without changing the
@@ -1648,19 +1681,44 @@ def create_admin_routes(ctx):
                 container[key] = fixtures
             _write_json_atomic(_matches_path(ctx), container)
 
-        # Saving the score must run the complete Match Picks settlement flow,
-        # not just publish an embed. The shared helper locks voting, snapshots
-        # picks, updates leaderboards, and sends owner/voter notifications.
-        winner_side = requested_winner_side or "draw"
-        if home_score > away_score:
-            winner_side = "home"
-        elif away_score > home_score:
-            winner_side = "away"
+        if unchanged:
+            home = str((matched_fixture or {}).get("home") or "").strip()
+            away = str((matched_fixture or {}).get("away") or "").strip()
+            winner_team = home if winner_side == "home" else away if winner_side == "away" else "Draw"
+            loser_team = away if winner_side == "home" else home if winner_side == "away" else ""
+            return jsonify({
+                "ok": True,
+                "unchanged": True,
+                "id": match_id,
+                "home_score": home_score,
+                "away_score": away_score,
+                "winner_side": winner_side,
+                "winner_team": winner_team,
+                "loser_team": loser_team,
+            })
+
+        # Saving a new or corrected score runs the complete Match Picks flow,
+        # not just an embed. The helper locks voting, snapshots picks, updates
+        # leaderboards, and sends the appropriate owner/voter notifications.
         settlement = _apply_fanzone_declaration(
             matched_fixture or {},
             match_id,
             winner_side,
+            replace_existing=is_correction,
+            suppress_public=True,
         )
+        # The dedicated Fixtures announcement is deliberately separate from
+        # Match Picks settlement so it uses the official full-time score embed.
+        _enqueue_command(ctx, "fixture_result", {
+            "fixture_id": match_id,
+            "home": str((matched_fixture or {}).get("home") or "").strip(),
+            "away": str((matched_fixture or {}).get("away") or "").strip(),
+            "home_score": home_score,
+            "away_score": away_score,
+            "winner_side": winner_side,
+            "channel": settlement["channel"],
+            "corrected": is_correction,
+        })
 
         return jsonify({
             "ok": True,
@@ -1670,6 +1728,7 @@ def create_admin_routes(ctx):
             "winner_side": winner_side,
             "winner_team": settlement["winner_team"],
             "loser_team": settlement["loser_team"],
+            "corrected": is_correction,
         })
 
     @bp.post("/admin/bracket_slots")
@@ -2178,6 +2237,29 @@ def create_admin_routes(ctx):
         data['events'] = events[:500]
         _write_json_atomic(path, data)
 
+    def _remove_fanzone_result_events(fixture_id: str):
+        """Remove prior owner/voter events before writing a corrected settlement."""
+        path = _path(ctx, "fan_zone_results.json")
+        data = _read_json(path, {})
+        if not isinstance(data, dict):
+            data = {}
+        events = data.get("events")
+        if not isinstance(events, list):
+            events = []
+        event_prefix = f"fz:{fixture_id}:"
+        data["events"] = [
+            event
+            for event in events
+            if not (
+                isinstance(event, dict)
+                and (
+                    str(event.get("fixture_id") or "") == fixture_id
+                    or str(event.get("id") or "").startswith(event_prefix)
+                )
+            )
+        ]
+        _write_json_atomic(path, data)
+
     def _match_no(raw) -> int | None:
         text = str(raw or "").strip()
         if not text:
@@ -2362,7 +2444,15 @@ def create_admin_routes(ctx):
                     container[key] = fixtures
                 _write_json_atomic(_matches_path(ctx), container)
 
-    def _apply_fanzone_declaration(f: dict, fixture_id: str, side: str, winner_iso: str = ""):
+    def _apply_fanzone_declaration(
+        f: dict,
+        fixture_id: str,
+        side: str,
+        winner_iso: str = "",
+        *,
+        replace_existing: bool = False,
+        suppress_public: bool = False,
+    ):
         """Settle Match Picks and return the data exposed by the admin endpoint.
 
         Both the legacy declaration endpoint and the fixture score form use this
@@ -2394,6 +2484,8 @@ def create_admin_routes(ctx):
             "winner_side": side,
             "winner_team": winner_team,
             "winner_iso": winner_iso,
+            "home_score": f.get("home_score"),
+            "away_score": f.get("away_score"),
             "ts": declared_at,
         }
         winners[fixture_id] = rec
@@ -2463,6 +2555,15 @@ def create_admin_routes(ctx):
         bell_loser_owner_ids = _filter_notification_ids(ctx, loser_owner_ids, "bell", "matches")
         bell_draw_owner_ids = _filter_notification_ids(ctx, draw_owner_ids, "bell", "matches")
 
+        if replace_existing:
+            # Corrections replace website notification/leaderboard events.
+            # Owner DMs are intentionally not resent because the original DM
+            # cannot be recalled and a second opposite DM would be misleading.
+            _remove_fanzone_result_events(fixture_id)
+            dm_winner_owner_ids = []
+            dm_loser_owner_ids = []
+            dm_draw_owner_ids = []
+
         cfg = _read_json(_path(ctx, "config.json"), {})
         channel_name = _resolve_fanzone_channel(f, home, away)
         if not channel_name:
@@ -2489,6 +2590,8 @@ def create_admin_routes(ctx):
             "away_votes": away_votes,
             "draw_votes": draw_votes,
             "total_votes": total_votes,
+            "suppress_public": suppress_public,
+            "corrected": replace_existing,
         })
 
         if side in ("home", "away"):
@@ -2520,6 +2623,8 @@ def create_admin_routes(ctx):
             "away_votes": away_votes,
             "draw_votes": draw_votes,
             "total_votes": total_votes,
+            "channel": channel_name,
+            "corrected": replace_existing,
         }
 
     @bp.post("/admin/fanzone/declare")

@@ -171,14 +171,22 @@ class FanZoneAnnouncer(commands.Cog):
         e.timestamp = discord.utils.utcnow()
         return e
 
-    def _result_embed(self, home: str, away: str, home_score: int, away_score: int):
+    def _result_embed(
+        self,
+        home: str,
+        away: str,
+        home_score: int,
+        away_score: int,
+        winner_side: str = "",
+    ):
         """Build the official score embed sent to the fixture's Discord channel."""
-        if home_score > away_score:
+        side = str(winner_side or "").strip().lower()
+        if home_score > away_score or (home_score == away_score and side == "home"):
             home_display = f"🏆 {home}"
             away_display = away
             outcome = f"**{home} won**"
             color = discord.Color.green()
-        elif away_score > home_score:
+        elif away_score > home_score or (home_score == away_score and side == "away"):
             home_display = home
             away_display = f"{away} 🏆"
             outcome = f"**{away} won**"
@@ -292,6 +300,7 @@ class FanZoneAnnouncer(commands.Cog):
                             away,
                             int(data.get("home_score") or 0),
                             int(data.get("away_score") or 0),
+                            str(data.get("winner_side") or ""),
                         ))
                     except Exception:
                         pass
@@ -310,7 +319,7 @@ class FanZoneAnnouncer(commands.Cog):
             if not ch and guild.text_channels:
                 ch = guild.text_channels[0]
 
-            if ch:
+            if ch and not bool(data.get("suppress_public")):
                 try:
                     emb = self._public_embed(
                         home,

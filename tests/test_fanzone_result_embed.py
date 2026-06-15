@@ -38,6 +38,17 @@ def test_official_result_embed_places_trophy_after_away_winner():
     assert "🏆 USA" not in embed.description
 
 
+def test_official_tied_result_embed_uses_penalty_winner():
+    """A tied official score should still display the selected shootout winner."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._result_embed("USA", "Canada", 1, 1, "away")
+
+    assert "USA 1 – 1 Canada 🏆" in embed.description
+    assert "Canada won" in embed.description
+    assert "Draw" not in embed.description
+
+
 def test_match_picks_embed_includes_score_from_settlement():
     """The normal settlement embed should include scores entered in the UI."""
     announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
