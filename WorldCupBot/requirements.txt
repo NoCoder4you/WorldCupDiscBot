@@ -6,3 +6,4 @@ pathlib
 gspread
 psutil
 flask
+playwright>=1.44
