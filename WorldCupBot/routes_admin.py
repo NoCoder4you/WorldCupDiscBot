@@ -13,6 +13,7 @@ from stage_constants import (
 
 USER_SESSION_KEY = "wc_user"
 ADMIN_IDS_KEY    = "ADMIN_IDS"
+HELPER_ROLE_NAME = "Helper"
 MAX_BACKUPS = 24
 AUTO_BACKUP_DEFAULT_HOURS = 1.0
 BACKUP_FOLDER_NAME = "BACKUPS"
@@ -466,6 +467,28 @@ def _is_admin(ctx):
         allow = []
     return str(u.get("discord_id")) in allow
 
+def _session_role_names(user: dict) -> set[str]:
+    """Return normalized Discord role names captured during OAuth login."""
+    raw_roles = (user or {}).get("roles") or (user or {}).get("role_names") or []
+    if not isinstance(raw_roles, list):
+        return set()
+    names = set()
+    for role in raw_roles:
+        if isinstance(role, dict):
+            role = role.get("name")
+        name = str(role or "").strip().casefold()
+        if name:
+            names.add(name)
+    return names
+
+def _is_helper(ctx):
+    u = _current_user()
+    if not u:
+        return False
+    cfg = _load_config(ctx)
+    helper_name = str(cfg.get("HELPER_ROLE_NAME") or HELPER_ROLE_NAME).strip().casefold()
+    return bool(helper_name and helper_name in _session_role_names(u))
+
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
     bp = Blueprint("admin", __name__)
@@ -481,8 +504,13 @@ def create_admin_routes(ctx):
     @bp.get("/admin/auth/status")
     def auth_status():
         u = _current_user()
+        is_admin = bool(_is_admin(ctx))
+        is_helper = bool(_is_helper(ctx))
         return jsonify({
-            "unlocked": bool(_is_admin(ctx)),
+            "unlocked": is_admin,
+            "is_admin": is_admin,
+            "is_helper": is_helper,
+            "can_use_quick_options": bool(is_admin or is_helper),
             "user": {
                 "discord_id": (u or {}).get("discord_id"),
                 "username":   (u or {}).get("username"),
@@ -494,6 +522,14 @@ def create_admin_routes(ctx):
     # Helper: gate every admin action
     def require_admin():
         if _is_admin(ctx):
+            return None
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    def require_quick_options():
+        # Helpers only receive the small dashboard workflow: loading fixtures,
+        # sending live incidents, and posting full-time results. All other
+        # /admin routes continue to require full admin access.
+        if _is_admin(ctx) or _is_helper(ctx):
             return None
         return jsonify({"ok": False, "error": "Unauthorized"}), 401
 
@@ -1460,7 +1496,7 @@ def create_admin_routes(ctx):
 
     @bp.get("/admin/fixtures")
     def admin_fixtures_get():
-        resp = require_admin()
+        resp = require_quick_options()
         if resp is not None:
             return resp
 
@@ -1499,7 +1535,7 @@ def create_admin_routes(ctx):
     @bp.post("/admin/fixtures/quick-announce")
     def admin_fixture_quick_announce():
         """Queue a staff-written live-match update for the fixture's dedicated channel."""
-        resp = require_admin()
+        resp = require_quick_options()
         if resp is not None:
             return resp
 
@@ -1712,7 +1748,7 @@ def create_admin_routes(ctx):
 
     @bp.post("/admin/fixtures/result")
     def admin_fixture_result_set():
-        resp = require_admin()
+        resp = require_quick_options()
         if resp is not None:
             return resp
 
