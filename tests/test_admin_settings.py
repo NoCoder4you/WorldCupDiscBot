@@ -804,3 +804,39 @@ def test_admin_split_history_normalizes_owner_from_resolved_by(tmp_path):
     assert row["to"] == "Owner"
     assert row["to_id"] == "200"
     assert row["main_owner_id"] == "200"
+
+
+def test_helper_role_can_use_only_dashboard_quick_options(tmp_path):
+    """Discord users with the Helper role can operate quick options without full admin rights."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M90",
+            "home": "France",
+            "away": "Germany",
+            "group": "A",
+            "stage": "Group Stage",
+            "utc": "2026-06-15T18:00:00Z",
+        }]),
+        encoding="utf-8",
+    )
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "456", "username": "helper", "roles": ["Helper"]}
+
+    status = client.get("/admin/auth/status")
+    assert status.status_code == 200
+    assert status.get_json()["unlocked"] is False
+    assert status.get_json()["can_use_quick_options"] is True
+
+    fixtures = client.get("/admin/fixtures")
+    assert fixtures.status_code == 200
+    assert fixtures.get_json()["fixtures"][0]["id"] == "M90"
+
+    quick = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M90", "event_type": "half_time"},
+    )
+    assert quick.status_code == 200
+
+    settings = client.post("/admin/settings", json={"maintenance_mode": True})
+    assert settings.status_code == 401

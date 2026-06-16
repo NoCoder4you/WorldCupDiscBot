@@ -71,6 +71,7 @@
 
   const state = {
     admin:false,
+    helper:false,
     currentPage: localStorage.getItem('wc:lastPage') || 'dashboard',
     pollingId: null,
     logsKind: 'bot',
@@ -239,23 +240,32 @@ function setAdminView(on){
 
 
 function isAdminUI(){ return !!(state.admin && getAdminView()); }
+function canUseQuickOptionsUI(){ return !!((state.admin || state.helper) && getAdminView()); }
 window.isAdminUI = isAdminUI;
+window.canUseQuickOptionsUI = canUseQuickOptionsUI;
 
 function applyAdminView(){
   const enabled = isAdminUI();
-  
+  const quickEnabled = canUseQuickOptionsUI();
+
   document.querySelectorAll('.admin-only,[data-admin]').forEach(el=>{
     el.style.display = enabled ? '' : 'none';
   });
-  
-  document.body.classList.toggle('user-admin-view', enabled);
-  // A modal opened in admin view must not survive switching back to user view.
-  if (!enabled) closeQuickAnnouncementModal();
+  // Helper view deliberately exposes only the dashboard quick-options elements.
+  // Full admin controls stay hidden unless the signed-in user is an admin.
+  document.querySelectorAll('.helper-allowed').forEach(el=>{
+    el.style.display = quickEnabled ? '' : 'none';
+  });
+
+  document.body.classList.toggle('user-admin-view', enabled || quickEnabled);
+  document.body.classList.toggle('helper-view', quickEnabled && !enabled);
+  // A modal opened in staff view must not survive switching back to public view.
+  if (!quickEnabled) closeQuickAnnouncementModal();
 }
 
 function ensureAdminToggleButton(){
   const existing = document.getElementById('user-admin-toggle');
-  const shouldShow = !!state.admin; 
+  const shouldShow = !!(state.admin || state.helper);
 
   
   if (!shouldShow) {
@@ -265,7 +275,7 @@ function ensureAdminToggleButton(){
 
   
   if (existing) {
-    existing.textContent = getAdminView() ? 'Public View' : 'Admin View';
+    existing.textContent = getAdminView() ? 'Public View' : (state.admin ? 'Admin View' : 'Helper View');
     return;
   }
 
@@ -274,11 +284,11 @@ function ensureAdminToggleButton(){
   btn.id = 'user-admin-toggle';
   btn.className = 'fab-admin';
   btn.type = 'button';
-  btn.textContent = getAdminView() ? 'Public View' : 'Admin View';
+  btn.textContent = getAdminView() ? 'Public View' : (state.admin ? 'Admin View' : 'Helper View');
   btn.onclick = () => {
     const next = !getAdminView();
     setAdminView(next);
-    btn.textContent = next ? 'Public View' : 'Admin View';
+    btn.textContent = next ? 'Public View' : (state.admin ? 'Admin View' : 'Helper View');
     // A full refresh guarantees every section and data fetch reflects
     // the newly selected admin/public view mode consistently.
     window.location.reload();
@@ -726,9 +736,11 @@ function stagePill(stage){
     
     window.adminUnlocked = false;
 
-    function setAdminUI(unlocked){
+    function setAdminUI(unlocked, helper=false){
       state.admin = !!unlocked;
+      state.helper = !!helper;
       document.body.classList.toggle('admin', state.admin);
+      document.body.classList.toggle('helper', state.helper);
       applyAdminView();
       ensureAdminToggleButton(); 
     }
@@ -757,7 +769,7 @@ function stagePill(stage){
         const r = await fetch('/admin/auth/status', { credentials:'include' });
         if(r.ok){
           const j = await r.json();
-          setAdminUI(!!j.unlocked);
+          setAdminUI(!!j.unlocked, !!j.can_use_quick_options && !j.unlocked);
           setUserUI(j.user || null);
           return;
         }
@@ -766,12 +778,12 @@ function stagePill(stage){
         const m = await fetch('/api/me', { credentials:'include' });
         if(m.ok){
           const j = await m.json();
-          setAdminUI(false);
+          setAdminUI(false, false);
           setUserUI(j.user || null);
           return;
         }
       }catch(_){}
-      setAdminUI(false);
+      setAdminUI(false, false);
       setUserUI(null);
     }
 
@@ -798,10 +810,15 @@ function stagePill(stage){
         const r = await fetch('/admin/auth/status', { credentials: 'same-origin' });
         const j = await r.json().catch(() => ({}));
         state.admin = !!j.unlocked;
+        state.helper = !!j.can_use_quick_options && !state.admin;
       } catch (_) {
         state.admin = false;
+        state.helper = false;
       }
       document.body.classList.toggle('admin', state.admin);
+      document.body.classList.toggle('helper', state.helper);
+      applyAdminView();
+      ensureAdminToggleButton();
       return state.admin;
     }
 
@@ -857,7 +874,7 @@ function stagePill(stage){
       try {
         const r = await fetch('/admin/auth/logout', { method: 'POST', credentials: 'include' });
         if (r.ok) {
-          setAdminUI(false);
+          setAdminUI(false, false);
           notify('Locked', true);
           if (loginBtn)  loginBtn.style.display  = 'inline-block';
           if (logoutBtn) logoutBtn.style.display = 'none';
@@ -1042,7 +1059,7 @@ function stagePill(stage){
 
   function isQuickAnnouncementContext() {
     // Require both the explicit admin-view toggle and the active dashboard page.
-    return isAdminUI() && !!document.querySelector('#dashboard.page-section.active-section');
+    return canUseQuickOptionsUI() && !!document.querySelector('#dashboard.page-section.active-section');
   }
 
   function ongoingDashboardFixtures(fixtures) {
@@ -2305,6 +2322,7 @@ document.getElementById('reassign-submit')?.addEventListener('click', async () =
     if (res.status === 401) {
       state.admin = false;
       document.body.classList.remove('admin');
+      document.body.classList.remove('helper');
       notify('Admin required', false);
       return; 
     }

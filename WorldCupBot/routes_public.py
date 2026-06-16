@@ -397,6 +397,46 @@ def _discord_oauth_urls():
         "cdn":       "https://cdn.discordapp.com"
     }
 
+def _fetch_helper_role_names(ctx, access_token: str) -> list[str]:
+    """Resolve the OAuth user's configured guild roles into names for helper access.
+
+    Discord's member endpoint returns role IDs, so we pair it with the bot-token
+    guild roles endpoint. If any config or network piece is missing, the user
+    simply signs in without helper permissions.
+    """
+    base_dir = ctx.get("BASE_DIR", "")
+    cfg = _load_config(base_dir)
+    settings = _load_admin_settings(base_dir)
+    guild_id = str(settings.get("SELECTED_GUILD_ID") or _load_primary_guild_id(base_dir) or cfg.get("GUILD_ID") or "").strip()
+    bot_token = str(cfg.get("BOT_TOKEN") or "").strip()
+    if not (access_token and guild_id and bot_token):
+        return []
+    api = "https://discord.com/api/v10"
+    try:
+        member = requests.get(
+            f"{api}/users/@me/guilds/{guild_id}/member",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        member.raise_for_status()
+        role_ids = {str(x) for x in (member.json() or {}).get("roles", [])}
+        if not role_ids:
+            return []
+        roles = requests.get(
+            f"{api}/guilds/{guild_id}/roles",
+            headers={"Authorization": f"Bot {bot_token}"},
+            timeout=10,
+        )
+        roles.raise_for_status()
+        return [
+            str(role.get("name") or "")
+            for role in (roles.json() or [])
+            if str(role.get("id") or "") in role_ids and role.get("name")
+        ]
+    except Exception as exc:
+        log.info("Could not resolve Discord helper roles during OAuth: %s", exc)
+        return []
+
 def _discord_client_info(ctx):
     base = ctx.get("BASE_DIR", "")
     cfg = _load_config(base)
@@ -1749,7 +1789,7 @@ def create_public_routes(ctx):
         params = {
             "response_type": "code",
             "client_id": client_id,
-            "scope": "identify",
+            "scope": "identify guilds.members.read",
             "state": state,
             "redirect_uri": redirect_uri,
             "prompt": "consent"
@@ -1809,11 +1849,15 @@ def create_public_routes(ctx):
         if info.get("id") and info.get("avatar"):
             avatar = f'{_discord_oauth_urls()["cdn"]}/avatars/{info["id"]}/{info["avatar"]}.png?size=128'
 
+        role_names = _fetch_helper_role_names(ctx, access_token)
         session[_session_key()] = {
             "discord_id": str(info.get("id") or ""),
             "username": f'{info.get("username","")}#{info.get("discriminator","")}' if info.get("discriminator") else info.get("username",""),
             "global_name": info.get("global_name") or info.get("username"),
             "avatar": avatar,
+            # Store names, not tokens, so the dashboard can authorize helpers
+            # without persisting sensitive OAuth credentials in the session.
+            "roles": role_names,
             "ts": int(time.time())
         }
         log.info(
