@@ -1056,6 +1056,17 @@ function stagePill(stage){
 
   const QUICK_MATCH_WINDOW_MS = 150 * 60 * 1000;
   let quickAnnouncementFixture = null;
+  let quickTeamStages = null;
+
+  async function ensureQuickTeamStages() {
+    if (quickTeamStages) return quickTeamStages;
+    try {
+      quickTeamStages = await fetchJSON('/api/team_stage');
+    } catch (_) {
+      quickTeamStages = {};
+    }
+    return quickTeamStages;
+  }
 
   function isQuickAnnouncementContext() {
     // Require both the explicit admin-view toggle and the active dashboard page.
@@ -1146,6 +1157,8 @@ function stagePill(stage){
       selectedCountry: '',
       liveStats
     };
+    await ensureQuickTeamStages();
+    if (!quickAnnouncementFixture || !isQuickAnnouncementContext()) return;
     if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
     if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
     if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
