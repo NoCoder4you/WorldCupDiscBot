@@ -1056,6 +1056,17 @@ function stagePill(stage){
 
   const QUICK_MATCH_WINDOW_MS = 150 * 60 * 1000;
   let quickAnnouncementFixture = null;
+  let quickTeamStages = null;
+
+  async function ensureQuickTeamStages() {
+    if (quickTeamStages) return quickTeamStages;
+    try {
+      quickTeamStages = await fetchJSON('/api/team_stage');
+    } catch (_) {
+      quickTeamStages = {};
+    }
+    return quickTeamStages;
+  }
 
   function isQuickAnnouncementContext() {
     // Require both the explicit admin-view toggle and the active dashboard page.
@@ -1146,6 +1157,8 @@ function stagePill(stage){
       selectedCountry: '',
       liveStats
     };
+    await ensureQuickTeamStages();
+    if (!quickAnnouncementFixture || !isQuickAnnouncementContext()) return;
     if (match) match.textContent = `${quickAnnouncementFixture.home} vs ${quickAnnouncementFixture.away}`;
     if (homeLabel) homeLabel.textContent = `${quickAnnouncementFixture.home} score`;
     if (awayLabel) awayLabel.textContent = `${quickAnnouncementFixture.away} score`;
@@ -1247,23 +1260,33 @@ function stagePill(stage){
     }
   }
 
-  function isQuickKnockoutStage(stageLabel) {
-    const stage = window.WorldCupStages?.normalizeStage?.(stageLabel) || String(stageLabel || '').trim();
-    return new Set([
-      'Round of 32',
-      'Round of 16',
-      'Quarter-finals',
-      'Semi-finals',
-      'Third Place Play-off',
-      'Final'
-    ]).has(stage);
+  function quickStageForTeam(team) {
+    const stages = quickTeamStages || {};
+    const name = String(team || '').trim();
+    const normalizedName = typeof normalizeTeamName === 'function' ? normalizeTeamName(name) : name.toLowerCase();
+    const stage = stages[name] || stages[normalizedName] || '';
+    return window.WorldCupStages?.normalizeStage?.(stage) || String(stage || '').trim();
+  }
+
+  function isQuickTeamAtRoundOf32OrFurther(team) {
+    const stage = quickStageForTeam(team);
+    const rank = STAGE_ORDER.indexOf(stage);
+    const roundOf32Rank = STAGE_ORDER.indexOf('Round of 32');
+    // Only teams still active in the knockout path should unlock penalties;
+    // group-stage, eliminated, and unknown stages intentionally return false.
+    return roundOf32Rank >= 0 && rank >= roundOf32Rank && stage !== 'Eliminated';
+  }
+
+  function quickMatchTeamsCanUsePenalties() {
+    return isQuickTeamAtRoundOf32OrFurther(quickAnnouncementFixture?.home)
+      && isQuickTeamAtRoundOf32OrFurther(quickAnnouncementFixture?.away);
   }
 
   function updateQuickFinalStats() {
     const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
     const isTied = homeScore === awayScore;
-    const allowPenalties = isTied && isQuickKnockoutStage(quickAnnouncementFixture?.stage);
+    const allowPenalties = isTied && quickMatchTeamsCanUsePenalties();
     // Penalties are only meaningful for knockout matches that are still tied
     // after regular/extra time; hide and clear them for all group or decided games.
     document.querySelectorAll('.quick-penalty-score').forEach((field) => {
@@ -1292,7 +1315,7 @@ function stagePill(stage){
         if (status) status.textContent = 'Enter valid non-negative scores before full time.';
         return;
       }
-      const requiresPenalties = homeScore === awayScore && isQuickKnockoutStage(quickAnnouncementFixture?.stage);
+      const requiresPenalties = homeScore === awayScore && quickMatchTeamsCanUsePenalties();
       const parsedHomePenalties = Number.parseInt(homePenalties, 10);
       const parsedAwayPenalties = Number.parseInt(awayPenalties, 10);
       if (
