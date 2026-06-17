@@ -451,6 +451,8 @@ def test_full_time_result_command_includes_persisted_live_stats(tmp_path):
     ]
     result_command = next(command for command in commands if command["kind"] == "fixture_result")
     assert result_command["data"]["live_stats"] == live_stats
+    settlement_command = next(command for command in commands if command["kind"] == "fanzone_winner")
+    assert settlement_command["data"]["live_stats"] == live_stats
 
 
 def test_admin_fixture_result_correction_replaces_events_without_owner_dms(tmp_path):

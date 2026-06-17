@@ -76,7 +76,7 @@ def test_official_result_embed_lists_event_times_without_repeating_scores():
         }],
     )
 
-    assert embed.fields[0].value == "**Yellow Card**  38'  Spain"
+    assert embed.fields[0].value == "**Yellow Card** - 38'  Spain"
     assert "Spain 1 - 0 Cape Verde" not in embed.fields[0].value
 
 
@@ -96,7 +96,7 @@ def test_official_result_embed_uses_standard_half_time_clock():
         }],
     )
 
-    assert embed.fields[0].value == "**Half Time**  45'"
+    assert embed.fields[0].value == "**Half Time** - 45'"
 
 
 def test_official_result_embed_orders_late_entries_by_match_clock():
@@ -168,7 +168,7 @@ def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
     })
 
     assert embed.thumbnail.url == "https://flagcdn.com/w80/br.png"
-    assert embed.title == "⚽ - Goal  32'"
+    assert embed.title == "⚽ Goal  32'"
     assert embed.description is None
     assert embed.fields[0].name == "Match"
     assert embed.fields[0].value == "**Brazil 1 - 0 Morocco**"
@@ -206,6 +206,44 @@ def test_half_time_embed_does_not_repeat_event_or_matchup():
         "away_score": 0,
     })
 
-    assert embed.title == "⏸️ - Half Time  45'"
+    assert embed.title == "⏸️ Half Time  45'"
     assert embed.description is None
     assert embed.fields[0].value == "**Spain 0 - 0 Cape Verde**"
+
+
+
+def test_owner_dm_embed_uses_full_time_match_stats():
+    """Owner DMs should include the same final event summary as the full-time embed."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._dm_embed(
+        True,
+        "Argentina",
+        "Algeria",
+        None,
+        live_stats=[{
+            "event_type": "goal",
+            "label": "Goal",
+            "country": "Argentina",
+            "match_time": "61",
+        }],
+    )
+
+    assert embed.fields[0].name == "Match Stats"
+    assert embed.fields[0].value == "**Goal** - 61'  Argentina"
+    assert "COMING SOON" not in embed.fields[0].value
+
+
+def test_owner_draw_dm_embed_uses_full_time_match_stats():
+    """Draw DMs should also receive the final event summary."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._dm_draw_embed(
+        "Argentina",
+        "Algeria",
+        None,
+        live_stats=[{"event_type": "half_time", "label": "Half Time"}],
+    )
+
+    assert embed.fields[0].name == "Match Stats"
+    assert embed.fields[0].value == "**Half Time** - 45'"
