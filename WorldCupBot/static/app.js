@@ -1264,7 +1264,9 @@ function stagePill(stage){
     const stages = quickTeamStages || {};
     const name = String(team || '').trim();
     const normalizedName = typeof normalizeTeamName === 'function' ? normalizeTeamName(name) : name.toLowerCase();
-    const stage = stages[name] || stages[normalizedName] || '';
+    const teamStage = stages[name] || stages[normalizedName] || '';
+    const fallbackStage = quickAnnouncementFixture?.stage || '';
+    const stage = teamStage || fallbackStage;
     return window.WorldCupStages?.normalizeStage?.(stage) || String(stage || '').trim();
   }
 
