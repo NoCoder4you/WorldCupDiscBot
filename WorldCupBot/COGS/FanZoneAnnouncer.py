@@ -180,6 +180,30 @@ class FanZoneAnnouncer(commands.Cog):
         e.timestamp = discord.utils.utcnow()
         return e
 
+    def _add_match_stats_field(self, embed: discord.Embed, live_stats: list | None):
+        """Add the same sorted full-time match events to any result-style embed."""
+        stats_lines = []
+        # Sort defensively for older fixtures saved before events were ordered
+        # during entry, ensuring their final result summaries are also fixed.
+        for stat in sort_match_events(live_stats or []):
+            if not isinstance(stat, dict):
+                continue
+            label = str(stat.get("label") or "Update").strip()
+            match_time = str(stat.get("match_time") or "").strip()
+            event_type = str(stat.get("event_type") or "").strip().lower()
+            country = str(stat.get("country") or "").strip()
+            # Half time has a standard clock value even though the dashboard
+            # does not ask the operator to enter one. Final summaries describe
+            # the incident itself instead of repeating the score after every
+            # event, which keeps the score exclusive to the result heading.
+            display_time = match_time or ("45" if event_type == "half_time" else "")
+            timing = f" - {display_time}'" if display_time else ""
+            country_text = f"  {country}" if country else ""
+            stats_lines.append(f"**{label}**{timing}{country_text}")
+        if stats_lines:
+            # Discord embed fields are limited to 1024 characters.
+            embed.add_field(name="Match Stats", value="\n".join(stats_lines)[-1024:], inline=False)
+
     def _result_embed(
         self,
         home: str,
@@ -214,27 +238,7 @@ class FanZoneAnnouncer(commands.Cog):
             description=f"**{home_display} {home_score} – {away_score} {away_display}**{penalty_line}",
             color=color,
         )
-        stats_lines = []
-        # Sort defensively for older fixtures saved before events were ordered
-        # during entry, ensuring their final result summaries are also fixed.
-        for stat in sort_match_events(live_stats or []):
-            if not isinstance(stat, dict):
-                continue
-            label = str(stat.get("label") or "Update").strip()
-            match_time = str(stat.get("match_time") or "").strip()
-            event_type = str(stat.get("event_type") or "").strip().lower()
-            country = str(stat.get("country") or "").strip()
-            # Half time has a standard clock value even though the dashboard
-            # does not ask the operator to enter one. Final summaries describe
-            # the incident itself instead of repeating the score after every
-            # event, which keeps the score exclusive to the result heading.
-            display_time = match_time or ("45" if event_type == "half_time" else "")
-            timing = f" - {display_time}'" if display_time else ""
-            country_text = f"  {country}" if country else ""
-            stats_lines.append(f"**{label}**{timing}{country_text}")
-        if stats_lines:
-            # Discord embed fields are limited to 1024 characters.
-            embed.add_field(name="Match Stats", value="\n".join(stats_lines)[-1024:], inline=False)
+        self._add_match_stats_field(embed, live_stats)
         embed.set_footer(text="World Cup 2026 Fixtures")
         embed.timestamp = discord.utils.utcnow()
         return embed
@@ -284,13 +288,20 @@ class FanZoneAnnouncer(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
         return embed
 
-    def _dm_embed(self, won: bool, your_team: str, other_team: str, thumb_iso: str | None):
+    def _dm_embed(
+        self,
+        won: bool,
+        your_team: str,
+        other_team: str,
+        thumb_iso: str | None,
+        live_stats: list | None = None,
+    ):
         e = discord.Embed(
             title=("✅ Your team won" if won else "❌ Your team lost"),
             description=f"**{your_team}** {'beat' if won else 'lost to'} **{other_team}**",
             color=(discord.Color.green() if won else discord.Color.red())
         )
-        e.add_field(name="Stats", value="COMING SOON", inline=False)
+        self._add_match_stats_field(e, live_stats)
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
@@ -298,13 +309,13 @@ class FanZoneAnnouncer(commands.Cog):
         e.timestamp = discord.utils.utcnow()
         return e
 
-    def _dm_draw_embed(self, home: str, away: str, thumb_iso: str | None):
+    def _dm_draw_embed(self, home: str, away: str, thumb_iso: str | None, live_stats: list | None = None):
         e = discord.Embed(
             title="🤝 Match ended in a draw",
             description=f"**{home}** drew with **{away}**",
             color=discord.Color.gold()
         )
-        e.add_field(name="Stats", value="COMING SOON", inline=False)
+        self._add_match_stats_field(e, live_stats)
         url = self._flag_url(thumb_iso or "")
         if url:
             e.set_thumbnail(url=url)
@@ -431,15 +442,17 @@ class FanZoneAnnouncer(commands.Cog):
             draw_owner_ids = data.get("draw_owner_ids") or []
 
             if str(data.get("winner_side") or "").strip().lower() != "draw":
-                win_emb = self._dm_embed(True, winner_team, loser_team, winner_iso)
-                lose_emb = self._dm_embed(False, loser_team, winner_team, loser_iso)
+                live_stats = data.get("live_stats") if isinstance(data.get("live_stats"), list) else []
+                win_emb = self._dm_embed(True, winner_team, loser_team, winner_iso, live_stats)
+                lose_emb = self._dm_embed(False, loser_team, winner_team, loser_iso, live_stats)
 
                 for uid in win_owner_ids:
                     await self._dm_user_embed(uid, win_emb)
                 for uid in lose_owner_ids:
                     await self._dm_user_embed(uid, lose_emb)
             else:
-                draw_emb = self._dm_draw_embed(home, away, winner_iso or loser_iso)
+                live_stats = data.get("live_stats") if isinstance(data.get("live_stats"), list) else []
+                draw_emb = self._dm_draw_embed(home, away, winner_iso or loser_iso, live_stats)
                 for uid in draw_owner_ids:
                     await self._dm_user_embed(uid, draw_emb)
 

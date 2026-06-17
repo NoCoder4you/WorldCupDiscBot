@@ -3029,6 +3029,7 @@ def create_public_routes(ctx):
                 "loser_iso": loser_iso,
                 "winner_owner_ids": sorted(win_owners),
                 "loser_owner_ids": sorted(lose_owners),
+                "live_stats": (fixture or {}).get("live_stats") if isinstance((fixture or {}).get("live_stats"), list) else [],
                 "channel": channel_name,
             }
         })

@@ -2833,6 +2833,7 @@ def create_admin_routes(ctx):
             "away_votes": away_votes,
             "draw_votes": draw_votes,
             "total_votes": total_votes,
+            "live_stats": f.get("live_stats") if isinstance(f.get("live_stats"), list) else [],
             "suppress_public": suppress_public,
             "corrected": corrected,
         })
