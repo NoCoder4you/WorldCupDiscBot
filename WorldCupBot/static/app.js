@@ -1266,9 +1266,6 @@ function stagePill(stage){
     const normalizedName = typeof normalizeTeamName === 'function' ? normalizeTeamName(name) : name.toLowerCase();
     const teamStage = stages[name] || stages[normalizedName] || '';
     const fallbackStage = quickAnnouncementFixture?.stage || '';
-    // Prefer the team's saved tournament stage, but fall back to the fixture's
-    // stage when team-stage data is missing so tied knockout fixtures still show
-    // the required shootout inputs.
     const stage = teamStage || fallbackStage;
     return window.WorldCupStages?.normalizeStage?.(stage) || String(stage || '').trim();
   }
