@@ -1247,16 +1247,25 @@ function stagePill(stage){
     }
   }
 
+  function isQuickKnockoutStage(stageLabel) {
+    const stage = window.WorldCupStages?.normalizeStage?.(stageLabel) || String(stageLabel || '').trim();
+    return new Set([
+      'Round of 32',
+      'Round of 16',
+      'Quarter-finals',
+      'Semi-finals',
+      'Third Place Play-off',
+      'Final'
+    ]).has(stage);
+  }
+
   function updateQuickFinalStats() {
     const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
     const isTied = homeScore === awayScore;
-    const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
-      || quickAnnouncementFixture?.stage || '';
-    const isKnockout = Boolean(stage) && stage !== 'Group Stage';
-    const allowPenalties = isTied && isKnockout;
-    // A tied knockout match is the only situation where a shootout score is
-    // applicable. The larger penalty score determines the winner automatically.
+    const allowPenalties = isTied && isQuickKnockoutStage(quickAnnouncementFixture?.stage);
+    // Penalties are only meaningful for knockout matches that are still tied
+    // after regular/extra time; hide and clear them for all group or decided games.
     document.querySelectorAll('.quick-penalty-score').forEach((field) => {
       field.hidden = !allowPenalties;
     });
@@ -1283,9 +1292,7 @@ function stagePill(stage){
         if (status) status.textContent = 'Enter valid non-negative scores before full time.';
         return;
       }
-      const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
-        || quickAnnouncementFixture?.stage || '';
-      const requiresPenalties = homeScore === awayScore && Boolean(stage) && stage !== 'Group Stage';
+      const requiresPenalties = homeScore === awayScore && isQuickKnockoutStage(quickAnnouncementFixture?.stage);
       const parsedHomePenalties = Number.parseInt(homePenalties, 10);
       const parsedAwayPenalties = Number.parseInt(awayPenalties, 10);
       if (
