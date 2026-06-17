@@ -188,14 +188,16 @@
                               <span id="quick-away-label">Away score</span>
                               <input id="quick-away-score" type="number" min="0" step="1" value="0">
                           </label>
-                          <label class="quick-penalty-score" hidden>
-                              <span id="quick-home-penalties-label">Home penalties</span>
-                              <input id="quick-home-penalties" type="number" min="0" step="1" placeholder="e.g. 5">
-                          </label>
-                          <label class="quick-penalty-score" hidden>
-                              <span id="quick-away-penalties-label">Away penalties</span>
-                              <input id="quick-away-penalties" type="number" min="0" step="1" placeholder="e.g. 4">
-                          </label>
+                          <div id="quick-penalty-row" class="quick-penalty-row" hidden>
+                              <label class="quick-penalty-score">
+                                  <span id="quick-home-penalties-label">Home penalties</span>
+                                  <input id="quick-home-penalties" type="number" min="0" step="1" placeholder="e.g. 5">
+                              </label>
+                              <label class="quick-penalty-score">
+                                  <span id="quick-away-penalties-label">Away penalties</span>
+                                  <input id="quick-away-penalties" type="number" min="0" step="1" placeholder="e.g. 4">
+                              </label>
+                          </div>
                           </div>
                           <div class="quick-final-stats" aria-live="polite">
                               <div><span>Final Score</span><strong id="quick-final-score">0–0</strong></div>

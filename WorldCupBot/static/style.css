@@ -630,6 +630,14 @@ body:not(.user-admin-view) .dashboard-live-panel {
     justify-self: center;
 }
 
+.quick-score-grid .quick-penalty-row {
+    display: contents;
+}
+
+.quick-score-grid .quick-penalty-row[hidden] {
+    display: none !important;
+}
+
 .quick-score-grid .quick-penalty-score {
     grid-row: 3;
 }
