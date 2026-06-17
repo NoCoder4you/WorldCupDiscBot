@@ -1289,6 +1289,8 @@ function stagePill(stage){
     const allowPenalties = isTied && quickMatchTeamsCanUsePenalties();
     // Penalties are only meaningful for knockout matches that are still tied
     // after regular/extra time; hide and clear them for all group or decided games.
+    const penaltyRow = document.getElementById('quick-penalty-row');
+    if (penaltyRow) penaltyRow.hidden = !allowPenalties;
     document.querySelectorAll('.quick-penalty-score').forEach((field) => {
       field.hidden = !allowPenalties;
     });
