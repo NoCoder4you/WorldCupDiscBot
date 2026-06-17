@@ -1247,16 +1247,31 @@ function stagePill(stage){
     }
   }
 
+  function quickFixtureCanUsePenalties() {
+    const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
+      || String(quickAnnouncementFixture?.stage || '').trim();
+    const knockoutStages = new Set([
+      'Round of 32',
+      'Round of 16',
+      'Quarter-finals',
+      'Semi-finals',
+      'Third Place Play-off',
+      'Final'
+    ]);
+    // Penalty eligibility is tied to the fixture being a knockout match, not to
+    // mutable team stages that may already have been advanced or eliminated.
+    return knockoutStages.has(stage);
+  }
+
   function updateQuickFinalStats() {
     const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
     const isTied = homeScore === awayScore;
-    const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
-      || quickAnnouncementFixture?.stage || '';
-    const isKnockout = Boolean(stage) && stage !== 'Group Stage';
-    const allowPenalties = isTied && isKnockout;
-    // A tied knockout match is the only situation where a shootout score is
-    // applicable. The larger penalty score determines the winner automatically.
+    const allowPenalties = isTied && quickFixtureCanUsePenalties();
+    // Penalties are only meaningful for knockout matches that are still tied
+    // after regular/extra time; hide and clear them for all group or decided games.
+    const penaltyRow = document.getElementById('quick-penalty-row');
+    if (penaltyRow) penaltyRow.hidden = !allowPenalties;
     document.querySelectorAll('.quick-penalty-score').forEach((field) => {
       field.hidden = !allowPenalties;
     });
@@ -1283,9 +1298,7 @@ function stagePill(stage){
         if (status) status.textContent = 'Enter valid non-negative scores before full time.';
         return;
       }
-      const stage = window.WorldCupStages?.normalizeStage?.(quickAnnouncementFixture?.stage)
-        || quickAnnouncementFixture?.stage || '';
-      const requiresPenalties = homeScore === awayScore && Boolean(stage) && stage !== 'Group Stage';
+      const requiresPenalties = homeScore === awayScore && quickFixtureCanUsePenalties();
       const parsedHomePenalties = Number.parseInt(homePenalties, 10);
       const parsedAwayPenalties = Number.parseInt(awayPenalties, 10);
       if (
