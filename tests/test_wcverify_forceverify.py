@@ -76,3 +76,36 @@ def test_build_avatar_url_uses_custom_avatar_when_present():
     avatar_url = cog._build_avatar_url(member)
 
     assert avatar_url == "https://cdn.discordapp.com/avatars/42/abc123.png?size=256"
+
+
+def test_find_member_by_username_supports_user_mention():
+    bot = SimpleNamespace()
+    cog = SpectatorVerify(bot)
+    target = _build_member(12345, "runner", "Noah")
+    guild = SimpleNamespace(members=[target], get_member=lambda member_id: target if member_id == 12345 else None)
+
+    found = cog._find_member_by_username(guild, "<@12345>")
+
+    assert found is target
+
+
+def test_find_member_by_username_supports_nickname_mention():
+    bot = SimpleNamespace()
+    cog = SpectatorVerify(bot)
+    target = _build_member(67890, "runner", "Noah")
+    guild = SimpleNamespace(members=[target], get_member=lambda member_id: target if member_id == 67890 else None)
+
+    found = cog._find_member_by_username(guild, "<@!67890>")
+
+    assert found is target
+
+
+def test_find_member_by_username_supports_bare_discord_id_without_get_member():
+    bot = SimpleNamespace()
+    cog = SpectatorVerify(bot)
+    target = _build_member(24680, "runner", "Noah")
+    guild = SimpleNamespace(members=[target])
+
+    found = cog._find_member_by_username(guild, "24680")
+
+    assert found is target

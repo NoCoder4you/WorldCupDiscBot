@@ -7,6 +7,7 @@ import os
 import time
 import random
 import string
+import re
 from pathlib import Path
 
 SPECTATORS_ROLE_ID = 1388690743782146178
@@ -63,9 +64,24 @@ class SpectatorVerify(commands.Cog):
         account name, and legacy name#discriminator) so staff can verify people
         quickly even when they do not have a mention or user ID handy.
         """
-        needle = (username or "").strip().lower()
+        needle = (username or "").strip()
         if not needle:
             return None
+
+        # Staff often copy a Discord mention into the command. Prefix commands
+        # receive mentions as raw text, so resolve <@123>, <@!123>, and bare IDs
+        # before falling back to username matching.
+        mention_match = re.fullmatch(r"<@!?(\d+)>", needle)
+        member_id = int(mention_match.group(1)) if mention_match else (int(needle) if needle.isdigit() else None)
+        if member_id is not None:
+            member = guild.get_member(member_id) if hasattr(guild, "get_member") else None
+            if member is not None:
+                return member
+            for member in guild.members:
+                if member.id == member_id:
+                    return member
+
+        needle = needle.lower()
 
         # Exact match first to avoid ambiguity when there are similar names.
         for member in guild.members:
@@ -249,14 +265,14 @@ class SpectatorVerify(commands.Cog):
         embed.set_thumbnail(url=f"https://www.habbo.com/habbo-imaging/avatarimage?user={habbo}&direction=3&head_direction=3&gesture=nor&action=wav&size=l")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @commands.command(name="forceverify", help="Admin: force-verify a user by username and Habbo name.")
+    @commands.command(name="forceverify", help="Admin: force-verify a user by username, mention, or ID and Habbo name.")
     @commands.has_permissions(administrator=True)
     async def force_verify(self, ctx: commands.Context, username: str, *, habbo: str):
         """
         Forcefully mark a user as verified and grant Spectators immediately.
 
         Usage:
-          wc forceverify <discord_username> <habbo_name>
+          wc forceverify <discord_username|mention|id> <habbo_name>
         """
         if ctx.guild is None:
             await ctx.send("❌ This command can only be used inside a server.")
