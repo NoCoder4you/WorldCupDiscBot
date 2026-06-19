@@ -4522,6 +4522,18 @@ async function getCogStatus(name){
     try { localStorage.setItem(TABLES_CACHE_KEY, JSON.stringify({ ...data, cached_at: Date.now() })); } catch {}
   }
 
+  function canSeeTablesDiagnostics(){
+    // Standings refresh errors can expose backend/source-file details, so keep
+    // them limited to admins and helpers while public users see neutral status.
+    return typeof canUseQuickOptionsUI === 'function' && canUseQuickOptionsUI();
+  }
+
+  function standingsStatusWithOptionalDiagnostic(publicMessage, error){
+    const message = String(publicMessage || '');
+    if (!canSeeTablesDiagnostics() || !error?.message) return message;
+    return `${message} ${error.message}`;
+  }
+
   function standingsFlagHTML(country){
     const code = resolveIsoCode(country);
     if (!code) return '<span class="standings-flag-placeholder" aria-hidden="true"></span>';
@@ -4651,9 +4663,9 @@ async function getCogStatus(name){
         if (cached) {
           tablesState.data = cached;
           renderTables();
-          if (status) status.textContent = `Unable to refresh standings. Showing cached data. ${error.message}`;
+          if (status) status.textContent = standingsStatusWithOptionalDiagnostic('Unable to refresh standings. Showing cached data.', error);
         } else if (status) {
-          status.textContent = `Failed to load standings: ${error.message}`;
+          status.textContent = standingsStatusWithOptionalDiagnostic('Failed to load standings.', error);
         }
       } finally {
         tablesState.loading = null;
