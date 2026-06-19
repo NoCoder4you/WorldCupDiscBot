@@ -83,6 +83,51 @@ def test_public_standings_calculates_results_and_sort_order(client, app):
     assert group_c[0]["gf"] > group_c[1]["gf"]
 
 
+def test_public_standings_projects_live_goal_events_without_double_counting(client, app):
+    _seed_standings_data(app, [
+        {
+            "group": "A",
+            "home": "South Korea",
+            "away": "Turkey",
+            "status": "live",
+            "live_stats": [
+                {"event_type": "goal", "country": "South Korea", "match_time": "12"},
+                {"event_type": "yellow_card", "country": "Turkey", "match_time": "15"},
+            ],
+        },
+        {
+            "group": "B",
+            "home": "B Team 1",
+            "away": "B Team 2",
+            "status": "final",
+            "home_score": 2,
+            "away_score": 0,
+            "live_stats": [
+                {"event_type": "goal", "country": "B Team 1", "match_time": "7"},
+                {"event_type": "goal", "country": "B Team 1", "match_time": "44"},
+            ],
+        },
+    ])
+    payload = client.get("/api/standings").get_json()
+
+    group_a = payload["groups"][0]["teams"]
+    south_korea = next(team for team in group_a if team["team"] == "South Korea")
+    turkey = next(team for team in group_a if team["team"] == "Turkey")
+    assert south_korea["pts"] == 3
+    assert south_korea["gf"] == 1
+    assert south_korea["live"] is True
+    assert turkey["ga"] == 1
+    assert turkey["live"] is True
+    assert payload["live_matches"] == 1
+
+    group_b = payload["groups"][1]["teams"]
+    b_team_1 = next(team for team in group_b if team["team"] == "B Team 1")
+    assert b_team_1["mp"] == 1
+    assert b_team_1["pts"] == 3
+    assert b_team_1["gf"] == 2
+    assert "live" not in b_team_1
+    assert payload["completed_matches"] == 1
+
 def test_public_standings_ignores_non_final_and_malformed_fixtures(client, app):
     _seed_standings_data(app, [
         {"group": "A", "home": "South Korea", "away": "Turkey", "home_score": 4, "away_score": 0, "status": "postponed"},
@@ -140,6 +185,11 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert "wc:lastPage" in app_js
     assert "filtersWired" in app_js
     assert ".tables-controls" in css
+    assert "standings-live-dot" in app_js
+    assert "startTablesAutoRefresh" in app_js
+    assert "loadTables({ force: true })" in app_js
+    assert ".standings-live-dot" in css
+    assert "@keyframes standings-live-pulse" in css
 
 
 def test_admin_standings_audit_refresh_recalculates_and_reports_sources(client, app):
