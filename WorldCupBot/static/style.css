@@ -2124,9 +2124,18 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .standings-table th:nth-child(2) { text-align: left; }
 .standings-position { width: 28px; color: var(--muted); }
 .standings-team { display: flex; align-items: center; gap: 8px; min-width: 145px; color: var(--text); font-weight: 650; white-space: normal !important; }
+.standings-team-name { min-width: 0; }
 .standings-team .flag-img { width: 24px; height: 18px; flex: 0 0 24px; object-fit: cover; border-radius: 2px; }
+.standings-flag-emoji { width: 24px; flex: 0 0 24px; font-size: 18px; line-height: 1; text-align: center; }
 .standings-flag-placeholder { width: 24px; height: 18px; flex: 0 0 24px; border: 1px solid var(--border); border-radius: 2px; }
 .standings-points { color: var(--accent); font-weight: 900; }
+.standings-table tbody tr.is-live { background: color-mix(in srgb, #ef4444 12%, transparent); }
+.standings-live-dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 999px; background: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, .75); animation: standings-live-pulse 1.35s ease-out infinite; }
+.standings-live-score { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 18px; margin-left: auto; padding: 0 5px; border-radius: 4px; color: #fff; font-size: 11px; font-weight: 900; line-height: 1; box-shadow: 0 1px 3px #00000033; }
+.standings-live-score.winning { background: #16a34a; }
+.standings-live-score.losing { background: #dc2626; }
+.standings-live-score.drawing { background: #64748b; }
+@keyframes standings-live-pulse { 70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
 .standings-card-error { padding: 18px; }
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 @media (max-width: 1100px) { .tables-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

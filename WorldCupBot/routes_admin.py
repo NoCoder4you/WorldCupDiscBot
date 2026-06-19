@@ -1925,6 +1925,12 @@ def create_admin_routes(ctx):
             )
             fixture["home_score"] = home_score
             fixture["away_score"] = away_score
+            # Mark admin-entered scores as official. Some imported schedules keep
+            # status as scheduled with default 0-0 scores, so standings need an
+            # explicit staff-saved signal to distinguish real results.
+            fixture["status"] = "final"
+            fixture["result_source"] = "admin"
+            fixture["result_saved_at"] = int(time.time())
             # Penalty shootouts select an advancing side without changing the
             # official tied score displayed in fixture results.
             if requested_winner_side:
