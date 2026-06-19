@@ -259,6 +259,9 @@ function applyAdminView(){
 
   document.body.classList.toggle('user-admin-view', enabled || quickEnabled);
   document.body.classList.toggle('helper-view', quickEnabled && !enabled);
+  // Re-render the tables status when staff view is toggled so operational
+  // source-data details disappear immediately when returning to public view.
+  if (document.getElementById('tables-status')) renderTables();
   // A modal opened in staff view must not survive switching back to public view.
   if (!quickEnabled) closeQuickAnnouncementModal();
 }
@@ -4522,6 +4525,34 @@ async function getCogStatus(name){
     try { localStorage.setItem(TABLES_CACHE_KEY, JSON.stringify({ ...data, cached_at: Date.now() })); } catch {}
   }
 
+  function canSeeTablesDiagnostics(){
+    // Standings refresh/audit details can expose source-file state, so keep the
+    // entire status line limited to admins/helpers in staff view.
+    return typeof canUseQuickOptionsUI === 'function' && canUseQuickOptionsUI();
+  }
+
+  function setTablesStatus(status, message){
+    if (!status) return;
+    const staffCanSeeStatus = canSeeTablesDiagnostics();
+    status.hidden = !staffCanSeeStatus;
+    status.textContent = staffCanSeeStatus ? String(message || '') : '';
+  }
+
+  function standingsStatusWithOptionalDiagnostic(publicMessage, error){
+    const message = String(publicMessage || '');
+    if (!canSeeTablesDiagnostics() || !error?.message) return message;
+    return `${message} ${error.message}`;
+  }
+
+  function formatTablesAuditSummary(audit){
+    const groupTables = Number(audit?.group_tables) || 0;
+    const expected = Number(audit?.expected_group_tables) || 12;
+    const missing = Array.isArray(audit?.missing_groups) && audit.missing_groups.length
+      ? ` Missing groups: ${audit.missing_groups.join(', ')}.` : '';
+    const sourceHint = ' Check JSON/team_meta.json and JSON/matches.json for missing or malformed group data.';
+    return `Audit found ${groupTables}/${expected} complete group tables.${missing}${groupTables === expected ? '' : sourceHint}`;
+  }
+
   function standingsFlagHTML(country){
     const code = resolveIsoCode(country);
     if (!code) return '<span class="standings-flag-placeholder" aria-hidden="true"></span>';
@@ -4542,7 +4573,7 @@ async function getCogStatus(name){
     grid.classList.toggle('single-group', tablesState.filter !== 'ALL');
     if (!visible.length) {
       grid.textContent = '';
-      status.textContent = groups.length ? `No data is available for Group ${tablesState.filter}.` : 'No group data available.';
+      setTablesStatus(status, groups.length ? `No data is available for Group ${tablesState.filter}.` : 'No group data available.');
       return;
     }
     grid.innerHTML = visible.map((entry) => {
@@ -4572,9 +4603,9 @@ async function getCogStatus(name){
     const completed = Number(tablesState.data?.completed_matches) || 0;
     const errors = Array.isArray(tablesState.data?.errors) ? tablesState.data.errors : [];
     const tableCount = groups.filter((entry) => Array.isArray(entry?.teams) && entry.teams.length === 4).length;
-    status.textContent = errors.length ? `Showing ${tableCount} of 12 group tables. ${errors.join(' ')}`
+    setTablesStatus(status, errors.length ? `Showing ${tableCount} of 12 group tables. ${errors.join(' ')}`
       : completed ? `12 complete group tables · ${completed} completed group-stage match${completed === 1 ? '' : 'es'} included.`
-      : '12 complete group tables · No completed results yet. All teams start on zero points.';
+      : '12 complete group tables · No completed results yet. All teams start on zero points.');
   }
 
   function setTablesFilter(group){
@@ -4604,23 +4635,31 @@ async function getCogStatus(name){
     button.addEventListener('click', async () => {
       const status = document.getElementById('tables-status');
       button.disabled = true;
-      if (status) status.textContent = 'Auditing source files and recalculating tables…';
+      setTablesStatus(status, 'Auditing source files and recalculating tables…');
       try {
         // The admin endpoint recalculates from JSON/team_meta.json and
         // JSON/matches.json, then reports any missing/malformed groups.
         const result = await fetchJSON('/admin/standings/audit', { method: 'POST', body: JSON.stringify({}) });
         const data = result?.standings;
-        if (!hasAllTables(data)) throw new Error('Audit returned incomplete standings data');
+        const audit = result?.audit || {};
+        const auditSummary = formatTablesAuditSummary(audit);
+        if (!hasAllTables(data)) {
+          // The audit request itself succeeded, but the source JSON still cannot
+          // build all twelve public tables. Show admins a repair-oriented warning
+          // instead of a vague failure toast.
+          tablesState.data = data;
+          renderTables();
+          setTablesStatus(status, auditSummary);
+          notify(auditSummary, false);
+          return;
+        }
         tablesState.data = data;
         writeTablesCache(data);
         renderTables();
-        const audit = result?.audit || {};
-        const missing = Array.isArray(audit.missing_groups) && audit.missing_groups.length
-          ? ` Missing groups: ${audit.missing_groups.join(', ')}.` : '';
-        if (status) status.textContent = `Audit complete: ${audit.group_tables || 0}/${audit.expected_group_tables || 12} group tables refreshed from JSON/team_meta.json and JSON/matches.json.${missing}`;
+        setTablesStatus(status, `${auditSummary} Refreshed from JSON/team_meta.json and JSON/matches.json.`);
         notify('Tables audited and refreshed');
       } catch (error) {
-        if (status) status.textContent = `Audit refresh failed: ${error.message}`;
+        setTablesStatus(status, `Audit refresh failed: ${error.message}`);
         notify(`Tables audit failed: ${error.message}`, false);
       } finally {
         button.disabled = false;
@@ -4637,7 +4676,7 @@ async function getCogStatus(name){
       tablesState.data = cached;
       renderTables();
     } else if (status) {
-      status.textContent = 'Loading 12 group tables…';
+      setTablesStatus(status, 'Loading 12 group tables…');
     }
     if (tablesState.loading) return tablesState.loading;
     tablesState.loading = (async () => {
@@ -4651,9 +4690,9 @@ async function getCogStatus(name){
         if (cached) {
           tablesState.data = cached;
           renderTables();
-          if (status) status.textContent = `Unable to refresh standings. Showing cached data. ${error.message}`;
+          setTablesStatus(status, standingsStatusWithOptionalDiagnostic('Unable to refresh standings. Showing cached data.', error));
         } else if (status) {
-          status.textContent = `Failed to load standings: ${error.message}`;
+          setTablesStatus(status, standingsStatusWithOptionalDiagnostic('Failed to load standings.', error));
         }
       } finally {
         tablesState.loading = null;
