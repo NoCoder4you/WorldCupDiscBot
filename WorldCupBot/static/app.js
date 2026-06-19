@@ -4589,10 +4589,11 @@ async function getCogStatus(name){
           const ownScore = Number(team?.live_score) || 0;
           const opponentScore = Number(team?.live_opponent_score) || 0;
           const scoreClass = ownScore > opponentScore ? 'winning' : ownScore < opponentScore ? 'losing' : 'drawing';
-          // Keep the pulsing dot for quick scanning, and add a compact score
-          // pill so live table movement is explainable at a glance.
+          const matchScore = String(team?.live_match_score || `${ownScore}-${opponentScore}`);
+          // Keep the pulsing dot for quick scanning, and add the match score
+          // being projected from matches.json without changing table layout.
           liveBadge = `<span class="standings-live-dot" title="Live game" aria-label="Live game"></span>
-            <span class="standings-live-score ${scoreClass}" title="Live score">${ownScore}-${opponentScore}</span>`;
+            <span class="standings-live-score ${scoreClass}" title="Live score from matches.json">${esc(matchScore)}</span>`;
         }
         return `<tr class="${team?.live ? 'is-live' : ''}"><td class="standings-position">${index + 1}</td>
           <th scope="row" class="standings-team">${standingsFlagHTML(name)}<span>${esc(name)}</span>${liveBadge}</th>

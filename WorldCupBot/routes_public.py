@@ -100,6 +100,8 @@ _NON_FINAL_MATCH_STATUSES = {
     "scheduled", "postponed", "cancelled", "canceled", "abandoned",
     "incomplete", "live", "in progress", "in_progress",
 }
+_TERMINAL_NON_FINAL_MATCH_STATUSES = {"postponed", "cancelled", "canceled", "abandoned"}
+_FINAL_MATCH_STATUSES = {"final", "full_time", "full time", "completed", "finished"}
 
 def _standings_score(value):
     """Return a valid non-negative integer score, or None for placeholders."""
@@ -159,7 +161,9 @@ def _standings_live_score(fixture, home, away):
     """
     live_stats = fixture.get("live_stats")
     if not isinstance(live_stats, list):
-        return None
+        # A recently started fixture can be live before staff enter an event;
+        # expose it as 0-0 so the UI can still show the red live indicator.
+        live_stats = []
     home_key = str(home or "").casefold()
     away_key = str(away or "").casefold()
     scores = {home_key: 0, away_key: 0}
@@ -220,7 +224,12 @@ def _build_standings(team_meta, matches):
         if not isinstance(fixture, dict):
             continue
         status = str(fixture.get("status") or fixture.get("state") or "").strip().casefold()
-        is_live_status = status in {"live", "in progress", "in_progress"} and _fixture_started_within_minutes(fixture)
+        started_recently = _fixture_started_within_minutes(fixture)
+        is_live_status = (
+            started_recently
+            and status not in _TERMINAL_NON_FINAL_MATCH_STATUSES
+            and status not in _FINAL_MATCH_STATUSES
+        )
         is_final_status = status not in _NON_FINAL_MATCH_STATUSES
         if not is_final_status and not is_live_status:
             continue
@@ -272,6 +281,8 @@ def _build_standings(team_meta, matches):
             home_row["_live_opponent_score"] = away_score
             away_row["_live_score"] = away_score
             away_row["_live_opponent_score"] = home_score
+            home_row["_live_match_score"] = f"{home_score}-{away_score}"
+            away_row["_live_match_score"] = f"{home_score}-{away_score}"
         else:
             completed_matches += 1
         for row in (home_row, away_row):
@@ -307,6 +318,7 @@ def _build_standings(team_meta, matches):
                     "live": True,
                     "live_score": row.get("_live_score", 0),
                     "live_opponent_score": row.get("_live_opponent_score", 0),
+                    "live_match_score": row.get("_live_match_score", "0-0"),
                 } if row.get("_live") else {})
                 for row in rows
             ],

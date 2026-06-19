@@ -94,7 +94,7 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
             "group": "A",
             "home": "South Korea",
             "away": "Turkey",
-            "status": "live",
+            "status": "scheduled",
             "utc": started,
             "live_stats": [
                 {"event_type": "goal", "country": "South Korea", "match_time": "12"},
@@ -110,6 +110,13 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
             "live_stats": [
                 {"event_type": "goal", "country": "Cape Verde", "match_time": "3"},
             ],
+        },
+        {
+            "group": "C",
+            "home": "C Team 1",
+            "away": "C Team 2",
+            "status": "scheduled",
+            "utc": started,
         },
         {
             "group": "B",
@@ -134,14 +141,23 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
     assert south_korea["live"] is True
     assert south_korea["live_score"] == 1
     assert south_korea["live_opponent_score"] == 0
+    assert south_korea["live_match_score"] == "1-0"
     assert turkey["ga"] == 1
     assert turkey["live"] is True
     assert turkey["live_score"] == 0
     assert turkey["live_opponent_score"] == 1
+    assert turkey["live_match_score"] == "1-0"
     cape_verde = next(team for team in group_a if team["team"] == "Cape Verde")
     assert "live" not in cape_verde
     assert cape_verde["mp"] == 0
-    assert payload["live_matches"] == 1
+    assert payload["live_matches"] == 2
+
+    group_c = payload["groups"][2]["teams"]
+    c_team_1 = next(team for team in group_c if team["team"] == "C Team 1")
+    assert c_team_1["live"] is True
+    assert c_team_1["live_score"] == 0
+    assert c_team_1["live_opponent_score"] == 0
+    assert c_team_1["live_match_score"] == "0-0"
 
     group_b = payload["groups"][1]["teams"]
     b_team_1 = next(team for team in group_b if team["team"] == "B Team 1")
@@ -214,6 +230,8 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert "https://flagcdn.com/24x18/${safeCode}.png" not in app_js
     assert "standings-flag-emoji" in app_js
     assert "ownScore > opponentScore ? 'winning'" in app_js
+    assert "live_match_score" in app_js
+    assert "Live score from matches.json" in app_js
     assert "startTablesAutoRefresh" in app_js
     assert "loadTables({ force: true })" in app_js
     assert ".standings-live-dot" in css
