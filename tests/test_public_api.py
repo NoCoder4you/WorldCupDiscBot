@@ -110,10 +110,13 @@ def test_public_standings_handles_missing_or_malformed_sources(client, app):
 def test_tables_page_is_wired_into_existing_navigation_and_loader():
     index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
     assert 'data-page="tables">Tables</a>' in index_html
     assert '<section id="tables" class="page-section">' in index_html
     assert 'class="table-wrap tables-card"' in index_html
     assert 'class="table-title tables-title">Group Tables</h1>' in index_html
+    assert 'id="tables-audit-refresh"' in index_html
+    assert "Audit &amp; Refresh" in index_html
     assert [f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")] == [
         token for token in (
             f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")
@@ -122,9 +125,43 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert "case 'tables': await loadTables(); break;" in app_js
     assert "const TABLE_GROUPS = [...'ABCDEFGHIJKL'];" in app_js
     assert "Standings response does not contain 12 complete groups" in app_js
+    assert "fetchJSON('/admin/standings/audit'" in app_js
+    assert "JSON/team_meta.json and JSON/matches.json" in app_js
     assert "12 complete group tables" in app_js
     assert "wc:lastPage" in app_js
     assert "filtersWired" in app_js
+    assert ".tables-controls" in css
+
+
+def test_admin_standings_audit_refresh_recalculates_and_reports_sources(client, app):
+    from routes_admin import create_admin_routes
+
+    app.register_blueprint(create_admin_routes({
+        "BASE_DIR": app.config["BASE_DIR"],
+        "is_bot_running": lambda: False,
+        "start_bot": lambda: True,
+        "stop_bot": lambda: True,
+        "restart_bot": lambda: True,
+        "get_bot_resource_usage": lambda: {},
+    }))
+    _seed_standings_data(app, [
+        {"group": "A", "home": "South Korea", "away": "Turkey", "home_score": 1, "away_score": 0},
+    ])
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "123", "username": "admin"}
+
+    response = client.post("/admin/standings/audit", json={})
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"].startswith("no-store")
+    payload = response.get_json()
+    assert payload["ok"] is True
+    assert payload["audit"]["source_files"] == {
+        "teams": "JSON/team_meta.json",
+        "fixtures": "JSON/matches.json",
+    }
+    assert payload["audit"]["group_tables"] == 12
+    assert payload["audit"]["missing_groups"] == []
+    assert payload["standings"]["completed_matches"] == 1
 
 
 def test_index_uses_document_relative_static_asset_paths(client):

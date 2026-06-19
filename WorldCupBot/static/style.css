@@ -2105,6 +2105,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
 .tables-card-body { padding: 16px; }
 .tables-kicker, .standings-kicker { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .tables-title { margin: 3px 0 0; color: var(--accent); font-size: clamp(24px, 3vw, 34px); line-height: 1.1; }
+.tables-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
 .tables-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .tables-filters .btn { min-width: 38px; min-height: 36px; }
 .tables-filters .btn.active { color: #07111c; background: var(--accent); border-color: var(--accent); }
@@ -2133,6 +2134,7 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     .tables-page { padding-top: 0; }
     .tables-toolbar { align-items: flex-start; flex-direction: column; }
     .tables-card-body { padding: 12px; }
+    .tables-controls { justify-content: flex-start; width: 100%; }
     .tables-filters { justify-content: flex-start; width: 100%; }
     .tables-filters .btn { min-width: 42px; min-height: 40px; }
     .tables-grid { grid-template-columns: minmax(0, 1fr); }

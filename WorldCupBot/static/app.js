@@ -1280,7 +1280,8 @@ function stagePill(stage){
     const homeScore = Number.parseInt(document.getElementById('quick-home-score')?.value || '0', 10) || 0;
     const awayScore = Number.parseInt(document.getElementById('quick-away-score')?.value || '0', 10) || 0;
     const isTied = homeScore === awayScore;
-    const allowPenalties = isTied && quickFixtureCanUsePenalties();
+    const isKnockout = quickFixtureCanUsePenalties();
+    const allowPenalties = isTied && isKnockout;
     // Penalties are only meaningful for knockout matches that are still tied
     // after regular/extra time; hide and clear them for all group or decided games.
     const penaltyRow = document.getElementById('quick-penalty-row');
@@ -1314,6 +1315,7 @@ function stagePill(stage){
       const requiresPenalties = homeScore === awayScore && quickFixtureCanUsePenalties();
       const parsedHomePenalties = Number.parseInt(homePenalties, 10);
       const parsedAwayPenalties = Number.parseInt(awayPenalties, 10);
+      // The larger penalty score determines the winner automatically.
       if (
         requiresPenalties
         && (!Number.isInteger(parsedHomePenalties)
@@ -4494,7 +4496,7 @@ async function getCogStatus(name){
 
   const TABLES_CACHE_KEY = 'wc:standings';
   const TABLE_GROUPS = [...'ABCDEFGHIJKL'];
-  const tablesState = { filter: 'ALL', data: null, loading: null, filtersWired: false };
+  const tablesState = { filter: 'ALL', data: null, loading: null, filtersWired: false, auditWired: false };
 
   function hasAllTables(data){
     if (!data || !Array.isArray(data.groups) || data.groups.length !== TABLE_GROUPS.length) return false;
@@ -4595,8 +4597,40 @@ async function getCogStatus(name){
     });
   }
 
+  function wireTablesAuditRefresh(){
+    const button = document.getElementById('tables-audit-refresh');
+    if (!button || tablesState.auditWired) return;
+    tablesState.auditWired = true;
+    button.addEventListener('click', async () => {
+      const status = document.getElementById('tables-status');
+      button.disabled = true;
+      if (status) status.textContent = 'Auditing source files and recalculating tables…';
+      try {
+        // The admin endpoint recalculates from JSON/team_meta.json and
+        // JSON/matches.json, then reports any missing/malformed groups.
+        const result = await fetchJSON('/admin/standings/audit', { method: 'POST', body: JSON.stringify({}) });
+        const data = result?.standings;
+        if (!hasAllTables(data)) throw new Error('Audit returned incomplete standings data');
+        tablesState.data = data;
+        writeTablesCache(data);
+        renderTables();
+        const audit = result?.audit || {};
+        const missing = Array.isArray(audit.missing_groups) && audit.missing_groups.length
+          ? ` Missing groups: ${audit.missing_groups.join(', ')}.` : '';
+        if (status) status.textContent = `Audit complete: ${audit.group_tables || 0}/${audit.expected_group_tables || 12} group tables refreshed from JSON/team_meta.json and JSON/matches.json.${missing}`;
+        notify('Tables audited and refreshed');
+      } catch (error) {
+        if (status) status.textContent = `Audit refresh failed: ${error.message}`;
+        notify(`Tables audit failed: ${error.message}`, false);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
   async function loadTables(){
     wireTablesFilters();
+    wireTablesAuditRefresh();
     const status = document.getElementById('tables-status');
     const cached = tablesState.data || readTablesCache();
     if (cached) {

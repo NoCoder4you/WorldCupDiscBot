@@ -1,9 +1,10 @@
 import os, json, time, glob, sys, re, shutil, zipfile, datetime
 import requests
-from flask import Blueprint, jsonify, request, session, send_file
+from flask import Blueprint, jsonify, request, session, send_file, make_response
 import logging
 
 from match_events import sort_match_events
+from routes_public import STANDINGS_GROUPS, _build_standings
 from stage_constants import (
     STAGE_ALLOWED,
     STAGE_CHANNEL_MAP,
@@ -518,6 +519,44 @@ def create_admin_routes(ctx):
                 "avatar":     (u or {}).get("avatar"),
             }
         })
+
+    @bp.post("/admin/standings/audit")
+    def standings_audit_refresh():
+        """Recalculate tables and return source diagnostics for admin review."""
+        resp = require_admin()
+        if resp is not None:
+            return resp
+
+        team_meta_path = _path(ctx, "team_meta.json")
+        matches_path = _path(ctx, "matches.json")
+        team_meta = _read_json(team_meta_path, {})
+        matches = _read_json(matches_path, [])
+        payload = _build_standings(team_meta, matches)
+
+        groups = payload.get("groups") if isinstance(payload, dict) else []
+        valid_groups = {
+            str(group.get("group") or "").upper()
+            for group in groups
+            if isinstance(group, dict) and len(group.get("teams") or []) == 4
+        }
+        missing_groups = [group for group in STANDINGS_GROUPS if group not in valid_groups]
+        diagnostics = {
+            "source_files": {
+                "teams": "JSON/team_meta.json",
+                "fixtures": "JSON/matches.json",
+            },
+            "group_tables": len(valid_groups),
+            "expected_group_tables": len(STANDINGS_GROUPS),
+            "missing_groups": missing_groups,
+            "completed_matches": payload.get("completed_matches", 0),
+            "errors": payload.get("errors", []),
+            "refreshed_at": int(time.time()),
+        }
+        response = make_response(jsonify({"ok": True, "standings": payload, "audit": diagnostics}))
+        # Admin-triggered refreshes should always bypass browser/proxy caches so
+        # the operator sees a fresh recalculation from the JSON source files.
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return response
 
     # Helper: gate every admin action
     def require_admin():
