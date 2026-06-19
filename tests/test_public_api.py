@@ -128,6 +128,9 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert "canSeeTablesDiagnostics" in app_js
     assert "canUseQuickOptionsUI" in app_js
     assert "Unable to refresh standings. Showing cached data. ${error.message}" not in app_js
+    assert "formatTablesAuditSummary" in app_js
+    assert "Audit returned incomplete standings data" not in app_js
+    assert "Check JSON/team_meta.json and JSON/matches.json" in app_js
     assert "fetchJSON('/admin/standings/audit'" in app_js
     assert "JSON/team_meta.json and JSON/matches.json" in app_js
     assert "12 complete group tables" in app_js
