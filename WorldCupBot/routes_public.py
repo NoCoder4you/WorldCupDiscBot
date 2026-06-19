@@ -126,11 +126,38 @@ def _preferred_team_name(value):
     }
     return aliases.get(name.casefold(), name)
 
+
+def _standings_live_score(fixture, home, away):
+    """Derive an in-progress score from stored goal events only.
+
+    Full-time fixtures are deliberately handled by their official score fields in
+    _build_standings, which prevents live goal events from awarding points a
+    second time after staff submit the final result.
+    """
+    live_stats = fixture.get("live_stats")
+    if not isinstance(live_stats, list):
+        return None
+    home_key = str(home or "").casefold()
+    away_key = str(away or "").casefold()
+    scores = {home_key: 0, away_key: 0}
+    saw_goal = False
+    for stat in live_stats:
+        if not isinstance(stat, dict) or stat.get("event_type") != "goal":
+            continue
+        country = _preferred_team_name(stat.get("country")).casefold()
+        if country not in scores:
+            continue
+        scores[country] += 1
+        saw_goal = True
+    if not saw_goal:
+        return (0, 0)
+    return scores[home_key], scores[away_key]
+
 def _build_standings(team_meta, matches):
     """Calculate group standings once from canonical team metadata and fixtures."""
     groups_blob = team_meta.get("groups") if isinstance(team_meta, dict) else None
     if not isinstance(groups_blob, dict):
-        return {"groups": [], "errors": ["Group metadata is missing or malformed."], "completed_matches": 0}
+        return {"groups": [], "errors": ["Group metadata is missing or malformed."], "completed_matches": 0, "live_matches": 0}
 
     group_rows = {}
     team_lookup = {}
@@ -165,11 +192,14 @@ def _build_standings(team_meta, matches):
         group_rows[group] = rows
 
     completed_matches = 0
+    live_matches = 0
     for fixture in matches if isinstance(matches, list) else []:
         if not isinstance(fixture, dict):
             continue
         status = str(fixture.get("status") or fixture.get("state") or "").strip().casefold()
-        if status in _NON_FINAL_MATCH_STATUSES:
+        is_live_status = status in {"live", "in progress", "in_progress"}
+        is_final_status = status not in _NON_FINAL_MATCH_STATUSES
+        if not is_final_status and not is_live_status:
             continue
         stage = normalize_stage(str(
             fixture.get("stage") or fixture.get("round") or fixture.get("phase") or ""
@@ -186,24 +216,35 @@ def _build_standings(team_meta, matches):
         inferred_group = home_ref[0]
         if group and group != inferred_group:
             continue
-        home_score = _standings_score(
-            fixture.get("home_score") if fixture.get("home_score") is not None else fixture.get("score_home")
-        )
-        away_score = _standings_score(
-            fixture.get("away_score") if fixture.get("away_score") is not None else fixture.get("score_away")
-        )
-        if home_score is None or away_score is None:
-            score = fixture.get("score")
-            if isinstance(score, str):
-                parts = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", score)
-                if parts:
-                    home_score = home_score if home_score is not None else int(parts.group(1))
-                    away_score = away_score if away_score is not None else int(parts.group(2))
-        if home_score is None or away_score is None:
-            continue
+        if is_live_status:
+            live_score = _standings_live_score(fixture, home, away)
+            if live_score is None:
+                continue
+            home_score, away_score = live_score
+        else:
+            home_score = _standings_score(
+                fixture.get("home_score") if fixture.get("home_score") is not None else fixture.get("score_home")
+            )
+            away_score = _standings_score(
+                fixture.get("away_score") if fixture.get("away_score") is not None else fixture.get("score_away")
+            )
+            if home_score is None or away_score is None:
+                score = fixture.get("score")
+                if isinstance(score, str):
+                    parts = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", score)
+                    if parts:
+                        home_score = home_score if home_score is not None else int(parts.group(1))
+                        away_score = away_score if away_score is not None else int(parts.group(2))
+            if home_score is None or away_score is None:
+                continue
 
         home_row, away_row = home_ref[1], away_ref[1]
-        completed_matches += 1
+        if is_live_status:
+            live_matches += 1
+            home_row["_live"] = True
+            away_row["_live"] = True
+        else:
+            completed_matches += 1
         for row in (home_row, away_row):
             row["mp"] += 1
         home_row["gf"] += home_score
@@ -233,13 +274,13 @@ def _build_standings(team_meta, matches):
         output.append({
             "group": group,
             "teams": [
-                {key: value for key, value in row.items() if not key.startswith("_")}
+                {key: value for key, value in row.items() if not key.startswith("_")} | ({"live": True} if row.get("_live") else {})
                 for row in rows
             ],
         })
     if not isinstance(matches, list):
         errors.append("Fixture data is missing or malformed; showing zeroed standings.")
-    return {"groups": output, "errors": errors, "completed_matches": completed_matches}
+    return {"groups": output, "errors": errors, "completed_matches": completed_matches, "live_matches": live_matches}
 
 def _player_names_map(base_dir):
     verified_blob = _json_load(_verified_path(base_dir), {})

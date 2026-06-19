@@ -4499,7 +4499,7 @@ async function getCogStatus(name){
 
   const TABLES_CACHE_KEY = 'wc:standings';
   const TABLE_GROUPS = [...'ABCDEFGHIJKL'];
-  const tablesState = { filter: 'ALL', data: null, loading: null, filtersWired: false, auditWired: false };
+  const tablesState = { filter: 'ALL', data: null, loading: null, filtersWired: false, auditWired: false, refreshTimer: null };
 
   function hasAllTables(data){
     if (!data || !Array.isArray(data.groups) || data.groups.length !== TABLE_GROUPS.length) return false;
@@ -4586,8 +4586,9 @@ async function getCogStatus(name){
       const rows = teams.map((team, index) => {
         const name = String(team?.team || '');
         const gd = Number(team?.gd) || 0;
-        return `<tr><td class="standings-position">${index + 1}</td>
-          <th scope="row" class="standings-team">${standingsFlagHTML(name)}<span>${esc(name)}</span></th>
+        const liveBadge = team?.live ? '<span class="standings-live-dot" title="Live game" aria-label="Live game"></span>' : '';
+        return `<tr class="${team?.live ? 'is-live' : ''}"><td class="standings-position">${index + 1}</td>
+          <th scope="row" class="standings-team">${standingsFlagHTML(name)}<span>${esc(name)}</span>${liveBadge}</th>
           <td>${Number(team?.mp) || 0}</td><td>${Number(team?.w) || 0}</td>
           <td>${Number(team?.d) || 0}</td><td>${Number(team?.l) || 0}</td>
           <td>${gd > 0 ? `+${gd}` : gd}</td><td class="standings-points">${Number(team?.pts) || 0}</td></tr>`;
@@ -4601,11 +4602,13 @@ async function getCogStatus(name){
         </table></div></article>`;
     }).join('');
     const completed = Number(tablesState.data?.completed_matches) || 0;
+    const liveMatches = Number(tablesState.data?.live_matches) || 0;
+    const liveText = liveMatches ? ` · ${liveMatches} live group-stage match${liveMatches === 1 ? '' : 'es'} projected` : '';
     const errors = Array.isArray(tablesState.data?.errors) ? tablesState.data.errors : [];
     const tableCount = groups.filter((entry) => Array.isArray(entry?.teams) && entry.teams.length === 4).length;
     setTablesStatus(status, errors.length ? `Showing ${tableCount} of 12 group tables. ${errors.join(' ')}`
-      : completed ? `12 complete group tables · ${completed} completed group-stage match${completed === 1 ? '' : 'es'} included.`
-      : '12 complete group tables · No completed results yet. All teams start on zero points.');
+      : completed ? `12 complete group tables · ${completed} completed group-stage match${completed === 1 ? '' : 'es'} included${liveText}.`
+      : `12 complete group tables · No completed results yet.${liveText || ' All teams start on zero points.'}`);
   }
 
   function setTablesFilter(group){
@@ -4667,11 +4670,27 @@ async function getCogStatus(name){
     });
   }
 
-  async function loadTables(){
+  function startTablesAutoRefresh(){
+    if (tablesState.refreshTimer) return;
+    // Poll while the Tables page is visible so goals submitted from the admin
+    // quick actions are reflected without a manual refresh.
+    tablesState.refreshTimer = setInterval(() => {
+      if (state.currentPage === 'tables') loadTables({ force: true });
+    }, 10000);
+  }
+
+  function stopTablesAutoRefresh(){
+    if (!tablesState.refreshTimer) return;
+    clearInterval(tablesState.refreshTimer);
+    tablesState.refreshTimer = null;
+  }
+
+  async function loadTables(options = {}){
     wireTablesFilters();
     wireTablesAuditRefresh();
+    startTablesAutoRefresh();
     const status = document.getElementById('tables-status');
-    const cached = tablesState.data || readTablesCache();
+    const cached = options.force ? tablesState.data : (tablesState.data || readTablesCache());
     if (cached) {
       tablesState.data = cached;
       renderTables();
@@ -4702,6 +4721,7 @@ async function getCogStatus(name){
   }
 
   async function routePage(){
+    if (state.currentPage !== 'tables') stopTablesAutoRefresh();
     switch(state.currentPage){
       case 'dashboard':
         await loadDash();
