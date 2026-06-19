@@ -116,6 +116,7 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert 'class="table-wrap tables-card"' in index_html
     assert 'class="table-title tables-title">Group Tables</h1>' in index_html
     assert 'id="tables-audit-refresh"' in index_html
+    assert 'id="tables-status" class="tables-status" role="status" aria-live="polite" hidden' in index_html
     assert "Audit &amp; Refresh" in index_html
     assert [f'data-tables-group="{group}"' for group in ("ALL", *"ABCDEFGHIJKL")] == [
         token for token in (
@@ -126,6 +127,8 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert "const TABLE_GROUPS = [...'ABCDEFGHIJKL'];" in app_js
     assert "Standings response does not contain 12 complete groups" in app_js
     assert "canSeeTablesDiagnostics" in app_js
+    assert "setTablesStatus" in app_js
+    assert "status.hidden = !staffCanSeeStatus" in app_js
     assert "canUseQuickOptionsUI" in app_js
     assert "Unable to refresh standings. Showing cached data. ${error.message}" not in app_js
     assert "formatTablesAuditSummary" in app_js
