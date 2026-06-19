@@ -128,6 +128,17 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
             "away_score": 1,
         },
         {
+            "group": "E",
+            "home": "E Team 1",
+            "away": "E Team 2",
+            "status": "scheduled",
+            "utc": started,
+            "home_score": 3,
+            "away_score": 1,
+            "result_source": "admin",
+            "result_saved_at": 123,
+        },
+        {
             "group": "B",
             "home": "B Team 1",
             "away": "B Team 2",
@@ -170,9 +181,15 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
 
     group_d = payload["groups"][3]["teams"]
     d_team_1 = next(team for team in group_d if team["team"] == "D Team 1")
-    assert d_team_1["pts"] == 3
-    assert d_team_1["gf"] == 2
+    assert d_team_1["pts"] == 0
+    assert d_team_1["gf"] == 0
     assert "live" not in d_team_1
+
+    group_e = payload["groups"][4]["teams"]
+    e_team_1 = next(team for team in group_e if team["team"] == "E Team 1")
+    assert e_team_1["pts"] == 3
+    assert e_team_1["gf"] == 3
+    assert "live" not in e_team_1
 
     group_b = payload["groups"][1]["teams"]
     b_team_1 = next(team for team in group_b if team["team"] == "B Team 1")

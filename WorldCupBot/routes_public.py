@@ -117,13 +117,8 @@ def _standings_score(value):
         return None
 
 
-def _fixture_official_score(fixture):
-    """Return saved final score fields when staff have submitted a result.
-
-    Admin result entry persists home_score/away_score without always changing the
-    status. Treat those saved scores as official so a recent kickoff window does
-    not keep projecting live events over a completed result.
-    """
+def _fixture_saved_score(fixture):
+    """Return parseable score fields exactly as saved on a fixture, if complete."""
     home_score = _standings_score(
         fixture.get("home_score") if fixture.get("home_score") is not None else fixture.get("score_home")
     )
@@ -140,6 +135,22 @@ def _fixture_official_score(fixture):
     if home_score is None or away_score is None:
         return None
     return home_score, away_score
+
+def _fixture_official_score(fixture, status=""):
+    """Return saved final score fields only when they are distinguishable.
+
+    Importers may initialize scheduled fixtures with parseable 0-0 score fields.
+    Do not treat explicit non-final statuses as completed unless staff result
+    entry marked the fixture or the status itself is final.
+    """
+    saved_score = _fixture_saved_score(fixture)
+    if saved_score is None:
+        return None
+    status = str(status or "").strip().casefold()
+    staff_saved = bool(fixture.get("result_saved_at") or fixture.get("result_source") == "admin")
+    if status in _NON_FINAL_MATCH_STATUSES and not staff_saved:
+        return None
+    return saved_score
 
 def _preferred_team_name(value):
     """Keep legacy fixture spellings aligned with the panel's canonical names."""
@@ -251,11 +262,13 @@ def _build_standings(team_meta, matches):
         status = str(fixture.get("status") or fixture.get("state") or "").strip().casefold()
         if status in _TERMINAL_NON_FINAL_MATCH_STATUSES:
             continue
-        official_score = _fixture_official_score(fixture)
+        official_score = _fixture_official_score(fixture, status)
+        has_unconfirmed_score = _fixture_saved_score(fixture) is not None and official_score is None
         started_recently = _fixture_started_within_minutes(fixture)
         is_final_status = official_score is not None or status not in _NON_FINAL_MATCH_STATUSES
         is_live_status = (
             official_score is None
+            and not has_unconfirmed_score
             and started_recently
             and status not in _TERMINAL_NON_FINAL_MATCH_STATUSES
             and status not in _FINAL_MATCH_STATUSES

@@ -133,6 +133,9 @@ def test_admin_fixture_result_updates_match_scores(tmp_path):
     stored = json.loads(matches_path.read_text(encoding="utf-8"))
     assert stored[0]["home_score"] == 2
     assert stored[0]["away_score"] == 1
+    assert stored[0]["status"] == "final"
+    assert stored[0]["result_source"] == "admin"
+    assert isinstance(stored[0]["result_saved_at"], int)
 
     winners = json.loads((json_dir / "fan_winners.json").read_text(encoding="utf-8"))
     assert winners["M73"]["winner_side"] == "home"
