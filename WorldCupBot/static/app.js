@@ -1703,9 +1703,20 @@ function resolveIsoCode(country) {
 }
 
 
+const SUBDIVISION_FLAG_EMOJI = {
+  // Flagcdn supports subdivision codes like gb-eng/gb-sct, but Unicode
+  // regional indicators only support two-letter country codes. Keep explicit
+  // tag-sequence fallbacks so standings do not show a white flag.
+  'gb-eng': '🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}',
+  'gb-sct': '🏴\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}',
+  'gb-wls': '🏴\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}',
+};
+
 function codeToEmoji(cc) {
-  if (!/^[A-Za-z]{2}$/.test(cc)) return '🏳️';
-  const up = cc.toUpperCase();
+  const normalized = String(cc || '').trim().toLowerCase();
+  if (SUBDIVISION_FLAG_EMOJI[normalized]) return SUBDIVISION_FLAG_EMOJI[normalized];
+  if (!/^[A-Za-z]{2}$/.test(normalized)) return '🏳️';
+  const up = normalized.toUpperCase();
   const base = 127397;
   return String.fromCodePoint(base + up.charCodeAt(0), base + up.charCodeAt(1));
 }

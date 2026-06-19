@@ -119,6 +119,15 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
             "utc": started,
         },
         {
+            "group": "D",
+            "home": "D Team 1",
+            "away": "D Team 2",
+            "status": "scheduled",
+            "utc": started,
+            "home_score": 2,
+            "away_score": 1,
+        },
+        {
             "group": "B",
             "home": "B Team 1",
             "away": "B Team 2",
@@ -159,13 +168,19 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
     assert c_team_1["live_opponent_score"] == 0
     assert c_team_1["live_match_score"] == "0-0"
 
+    group_d = payload["groups"][3]["teams"]
+    d_team_1 = next(team for team in group_d if team["team"] == "D Team 1")
+    assert d_team_1["pts"] == 3
+    assert d_team_1["gf"] == 2
+    assert "live" not in d_team_1
+
     group_b = payload["groups"][1]["teams"]
     b_team_1 = next(team for team in group_b if team["team"] == "B Team 1")
     assert b_team_1["mp"] == 1
     assert b_team_1["pts"] == 3
     assert b_team_1["gf"] == 2
     assert "live" not in b_team_1
-    assert payload["completed_matches"] == 1
+    assert payload["completed_matches"] == 2
 
 def test_public_standings_ignores_non_final_and_malformed_fixtures(client, app):
     _seed_standings_data(app, [
@@ -190,6 +205,16 @@ def test_public_standings_handles_missing_or_malformed_sources(client, app):
     assert payload["groups"] == []
     assert payload["errors"]
 
+
+
+def test_tables_use_subdivision_flag_emoji_fallbacks():
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "SUBDIVISION_FLAG_EMOJI" in app_js
+    assert "'gb-eng'" in app_js
+    assert "'gb-sct'" in app_js
+    assert "'gb-wls'" in app_js
+    assert "SUBDIVISION_FLAG_EMOJI[normalized]" in app_js
+    assert "if (!/^[A-Za-z]{2}$/.test(normalized)) return '🏳️';" in app_js
 
 def test_tables_page_is_wired_into_existing_navigation_and_loader():
     index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
@@ -226,7 +251,9 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert ".tables-controls" in css
     assert "standings-live-dot" in app_js
     assert "standings-live-score" in app_js
-    assert "_fixture_started_within_minutes" in (ROOT / "WorldCupBot" / "routes_public.py").read_text(encoding="utf-8")
+    routes_public = (ROOT / "WorldCupBot" / "routes_public.py").read_text(encoding="utf-8")
+    assert "_fixture_started_within_minutes" in routes_public
+    assert "_fixture_official_score" in routes_public
     assert "https://flagcdn.com/24x18/${safeCode}.png" not in app_js
     assert "standings-flag-emoji" in app_js
     assert "ownScore > opponentScore ? 'winning'" in app_js

@@ -116,6 +116,31 @@ def _standings_score(value):
     except Exception:
         return None
 
+
+def _fixture_official_score(fixture):
+    """Return saved final score fields when staff have submitted a result.
+
+    Admin result entry persists home_score/away_score without always changing the
+    status. Treat those saved scores as official so a recent kickoff window does
+    not keep projecting live events over a completed result.
+    """
+    home_score = _standings_score(
+        fixture.get("home_score") if fixture.get("home_score") is not None else fixture.get("score_home")
+    )
+    away_score = _standings_score(
+        fixture.get("away_score") if fixture.get("away_score") is not None else fixture.get("score_away")
+    )
+    if home_score is None or away_score is None:
+        score = fixture.get("score")
+        if isinstance(score, str):
+            parts = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", score)
+            if parts:
+                home_score = home_score if home_score is not None else int(parts.group(1))
+                away_score = away_score if away_score is not None else int(parts.group(2))
+    if home_score is None or away_score is None:
+        return None
+    return home_score, away_score
+
 def _preferred_team_name(value):
     """Keep legacy fixture spellings aligned with the panel's canonical names."""
     name = str(value or "").strip()
@@ -224,13 +249,17 @@ def _build_standings(team_meta, matches):
         if not isinstance(fixture, dict):
             continue
         status = str(fixture.get("status") or fixture.get("state") or "").strip().casefold()
+        if status in _TERMINAL_NON_FINAL_MATCH_STATUSES:
+            continue
+        official_score = _fixture_official_score(fixture)
         started_recently = _fixture_started_within_minutes(fixture)
+        is_final_status = official_score is not None or status not in _NON_FINAL_MATCH_STATUSES
         is_live_status = (
-            started_recently
+            official_score is None
+            and started_recently
             and status not in _TERMINAL_NON_FINAL_MATCH_STATUSES
             and status not in _FINAL_MATCH_STATUSES
         )
-        is_final_status = status not in _NON_FINAL_MATCH_STATUSES
         if not is_final_status and not is_live_status:
             continue
         stage = normalize_stage(str(
@@ -254,21 +283,9 @@ def _build_standings(team_meta, matches):
                 continue
             home_score, away_score = live_score
         else:
-            home_score = _standings_score(
-                fixture.get("home_score") if fixture.get("home_score") is not None else fixture.get("score_home")
-            )
-            away_score = _standings_score(
-                fixture.get("away_score") if fixture.get("away_score") is not None else fixture.get("score_away")
-            )
-            if home_score is None or away_score is None:
-                score = fixture.get("score")
-                if isinstance(score, str):
-                    parts = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", score)
-                    if parts:
-                        home_score = home_score if home_score is not None else int(parts.group(1))
-                        away_score = away_score if away_score is not None else int(parts.group(2))
-            if home_score is None or away_score is None:
+            if official_score is None:
                 continue
+            home_score, away_score = official_score
 
         home_row, away_row = home_ref[1], away_ref[1]
         if is_live_status:
