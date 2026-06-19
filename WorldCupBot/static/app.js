@@ -4595,19 +4595,20 @@ async function getCogStatus(name){
       const rows = teams.map((team, index) => {
         const name = String(team?.team || '');
         const gd = Number(team?.gd) || 0;
-        let liveBadge = '';
+        let liveDot = '';
+        let liveScore = '';
         if (team?.live) {
           const ownScore = Number(team?.live_score) || 0;
           const opponentScore = Number(team?.live_opponent_score) || 0;
           const scoreClass = ownScore > opponentScore ? 'winning' : ownScore < opponentScore ? 'losing' : 'drawing';
           const matchScore = String(team?.live_match_score || `${ownScore}-${opponentScore}`);
-          // Keep the pulsing dot for quick scanning, and add the match score
-          // being projected from matches.json without changing table layout.
-          liveBadge = `<span class="standings-live-dot" title="Live game" aria-label="Live game"></span>
-            <span class="standings-live-score ${scoreClass}" title="Live score from matches.json">${esc(matchScore)}</span>`;
+          // Put the pulse before the team name, and keep the projected match
+          // score in a fixed right-aligned chip so live rows stay readable.
+          liveDot = '<span class="standings-live-dot" title="Live game" aria-label="Live game"></span>';
+          liveScore = `<span class="standings-live-score ${scoreClass}" title="Live score from matches.json">${esc(matchScore)}</span>`;
         }
         return `<tr class="${team?.live ? 'is-live' : ''}"><td class="standings-position">${index + 1}</td>
-          <th scope="row" class="standings-team">${standingsFlagHTML(name)}<span>${esc(name)}</span>${liveBadge}</th>
+          <th scope="row" class="standings-team">${standingsFlagHTML(name)}${liveDot}<span class="standings-team-name">${esc(name)}</span>${liveScore}</th>
           <td>${Number(team?.mp) || 0}</td><td>${Number(team?.w) || 0}</td>
           <td>${Number(team?.d) || 0}</td><td>${Number(team?.l) || 0}</td>
           <td>${gd > 0 ? `+${gd}` : gd}</td><td class="standings-points">${Number(team?.pts) || 0}</td></tr>`;

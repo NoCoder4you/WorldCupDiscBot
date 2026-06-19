@@ -259,10 +259,13 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert "ownScore > opponentScore ? 'winning'" in app_js
     assert "live_match_score" in app_js
     assert "Live score from matches.json" in app_js
+    assert '${standingsFlagHTML(name)}${liveDot}<span class="standings-team-name"' in app_js
     assert "startTablesAutoRefresh" in app_js
     assert "loadTables({ force: true })" in app_js
     assert ".standings-live-dot" in css
     assert ".standings-flag-emoji" in css
+    assert ".standings-team-name" in css
+    assert "margin-left: auto" in css
     assert ".standings-live-score.winning" in css
     assert ".standings-live-score.losing" in css
     assert "@keyframes standings-live-pulse" in css
