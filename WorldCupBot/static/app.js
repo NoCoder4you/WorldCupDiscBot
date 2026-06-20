@@ -6972,6 +6972,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return merged;
   }
 
+  function bracketTeamMarkup(name, isoByName, explicitIso = ''){
+    const label = String(name || 'TBD').trim() || 'TBD';
+    // Resolve bracket flags from fixture ISO fields first, then from /api/team_iso
+    // so admin-entered country names in bracket slots still get a matching flag.
+    const iso = explicitIso || isoByName?.[normalizeTeamName(label)] || '';
+    const flag = isoFlagImg(iso);
+    return `<div class="bracket-team">${flag}<span class="bracket-team-name">${escAttr(label)}</span></div>`;
+  }
+
   function matchCard(f, opts = {}){
     const formatter = window.formatFixtureDateTimeCompact || window.formatFixtureDateTime || ((v) => v);
     const utcLabel = f.utc ? formatter(f.utc) : 'TBD';
@@ -6979,10 +6988,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const gridRow = opts.gridRow ? ` style="grid-row:${escAttr(opts.gridRow)}"` : '';
     const slotId = f._slot_id ? String(f._slot_id) : '';
     const slotAttr = slotId ? ` id="${escAttr(slotId)}" data-slot-id="${escAttr(slotId)}"` : '';
+    const isoByName = opts.isoByName || {};
     return `
       <div class="bracket-match${placeholderClass}"${gridRow}${slotAttr}>
-        <div class="bracket-team">${escAttr(f.home || 'TBD')}</div>
-        <div class="bracket-team">${escAttr(f.away || 'TBD')}</div>
+        ${bracketTeamMarkup(f.home || 'TBD', isoByName, f.home_iso || '')}
+        ${bracketTeamMarkup(f.away || 'TBD', isoByName, f.away_iso || '')}
         <div class="bracket-foot">
           <span class="fixtures-time" data-utc="${escAttr(f.utc || '')}">${escAttr(utcLabel)}</span>
         </div>
@@ -6990,11 +7000,11 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
 
-  function renderBracketColumn(matches, span) {
+  function renderBracketColumn(matches, span, isoByName = {}) {
     return matches.map((match, idx) => {
       const start = 1 + (idx * span);
       const gridRow = `${start} / span ${span}`;
-      return matchCard(match, { gridRow });
+      return matchCard(match, { gridRow, isoByName });
     }).join('');
   }
 
@@ -7082,7 +7092,7 @@ document.addEventListener('DOMContentLoaded', () => {
     host.appendChild(svg);
   }
 
-  function renderBracket(host, fixtures, slots){
+  function renderBracket(host, fixtures, slots, isoByName = {}){
     if (!host) return;
     const r32Slots = slots?.['Round of 32'];
     const r16Slots = slots?.['Round of 16'];
@@ -7105,57 +7115,57 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r32Left, 1)}
+          ${renderBracketColumn(r32Left, 1, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r16Left, 2)}
+          ${renderBracketColumn(r16Left, 2, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(qfLeft, 4)}
+          ${renderBracketColumn(qfLeft, 4, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-left">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(sfLeft, 8)}
+          ${renderBracketColumn(sfLeft, 8, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-center">
         <div class="bracket-title">Final</div>
         <div class="bracket-list">
-          ${finalMatch.map(match => matchCard(match, { gridRow: '4 / span 2' })).join('')}
+          ${finalMatch.map(match => matchCard(match, { gridRow: '4 / span 2', isoByName })).join('')}
           <div class="bracket-subtitle" style="grid-row:6 / span 1">Third Place</div>
-          ${thirdPlace.map(match => matchCard(match, { gridRow: '7 / span 2' })).join('')}
+          ${thirdPlace.map(match => matchCard(match, { gridRow: '7 / span 2', isoByName })).join('')}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Semi-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(sfRight, 8)}
+          ${renderBracketColumn(sfRight, 8, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Quarter-finals</div>
         <div class="bracket-list">
-          ${renderBracketColumn(qfRight, 4)}
+          ${renderBracketColumn(qfRight, 4, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 16</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r16Right, 2)}
+          ${renderBracketColumn(r16Right, 2, isoByName)}
         </div>
       </div>
       <div class="bracket-column bracket-right">
         <div class="bracket-title">Round of 32</div>
         <div class="bracket-list">
-          ${renderBracketColumn(r32Right, 1)}
+          ${renderBracketColumn(r32Right, 1, isoByName)}
         </div>
       </div>
     `;
@@ -7285,7 +7295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureSummaryToggle();
     ensureResultsToggle();
     const resolvedSlots = autoProgressionSlots(fixtures, winners, bracketSlots);
-    renderBracket(bracketHost, fixtures, resolvedSlots);
+    renderBracket(bracketHost, fixtures, resolvedSlots, isoByName);
     updateFixturesTimes();
   }
 
