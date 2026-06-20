@@ -1277,7 +1277,7 @@ body.user-admin-view .dashboard-grid .card {
     position: relative;
     height: var(--bracket-card);
     align-self: center;
-    width: 80px;
+    width: 100px;
     min-width: 80px;
 }
 

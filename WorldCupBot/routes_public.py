@@ -307,12 +307,14 @@ def _build_standings(team_meta, matches):
             away_row["_live"] = True
             # Preserve each team's current live score beside the projected table
             # stats so the web UI can show who is winning or losing right now.
+            # Store the display chip from each team's perspective: a 3-0 home
+            # lead appears as 3-0 for the home team and 0-3 for the away team.
             home_row["_live_score"] = home_score
             home_row["_live_opponent_score"] = away_score
             away_row["_live_score"] = away_score
             away_row["_live_opponent_score"] = home_score
             home_row["_live_match_score"] = f"{home_score}-{away_score}"
-            away_row["_live_match_score"] = f"{home_score}-{away_score}"
+            away_row["_live_match_score"] = f"{away_score}-{home_score}"
         else:
             completed_matches += 1
         for row in (home_row, away_row):

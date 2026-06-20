@@ -166,7 +166,7 @@ def test_public_standings_projects_live_goal_events_without_double_counting(clie
     assert turkey["live"] is True
     assert turkey["live_score"] == 0
     assert turkey["live_opponent_score"] == 1
-    assert turkey["live_match_score"] == "1-0"
+    assert turkey["live_match_score"] == "0-1"
     cape_verde = next(team for team in group_a if team["team"] == "Cape Verde")
     assert "live" not in cape_verde
     assert cape_verde["mp"] == 0
