@@ -315,7 +315,6 @@ window.addEventListener('storage', (e)=>{
 function stagePill(stage){
   const s = normalizeStage(stage) || 'Group Stage';
   const cls = (s === 'Winner') ? 'pill-ok'
-            : (s === 'Eliminated') ? 'pill-off'
             : 'pill';
   return `<span class="${cls}">${s}</span>`;
 }
@@ -1863,6 +1862,7 @@ function formatOwnershipPercent(value) {
           stageCell = stagePill(current);
         }
 
+        tr.classList.toggle('is-eliminated', current === 'Eliminated');
         tr.innerHTML = `
           <td id="country">${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
           <td><span class="ownership-group">${groupLabel}</span></td>
@@ -6364,7 +6364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function stageBadge(stage){
     const label = normalizeStage(stage) || 'Group Stage';
-    const cls = label === 'Winner' ? 'pill-ok' : label === 'Eliminated' ? 'pill-off' : 'pill';
+    const cls = label === 'Winner' ? 'pill-ok' : 'pill';
     return `<span class="${cls}">${escAttr(label)}</span>`;
   }
 

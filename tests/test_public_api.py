@@ -426,6 +426,18 @@ def test_app_js_has_no_known_truncated_syntax_tokens():
     assert r"/\/embed\/avatars\//.test(String(v.avatar_url))" in app_js
 
 
+def test_eliminated_stage_uses_standard_badge_and_eliminated_row_style():
+    """Eliminated keeps the standard stage pill while the full ownership row is marked clearly."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert "tr.classList.toggle('is-eliminated', current === 'Eliminated')" in app_js
+    assert "#ownership .ownership-table tbody tr.is-eliminated" in style_css
+    assert "#ownership .ownership-table tbody tr.is-eliminated::after" in style_css
+    assert "label === 'Eliminated' ? 'pill-off'" not in app_js
+    assert "(s === 'Eliminated') ? 'pill-off'" not in app_js
+
+
 def test_split_requests_respond_accept_updates_players_and_history(client, app):
     """Main owner should be able to accept a pending split request from the public web endpoint."""
     base_dir = Path(app.config["BASE_DIR"])
