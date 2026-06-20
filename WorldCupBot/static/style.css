@@ -1322,8 +1322,29 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .bracket-team {
+    align-items: center;
+    color: #ffffff;
+    display: flex;
     font-weight: 700;
     font-size: 11px;
+    gap: 4px;
+    min-width: 0;
+}
+
+.bracket-column.bracket-right .bracket-team {
+    justify-content: flex-end;
+}
+
+.bracket-team .fixtures-flag {
+    flex: 0 0 auto;
+    height: 12px;
+    width: 16px;
+}
+
+.bracket-team-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .bracket-foot {
