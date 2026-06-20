@@ -1322,8 +1322,34 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .bracket-team {
+    align-items: center;
+    color: #ffffff;
+    display: flex;
     font-weight: 700;
     font-size: 11px;
+    gap: 4px;
+    min-width: 0;
+}
+
+.bracket-team.bracket-team--country .bracket-team-name {
+    color: #ffffff;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.78), 0 0 12px rgba(0, 229, 255, 0.38);
+}
+
+.bracket-column.bracket-right .bracket-team {
+    justify-content: flex-end;
+}
+
+.bracket-team .fixtures-flag {
+    flex: 0 0 auto;
+    height: 12px;
+    width: 16px;
+}
+
+.bracket-team-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .bracket-foot {
