@@ -5248,7 +5248,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (splits && splits.length > 0) status = 'split';
 
       
-      if (isSelf && status === 'owned') status = 'self';
+      // Personal ownership should override the visual ownership bucket for
+      // both sole-owner and split-owner countries so co-owned teams still glow.
+      if (isSelf && (status === 'owned' || status === 'split')) status = 'self';
 
       const stateObj = {
         status,
@@ -5442,13 +5444,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const flag  = isoToFlag(inferIso || iso);
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
-      const stage = formatMapStageLabel((stageMap[team] || stageMap[normTeam]) || '');
+      const rawStage = (stageMap[team] || stageMap[normTeam]) || '';
+      const isEliminated = String(rawStage || '').trim().toLowerCase() === 'eliminated';
+      const stage = formatMapStageLabel(rawStage);
+
+      // Elimination is a tournament status, not an ownership status. Keep the
+      // existing ownership class for labels, then add an eliminated modifier so
+      // CSS can turn all knocked-out countries red and make owned ones glow red.
 
       const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
       const nextMatch = matchObj ? matchObj.label : '';
 
-      el.classList.remove('owned','split','free','nq','dim','self');
+      el.classList.remove('owned','split','free','nq','dim','self','eliminated');
       el.classList.add(status);
+      if (isEliminated && status !== 'nq') el.classList.add('eliminated');
 
       
       el.dataset.owners      = ownersText;
@@ -5682,6 +5691,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (ownersCount && parseInt(ownersCount, 10) > 1);
 
       const status =
+        el.classList.contains('eliminated') ? 'Eliminated' :
         el.classList.contains('self')  ? 'Self'   :
         el.classList.contains('owned') ? 'Other'  :
         el.classList.contains('split') ? 'Split'          :
