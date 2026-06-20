@@ -2591,14 +2591,16 @@ body.user-admin-view #ownership .ownership-card {
 #ownership .ownership-table tbody tr.is-eliminated:hover {
     background: rgba(239, 68, 68, 0.2);
 }
-#ownership .ownership-table tbody tr.is-eliminated::after {
-    content: "";
-    position: absolute;
-    left: 10px;
-    right: 10px;
-    top: 50%;
-    border-top: 2px solid rgba(248, 113, 113, 0.9);
-    pointer-events: none;
+#ownership .ownership-table tbody tr.is-eliminated > td {
+    /* Draw the eliminated strike inside each table cell so it cannot widen
+       the table or leave extra whitespace at the right edge of public view. */
+    background-image: linear-gradient(
+        to bottom,
+        transparent calc(50% - 1px),
+        rgba(248, 113, 113, 0.9) calc(50% - 1px),
+        rgba(248, 113, 113, 0.9) calc(50% + 1px),
+        transparent calc(50% + 1px)
+    );
 }
 #ownership .ownership-table tbody tr.stage-select-open {
     z-index: 5;

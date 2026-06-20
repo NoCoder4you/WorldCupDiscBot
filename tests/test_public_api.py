@@ -433,7 +433,8 @@ def test_eliminated_stage_uses_standard_badge_and_eliminated_row_style():
 
     assert "tr.classList.toggle('is-eliminated', current === 'Eliminated')" in app_js
     assert "#ownership .ownership-table tbody tr.is-eliminated" in style_css
-    assert "#ownership .ownership-table tbody tr.is-eliminated::after" in style_css
+    assert "#ownership .ownership-table tbody tr.is-eliminated > td" in style_css
+    assert "#ownership .ownership-table tbody tr.is-eliminated::after" not in style_css
     assert "label === 'Eliminated' ? 'pill-off'" not in app_js
     assert "(s === 'Eliminated') ? 'pill-off'" not in app_js
 
