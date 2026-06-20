@@ -6978,7 +6978,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // so admin-entered country names in bracket slots still get a matching flag.
     const iso = explicitIso || isoByName?.[normalizeTeamName(label)] || '';
     const flag = isoFlagImg(iso);
-    return `<div class="bracket-team">${flag}<span class="bracket-team-name">${escAttr(label)}</span></div>`;
+    // Only real countries with a resolved ISO code get the glow treatment; slot
+    // placeholders such as "3CEFH" remain plain text even when mixed with teams.
+    const countryClass = iso ? ' bracket-team--country' : '';
+    return `<div class="bracket-team${countryClass}">${flag}<span class="bracket-team-name">${escAttr(label)}</span></div>`;
   }
 
   function matchCard(f, opts = {}){

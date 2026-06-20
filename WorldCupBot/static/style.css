@@ -1331,6 +1331,11 @@ body.user-admin-view .dashboard-grid .card {
     min-width: 0;
 }
 
+.bracket-team.bracket-team--country .bracket-team-name {
+    color: #ffffff;
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.78), 0 0 12px rgba(0, 229, 255, 0.38);
+}
+
 .bracket-column.bracket-right .bracket-team {
     justify-content: flex-end;
 }
