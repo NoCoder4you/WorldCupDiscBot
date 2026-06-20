@@ -204,6 +204,21 @@ class StageProgressAnnouncer(commands.Cog):
 
         return ""
 
+    def _stage_update_channel(self, team: str, stage: str, fallback: str) -> str:
+        """Choose the public channel for a team stage update.
+
+        Group-stage updates belong in the team's dedicated group channel so
+        followers see the notice alongside the rest of that group's discussion.
+        Knockout-round updates continue to use the configured stage channels.
+        """
+        stage_key = str(stage or "").strip()
+        if stage_key in {"Eliminated", "Group Stage"}:
+            group_channel = self._group_channel_for_team(team)
+            if group_channel:
+                return group_channel
+
+        return self._announcement_channel(stage_key, fallback)
+
     async def _dm_user_embed(self, user_id: str, embed: discord.Embed):
         try:
             uid = int(str(user_id))
@@ -311,13 +326,7 @@ class StageProgressAnnouncer(commands.Cog):
             team = str(data.get("team") or "")
             stage = str(data.get("stage") or "")
             requested_channel = str(data.get("channel") or "announcements")
-            # Elimination notices are most useful in the country's own group
-            # channel, while knockout progression continues to use stage channels.
-            channel_name = (
-                self._group_channel_for_team(team)
-                if str(stage).strip() == "Eliminated"
-                else ""
-            ) or self._announcement_channel(stage, requested_channel)
+            channel_name = self._stage_update_channel(team, stage, requested_channel)
             owner_ids = data.get("owner_ids") or []
             log.info(
                 "Country stage announcement queued (team=%s stage=%s channel=%s owners=%s)",
