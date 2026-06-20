@@ -21,6 +21,8 @@ class StageProgressAnnouncer(commands.Cog):
 
         self.team_iso_path = os.path.join(self.base_dir, "team_iso.json")
         self.country_roles_path = os.path.join(self.base_dir, "JSON", "countryroles.json")
+        self.country_group_links_path = os.path.join(self.base_dir, "JSON", "country_group_links.json")
+        self.team_meta_path = os.path.join(self.base_dir, "JSON", "team_meta.json")
         self.team_iso = self._load_team_iso()
 
         self._offset = 0
@@ -159,10 +161,48 @@ class StageProgressAnnouncer(commands.Cog):
 
     def _announcement_channel(self, stage: str, fallback: str) -> str:
         stage_key = str(stage or "").strip()
+        if stage_key == "Eliminated":
+            return str(fallback or "announcements")
         mapped = STAGE_CHANNEL_MAP.get(stage_key)
         if mapped:
             return mapped
         return str(fallback or "announcements")
+
+    def _group_channel_for_team(self, team: str) -> str:
+        """Resolve a team's group-stage channel from persisted team metadata."""
+        team_key = str(team or "").strip().lower()
+        if not team_key:
+            return ""
+
+        try:
+            if os.path.isfile(self.country_group_links_path):
+                with open(self.country_group_links_path, "r", encoding="utf-8") as f:
+                    links = json.load(f) or {}
+                link = links.get(team) or links.get(team_key) or {}
+                group_label = str((link or {}).get("group") or "").strip()
+                if group_label:
+                    group_key = group_label.split()[-1].strip().lower()
+                    if group_key:
+                        return f"group-{group_key}"
+        except Exception:
+            pass
+
+        try:
+            if os.path.isfile(self.team_meta_path):
+                with open(self.team_meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f) or {}
+                groups = meta.get("groups") if isinstance(meta, dict) else {}
+                if isinstance(groups, dict):
+                    for group_key, countries in groups.items():
+                        if not group_key or not isinstance(countries, list):
+                            continue
+                        for country in countries:
+                            if str(country or "").strip().lower() == team_key:
+                                return f"group-{str(group_key).strip().lower()}"
+        except Exception:
+            pass
+
+        return ""
 
     async def _dm_user_embed(self, user_id: str, embed: discord.Embed):
         try:
@@ -271,7 +311,13 @@ class StageProgressAnnouncer(commands.Cog):
             team = str(data.get("team") or "")
             stage = str(data.get("stage") or "")
             requested_channel = str(data.get("channel") or "announcements")
-            channel_name = self._announcement_channel(stage, requested_channel)
+            # Elimination notices are most useful in the country's own group
+            # channel, while knockout progression continues to use stage channels.
+            channel_name = (
+                self._group_channel_for_team(team)
+                if str(stage).strip() == "Eliminated"
+                else ""
+            ) or self._announcement_channel(stage, requested_channel)
             owner_ids = data.get("owner_ids") or []
             log.info(
                 "Country stage announcement queued (team=%s stage=%s channel=%s owners=%s)",
