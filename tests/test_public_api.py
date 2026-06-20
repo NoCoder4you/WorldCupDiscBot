@@ -835,6 +835,25 @@ def test_world_map_prize_share_uses_ownership_percentages():
     assert "Older ownership records may not have a percentages map" in app_js
 
 
+def test_world_map_eliminated_countries_turn_red_and_owned_glow_red():
+    """World map eliminated teams should be red, with a red ownership glow for signed-in owners."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+
+    assert "const isEliminated = String(rawStage || '').trim().toLowerCase() === 'eliminated';" in app_js
+    assert "el.classList.remove('owned','split','free','nq','dim','self','eliminated');" in app_js
+    assert "if (isEliminated && status !== 'nq') el.classList.add('eliminated');" in app_js
+    assert "if (isSelf && (status === 'owned' || status === 'split')) status = 'self';" in app_js
+    assert "el.classList.contains('eliminated') ? 'Eliminated'" in app_js
+
+    assert ".country.eliminated" in style_css
+    assert "fill: #dc2626;" in style_css
+    assert ".country.eliminated.self" in style_css
+    assert "filter: drop-shadow(0 0 3px #ef4444dd) drop-shadow(0 0 10px #ef4444aa);" in style_css
+    assert "#map-svg-host .country.eliminated" in style_css
+    assert '<span class="key box eliminated"></span> Eliminated' in index_html
+
 def test_world_map_tooltip_avoids_edge_clipping():
     """World map hover tooltip should be viewport-positioned and not inherit panel card styles."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")

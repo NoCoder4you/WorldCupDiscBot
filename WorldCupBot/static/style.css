@@ -3726,6 +3726,20 @@ select.select-dark:disabled {
     filter: drop-shadow(0 0 3px #00f8ffcc) drop-shadow(0 0 9px #00f8ff99);
 }
 
+.country.eliminated {
+    fill: #dc2626;
+    opacity: 1;
+}
+
+.country.eliminated.self {
+    fill: #ef4444;
+    /*
+     * Eliminated countries are red for everyone. If the signed-in user owns
+     * that country, keep the ownership emphasis but switch the neon to red.
+     */
+    filter: drop-shadow(0 0 3px #ef4444dd) drop-shadow(0 0 10px #ef4444aa);
+}
+
 .country.nq {
     fill: #3f4754;
     opacity: 0.20;
@@ -3786,6 +3800,10 @@ select.select-dark:disabled {
     background: #3f4754;
 }
 
+.map-legend .key.box.eliminated {
+    background: #dc2626;
+}
+
 /* Owned by others */
 .map-legend .key.box.owned {
     background: var(--ownedelse);
@@ -3815,6 +3833,16 @@ select.select-dark:disabled {
 #map-svg-host .country.free,
 #map-svg-host .country.free * {
     fill: #5c6677;
+}
+
+#map-svg-host .country.eliminated,
+#map-svg-host .country.eliminated * {
+    fill: #dc2626;
+}
+
+#map-svg-host .country.eliminated.self,
+#map-svg-host .country.eliminated.self * {
+    fill: #ef4444;
 }
 
 #map-svg-host svg g {
