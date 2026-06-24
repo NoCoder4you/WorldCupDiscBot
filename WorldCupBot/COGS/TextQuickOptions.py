@@ -12,6 +12,7 @@ from stage_constants import STAGE_ALLOWED, normalize_stage, stage_rank
 EVENT_LABELS = {
     "goal": "Goal",
     "disallowed_goal": "Goal Disallowed",
+    "penalty": "Penalty",
     "yellow_card": "Yellow Card",
     "red_card": "Red Card",
     "half_time": "Half Time",
@@ -228,11 +229,11 @@ class TextQuickOptions(commands.Cog):
     @commands.command(name="quick", aliases=["qevent", "matchevent"])
     @commands.has_permissions(manage_guild=True)
     async def quick_event(self, ctx: commands.Context, match_id: str, event_type: str, *, details: str = ""):
-        """Post a live quick update: wc quick <match_id> <goal|disallowed_goal|yellow_card|red_card|half_time> [country] [minute]."""
+        """Post a live quick update: wc quick <match_id> <goal|disallowed_goal|penalty|yellow_card|red_card|half_time> [country] [minute]."""
         await self._delete_command_message(ctx)
         event_key = str(event_type or "").strip().lower().replace("-", "_")
         if event_key not in EVENT_LABELS:
-            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, yellow_card, red_card, or half_time.")
+            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, penalty, yellow_card, red_card, or half_time.")
             return
 
         fixture, fixtures, container, key = self._find_fixture(match_id)
@@ -260,6 +261,12 @@ class TextQuickOptions(commands.Cog):
     async def disallow_goal(self, ctx: commands.Context, *, details: str):
         """Disallow the latest goal in this match channel: wc disallowgoal <country> [minute]."""
         await self._simple_channel_event(ctx, "disallowed_goal", details)
+
+    @commands.command(name="penalty", aliases=["pen", "pk"])
+    @commands.has_permissions(manage_guild=True)
+    async def penalty(self, ctx: commands.Context, *, details: str):
+        """Queue a penalty decision in this match channel: wc penalty <country> [minute]."""
+        await self._simple_channel_event(ctx, "penalty", details)
 
     @commands.command(name="yellow", aliases=["yellowcard"])
     @commands.has_permissions(manage_guild=True)
