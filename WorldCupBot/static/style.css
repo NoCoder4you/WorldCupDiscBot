@@ -3660,7 +3660,8 @@ select.select-dark:disabled {
     border: 1px solid var(--border);
     border-radius: 14px;
     max-width: 1320px;
-    margin: 5px auto;
+    /* Give the world map page clearer separation from the sticky navigation bar. */
+    margin: 18px auto 5px;
     overflow: hidden;
 }
 
