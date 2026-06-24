@@ -845,3 +845,62 @@ def test_helper_role_can_use_only_dashboard_quick_options(tmp_path):
 
     settings = client.post("/admin/settings", json={"maintenance_mode": True})
     assert settings.status_code == 401
+
+
+def test_disallowed_goal_rolls_back_latest_goal_and_announces_score(tmp_path):
+    """Disallowed goal quick options should remove a scored goal and queue the corrected score."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M12",
+            "home": "A",
+            "away": "B",
+            "group": "A",
+            "live_stats": [
+                {"event_type": "goal", "label": "Goal", "country": "A", "match_time": "12"},
+                {"event_type": "goal", "label": "Goal", "country": "B", "match_time": "20"},
+                {"event_type": "goal", "label": "Goal", "country": "A", "match_time": "27"},
+            ],
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "disallowed_goal", "country": "A", "match_time": "29"},
+    )
+
+    assert response.status_code == 200
+    saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
+    assert [
+        (event["event_type"], event.get("country"), event.get("match_time"))
+        for event in saved_match["live_stats"]
+    ] == [
+        ("goal", "A", "12"),
+        ("goal", "B", "20"),
+        ("disallowed_goal", "A", "29"),
+    ]
+    command = json.loads(
+        (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
+    assert command["data"]["event_label"] == "Goal Disallowed"
+    assert command["data"]["message"] == "A 1 - 1 B"
+    assert command["data"]["home_score"] == 1
+    assert command["data"]["away_score"] == 1
+
+
+def test_disallowed_goal_requires_existing_goal_for_country(tmp_path):
+    """Operators should get a validation error instead of a negative score."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{"id": "M12", "home": "A", "away": "B", "group": "A", "live_stats": []}]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M12", "event_type": "disallowed_goal", "country": "A", "match_time": "29"},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "goal_not_found"
