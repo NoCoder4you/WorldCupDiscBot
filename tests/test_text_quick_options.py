@@ -67,3 +67,38 @@ def test_fixture_id_prefers_existing_fixture_identifier(tmp_path):
     cog = _cog(tmp_path)
 
     assert cog._fixture_id({"match_id": "M7", "fixture_id": "fallback"}) == "M7"
+
+
+def test_disallowed_goal_event_removes_latest_matching_goal(tmp_path):
+    cog = _cog(tmp_path)
+    fixture = {
+        "id": "M1",
+        "home": "A",
+        "away": "B",
+        "channel": "match-live",
+        "live_stats": [
+            {"event_type": "goal", "label": "Goal", "country": "A", "match_time": "10"},
+            {"event_type": "goal", "label": "Goal", "country": "A", "match_time": "30"},
+        ],
+    }
+    fixtures = [fixture]
+
+    class DummyCtx:
+        class Message:
+            async def delete(self):
+                return None
+        message = Message()
+        sent = []
+        async def send(self, message, delete_after=None):
+            self.sent.append(message)
+
+    import asyncio
+    asyncio.run(cog._queue_event_for_fixture(DummyCtx(), fixture, fixtures, None, "", "disallowed_goal", "A 31"))
+
+    assert [(event["event_type"], event.get("match_time")) for event in fixture["live_stats"]] == [
+        ("goal", "10"),
+        ("disallowed_goal", "31"),
+    ]
+    record = json.loads((tmp_path / "JSON" / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert record["data"]["event_label"] == "Goal Disallowed"
+    assert record["data"]["home_score"] == 1

@@ -11,6 +11,7 @@ from stage_constants import STAGE_ALLOWED, normalize_stage, stage_rank
 
 EVENT_LABELS = {
     "goal": "Goal",
+    "disallowed_goal": "Goal Disallowed",
     "yellow_card": "Yellow Card",
     "red_card": "Red Card",
     "half_time": "Half Time",
@@ -175,6 +176,24 @@ class TextQuickOptions(commands.Cog):
             return
 
         live_stats = fixture.get("live_stats") if isinstance(fixture.get("live_stats"), list) else []
+        if event_key == "disallowed_goal":
+            # Disallowing a goal reverses the latest matching goal event while
+            # retaining a separate audit-style timeline entry for Discord.
+            removed_goal = False
+            for idx in range(len(live_stats) - 1, -1, -1):
+                stat = live_stats[idx]
+                if (
+                    isinstance(stat, dict)
+                    and stat.get("event_type") == "goal"
+                    and stat.get("country") == country
+                ):
+                    del live_stats[idx]
+                    removed_goal = True
+                    break
+            if not removed_goal:
+                await self._ack(ctx, f"No goal found to disallow for `{country}`.")
+                return
+
         home_score, away_score = self._score_from_live_stats(fixture, home, away)
         if event_key == "goal":
             home_score += 1 if country == home else 0
@@ -209,11 +228,11 @@ class TextQuickOptions(commands.Cog):
     @commands.command(name="quick", aliases=["qevent", "matchevent"])
     @commands.has_permissions(manage_guild=True)
     async def quick_event(self, ctx: commands.Context, match_id: str, event_type: str, *, details: str = ""):
-        """Post a live quick update: wc quick <match_id> <goal|yellow_card|red_card|half_time> [country] [minute]."""
+        """Post a live quick update: wc quick <match_id> <goal|disallowed_goal|yellow_card|red_card|half_time> [country] [minute]."""
         await self._delete_command_message(ctx)
         event_key = str(event_type or "").strip().lower().replace("-", "_")
         if event_key not in EVENT_LABELS:
-            await self._ack(ctx, "Invalid event. Use goal, yellow_card, red_card, or half_time.")
+            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, yellow_card, red_card, or half_time.")
             return
 
         fixture, fixtures, container, key = self._find_fixture(match_id)
@@ -235,6 +254,12 @@ class TextQuickOptions(commands.Cog):
     async def goal(self, ctx: commands.Context, *, details: str):
         """Queue a goal in this match channel: wc goal <country> [minute]."""
         await self._simple_channel_event(ctx, "goal", details)
+
+    @commands.command(name="disallowgoal", aliases=["disallowedgoal", "nogoal"])
+    @commands.has_permissions(manage_guild=True)
+    async def disallow_goal(self, ctx: commands.Context, *, details: str):
+        """Disallow the latest goal in this match channel: wc disallowgoal <country> [minute]."""
+        await self._simple_channel_event(ctx, "disallowed_goal", details)
 
     @commands.command(name="yellow", aliases=["yellowcard"])
     @commands.has_permissions(manage_guild=True)

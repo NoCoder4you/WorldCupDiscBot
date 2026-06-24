@@ -1585,6 +1585,7 @@ def create_admin_routes(ctx):
         match_time = str(body.get("match_time") or "").strip()
         allowed_events = {
             "goal": "Goal",
+            "disallowed_goal": "Goal Disallowed",
             "yellow_card": "Yellow Card",
             "red_card": "Red Card",
             "half_time": "Half Time",
@@ -1594,7 +1595,8 @@ def create_admin_routes(ctx):
         if event_type not in allowed_events:
             return jsonify({"ok": False, "error": "invalid_event_type"}), 400
         # Half time is a state transition, not an incident at a specific
-        # minute; goals and cards still require a validated match clock value.
+        # minute; goals, cards, and disallowed goals still require a validated
+        # match clock value so operators can identify the incident clearly.
         if event_type != "half_time" and not re.match(
             r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$",
             match_time,
@@ -1626,11 +1628,28 @@ def create_admin_routes(ctx):
         # Keep one score calculation as the source of truth for both the
         # persisted event and its Discord card. Half time excludes second-half
         # goals; other updates include every goal through the new event.
-        score_stats = live_stats + [{
+        if event_type == "disallowed_goal":
+            # Remove the latest matching goal so the live score rolls back, then
+            # keep a separate timeline entry that explains why the score changed.
+            removed_goal = False
+            for idx in range(len(live_stats) - 1, -1, -1):
+                stat = live_stats[idx]
+                if (
+                    isinstance(stat, dict)
+                    and stat.get("event_type") == "goal"
+                    and stat.get("country") == country
+                ):
+                    del live_stats[idx]
+                    removed_goal = True
+                    break
+            if not removed_goal:
+                return jsonify({"ok": False, "error": "goal_not_found"}), 400
+
+        score_stats = live_stats + ([] if event_type == "disallowed_goal" else [{
             "event_type": event_type,
             "country": country,
             "match_time": match_time,
-        }]
+        }])
 
         def goals_for(team):
             goals = [

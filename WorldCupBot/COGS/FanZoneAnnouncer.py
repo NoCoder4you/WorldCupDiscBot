@@ -248,12 +248,14 @@ class FanZoneAnnouncer(commands.Cog):
         event_type = str(data.get("event_type") or "").strip().lower()
         colors = {
             "goal": discord.Color.green(),
+            "disallowed_goal": discord.Color.orange(),
             "yellow_card": discord.Color.gold(),
             "red_card": discord.Color.red(),
             "half_time": discord.Color.blurple(),
         }
         icons = {
             "goal": "⚽",
+            "disallowed_goal": "🚫",
             "yellow_card": "🟨",
             "red_card": "🟥",
             "half_time": "⏸️",
