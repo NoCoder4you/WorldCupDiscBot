@@ -13,8 +13,8 @@ def _build_admin_client(tmp_path: Path):
     json_dir = base_dir / "JSON"
     json_dir.mkdir(parents=True, exist_ok=True)
 
-    # Seed config with a single admin user so test session auth can pass.
-    (base_dir / "config.json").write_text(json.dumps({"ADMIN_IDS": ["123"]}), encoding="utf-8")
+    # Admin authorization comes from the Discord Referee role captured at OAuth login.
+    (base_dir / "config.json").write_text(json.dumps({}), encoding="utf-8")
 
     ctx = {
         "BASE_DIR": str(base_dir),
@@ -33,8 +33,8 @@ def _build_admin_client(tmp_path: Path):
 
     client = app.test_client()
     with client.session_transaction() as sess:
-        # The admin route checks this exact session key for current user.
-        sess["wc_user"] = {"discord_id": "123", "username": "admin"}
+        # The admin route checks this exact session key and requires Referee role membership.
+        sess["wc_user"] = {"discord_id": "123", "username": "admin", "roles": ["Referee"]}
 
     return client, json_dir
 

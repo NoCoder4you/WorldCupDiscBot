@@ -13,7 +13,7 @@ from stage_constants import (
 )
 
 USER_SESSION_KEY = "wc_user"
-ADMIN_IDS_KEY    = "ADMIN_IDS"
+ADMIN_ROLE_NAME = "Referee"
 HELPER_ROLE_NAME = "Helper"
 MAX_BACKUPS = 24
 AUTO_BACKUP_DEFAULT_HOURS = 1.0
@@ -443,9 +443,10 @@ def _effective_uid(ctx):
     real_id = str(user.get("discord_id") or "")
     masquerade_id = session.get("wc_masquerade_id")
 
-    cfg = _load_config(ctx)
-    admin_ids = {str(x) for x in (cfg.get("ADMIN_IDS") or [])}
-    if masquerade_id and real_id in admin_ids:
+    # Masquerade access is reserved for current Discord Referees. The web
+    # panel intentionally follows Discord role membership instead of static
+    # config-file user IDs so access changes immediately with server roles.
+    if masquerade_id and _user_has_role(user, ADMIN_ROLE_NAME):
         return str(masquerade_id)
     return real_id
 
@@ -460,13 +461,7 @@ def _is_admin(ctx):
     u = _current_user()
     if not u:
         return False
-    cfg = _load_config(ctx)
-    allow = cfg.get(ADMIN_IDS_KEY) or []
-    try:
-        allow = [str(x) for x in allow]
-    except Exception:
-        allow = []
-    return str(u.get("discord_id")) in allow
+    return _user_has_role(u, ADMIN_ROLE_NAME)
 
 def _session_role_names(user: dict) -> set[str]:
     """Return normalized Discord role names captured during OAuth login."""
@@ -482,13 +477,18 @@ def _session_role_names(user: dict) -> set[str]:
             names.add(name)
     return names
 
+def _user_has_role(user: dict, role_name: str) -> bool:
+    """Return True when OAuth captured the named Discord role for this session."""
+    normalized = str(role_name or "").strip().casefold()
+    return bool(normalized and normalized in _session_role_names(user))
+
 def _is_helper(ctx):
     u = _current_user()
     if not u:
         return False
     cfg = _load_config(ctx)
     helper_name = str(cfg.get("HELPER_ROLE_NAME") or HELPER_ROLE_NAME).strip().casefold()
-    return bool(helper_name and helper_name in _session_role_names(u))
+    return _user_has_role(u, helper_name)
 
 # ---- BLUEPRINT ----
 def create_admin_routes(ctx):
