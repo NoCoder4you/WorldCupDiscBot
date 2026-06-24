@@ -1586,6 +1586,7 @@ def create_admin_routes(ctx):
         allowed_events = {
             "goal": "Goal",
             "disallowed_goal": "Goal Disallowed",
+            "penalty": "Penalty",
             "yellow_card": "Yellow Card",
             "red_card": "Red Card",
             "half_time": "Half Time",
@@ -1595,8 +1596,9 @@ def create_admin_routes(ctx):
         if event_type not in allowed_events:
             return jsonify({"ok": False, "error": "invalid_event_type"}), 400
         # Half time is a state transition, not an incident at a specific
-        # minute; goals, cards, and disallowed goals still require a validated
-        # match clock value so operators can identify the incident clearly.
+        # minute; goals, cards, penalties, and disallowed goals still require a
+        # validated match clock value so operators can identify the decision
+        # clearly without treating the penalty award as a scored goal.
         if event_type != "half_time" and not re.match(
             r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$",
             match_time,
@@ -1618,7 +1620,8 @@ def create_admin_routes(ctx):
         home = str(fixture.get("home") or "").strip()
         away = str(fixture.get("away") or "").strip()
         # Half time belongs to the match rather than either team. Team-specific
-        # incidents still require one of the fixture's countries.
+        # incidents, including penalty decisions, still require one of the
+        # fixture's countries.
         if event_type != "half_time" and country not in {home, away}:
             return jsonify({"ok": False, "error": "invalid_country"}), 400
         channel = _resolve_fanzone_channel(fixture, home, away)

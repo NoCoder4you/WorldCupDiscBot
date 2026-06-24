@@ -249,6 +249,7 @@ class FanZoneAnnouncer(commands.Cog):
         colors = {
             "goal": discord.Color.green(),
             "disallowed_goal": discord.Color.orange(),
+            "penalty": discord.Color.teal(),
             "yellow_card": discord.Color.gold(),
             "red_card": discord.Color.red(),
             "half_time": discord.Color.blurple(),
@@ -256,6 +257,7 @@ class FanZoneAnnouncer(commands.Cog):
         icons = {
             "goal": "⚽",
             "disallowed_goal": "🚫",
+            "penalty": "🎯",
             "yellow_card": "🟨",
             "red_card": "🟥",
             "half_time": "⏸️",
