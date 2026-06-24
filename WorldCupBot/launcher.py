@@ -320,12 +320,17 @@ def _is_admin_user() -> bool:
     user = session.get("wc_user")
     if not isinstance(user, dict):
         return False
-    uid = str(user.get("discord_id") or "").strip()
-    if not uid:
+    roles = user.get("roles") or user.get("role_names") or []
+    if not isinstance(roles, list):
         return False
-    admin_ids = CONFIG.get("ADMIN_IDS") or CONFIG.get("ADMIN_IDs") or CONFIG.get("admins") or []
-    admin_ids = {str(x).strip() for x in admin_ids if str(x).strip()}
-    return uid in admin_ids
+    # Maintenance bypass mirrors the admin panel: Discord Referee role holders
+    # are admins, rather than users listed by ID in config.json.
+    for role in roles:
+        if isinstance(role, dict):
+            role = role.get("name")
+        if str(role or "").strip().casefold() == "referee":
+            return True
+    return False
 
 @app.before_request
 def maintenance_guard():
