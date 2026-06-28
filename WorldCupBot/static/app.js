@@ -7541,6 +7541,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Keep the latest bracket slots payload in-memory while the modal is open.
   // This allows quick slot lookups as the admin changes stage/side/slot.
   let bracketSlotsCache = null;
+  let currentSlotMatchId = '';
 
   async function loadBracketSlotsCache(force = false) {
     if (!force && bracketSlotsCache && typeof bracketSlotsCache === 'object') {
@@ -7584,12 +7585,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const slotData = slots?.[stageNorm]?.[side]?.[String(slotNum)];
       if (!slotData || typeof slotData !== 'object') {
         // No saved data for this slot, so clear only the editable fields.
+        currentSlotMatchId = '';
         document.getElementById('fixtures-slot-country-a').value = '';
         document.getElementById('fixtures-slot-country-b').value = '';
         document.getElementById('fixtures-slot-date').value = '';
         document.getElementById('fixtures-slot-time').value = '';
         return;
       }
+      // Preserve the slot's saved match_id while editing. Knockout fallback IDs
+      // include team initials, so regenerating them after a team-name edit would
+      // point the save at a new fixture instead of the existing matches.json row.
+      currentSlotMatchId = String(slotData.match_id || slotData.matchId || '').trim();
       const home = String(slotData.home || '').trim();
       const away = String(slotData.away || '').trim();
       const { date, time } = utcToSlotFormFields(slotData.utc);
@@ -7685,7 +7691,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const hasTeams = Boolean(home || away);
-    const matchId = hasTeams ? buildMatchId(stageNorm, side, slotNum, home, away) : '';
+    const matchId = currentSlotMatchId || (hasTeams ? buildMatchId(stageNorm, side, slotNum, home, away) : '');
     const payload = {
       stage: stageNorm,
       side: cfg.side ? side : 'center',
