@@ -69,3 +69,33 @@ def test_knockout_stage_updates_still_use_stage_channel(tmp_path):
     )
 
     assert ann._stage_update_channel("Haïti", "Round of 16", "announcements") == "round-of-16"
+
+
+def test_eliminated_from_knockout_uses_previous_stage_channel(tmp_path):
+    ann = _stub()
+    ann.country_group_links_path = str(tmp_path / "JSON" / "country_group_links.json")
+    ann.team_meta_path = str(tmp_path / "JSON" / "team_meta.json")
+    (tmp_path / "JSON").mkdir()
+    (tmp_path / "JSON" / "country_group_links.json").write_text(
+        '{"Haïti": {"group": "Group C", "group_role_id": 123}}',
+        encoding="utf-8",
+    )
+
+    assert ann._stage_update_channel(
+        "Haïti", "Eliminated", "announcements", "Round of 16"
+    ) == "round-of-16"
+
+
+def test_eliminated_from_group_stage_uses_team_group_channel(tmp_path):
+    ann = _stub()
+    ann.country_group_links_path = str(tmp_path / "JSON" / "country_group_links.json")
+    ann.team_meta_path = str(tmp_path / "JSON" / "team_meta.json")
+    (tmp_path / "JSON").mkdir()
+    (tmp_path / "JSON" / "country_group_links.json").write_text(
+        '{"Haïti": {"group": "Group C", "group_role_id": 123}}',
+        encoding="utf-8",
+    )
+
+    assert ann._stage_update_channel(
+        "Haïti", "Eliminated", "announcements", "Group Stage"
+    ) == "group-c"

@@ -204,15 +204,35 @@ class StageProgressAnnouncer(commands.Cog):
 
         return ""
 
-    def _stage_update_channel(self, team: str, stage: str, fallback: str) -> str:
+    def _stage_update_channel(
+        self,
+        team: str,
+        stage: str,
+        fallback: str,
+        previous_stage: str | None = None,
+    ) -> str:
         """Choose the public channel for a team stage update.
 
         Group-stage updates belong in the team's dedicated group channel so
         followers see the notice alongside the rest of that group's discussion.
-        Knockout-round updates continue to use the configured stage channels.
+        Advancement into a knockout round belongs in that round's channel. When
+        a team is eliminated, the most relevant channel is the channel for the
+        stage they were just playing in; teams eliminated from the group stage
+        continue to use their group channel.
         """
         stage_key = str(stage or "").strip()
-        if stage_key in {"Eliminated", "Group Stage"}:
+        previous_stage_key = str(previous_stage or "").strip()
+
+        if stage_key == "Eliminated":
+            previous_channel = STAGE_CHANNEL_MAP.get(previous_stage_key)
+            if previous_channel:
+                return previous_channel
+
+            group_channel = self._group_channel_for_team(team)
+            if group_channel:
+                return group_channel
+
+        if stage_key == "Group Stage":
             group_channel = self._group_channel_for_team(team)
             if group_channel:
                 return group_channel
@@ -325,8 +345,9 @@ class StageProgressAnnouncer(commands.Cog):
             data = cmd.get("data") or {}
             team = str(data.get("team") or "")
             stage = str(data.get("stage") or "")
+            previous_stage = str(data.get("previous_stage") or "")
             requested_channel = str(data.get("channel") or "announcements")
-            channel_name = self._stage_update_channel(team, stage, requested_channel)
+            channel_name = self._stage_update_channel(team, stage, requested_channel, previous_stage)
             owner_ids = data.get("owner_ids") or []
             log.info(
                 "Country stage announcement queued (team=%s stage=%s channel=%s owners=%s)",
