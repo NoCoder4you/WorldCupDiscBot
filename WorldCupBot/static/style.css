@@ -1332,7 +1332,9 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .bracket-column.bracket-right .bracket-team {
-    justify-content: flex-end;
+    /* Match the left-side card layout so short names do not shift toward the edge. */
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .bracket-team .fixtures-flag {
@@ -1342,8 +1344,9 @@ body.user-admin-view .dashboard-grid .card {
 }
 
 .bracket-team-name {
-    /* All bracket entrants use plain white text; flags should not trigger a highlight. */
+    /* All bracket entrants use plain white text; flags or placeholders should not trigger alternate emphasis. */
     color: #ffffff;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1364,7 +1367,6 @@ body.user-admin-view .dashboard-grid .card {
     opacity: 1;
 }
 
-.bracket-match.is-placeholder .bracket-team,
 .bracket-match.is-placeholder .bracket-foot {
     opacity: 0.6;
 }
