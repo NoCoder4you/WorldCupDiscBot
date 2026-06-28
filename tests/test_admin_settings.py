@@ -936,3 +936,59 @@ def test_disallowed_goal_requires_existing_goal_for_country(tmp_path):
 
     assert response.status_code == 400
     assert response.get_json()["error"] == "goal_not_found"
+
+
+def test_admin_bracket_slot_edit_preserves_existing_match_id(tmp_path):
+    """Editing a knockout slot should update the current match instead of creating a duplicate."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "bracket_slots.json").write_text(
+        json.dumps({
+            "Round of 16": {
+                "left": {
+                    "1": {
+                        "label": "",
+                        "match_id": "BRKT-R16-L1-USA-CAN",
+                        "home": "USA",
+                        "away": "Canada",
+                        "utc": "2026-07-01T19:00:00Z",
+                    }
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+    (json_dir / "matches.json").write_text(
+        json.dumps([
+            {
+                "id": "BRKT-R16-L1-USA-CAN",
+                "home": "USA",
+                "away": "Canada",
+                "stage": "Round of 16",
+                "bracket_slot": 1,
+            }
+        ]),
+        encoding="utf-8",
+    )
+
+    response = client.post("/admin/bracket_slots", json={
+        "stage": "Round of 16",
+        "side": "left",
+        "slot": 1,
+        # This is what the frontend used to generate after changing team names.
+        # The server should keep targeting the saved match_id for this slot.
+        "match_id": "BRKT-R16-L1-USA-MEX",
+        "home": "USA",
+        "away": "Mexico",
+        "utc": "2026-07-01T20:00:00Z",
+    })
+
+    assert response.status_code == 200
+    matches = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
+    assert len(matches) == 1
+    assert matches[0]["id"] == "BRKT-R16-L1-USA-CAN"
+    assert matches[0]["away"] == "Mexico"
+    assert matches[0]["utc"] == "2026-07-01T20:00:00Z"
+
+    slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
+    assert slots["Round of 16"]["left"]["1"]["match_id"] == "BRKT-R16-L1-USA-CAN"
+    assert slots["Round of 16"]["left"]["1"]["away"] == "Mexico"

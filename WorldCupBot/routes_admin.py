@@ -2091,11 +2091,23 @@ def create_admin_routes(ctx):
         side_slots = stage_slots.get(side_key)
         if not isinstance(side_slots, dict):
             side_slots = {}
+        slot_key = str(slot_val)
+        existing_slot = side_slots.get(slot_key)
+        if not isinstance(existing_slot, dict):
+            existing_slot = {}
+
+        # Editing a populated knockout slot can change the team names, which
+        # makes the browser-generated fallback ID change too. Keep the saved
+        # slot's canonical match_id so this request updates the current
+        # matches.json fixture instead of appending a duplicate with a new ID.
+        existing_match_id = str(existing_slot.get("match_id") or existing_slot.get("matchId") or "").strip()
+        if existing_match_id:
+            match_id = existing_match_id
 
         if not home and not away and not match_id and not label:
-            side_slots.pop(str(slot_val), None)
+            side_slots.pop(slot_key, None)
         else:
-            side_slots[str(slot_val)] = {
+            side_slots[slot_key] = {
                 "label": label,
                 "match_id": match_id,
                 "home": home,
