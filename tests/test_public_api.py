@@ -286,6 +286,14 @@ def test_tables_page_is_wired_into_existing_navigation_and_loader():
     assert ".standings-live-score.winning" in css
     assert ".standings-live-score.losing" in css
     assert "@keyframes standings-live-pulse" in css
+    assert "All bracket entrants use plain white text" in css
+    assert "flags or placeholders should not trigger alternate emphasis" in css
+    assert ".bracket-team-name" in css
+    assert "text-shadow: 0 0 6px rgba(255, 255, 255, 0.78)" not in css
+    assert ".bracket-match.is-placeholder .bracket-team" not in css
+    assert "justify-content: flex-start" in css
+    assert "Match the left-side card layout" in css
+    assert "ISO-backed teams do not appear highlighted" in app_js
 
 
 def test_admin_standings_audit_refresh_recalculates_and_reports_sources(client, app):
