@@ -1587,19 +1587,23 @@ def create_admin_routes(ctx):
             "goal": "Goal",
             "disallowed_goal": "Goal Disallowed",
             "penalty": "Penalty",
+            "var_decision": "VAR Decision",
             "yellow_card": "Yellow Card",
             "red_card": "Red Card",
             "half_time": "Half Time",
+            "extra_time": "Extra Time",
+            "extra_time_half_time": "Extra Time Half Time",
+            "extra_time_penalties": "Extra Time Penalties",
         }
+        match_state_events = {"half_time", "extra_time", "extra_time_half_time", "extra_time_penalties"}
         if not match_id:
             return jsonify({"ok": False, "error": "missing_match_id"}), 400
         if event_type not in allowed_events:
             return jsonify({"ok": False, "error": "invalid_event_type"}), 400
-        # Half time is a state transition, not an incident at a specific
-        # minute; goals, cards, penalties, and disallowed goals still require a
-        # validated match clock value so operators can identify the decision
-        # clearly without treating the penalty award as a scored goal.
-        if event_type != "half_time" and not re.match(
+        # Match-state transitions are not incidents at a specific minute;
+        # referee decisions and other team incidents still require a validated
+        # match clock so operators can identify the update clearly.
+        if event_type not in match_state_events and not re.match(
             r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$",
             match_time,
         ):
@@ -1619,11 +1623,16 @@ def create_admin_routes(ctx):
 
         home = str(fixture.get("home") or "").strip()
         away = str(fixture.get("away") or "").strip()
-        # Half time belongs to the match rather than either team. Team-specific
-        # incidents, including penalty decisions, still require one of the
-        # fixture's countries.
-        if event_type != "half_time" and country not in {home, away}:
+        # Match-state events belong to the fixture rather than either team.
+        # Team-specific incidents, including penalty and VAR decisions, still
+        # require one of the fixture's countries for flagging and audit context.
+        if event_type not in match_state_events and country not in {home, away}:
             return jsonify({"ok": False, "error": "invalid_country"}), 400
+        if event_type in match_state_events:
+            # Match-state controls are intentionally team-neutral one-tap
+            # updates, regardless of any stale country/time payload fields.
+            country = ""
+            match_time = ""
         channel = _resolve_fanzone_channel(fixture, home, away)
         live_stats = fixture.get("live_stats")
         if not isinstance(live_stats, list):

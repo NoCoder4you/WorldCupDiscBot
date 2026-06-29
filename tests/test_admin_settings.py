@@ -879,6 +879,69 @@ def test_penalty_quick_announcement_records_decision_without_goal(tmp_path):
     assert command["data"]["home_score"] == 0
     assert command["data"]["away_score"] == 1
 
+
+def test_referee_decision_quick_options_record_without_changing_score(tmp_path):
+    """VAR and referee quick options should preserve the score while adding timeline context."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M13",
+            "home": "A",
+            "away": "B",
+            "group": "A",
+            "live_stats": [{"event_type": "goal", "label": "Goal", "country": "A", "match_time": "10"}],
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M13", "event_type": "var_decision", "country": "B", "match_time": "61"},
+    )
+
+    assert response.status_code == 200
+    saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
+    assert [(event["event_type"], event.get("country"), event.get("match_time")) for event in saved_match["live_stats"]] == [
+        ("goal", "A", "10"),
+        ("var_decision", "B", "61"),
+    ]
+    command = json.loads((json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert command["data"]["event_label"] == "VAR Decision"
+    assert command["data"]["message"] == "A 1 - 0 B"
+    assert command["data"]["home_score"] == 1
+    assert command["data"]["away_score"] == 0
+
+
+def test_extra_time_quick_announcement_is_match_state_without_country_or_time(tmp_path):
+    """Extra-time quick options should announce match state without requiring a team."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M14",
+            "home": "A",
+            "away": "B",
+            "group": "A",
+            "live_stats": [{"event_type": "goal", "label": "Goal", "country": "A", "match_time": "10"}],
+        }]),
+        encoding="utf-8",
+    )
+
+    response = client.post(
+        "/admin/fixtures/quick-announce",
+        json={"match_id": "M14", "event_type": "extra_time"},
+    )
+
+    assert response.status_code == 200
+    saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
+    assert [(event["event_type"], event.get("country"), event.get("match_time")) for event in saved_match["live_stats"]] == [
+        ("goal", "A", "10"),
+        ("extra_time", "", ""),
+    ]
+    command = json.loads((json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert command["data"]["event_label"] == "Extra Time"
+    assert command["data"]["country"] == ""
+    assert command["data"]["message"] == "A 1 - 0 B"
+
 def test_disallowed_goal_rolls_back_latest_goal_and_announces_score(tmp_path):
     """Disallowed goal quick options should remove a scored goal and queue the corrected score."""
     client, json_dir = _build_admin_client(tmp_path)

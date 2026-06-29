@@ -13,10 +13,18 @@ EVENT_LABELS = {
     "goal": "Goal",
     "disallowed_goal": "Goal Disallowed",
     "penalty": "Penalty",
+    "var_decision": "VAR Decision",
     "yellow_card": "Yellow Card",
     "red_card": "Red Card",
     "half_time": "Half Time",
+    "extra_time": "Extra Time",
+    "extra_time_half_time": "Extra Time Half Time",
+    "extra_time_penalties": "Extra Time Penalties",
 }
+
+# Match-state quick options are not owned by either country, so operators can
+# announce them without selecting a team or supplying a match clock.
+MATCH_STATE_EVENTS = {"half_time", "extra_time", "extra_time_half_time", "extra_time_penalties"}
 
 
 class TextQuickOptions(commands.Cog):
@@ -172,9 +180,14 @@ class TextQuickOptions(commands.Cog):
         home = str(fixture.get("home") or fixture.get("home_team") or "").strip()
         away = str(fixture.get("away") or fixture.get("away_team") or "").strip()
         country, match_time = self._parse_event_details(details, home, away)
-        if event_key != "half_time" and country not in {home, away}:
+        if event_key not in MATCH_STATE_EVENTS and country not in {home, away}:
             await self._ack(ctx, f"Country must be `{home}` or `{away}` for that event.")
             return
+        if event_key in MATCH_STATE_EVENTS:
+            # Match-state controls are intentionally team-neutral one-tap
+            # updates, even if an operator accidentally provides extra text.
+            country = ""
+            match_time = ""
 
         live_stats = fixture.get("live_stats") if isinstance(fixture.get("live_stats"), list) else []
         if event_key == "disallowed_goal":
@@ -220,7 +233,7 @@ class TextQuickOptions(commands.Cog):
             "match_time": match_time,
             "home_score": home_score,
             "away_score": away_score,
-            "country": country if event_key != "half_time" else "",
+            "country": country if event_key not in MATCH_STATE_EVENTS else "",
             "channel": self._fixture_channel(fixture),
             "live_stats": fixture["live_stats"],
         })
@@ -229,11 +242,11 @@ class TextQuickOptions(commands.Cog):
     @commands.command(name="quick", aliases=["qevent", "matchevent"])
     @commands.has_permissions(manage_guild=True)
     async def quick_event(self, ctx: commands.Context, match_id: str, event_type: str, *, details: str = ""):
-        """Post a live quick update: wc quick <match_id> <goal|disallowed_goal|penalty|yellow_card|red_card|half_time> [country] [minute]."""
+        """Post a live quick update: wc quick <match_id> <event> [country] [minute]."""
         await self._delete_command_message(ctx)
         event_key = str(event_type or "").strip().lower().replace("-", "_")
         if event_key not in EVENT_LABELS:
-            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, penalty, yellow_card, red_card, or half_time.")
+            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, penalty, var_decision, yellow_card, red_card, half_time, extra_time, extra_time_half_time, or extra_time_penalties.")
             return
 
         fixture, fixtures, container, key = self._find_fixture(match_id)
@@ -267,6 +280,30 @@ class TextQuickOptions(commands.Cog):
     async def penalty(self, ctx: commands.Context, *, details: str):
         """Queue a penalty decision in this match channel: wc penalty <country> [minute]."""
         await self._simple_channel_event(ctx, "penalty", details)
+
+    @commands.command(name="var", aliases=["vardecision", "varcheck"])
+    @commands.has_permissions(manage_guild=True)
+    async def var_decision(self, ctx: commands.Context, *, details: str):
+        """Queue a VAR decision in this match channel: wc var <country> [minute]."""
+        await self._simple_channel_event(ctx, "var_decision", details)
+
+    @commands.command(name="extratime", aliases=["et"])
+    @commands.has_permissions(manage_guild=True)
+    async def extra_time(self, ctx: commands.Context):
+        """Queue the start of extra time for this match channel: wc extratime."""
+        await self._simple_channel_event(ctx, "extra_time", "")
+
+    @commands.command(name="ethalftime", aliases=["extratimehalf", "ethalf"])
+    @commands.has_permissions(manage_guild=True)
+    async def extra_time_half_time(self, ctx: commands.Context):
+        """Queue extra-time half time for this match channel: wc ethalftime."""
+        await self._simple_channel_event(ctx, "extra_time_half_time", "")
+
+    @commands.command(name="etpenalties", aliases=["extratimepenalties", "pens"])
+    @commands.has_permissions(manage_guild=True)
+    async def extra_time_penalties(self, ctx: commands.Context):
+        """Queue the move from extra time to penalties: wc etpenalties."""
+        await self._simple_channel_event(ctx, "extra_time_penalties", "")
 
     @commands.command(name="yellow", aliases=["yellowcard"])
     @commands.has_permissions(manage_guild=True)

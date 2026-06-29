@@ -136,3 +136,70 @@ def test_penalty_event_records_decision_without_changing_score(tmp_path):
     assert record["data"]["message"] == "A 0 - 1 B"
     assert record["data"]["home_score"] == 0
     assert record["data"]["away_score"] == 1
+
+
+def test_var_decision_event_records_without_changing_score(tmp_path):
+    cog = _cog(tmp_path)
+    fixture = {
+        "id": "M1",
+        "home": "A",
+        "away": "B",
+        "channel": "match-live",
+        "live_stats": [{"event_type": "goal", "label": "Goal", "country": "A", "match_time": "9"}],
+    }
+    fixtures = [fixture]
+
+    class DummyCtx:
+        class Message:
+            async def delete(self):
+                return None
+        message = Message()
+        sent = []
+        async def send(self, message, delete_after=None):
+            self.sent.append(message)
+
+    import asyncio
+    asyncio.run(cog._queue_event_for_fixture(DummyCtx(), fixture, fixtures, None, "", "var_decision", "B 64"))
+
+    assert [(event["event_type"], event.get("country"), event.get("match_time")) for event in fixture["live_stats"]] == [
+        ("goal", "A", "9"),
+        ("var_decision", "B", "64"),
+    ]
+    record = json.loads((tmp_path / "JSON" / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert record["data"]["event_label"] == "VAR Decision"
+    assert record["data"]["message"] == "A 1 - 0 B"
+    assert record["data"]["home_score"] == 1
+    assert record["data"]["away_score"] == 0
+
+
+def test_extra_time_event_records_without_country_or_score_change(tmp_path):
+    cog = _cog(tmp_path)
+    fixture = {
+        "id": "M1",
+        "home": "A",
+        "away": "B",
+        "channel": "match-live",
+        "live_stats": [{"event_type": "goal", "label": "Goal", "country": "B", "match_time": "88"}],
+    }
+    fixtures = [fixture]
+
+    class DummyCtx:
+        class Message:
+            async def delete(self):
+                return None
+        message = Message()
+        sent = []
+        async def send(self, message, delete_after=None):
+            self.sent.append(message)
+
+    import asyncio
+    asyncio.run(cog._queue_event_for_fixture(DummyCtx(), fixture, fixtures, None, "", "extra_time", ""))
+
+    assert [(event["event_type"], event.get("country"), event.get("match_time")) for event in fixture["live_stats"]] == [
+        ("goal", "B", "88"),
+        ("extra_time", "", ""),
+    ]
+    record = json.loads((tmp_path / "JSON" / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert record["data"]["event_label"] == "Extra Time"
+    assert record["data"]["country"] == ""
+    assert record["data"]["message"] == "A 0 - 1 B"
