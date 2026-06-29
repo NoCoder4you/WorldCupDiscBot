@@ -6741,7 +6741,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text) return null;
 
     if (/^\d{1,3}$/.test(text)) return Number(text);
-    const m = text.match(/^match\s*#?\s*(\d{1,3})$/i);
+    // Imported knockout fixtures may arrive as M73/W74 instead of plain 73.
+    // Accept those stable prefixes so browser-side auto-progression mirrors
+    // the server and updates the bracket immediately after a result is saved.
+    const m = text.match(/^(?:match\s*#?\s*|[mw])(\d{1,3})$/i);
     if (!m) return null;
     return Number(m[1]);
   }
