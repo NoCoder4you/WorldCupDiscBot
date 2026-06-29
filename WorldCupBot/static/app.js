@@ -6677,6 +6677,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  function isGeneratedBracketTeam(raw) {
+    // Imported placeholder teams are often stored as future-winner labels such
+    // as W89/M90. When an admin edits bracket_slots.json, those generated
+    // labels should not mask the explicit slot countries they just saved.
+    const text = String(raw || '').trim();
+    return !text || /^TBD$/i.test(text) || /^[MW]\d{1,3}$/i.test(text);
+  }
+
   function stageMatches(fixtures, stage, expected, slotConfig, forceSlots = false){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
     const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
@@ -6702,9 +6710,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
-          // Fill any missing match details from bracket slot metadata.
-          match.home = match.home || home || 'TBD';
-          match.away = match.away || away || 'TBD';
+          // Fill missing/generated match details from bracket slot metadata.
+          // The saved slot is the admin's source of truth for display, while
+          // matches.json may still contain feed placeholders like W89/W90.
+          if (home && isGeneratedBracketTeam(match.home)) match.home = home;
+          else match.home = match.home || home || 'TBD';
+          if (away && isGeneratedBracketTeam(match.away)) match.away = away;
+          else match.away = match.away || away || 'TBD';
           match.utc = match.utc || slotUtc || '';
           if (!String(match.id || '').trim()) {
             match.id = matchId || slotLabel || `Slot ${slot}`;
@@ -6741,7 +6753,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text) return null;
 
     if (/^\d{1,3}$/.test(text)) return Number(text);
-    const m = text.match(/^match\s*#?\s*(\d{1,3})$/i);
+    // Imported knockout fixtures may arrive as M73/W74 instead of plain 73.
+    // Accept those stable prefixes so browser-side auto-progression mirrors
+    // the server and updates the bracket immediately after a result is saved.
+    const m = text.match(/^(?:match\s*#?\s*|[mw])(\d{1,3})$/i);
     if (!m) return null;
     return Number(m[1]);
   }

@@ -1098,7 +1098,16 @@ def test_fixture_form_uses_saved_score_before_legacy_declaration():
 
     # Legacy declarations remain a fallback for old fixtures without scores.
     assert "candidateKeys.push(String(matchNo), `Match ${matchNo}`);" in app_js
+    assert "const m = text.match(/^(?:match\\s*#?\\s*|[mw])(\\d{1,3})$/i);" in app_js
 
+
+
+def test_bracket_slot_metadata_overrides_generated_fixture_placeholders():
+    """Admin-edited bracket slots should display over W/M placeholder teams."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "function isGeneratedBracketTeam(raw)" in app_js
+    assert "if (home && isGeneratedBracketTeam(match.home)) match.home = home;" in app_js
+    assert "if (away && isGeneratedBracketTeam(match.away)) match.away = away;" in app_js
 
 def test_fixtures_page_removes_manual_declare_country_controls():
     """Adding a score should replace the separate Declare COUNTRY controls."""
