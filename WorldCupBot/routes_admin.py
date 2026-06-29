@@ -1593,9 +1593,10 @@ def create_admin_routes(ctx):
             "half_time": "Half Time",
             "extra_time": "Extra Time",
             "extra_time_half_time": "Extra Time Half Time",
-            "extra_time_penalties": "Extra Time Penalties",
+            "extra_time_full_time": "Extra Time Full Time",
+            "extra_time_penalties": "Penalties",
         }
-        match_state_events = {"half_time", "extra_time", "extra_time_half_time", "extra_time_penalties"}
+        match_state_events = {"half_time", "extra_time", "extra_time_half_time", "extra_time_full_time", "extra_time_penalties"}
         if not match_id:
             return jsonify({"ok": False, "error": "missing_match_id"}), 400
         if event_type not in allowed_events:

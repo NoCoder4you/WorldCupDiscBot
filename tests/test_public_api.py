@@ -912,7 +912,9 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert 'data-event-type="offside"' not in index_html
     assert 'data-event-type="extra_time"' in index_html
     assert 'data-event-type="extra_time_half_time"' in index_html
+    assert 'data-event-type="extra_time_full_time"' in index_html
     assert 'data-event-type="extra_time_penalties"' in index_html
+    assert '🎯 Penalties' in index_html
     assert 'id="quick-red-cards"' in index_html
     assert 'id="quick-announce-cancel"' in index_html
     assert 'id="quick-full-time-open"' in index_html
@@ -922,7 +924,7 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert 'grid-template-columns: repeat(2, minmax(0, 1fr));' in style_css
     assert '#quick-announce-modal .modal-foot' in style_css
     assert 'width: min(92vw, 520px);' in style_css
-    assert "const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_penalties'];" in app_js
+    assert "const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_full_time', 'extra_time_penalties'];" in app_js
     assert "const country = isMatchStateEvent ? '' : quickAnnouncementFixture.selectedCountry" in app_js
     assert "async function openQuickAnnouncementModal(button)" in app_js
     assert "await ensureTeamIsoLoaded();" in app_js

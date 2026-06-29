@@ -1220,7 +1220,7 @@ function stagePill(stage){
 
     // Match-state transitions describe the fixture as a whole, so they must
     // not inherit or require whichever team the operator selected previously.
-    const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_penalties'];
+    const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_full_time', 'extra_time_penalties'];
     const isMatchStateEvent = matchStateEvents.includes(eventType);
     const country = isMatchStateEvent ? '' : quickAnnouncementFixture.selectedCountry;
     const matchTime = String(document.getElementById('quick-event-time')?.value || '').trim();
