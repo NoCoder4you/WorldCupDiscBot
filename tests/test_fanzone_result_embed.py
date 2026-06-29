@@ -194,6 +194,24 @@ def test_var_decision_quick_announcement_embed_is_black():
     assert int(embed.color) == 0x000000
     assert embed.title == "📺 VAR Decision  55'"
 
+
+def test_extra_time_quick_announcement_embed_uses_default_clock():
+    """One-tap extra-time announcements should display the standard 90 minute mark."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+    announcer.team_iso = {}
+
+    embed = announcer._quick_announcement_embed({
+        "event_type": "extra_time",
+        "event_label": "Extra Time",
+        "home": "Spain",
+        "away": "Morocco",
+        "home_score": 1,
+        "away_score": 1,
+    })
+
+    assert embed.title == "⏱️ Extra Time  90'"
+    assert embed.fields[0].value == "**Spain 1 - 1 Morocco**"
+
 def test_quick_announcement_embed_omits_thumbnail_without_known_flag():
     """Unknown team mappings should not produce a broken thumbnail URL."""
     announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)

@@ -192,11 +192,16 @@ class FanZoneAnnouncer(commands.Cog):
             match_time = str(stat.get("match_time") or "").strip()
             event_type = str(stat.get("event_type") or "").strip().lower()
             country = str(stat.get("country") or "").strip()
-            # Half time has a standard clock value even though the dashboard
-            # does not ask the operator to enter one. Final summaries describe
-            # the incident itself instead of repeating the score after every
-            # event, which keeps the score exclusive to the result heading.
-            display_time = match_time or ("45" if event_type == "half_time" else "")
+            # Match-state events often arrive from one-tap controls without a
+            # typed clock. Use the standard football minute in final summaries
+            # while keeping the score exclusive to the result heading.
+            default_times = {
+                "half_time": "45",
+                "extra_time": "90",
+                "extra_time_half_time": "105",
+                "extra_time_penalties": "120",
+            }
+            display_time = match_time or default_times.get(event_type, "")
             timing = f" - {display_time}'" if display_time else ""
             country_text = f"  {country}" if country else ""
             stats_lines.append(f"**{label}**{timing}{country_text}")
@@ -253,30 +258,38 @@ class FanZoneAnnouncer(commands.Cog):
             # VAR decisions use black to match referee-review branding and
             # distinguish them from ordinary team incidents in the feed.
             "var_decision": discord.Color.from_rgb(0, 0, 0),
-            "handball": discord.Color.dark_teal(),
-            "corner": discord.Color.blue(),
-            "offside": discord.Color.dark_orange(),
             "yellow_card": discord.Color.gold(),
             "red_card": discord.Color.red(),
             "half_time": discord.Color.blurple(),
+            "extra_time": discord.Color.blurple(),
+            "extra_time_half_time": discord.Color.blurple(),
+            "extra_time_penalties": discord.Color.dark_purple(),
         }
         icons = {
             "goal": "⚽",
             "disallowed_goal": "🚫",
             "penalty": "🎯",
             "var_decision": "📺",
-            "handball": "✋",
-            "corner": "🚩",
-            "offside": "🏁",
             "yellow_card": "🟨",
             "red_card": "🟥",
             "half_time": "⏸️",
+            "extra_time": "⏱️",
+            "extra_time_half_time": "⏸️",
+            "extra_time_penalties": "🎯",
         }
         label = str(data.get("event_label") or "Match Update").strip()
         match_time = str(data.get("match_time") or "").strip()
         # Put the clock in the title so the event and its timing are visible
         # together in Discord notifications and compact embed previews.
-        display_time = match_time or ("45" if event_type == "half_time" else "")
+        # Match-state events often arrive from one-tap controls without a typed
+        # clock, so use the standard football minute for compact embed titles.
+        default_times = {
+            "half_time": "45",
+            "extra_time": "90",
+            "extra_time_half_time": "105",
+            "extra_time_penalties": "120",
+        }
+        display_time = match_time or default_times.get(event_type, "")
         title_timing = f"  {display_time}'" if display_time else ""
         home = str(data.get("home") or "").strip()
         away = str(data.get("away") or "").strip()

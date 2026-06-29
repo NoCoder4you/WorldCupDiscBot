@@ -1218,16 +1218,18 @@ function stagePill(stage){
       return;
     }
 
-    // Half time describes the fixture as a whole, so it must not inherit or
-    // require whichever team the operator happened to select previously.
-    const country = eventType === 'half_time' ? '' : quickAnnouncementFixture.selectedCountry;
+    // Match-state transitions describe the fixture as a whole, so they must
+    // not inherit or require whichever team the operator selected previously.
+    const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_penalties'];
+    const isMatchStateEvent = matchStateEvents.includes(eventType);
+    const country = isMatchStateEvent ? '' : quickAnnouncementFixture.selectedCountry;
     const matchTime = String(document.getElementById('quick-event-time')?.value || '').trim();
-    if (eventType !== 'half_time' && !country) {
+    if (!isMatchStateEvent && !country) {
       if (status) status.textContent = 'Choose a country before selecting an action.';
       return;
     }
-    // Half time is a match-state update rather than a timed incident.
-    if (eventType !== 'half_time' && !/^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$/.test(matchTime)) {
+    // Match-state updates are one-tap transitions rather than timed incidents.
+    if (!isMatchStateEvent && !/^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$/.test(matchTime)) {
       if (status) status.textContent = 'Enter a valid match time, such as 23 or 90+1.';
       return;
     }
