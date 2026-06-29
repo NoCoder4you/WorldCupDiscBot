@@ -906,6 +906,10 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert 'id="quick-final-score"' in index_html
     assert 'id="quick-yellow-cards"' in index_html
     assert 'data-event-type="penalty"' in index_html
+    assert 'data-event-type="var_decision"' in index_html
+    assert 'data-event-type="handball"' in index_html
+    assert 'data-event-type="corner"' in index_html
+    assert 'data-event-type="offside"' in index_html
     assert 'id="quick-red-cards"' in index_html
     assert 'id="quick-announce-cancel"' in index_html
     assert 'id="quick-full-time-open"' in index_html

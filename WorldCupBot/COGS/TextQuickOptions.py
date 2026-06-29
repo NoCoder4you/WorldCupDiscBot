@@ -13,6 +13,10 @@ EVENT_LABELS = {
     "goal": "Goal",
     "disallowed_goal": "Goal Disallowed",
     "penalty": "Penalty",
+    "var_decision": "VAR Decision",
+    "handball": "Handball",
+    "corner": "Corner",
+    "offside": "Offside",
     "yellow_card": "Yellow Card",
     "red_card": "Red Card",
     "half_time": "Half Time",
@@ -229,11 +233,11 @@ class TextQuickOptions(commands.Cog):
     @commands.command(name="quick", aliases=["qevent", "matchevent"])
     @commands.has_permissions(manage_guild=True)
     async def quick_event(self, ctx: commands.Context, match_id: str, event_type: str, *, details: str = ""):
-        """Post a live quick update: wc quick <match_id> <goal|disallowed_goal|penalty|yellow_card|red_card|half_time> [country] [minute]."""
+        """Post a live quick update: wc quick <match_id> <event> [country] [minute]."""
         await self._delete_command_message(ctx)
         event_key = str(event_type or "").strip().lower().replace("-", "_")
         if event_key not in EVENT_LABELS:
-            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, penalty, yellow_card, red_card, or half_time.")
+            await self._ack(ctx, "Invalid event. Use goal, disallowed_goal, penalty, var_decision, handball, corner, offside, yellow_card, red_card, or half_time.")
             return
 
         fixture, fixtures, container, key = self._find_fixture(match_id)
@@ -267,6 +271,30 @@ class TextQuickOptions(commands.Cog):
     async def penalty(self, ctx: commands.Context, *, details: str):
         """Queue a penalty decision in this match channel: wc penalty <country> [minute]."""
         await self._simple_channel_event(ctx, "penalty", details)
+
+    @commands.command(name="var", aliases=["vardecision", "varcheck"])
+    @commands.has_permissions(manage_guild=True)
+    async def var_decision(self, ctx: commands.Context, *, details: str):
+        """Queue a VAR decision in this match channel: wc var <country> [minute]."""
+        await self._simple_channel_event(ctx, "var_decision", details)
+
+    @commands.command(name="handball", aliases=["hand"])
+    @commands.has_permissions(manage_guild=True)
+    async def handball(self, ctx: commands.Context, *, details: str):
+        """Queue a handball decision in this match channel: wc handball <country> [minute]."""
+        await self._simple_channel_event(ctx, "handball", details)
+
+    @commands.command(name="corner", aliases=["corners"])
+    @commands.has_permissions(manage_guild=True)
+    async def corner(self, ctx: commands.Context, *, details: str):
+        """Queue a corner decision in this match channel: wc corner <country> [minute]."""
+        await self._simple_channel_event(ctx, "corner", details)
+
+    @commands.command(name="offside", aliases=["offsides"])
+    @commands.has_permissions(manage_guild=True)
+    async def offside(self, ctx: commands.Context, *, details: str):
+        """Queue an offside decision in this match channel: wc offside <country> [minute]."""
+        await self._simple_channel_event(ctx, "offside", details)
 
     @commands.command(name="yellow", aliases=["yellowcard"])
     @commands.has_permissions(manage_guild=True)

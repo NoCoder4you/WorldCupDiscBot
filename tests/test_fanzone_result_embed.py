@@ -175,6 +175,25 @@ def test_quick_announcement_embed_uses_selected_country_flag_thumbnail():
     assert len(embed.fields) == 1
 
 
+def test_var_decision_quick_announcement_embed_is_black():
+    """VAR announcements should use the requested black embed accent color."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+    announcer.team_iso = {}
+
+    embed = announcer._quick_announcement_embed({
+        "event_type": "var_decision",
+        "event_label": "VAR Decision",
+        "country": "Spain",
+        "home": "Spain",
+        "away": "Morocco",
+        "home_score": 0,
+        "away_score": 0,
+        "match_time": "55",
+    })
+
+    assert int(embed.color) == 0x000000
+    assert embed.title == "📺 VAR Decision  55'"
+
 def test_quick_announcement_embed_omits_thumbnail_without_known_flag():
     """Unknown team mappings should not produce a broken thumbnail URL."""
     announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)

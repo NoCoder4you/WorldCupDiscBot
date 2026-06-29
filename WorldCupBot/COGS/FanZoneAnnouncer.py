@@ -250,6 +250,12 @@ class FanZoneAnnouncer(commands.Cog):
             "goal": discord.Color.green(),
             "disallowed_goal": discord.Color.orange(),
             "penalty": discord.Color.teal(),
+            # VAR decisions use black to match referee-review branding and
+            # distinguish them from ordinary team incidents in the feed.
+            "var_decision": discord.Color.from_rgb(0, 0, 0),
+            "handball": discord.Color.dark_teal(),
+            "corner": discord.Color.blue(),
+            "offside": discord.Color.dark_orange(),
             "yellow_card": discord.Color.gold(),
             "red_card": discord.Color.red(),
             "half_time": discord.Color.blurple(),
@@ -258,6 +264,10 @@ class FanZoneAnnouncer(commands.Cog):
             "goal": "⚽",
             "disallowed_goal": "🚫",
             "penalty": "🎯",
+            "var_decision": "📺",
+            "handball": "✋",
+            "corner": "🚩",
+            "offside": "🏁",
             "yellow_card": "🟨",
             "red_card": "🟥",
             "half_time": "⏸️",
