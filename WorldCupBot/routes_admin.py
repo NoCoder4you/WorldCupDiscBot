@@ -2593,7 +2593,10 @@ def create_admin_routes(ctx):
             return None
         if re.fullmatch(r"\d{1,3}", text):
             return int(text)
-        m = re.fullmatch(r"match\s*#?\s*(\d{1,3})", text, flags=re.IGNORECASE)
+        # FIFA/imported feeds commonly prefix match numbers with a short label
+        # (for example M73 or W74). Strip those prefixes so knockout winners
+        # can still be mapped into their downstream bracket slots.
+        m = re.fullmatch(r"(?:match\s*#?\s*|[mw])(\d{1,3})", text, flags=re.IGNORECASE)
         if not m:
             return None
         return int(m.group(1))

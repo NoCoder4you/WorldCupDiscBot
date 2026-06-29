@@ -200,6 +200,40 @@ def test_admin_fixture_result_unchanged_save_is_idempotent(tmp_path):
     assert [command["kind"] for command in commands].count("fixture_result") == 1
 
 
+def test_knockout_progression_accepts_prefixed_match_ids(tmp_path):
+    """Saving results for M/W-prefixed knockout IDs should populate the next bracket match."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([
+            {"id": "W74", "home": "Germany", "away": "Paraguay", "stage": "Round of 32"},
+            {"id": "M77", "home": "France", "away": "Sweden", "stage": "Round of 32"},
+        ]),
+        encoding="utf-8",
+    )
+
+    first = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "W74", "home_score": 2, "away_score": 0},
+    )
+    second = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "M77", "home_score": 1, "away_score": 3},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
+    assert slots["Round of 16"]["left"]["1"]["home"] == "Germany"
+    assert slots["Round of 16"]["left"]["1"]["away"] == "Sweden"
+    assert slots["Round of 16"]["left"]["1"]["match_id"] == "89"
+
+    stored = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
+    advanced = next(match for match in stored if match["id"] == "89")
+    assert advanced["home"] == "Germany"
+    assert advanced["away"] == "Sweden"
+    assert advanced["stage"] == "Round of 16"
+    assert advanced["bracket_slot"] == 1
+
 def test_quick_match_announcement_uses_group_channel(tmp_path):
     """Live group-stage updates should be queued for the fixture's group channel."""
     client, json_dir = _build_admin_client(tmp_path)
