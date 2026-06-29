@@ -6811,10 +6811,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const targetMeta = {
       89: { stage: 'Round of 16', side: 'left', slot: 1 },
       90: { stage: 'Round of 16', side: 'left', slot: 2 },
-      91: { stage: 'Round of 16', side: 'left', slot: 3 },
-      92: { stage: 'Round of 16', side: 'left', slot: 4 },
-      93: { stage: 'Round of 16', side: 'right', slot: 1 },
-      94: { stage: 'Round of 16', side: 'right', slot: 2 },
+      91: { stage: 'Round of 16', side: 'right', slot: 1 },
+      92: { stage: 'Round of 16', side: 'right', slot: 2 },
+      93: { stage: 'Round of 16', side: 'left', slot: 3 },
+      94: { stage: 'Round of 16', side: 'left', slot: 4 },
       95: { stage: 'Round of 16', side: 'right', slot: 3 },
       96: { stage: 'Round of 16', side: 'right', slot: 4 },
       97: { stage: 'Quarter-finals', side: 'left', slot: 1 },
@@ -6984,6 +6984,101 @@ document.addEventListener('DOMContentLoaded', () => {
     return merged;
   }
 
+
+  function matchNumberFromSlotEntry(entry) {
+    const id = String(entry?.match_id || entry?.matchId || entry?.id || entry?.label || '').trim();
+    return parseMatchNumber(id);
+  }
+
+  function cloneSlotEntry(entry) {
+    return entry && typeof entry === 'object' ? { ...entry } : null;
+  }
+
+  function officialSlotEntry(slots, stage, matchNo) {
+    const stageSlots = slots?.[stage];
+    if (!stageSlots || typeof stageSlots !== 'object') return null;
+    for (const side of ['left', 'right', 'center']) {
+      const sideSlots = stageSlots[side];
+      if (!sideSlots || typeof sideSlots !== 'object') continue;
+      for (const entry of Object.values(sideSlots)) {
+        if (matchNumberFromSlotEntry(entry) === matchNo) return cloneSlotEntry(entry);
+      }
+    }
+    return null;
+  }
+
+  const OFFICIAL_KNOCKOUT_FEEDERS = {
+    89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+    93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],
+    97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],
+    101: [97, 98], 102: [99, 100],
+  };
+
+  function winnerPlaceholderNumber(raw) {
+    const m = String(raw || '').trim().match(/^W(?:inner)?\s*(\d{1,3})$/i);
+    return m ? Number(m[1]) : null;
+  }
+
+  function slotEntryMatchesFeeders(entry, matchNo) {
+    const feeders = OFFICIAL_KNOCKOUT_FEEDERS[matchNo];
+    if (!entry || !feeders) return true;
+    const homeNo = winnerPlaceholderNumber(entry.home || entry.country_a);
+    const awayNo = winnerPlaceholderNumber(entry.away || entry.country_b);
+    // Admin-entered country names cannot be inferred here, so preserve them.
+    // Winner placeholders, however, are machine-readable and must match FIFA's
+    // feeder matches before old saved data is allowed to populate this slot.
+    if (!Number.isFinite(homeNo) && !Number.isFinite(awayNo)) return true;
+    return homeNo === feeders[0] && awayNo === feeders[1];
+  }
+
+  function defaultOfficialSlot(matchNo) {
+    const feeders = OFFICIAL_KNOCKOUT_FEEDERS[matchNo] || [];
+    return {
+      match_id: String(matchNo),
+      home: feeders[0] ? `W${feeders[0]}` : '',
+      away: feeders[1] ? `W${feeders[1]}` : '',
+    };
+  }
+
+  function buildOfficialSideSlots(slots, stage, side, matchNumbers) {
+    const existing = slots?.[stage]?.[side];
+    const out = {};
+    matchNumbers.forEach((matchNo, idx) => {
+      const slotKey = String(idx + 1);
+      const direct = officialSlotEntry(slots, stage, matchNo);
+      const fallback = cloneSlotEntry(existing?.[slotKey]);
+      const entry = direct || (slotEntryMatchesFeeders(fallback, matchNo) ? fallback : null) || defaultOfficialSlot(matchNo);
+      // Store the canonical numeric match id so placeholder cards and later
+      // winner progression stay tied to FIFA's published knockout pathway.
+      out[slotKey] = { ...entry, match_id: String(matchNumberFromSlotEntry(entry) || matchNo) };
+    });
+    return out;
+  }
+
+  function alignSlotsToOfficialPathways(slots) {
+    if (!slots || typeof slots !== 'object') return slots;
+    const aligned = JSON.parse(JSON.stringify(slots));
+    // FIFA's 2026 bracket keeps M89/M90 with M93/M94 in one half and
+    // M91/M92 with M95/M96 in the other. Older saved slot data put M91/M92
+    // on the left, which made the visible Knockout Pathways table inaccurate.
+    aligned['Round of 16'] = {
+      ...(aligned['Round of 16'] || {}),
+      left: buildOfficialSideSlots(slots, 'Round of 16', 'left', [89, 90, 93, 94]),
+      right: buildOfficialSideSlots(slots, 'Round of 16', 'right', [91, 92, 95, 96]),
+    };
+    aligned['Quarter-finals'] = {
+      ...(aligned['Quarter-finals'] || {}),
+      left: buildOfficialSideSlots(slots, 'Quarter-finals', 'left', [97, 98]),
+      right: buildOfficialSideSlots(slots, 'Quarter-finals', 'right', [99, 100]),
+    };
+    aligned['Semi-finals'] = {
+      ...(aligned['Semi-finals'] || {}),
+      left: buildOfficialSideSlots(slots, 'Semi-finals', 'left', [101]),
+      right: buildOfficialSideSlots(slots, 'Semi-finals', 'right', [102]),
+    };
+    return aligned;
+  }
+
   function bracketTeamMarkup(name, isoByName, explicitIso = ''){
     const label = String(name || 'TBD').trim() || 'TBD';
     // Resolve bracket flags from fixture ISO fields first, then from /api/team_iso
@@ -7109,12 +7204,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderBracket(host, fixtures, slots, isoByName = {}){
     if (!host) return;
-    const r32Slots = slots?.['Round of 32'];
-    const r16Slots = slots?.['Round of 16'];
-    const qfSlots = slots?.['Quarter-finals'];
-    const sfSlots = slots?.['Semi-finals'];
-    const finalSlots = slots?.Final;
-    const thirdSlots = slots?.['Third Place Play-off'];
+    const displaySlots = alignSlotsToOfficialPathways(slots);
+    const r32Slots = displaySlots?.['Round of 32'];
+    const r16Slots = displaySlots?.['Round of 16'];
+    const qfSlots = displaySlots?.['Quarter-finals'];
+    const sfSlots = displaySlots?.['Semi-finals'];
+    const finalSlots = displaySlots?.Final;
+    const thirdSlots = displaySlots?.['Third Place Play-off'];
     const r32Left = attachSlotIds(stageMatches(fixtures, 'Round of 32', 8, r32Slots?.left, Boolean(r32Slots)), 'Round of 32', 'left');
     const r16Left = attachSlotIds(stageMatches(fixtures, 'Round of 16', 4, r16Slots?.left, Boolean(r16Slots)), 'Round of 16', 'left');
     const qfLeft = attachSlotIds(stageMatches(fixtures, 'Quarter-finals', 2, qfSlots?.left, Boolean(qfSlots)), 'Quarter-finals', 'left');
