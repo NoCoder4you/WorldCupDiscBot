@@ -234,6 +234,59 @@ def test_knockout_progression_accepts_prefixed_match_ids(tmp_path):
     assert advanced["stage"] == "Round of 16"
     assert advanced["bracket_slot"] == 1
 
+
+def test_admin_bracket_slot_edit_replaces_generated_placeholder_teams(tmp_path):
+    """Editing a generated knockout fixture should replace W/M placeholders on the saved match."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "bracket_slots.json").write_text(
+        json.dumps({
+            "Round of 16": {
+                "left": {
+                    "1": {
+                        "label": "",
+                        "match_id": "W89",
+                        "home": "W74",
+                        "away": "W77",
+                        "utc": "2026-07-04T21:00:00Z",
+                    }
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+    (json_dir / "matches.json").write_text(
+        json.dumps([
+            {
+                "id": "W89",
+                "home": "W74",
+                "away": "W77",
+                "stage": "Round of 16",
+                "bracket_slot": 1,
+            }
+        ]),
+        encoding="utf-8",
+    )
+
+    response = client.post("/admin/bracket_slots", json={
+        "stage": "Round of 16",
+        "side": "left",
+        "slot": 1,
+        "match_id": "W89",
+        "home": "Paraguay",
+        "away": "W77",
+        "utc": "2026-07-04T21:00:00Z",
+    })
+
+    assert response.status_code == 200
+    matches = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))
+    assert matches[0]["id"] == "W89"
+    assert matches[0]["home"] == "Paraguay"
+    assert matches[0]["away"] == "W77"
+
+    slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
+    assert slots["Round of 16"]["left"]["1"]["home"] == "Paraguay"
+    assert slots["Round of 16"]["left"]["1"]["away"] == "W77"
+
 def test_quick_match_announcement_uses_group_channel(tmp_path):
     """Live group-stage updates should be queued for the fixture's group channel."""
     client, json_dir = _build_admin_client(tmp_path)
