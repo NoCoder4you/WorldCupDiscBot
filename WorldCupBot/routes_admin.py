@@ -1587,6 +1587,10 @@ def create_admin_routes(ctx):
             "goal": "Goal",
             "disallowed_goal": "Goal Disallowed",
             "penalty": "Penalty",
+            "var_decision": "VAR Decision",
+            "handball": "Handball",
+            "corner": "Corner",
+            "offside": "Offside",
             "yellow_card": "Yellow Card",
             "red_card": "Red Card",
             "half_time": "Half Time",
@@ -1596,9 +1600,9 @@ def create_admin_routes(ctx):
         if event_type not in allowed_events:
             return jsonify({"ok": False, "error": "invalid_event_type"}), 400
         # Half time is a state transition, not an incident at a specific
-        # minute; goals, cards, penalties, and disallowed goals still require a
-        # validated match clock value so operators can identify the decision
-        # clearly without treating the penalty award as a scored goal.
+        # minute; referee decisions and other team incidents still require a
+        # validated match clock value so operators can identify the update
+        # clearly without treating non-goal events as scored goals.
         if event_type != "half_time" and not re.match(
             r"^(?:[1-9]\d?|1[01]\d|120)(?:\+\d{1,2})?$",
             match_time,
