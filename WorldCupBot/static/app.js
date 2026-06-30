@@ -1198,6 +1198,8 @@ function stagePill(stage){
     if (!quickAnnouncementFixture?.id) return;
 
     if (eventType === 'full_time') {
+      // Both the header Full Time button and the Extra Time Full Time quick
+      // option use this path so operators always confirm the final score.
       // Quick goal announcements are the bot's freshest score information.
       // Prefer their totals when present, while retaining a fixture score that
       // may have been supplied by another live-score source.
@@ -1220,7 +1222,7 @@ function stagePill(stage){
 
     // Match-state transitions describe the fixture as a whole, so they must
     // not inherit or require whichever team the operator selected previously.
-    const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_penalties'];
+    const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_full_time', 'extra_time_penalties'];
     const isMatchStateEvent = matchStateEvents.includes(eventType);
     const country = isMatchStateEvent ? '' : quickAnnouncementFixture.selectedCountry;
     const matchTime = String(document.getElementById('quick-event-time')?.value || '').trim();

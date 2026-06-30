@@ -678,7 +678,8 @@ body:not(.user-admin-view) .dashboard-live-panel {
     color: #7890a8;
 }
 
-.quick-event.full-time {
+.quick-event.full-time,
+.quick-event.extra-time-full {
     background: #16a34a;
 }
 
