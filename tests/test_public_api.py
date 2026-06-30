@@ -949,7 +949,10 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert "await ensureTeamIsoLoaded();" in app_js
     assert "const goalCount = (country)" in app_js
     assert "Quick goal announcements are the bot's freshest score information." in app_js
-    assert "elapsed <= QUICK_MATCH_WINDOW_MS || !fixture.completed" in app_js
+    assert "const QUICK_MATCH_WINDOW_MS = 180 * 60 * 1000;" in app_js
+    assert "const isFinal = isDashboardFixtureFinal(fixture);" in app_js
+    assert "&& (elapsed <= QUICK_MATCH_WINDOW_MS || !isFinal)" in app_js
+    assert "&& !isFinal;" in app_js
 
 
 def test_bets_page_exposes_claim_button_flow():

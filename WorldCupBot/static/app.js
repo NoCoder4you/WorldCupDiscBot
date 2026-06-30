@@ -1056,7 +1056,7 @@ function stagePill(stage){
     startDashboardAgeTicker();
   }
 
-  const QUICK_MATCH_WINDOW_MS = 150 * 60 * 1000;
+  const QUICK_MATCH_WINDOW_MS = 180 * 60 * 1000;
   let quickAnnouncementFixture = null;
   let quickTeamStages = null;
 
@@ -1075,16 +1075,26 @@ function stagePill(stage){
     return canUseQuickOptionsUI() && !!document.querySelector('#dashboard.page-section.active-section');
   }
 
+  function isDashboardFixtureFinal(fixture) {
+    const status = String(fixture?.status || '').trim().toLowerCase();
+    const finalStatuses = ['final', 'full_time', 'full time', 'completed', 'finished'];
+    return fixture?.completed || finalStatuses.includes(status);
+  }
+
   function ongoingDashboardFixtures(fixtures) {
     const now = Date.now();
     return (Array.isArray(fixtures) ? fixtures : []).filter((fixture) => {
       const kickoff = Date.parse(String(fixture?.utc || ''));
       const elapsed = now - kickoff;
-      // Keep unfinished past matches accessible so a missed result can still
-      // be entered from Quick Options after the normal live-match window.
+      // Quick Options stay visible through the 180-minute live window and
+      // remain available after that only while staff still need to submit full
+      // time. Once full time is saved, the final-state guard below removes the
+      // match so finished games cannot receive accidental follow-up events.
+      const isFinal = isDashboardFixtureFinal(fixture);
       return Number.isFinite(kickoff)
         && elapsed >= 0
-        && (elapsed <= QUICK_MATCH_WINDOW_MS || !fixture.completed);
+        && (elapsed <= QUICK_MATCH_WINDOW_MS || !isFinal)
+        && !isFinal;
     });
   }
 
