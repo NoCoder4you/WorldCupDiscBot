@@ -1122,6 +1122,30 @@ def test_fixture_form_uses_saved_score_before_legacy_declaration():
     assert "const m = text.match(/^(?:match\\s*#?\\s*|[mw])(\\d{1,3})$/i);" in app_js
 
 
+
+def test_bracket_slot_metadata_overrides_generated_fixture_placeholders():
+    """Admin-edited bracket slots should display over W/M placeholder teams."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "function isGeneratedBracketTeam(raw)" in app_js
+    assert "if (home && isGeneratedBracketTeam(match.home)) match.home = home;" in app_js
+    assert "if (away && isGeneratedBracketTeam(match.away)) match.away = away;" in app_js
+
+
+def test_knockout_pathway_alignment_preserves_partial_slots_and_real_fixture_ids():
+    """Bracket alignment should reject only conflicting W-placeholders and keep imported fixture IDs."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    assert "for (const field of ['match_id', 'matchId', 'id', 'label'])" in app_js
+    assert "if (Number.isFinite(homeNo) && homeNo !== feeders[0]) return false;" in app_js
+    assert "if (Number.isFinite(awayNo) && awayNo !== feeders[1]) return false;" in app_js
+    assert "return homeNo === feeders[0] && awayNo === feeders[1];" not in app_js
+    assert "const savedMatchId = String(entry?.match_id || entry?.matchId || '').trim();" in app_js
+    assert "match_id: savedMatchId || String(matchNo)" in app_js
+    assert "match = matchId ? byId.get(matchId) : null;" in app_js
+    assert "makePlaceholderMatch(stage, home || 'TBD', away || 'TBD', matchId || slotLabel || `Slot ${slot}`, slot)" in app_js
+    assert "left: buildOfficialSideSlots(slots, 'Round of 16', 'left', [89, 90, 93, 94])" in app_js
+    assert "right: buildOfficialSideSlots(slots, 'Quarter-finals', 'right', [99, 100])" in app_js
+    assert "left: buildOfficialSideSlots(slots, 'Semi-finals', 'left', [101])" in app_js
+
 def test_fixtures_page_removes_manual_declare_country_controls():
     """Adding a score should replace the separate Declare COUNTRY controls."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")

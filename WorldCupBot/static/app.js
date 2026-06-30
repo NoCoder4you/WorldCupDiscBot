@@ -6679,6 +6679,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  function isGeneratedBracketTeam(raw) {
+    // Imported placeholder teams are often stored as future-winner labels such
+    // as W89/M90. When an admin edits bracket_slots.json, those generated
+    // labels should not mask the explicit slot countries they just saved.
+    const text = String(raw || '').trim();
+    return !text || /^TBD$/i.test(text) || /^[MW]\d{1,3}$/i.test(text);
+  }
+
   function stageMatches(fixtures, stage, expected, slotConfig, forceSlots = false){
     const list = fixtures.filter(f => normalizeStage(f.stage || '') === stage);
     const slots = slotConfig && typeof slotConfig === 'object' ? slotConfig : null;
@@ -6704,9 +6712,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (match && match.bracket_slot == null) match.bracket_slot = slot;
         if (match) {
-          // Fill any missing match details from bracket slot metadata.
-          match.home = match.home || home || 'TBD';
-          match.away = match.away || away || 'TBD';
+          // Fill missing/generated match details from bracket slot metadata.
+          // The saved slot is the admin's source of truth for display, while
+          // matches.json may still contain feed placeholders like W89/W90.
+          if (home && isGeneratedBracketTeam(match.home)) match.home = home;
+          else match.home = match.home || home || 'TBD';
+          if (away && isGeneratedBracketTeam(match.away)) match.away = away;
+          else match.away = match.away || away || 'TBD';
           match.utc = match.utc || slotUtc || '';
           if (!String(match.id || '').trim()) {
             match.id = matchId || slotLabel || `Slot ${slot}`;
@@ -6991,8 +7003,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   function matchNumberFromSlotEntry(entry) {
-    const id = String(entry?.match_id || entry?.matchId || entry?.id || entry?.label || '').trim();
-    return parseMatchNumber(id);
+    // Complex imported fixture IDs (for example BRKT-R16-L1-W74-W77) are
+    // valuable stable IDs but are not themselves match numbers. Keep trying
+    // later fields so an entry can pair that ID with a parseable label (M89).
+    for (const field of ['match_id', 'matchId', 'id', 'label']) {
+      const matchNo = parseMatchNumber(entry?.[field]);
+      if (Number.isFinite(matchNo)) return matchNo;
+    }
+    return null;
   }
 
   function cloneSlotEntry(entry) {
@@ -7032,8 +7050,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Admin-entered country names cannot be inferred here, so preserve them.
     // Winner placeholders, however, are machine-readable and must match FIFA's
     // feeder matches before old saved data is allowed to populate this slot.
-    if (!Number.isFinite(homeNo) && !Number.isFinite(awayNo)) return true;
-    return homeNo === feeders[0] && awayNo === feeders[1];
+    if (Number.isFinite(homeNo) && homeNo !== feeders[0]) return false;
+    if (Number.isFinite(awayNo) && awayNo !== feeders[1]) return false;
+    return true;
   }
 
   function defaultOfficialSlot(matchNo) {
@@ -7053,9 +7072,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const direct = officialSlotEntry(slots, stage, matchNo);
       const fallback = cloneSlotEntry(existing?.[slotKey]);
       const entry = direct || (slotEntryMatchesFeeders(fallback, matchNo) ? fallback : null) || defaultOfficialSlot(matchNo);
-      // Store the canonical numeric match id so placeholder cards and later
-      // winner progression stay tied to FIFA's published knockout pathway.
-      out[slotKey] = { ...entry, match_id: String(matchNumberFromSlotEntry(entry) || matchNo) };
+      const savedMatchId = String(entry?.match_id || entry?.matchId || '').trim();
+      // Preserve real imported fixture IDs so stageMatches can find the exact
+      // matches.json fixture instead of falling back to a synthetic card.
+      out[slotKey] = { ...entry, match_id: savedMatchId || String(matchNo) };
     });
     return out;
   }
