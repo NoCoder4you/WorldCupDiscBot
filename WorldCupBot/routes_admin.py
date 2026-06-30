@@ -2618,7 +2618,7 @@ def create_admin_routes(ctx):
         return {}
 
     def _auto_create_progression_matches():
-        """Create downstream knockout matches once both participant teams are known via declared winners."""
+        """Create/update downstream knockout matches as soon as either feeder is known."""
         progression = [
             {"target": 89, "home_from": 74, "away_from": 77},
             {"target": 90, "home_from": 73, "away_from": 75},
@@ -2664,10 +2664,14 @@ def create_admin_routes(ctx):
         fixtures = fixtures if isinstance(fixtures, list) else []
 
         by_match_no: dict[int, dict] = {}
+        by_fixture_id: dict[str, dict] = {}
         for f in fixtures:
             if not isinstance(f, dict):
                 continue
-            m_no = _match_no(f.get("id")) or _match_no(f.get("fixture_id"))
+            fid = str(f.get("id") or f.get("fixture_id") or "").strip()
+            if fid:
+                by_fixture_id[fid] = f
+            m_no = _match_no(f.get("id")) or _match_no(f.get("fixture_id")) or _match_no(f.get("label"))
             if isinstance(m_no, int):
                 by_match_no[m_no] = f
 
@@ -2711,7 +2715,9 @@ def create_admin_routes(ctx):
                 away, _ = winner_loser(int(rule["away_from"]))
             elif "away_loser_from" in rule:
                 _, away = winner_loser(int(rule["away_loser_from"]))
-            if not home or not away:
+            # A single completed feeder should partially advance its side while
+            # preserving the other side's existing placeholder (W77/TBD/etc.).
+            if not home and not away:
                 continue
 
             stage_slots = slots.get(stage)
@@ -2725,11 +2731,21 @@ def create_admin_routes(ctx):
             if not isinstance(slot_entry, dict):
                 slot_entry = {}
 
+            existing_match_id = str(slot_entry.get("match_id") or slot_entry.get("matchId") or "").strip()
+            target_fx = by_match_no.get(target)
+            if not isinstance(target_fx, dict) and existing_match_id:
+                target_fx = by_fixture_id.get(existing_match_id)
+
+            current_home = str(slot_entry.get("home") or "").strip()
+            current_away = str(slot_entry.get("away") or "").strip()
+            next_home = home or current_home or f"W{rule.get('home_from') or rule.get('home_loser_from') or ''}".strip()
+            next_away = away or current_away or f"W{rule.get('away_from') or rule.get('away_loser_from') or ''}".strip()
+
             next_entry = {
                 **slot_entry,
-                "match_id": str(slot_entry.get("match_id") or "").strip() or str(target),
-                "home": home,
-                "away": away,
+                "match_id": existing_match_id or str((target_fx or {}).get("id") or "").strip() or str(target),
+                "home": next_home,
+                "away": next_away,
             }
             if next_entry != slot_entry:
                 side_slots[slot_key] = next_entry
@@ -2737,23 +2753,25 @@ def create_admin_routes(ctx):
                 slots[stage] = stage_slots
                 changed_slots = True
 
-            target_fx = by_match_no.get(target)
             if isinstance(target_fx, dict):
                 if (
-                    str(target_fx.get("home") or "").strip() != home
-                    or str(target_fx.get("away") or "").strip() != away
+                    (home and str(target_fx.get("home") or "").strip() != next_home)
+                    or (away and str(target_fx.get("away") or "").strip() != next_away)
                     or normalize_stage(str(target_fx.get("stage") or "")) != stage
+                    or str(target_fx.get("bracket_slot") or "").strip() != str(slot)
                 ):
-                    target_fx["home"] = home
-                    target_fx["away"] = away
+                    if home:
+                        target_fx["home"] = next_home
+                    if away:
+                        target_fx["away"] = next_away
                     target_fx["stage"] = stage
                     target_fx["bracket_slot"] = slot
                     changed_fixtures = True
             else:
                 new_fixture = {
-                    "id": str(target),
-                    "home": home,
-                    "away": away,
+                    "id": next_entry["match_id"],
+                    "home": next_home,
+                    "away": next_away,
                     "utc": "",
                     "time": "",
                     "stadium": "",
@@ -2763,6 +2781,7 @@ def create_admin_routes(ctx):
                 }
                 fixtures.append(new_fixture)
                 by_match_no[target] = new_fixture
+                by_fixture_id[str(new_fixture["id"])] = new_fixture
                 changed_fixtures = True
 
         if changed_slots:

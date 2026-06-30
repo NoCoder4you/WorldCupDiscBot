@@ -7001,8 +7001,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   function matchNumberFromSlotEntry(entry) {
-    const id = String(entry?.match_id || entry?.matchId || entry?.id || entry?.label || '').trim();
-    return parseMatchNumber(id);
+    // Complex imported fixture IDs (for example BRKT-R16-L1-W74-W77) are
+    // valuable stable IDs but are not themselves match numbers. Keep trying
+    // later fields so an entry can pair that ID with a parseable label (M89).
+    for (const field of ['match_id', 'matchId', 'id', 'label']) {
+      const matchNo = parseMatchNumber(entry?.[field]);
+      if (Number.isFinite(matchNo)) return matchNo;
+    }
+    return null;
   }
 
   function cloneSlotEntry(entry) {
@@ -7042,8 +7048,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Admin-entered country names cannot be inferred here, so preserve them.
     // Winner placeholders, however, are machine-readable and must match FIFA's
     // feeder matches before old saved data is allowed to populate this slot.
-    if (!Number.isFinite(homeNo) && !Number.isFinite(awayNo)) return true;
-    return homeNo === feeders[0] && awayNo === feeders[1];
+    if (Number.isFinite(homeNo) && homeNo !== feeders[0]) return false;
+    if (Number.isFinite(awayNo) && awayNo !== feeders[1]) return false;
+    return true;
   }
 
   function defaultOfficialSlot(matchNo) {
@@ -7063,9 +7070,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const direct = officialSlotEntry(slots, stage, matchNo);
       const fallback = cloneSlotEntry(existing?.[slotKey]);
       const entry = direct || (slotEntryMatchesFeeders(fallback, matchNo) ? fallback : null) || defaultOfficialSlot(matchNo);
-      // Store the canonical numeric match id so placeholder cards and later
-      // winner progression stay tied to FIFA's published knockout pathway.
-      out[slotKey] = { ...entry, match_id: String(matchNumberFromSlotEntry(entry) || matchNo) };
+      const savedMatchId = String(entry?.match_id || entry?.matchId || '').trim();
+      // Preserve real imported fixture IDs so stageMatches can find the exact
+      // matches.json fixture instead of falling back to a synthetic card.
+      out[slotKey] = { ...entry, match_id: savedMatchId || String(matchNo) };
     });
     return out;
   }

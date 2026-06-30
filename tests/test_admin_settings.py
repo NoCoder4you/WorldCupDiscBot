@@ -235,6 +235,86 @@ def test_knockout_progression_accepts_prefixed_match_ids(tmp_path):
     assert advanced["bracket_slot"] == 1
 
 
+def test_knockout_progression_partially_updates_and_preserves_real_fixture_id(tmp_path):
+    """Round-of-16 slot 1 should advance each feeder independently without losing metadata."""
+    client, json_dir = _build_admin_client(tmp_path)
+    matches_path = json_dir / "matches.json"
+    real_id = "BRKT-R16-L1-W74-W77"
+    matches_path.write_text(
+        json.dumps([
+            {"id": "BRKT-R32-L2-GER-PAR", "label": "M74", "home": "Germany", "away": "Paraguay", "stage": "Round of 32"},
+            {"id": "BRKT-R32-L5-SWE-NOR", "label": "M77", "home": "Norway", "away": "Sweden", "stage": "Round of 32"},
+            {
+                "id": real_id,
+                "label": "M89",
+                "home": "W74",
+                "away": "W77",
+                "utc": "2026-07-04T21:00:00Z",
+                "stadium": "MetLife Stadium",
+                "stage": "Round of 16",
+                "bracket_slot": 1,
+            },
+        ]),
+        encoding="utf-8",
+    )
+    (json_dir / "bracket_slots.json").write_text(
+        json.dumps({
+            "Round of 16": {
+                "left": {
+                    "1": {
+                        "match_id": real_id,
+                        "label": "M89",
+                        "home": "W74",
+                        "away": "W77",
+                        "utc": "2026-07-04T21:00:00Z",
+                    }
+                }
+            }
+        }),
+        encoding="utf-8",
+    )
+
+    first = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "BRKT-R32-L2-GER-PAR", "home_score": 1, "away_score": 1, "winner_side": "away"},
+    )
+    assert first.status_code == 200
+    slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
+    assert slots["Round of 16"]["left"]["1"]["match_id"] == real_id
+    assert slots["Round of 16"]["left"]["1"]["home"] == "Paraguay"
+    assert slots["Round of 16"]["left"]["1"]["away"] == "W77"
+
+    stored = json.loads(matches_path.read_text(encoding="utf-8"))
+    advanced = next(match for match in stored if match["id"] == real_id)
+    assert advanced["home"] == "Paraguay"
+    assert advanced["away"] == "W77"
+    assert advanced["utc"] == "2026-07-04T21:00:00Z"
+    assert advanced["stadium"] == "MetLife Stadium"
+
+    second = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "BRKT-R32-L5-SWE-NOR", "home_score": 0, "away_score": 2},
+    )
+    assert second.status_code == 200
+    slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
+    assert slots["Round of 16"]["left"]["1"]["home"] == "Paraguay"
+    assert slots["Round of 16"]["left"]["1"]["away"] == "Sweden"
+
+    correction = client.post(
+        "/admin/fixtures/result",
+        json={"match_id": "BRKT-R32-L2-GER-PAR", "home_score": 2, "away_score": 0},
+    )
+    assert correction.status_code == 200
+    slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
+    assert slots["Round of 16"]["left"]["1"]["home"] == "Germany"
+    assert slots["Round of 16"]["left"]["1"]["away"] == "Sweden"
+    stored = json.loads(matches_path.read_text(encoding="utf-8"))
+    advanced = next(match for match in stored if match["id"] == real_id)
+    assert advanced["home"] == "Germany"
+    assert advanced["away"] == "Sweden"
+    assert advanced["id"] == real_id
+
+
 def test_admin_bracket_slot_edit_replaces_generated_placeholder_teams(tmp_path):
     """Editing a generated knockout fixture should replace W/M placeholders on the saved match."""
     client, json_dir = _build_admin_client(tmp_path)
