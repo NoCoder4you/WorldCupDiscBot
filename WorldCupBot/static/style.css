@@ -678,7 +678,8 @@ body:not(.user-admin-view) .dashboard-live-panel {
     color: #7890a8;
 }
 
-.quick-event.full-time {
+.quick-event.full-time,
+.quick-event.extra-time-full {
     background: #16a34a;
 }
 
@@ -697,6 +698,12 @@ body:not(.user-admin-view) .dashboard-live-panel {
 
 .quick-event.half-time {
     background: #5865f2;
+}
+
+.quick-event.extra-time {
+    /* Start the extra-time controls on their own row after the three
+       second-row decision buttons. */
+    grid-column: 1;
 }
 
 @media (max-width: 620px) {

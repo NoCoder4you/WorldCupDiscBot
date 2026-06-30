@@ -199,6 +199,7 @@ class FanZoneAnnouncer(commands.Cog):
                 "half_time": "45",
                 "extra_time": "90",
                 "extra_time_half_time": "105",
+                "extra_time_full_time": "120",
                 "extra_time_penalties": "120",
             }
             display_time = match_time or default_times.get(event_type, "")
@@ -263,6 +264,7 @@ class FanZoneAnnouncer(commands.Cog):
             "half_time": discord.Color.blurple(),
             "extra_time": discord.Color.blurple(),
             "extra_time_half_time": discord.Color.blurple(),
+            "extra_time_full_time": discord.Color.green(),
             "extra_time_penalties": discord.Color.dark_purple(),
         }
         icons = {
@@ -275,6 +277,7 @@ class FanZoneAnnouncer(commands.Cog):
             "half_time": "⏸️",
             "extra_time": "⏱️",
             "extra_time_half_time": "⏸️",
+            "extra_time_full_time": "🏁",
             "extra_time_penalties": "🎯",
         }
         label = str(data.get("event_label") or "Match Update").strip()
@@ -287,6 +290,7 @@ class FanZoneAnnouncer(commands.Cog):
             "half_time": "45",
             "extra_time": "90",
             "extra_time_half_time": "105",
+            "extra_time_full_time": "120",
             "extra_time_penalties": "120",
         }
         display_time = match_time or default_times.get(event_type, "")
