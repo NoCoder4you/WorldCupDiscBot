@@ -1198,6 +1198,8 @@ function stagePill(stage){
     if (!quickAnnouncementFixture?.id) return;
 
     if (eventType === 'full_time') {
+      // Both the header Full Time button and the Extra Time Full Time quick
+      // option use this path so operators always confirm the final score.
       // Quick goal announcements are the bot's freshest score information.
       // Prefer their totals when present, while retaining a fixture score that
       // may have been supplied by another live-score source.
