@@ -941,6 +941,8 @@ def test_dashboard_quick_options_use_country_action_flow_and_single_game_list():
     assert 'grid-template-columns: repeat(2, minmax(0, 1fr));' in style_css
     assert '#quick-announce-modal .modal-foot' in style_css
     assert 'width: min(92vw, 520px);' in style_css
+    assert '.quick-event.extra-time {' in style_css
+    assert 'grid-column: 1;' in style_css
     assert "const matchStateEvents = ['half_time', 'extra_time', 'extra_time_half_time', 'extra_time_full_time', 'extra_time_penalties'];" in app_js
     assert "const country = isMatchStateEvent ? '' : quickAnnouncementFixture.selectedCountry" in app_js
     assert "async function openQuickAnnouncementModal(button)" in app_js
