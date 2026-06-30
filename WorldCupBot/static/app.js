@@ -1086,13 +1086,15 @@ function stagePill(stage){
     return (Array.isArray(fixtures) ? fixtures : []).filter((fixture) => {
       const kickoff = Date.parse(String(fixture?.utc || ''));
       const elapsed = now - kickoff;
-      // Quick Options are available for the full 180-minute live window, then
-      // disappear as soon as staff submit full time so finished matches cannot
-      // receive accidental follow-up events from the dashboard.
+      // Quick Options stay visible through the 180-minute live window and
+      // remain available after that only while staff still need to submit full
+      // time. Once full time is saved, the final-state guard below removes the
+      // match so finished games cannot receive accidental follow-up events.
+      const isFinal = isDashboardFixtureFinal(fixture);
       return Number.isFinite(kickoff)
         && elapsed >= 0
-        && elapsed <= QUICK_MATCH_WINDOW_MS
-        && !isDashboardFixtureFinal(fixture);
+        && (elapsed <= QUICK_MATCH_WINDOW_MS || !isFinal)
+        && !isFinal;
     });
   }
 
