@@ -107,6 +107,50 @@ class TextQuickOptions(commands.Cog):
                 matches.append(fixture)
         return matches, fixtures, container, key
 
+    def _completed_channel_fixtures(self, channel_name: str):
+        """Return completed fixtures for the command channel in saved order.
+
+        Rebuild commands need the opposite of live quick actions: they should
+        target the last finished match in the current Discord match channel so
+        operators can recreate a deleted or stale full-time embed without
+        changing the stored fixture result.
+        """
+        fixtures, container, key = self._fixture_list()
+        wanted = str(channel_name or "").strip().lower()
+        matches = []
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            status = str(fixture.get("status") or "").strip().lower()
+            if status not in {"completed", "final", "finished"}:
+                continue
+            if self._fixture_channel(fixture).lower() == wanted:
+                matches.append(fixture)
+        return matches, fixtures, container, key
+
+    def _last_completed_fixture(self):
+        """Return the most recently saved completed fixture across all matches.
+
+        This is the no-argument fallback for remake commands: operators should
+        not need to know a match id just to rebuild the result card for the last
+        fixture that was on.
+        """
+        fixtures, container, key = self._fixture_list()
+        for fixture in reversed(fixtures):
+            if not isinstance(fixture, dict):
+                continue
+            status = str(fixture.get("status") or "").strip().lower()
+            if status in {"completed", "final", "finished"}:
+                return fixture, fixtures, container, key, ""
+        return None, fixtures, container, key, "No completed fixture found."
+
+    def _resolve_last_completed_channel_fixture(self, ctx: commands.Context):
+        channel_name = str(getattr(getattr(ctx, "channel", None), "name", "") or "").strip()
+        matches, fixtures, container, key = self._completed_channel_fixtures(channel_name)
+        if matches:
+            return matches[-1], fixtures, container, key, ""
+        return self._last_completed_fixture()
+
     def _fixture_id(self, fixture: dict) -> str:
         for field in ("id", "match_id", "fixture_id"):
             value = str(fixture.get(field) or "").strip()
@@ -142,6 +186,18 @@ class TextQuickOptions(commands.Cog):
         home_score = sum(1 for stat in stats if stat.get("event_type") == "goal" and stat.get("country") == home)
         away_score = sum(1 for stat in stats if stat.get("event_type") == "goal" and stat.get("country") == away)
         return home_score, away_score
+
+    def _fixture_score(self, fixture: dict) -> tuple[int | None, int | None]:
+        """Read a completed fixture score without guessing from live events.
+
+        A remade full-time embed should mirror the official stored result,
+        including any manual corrections, rather than recalculating from event
+        history that may omit shootout or administrative score adjustments.
+        """
+        try:
+            return int(fixture.get("home_score")), int(fixture.get("away_score"))
+        except (TypeError, ValueError):
+            return None, None
 
     def _parse_event_details(self, details: str, home: str, away: str) -> tuple[str, str]:
         """Split free-form command text into a team name and optional clock.
@@ -239,6 +295,35 @@ class TextQuickOptions(commands.Cog):
             "live_stats": fixture["live_stats"],
         })
         await self._ack(ctx, f"Queued {EVENT_LABELS[event_key]} for {home} vs {away}.")
+
+    def _queue_fixture_result_embed(self, fixture: dict, *, corrected: bool = False) -> tuple[bool, str]:
+        """Queue a full-time result embed from the fixture's persisted result."""
+        home = str(fixture.get("home") or fixture.get("home_team") or "").strip()
+        away = str(fixture.get("away") or fixture.get("away_team") or "").strip()
+        home_score, away_score = self._fixture_score(fixture)
+        if home_score is None or away_score is None:
+            return False, "That fixture does not have a saved score yet."
+
+        side = str(fixture.get("winner_side") or "").strip().lower()
+        if not side:
+            side = "home" if home_score > away_score else "away" if away_score > home_score else "draw"
+        if side not in {"home", "away", "draw"}:
+            return False, "That fixture has an invalid saved winner side."
+
+        data = {
+            "fixture_id": self._fixture_id(fixture),
+            "home": home,
+            "away": away,
+            "home_score": home_score,
+            "away_score": away_score,
+            "winner_side": side,
+            "channel": self._fixture_channel(fixture),
+            "live_stats": fixture.get("live_stats") if isinstance(fixture.get("live_stats"), list) else [],
+        }
+        if corrected:
+            data["corrected"] = True
+        self._enqueue_command("fixture_result", data)
+        return True, f"Queued full-time result embed: {home} {home_score} - {away_score} {away}."
 
     @commands.command(name="quick", aliases=["qevent", "matchevent"])
     @commands.has_permissions(manage_guild=True)
@@ -378,17 +463,27 @@ class TextQuickOptions(commands.Cog):
         fixture["winner_side"] = side
         fixture["status"] = "completed"
         self._save_fixtures(fixtures, container, key)
-        self._enqueue_command("fixture_result", {
-            "fixture_id": match_id,
-            "home": home,
-            "away": away,
-            "home_score": home_score,
-            "away_score": away_score,
-            "winner_side": side,
-            "channel": self._fixture_channel(fixture),
-            "live_stats": fixture.get("live_stats") if isinstance(fixture.get("live_stats"), list) else [],
-        })
-        await self._ack(ctx, f"Queued full-time result: {home} {home_score} - {away_score} {away}.")
+        queued, message = self._queue_fixture_result_embed(fixture)
+        await self._ack(ctx, message if queued else f"Saved result, but {message}")
+
+    @commands.command(name="remakeembed", aliases=["remake", "remakeresult", "repostresult", "lastresult"])
+    @commands.has_permissions(manage_guild=True)
+    async def remake_embed(self, ctx: commands.Context):
+        """Repost the last saved full-time embed: wc remakeembed.
+
+        The current channel is preferred when it has completed fixtures;
+        otherwise the latest completed fixture across the saved fixture list is
+        used. The command only queues the public fixture result embed; it does
+        not recalculate scores, resettle picks, or DM owners.
+        """
+        await self._delete_command_message(ctx)
+        fixture, fixtures, container, key, error = self._resolve_last_completed_channel_fixture(ctx)
+        if error:
+            await self._ack(ctx, error)
+            return
+
+        queued, message = self._queue_fixture_result_embed(fixture)
+        await self._ack(ctx, message if queued else message)
 
 
 async def setup(bot: commands.Bot):
