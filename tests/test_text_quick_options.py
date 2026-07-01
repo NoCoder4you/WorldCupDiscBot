@@ -203,3 +203,117 @@ def test_extra_time_event_records_without_country_or_score_change(tmp_path):
     assert record["data"]["event_label"] == "Extra Time"
     assert record["data"]["country"] == ""
     assert record["data"]["message"] == "A 0 - 1 B"
+
+
+def test_queue_fixture_result_embed_uses_saved_score_and_stats(tmp_path):
+    cog = _cog(tmp_path)
+    fixture = {
+        "id": "M2",
+        "home": "Belgium",
+        "away": "Senegal",
+        "channel": "belgium-senegal",
+        "home_score": 3,
+        "away_score": 2,
+        "winner_side": "home",
+        "live_stats": [{"event_type": "extra_time", "label": "Extra Time", "match_time": ""}],
+    }
+
+    queued, message = cog._queue_fixture_result_embed(fixture)
+
+    assert queued is True
+    assert message == "Queued full-time result embed: Belgium 3 - 2 Senegal."
+    record = json.loads((tmp_path / "JSON" / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert record["kind"] == "fixture_result"
+    assert record["data"] == {
+        "fixture_id": "M2",
+        "home": "Belgium",
+        "away": "Senegal",
+        "home_score": 3,
+        "away_score": 2,
+        "winner_side": "home",
+        "channel": "belgium-senegal",
+        "live_stats": [{"event_type": "extra_time", "label": "Extra Time", "match_time": ""}],
+    }
+
+
+def test_resolve_last_completed_channel_fixture_picks_latest_saved_match(tmp_path):
+    cog = _cog(tmp_path)
+    cog._write_json_atomic(cog.matches_path, [
+        {"id": "old", "home": "A", "away": "B", "channel": "match-live", "status": "completed"},
+        {"id": "live", "home": "A", "away": "C", "channel": "match-live", "status": "live"},
+        {"id": "latest", "home": "A", "away": "D", "channel": "match-live", "status": "finished"},
+    ])
+
+    class DummyCtx:
+        class Channel:
+            name = "match-live"
+        channel = Channel()
+
+    fixture, fixtures, container, key, error = cog._resolve_last_completed_channel_fixture(DummyCtx())
+
+    assert fixture["id"] == "latest"
+    assert [item["id"] for item in fixtures] == ["old", "live", "latest"]
+    assert container is None
+    assert key == ""
+    assert error == ""
+
+
+def test_resolve_last_completed_channel_fixture_falls_back_to_last_completed_match(tmp_path):
+    cog = _cog(tmp_path)
+    cog._write_json_atomic(cog.matches_path, [
+        {"id": "older", "home": "A", "away": "B", "channel": "group-a", "status": "completed"},
+        {"id": "upcoming", "home": "A", "away": "C", "channel": "other", "status": "scheduled"},
+        {"id": "last-on", "home": "A", "away": "D", "channel": "group-b", "status": "final"},
+    ])
+
+    class DummyCtx:
+        class Channel:
+            name = "admin-controls"
+        channel = Channel()
+
+    fixture, fixtures, container, key, error = cog._resolve_last_completed_channel_fixture(DummyCtx())
+
+    assert fixture["id"] == "last-on"
+    assert [item["id"] for item in fixtures] == ["older", "upcoming", "last-on"]
+    assert container is None
+    assert key == ""
+    assert error == ""
+
+
+def test_remake_embed_command_reposts_last_completed_channel_fixture(tmp_path):
+    cog = _cog(tmp_path)
+    cog._write_json_atomic(cog.matches_path, [
+        {
+            "id": "M3",
+            "home": "France",
+            "away": "Germany",
+            "channel": "group-a",
+            "status": "completed",
+            "home_score": 1,
+            "away_score": 1,
+            "winner_side": "draw",
+            "live_stats": [],
+        }
+    ])
+
+    class DummyCtx:
+        class Message:
+            async def delete(self):
+                return None
+        class Channel:
+            name = "group-a"
+        message = Message()
+        channel = Channel()
+        sent = []
+        async def send(self, message, delete_after=None):
+            self.sent.append((message, delete_after))
+
+    import asyncio
+    ctx = DummyCtx()
+    asyncio.run(cog.remake_embed.callback(cog, ctx))
+
+    assert ctx.sent == [("Queued full-time result embed: France 1 - 1 Germany.", 12)]
+    record = json.loads((tmp_path / "JSON" / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert record["kind"] == "fixture_result"
+    assert record["data"]["fixture_id"] == "M3"
+    assert record["data"]["winner_side"] == "draw"
