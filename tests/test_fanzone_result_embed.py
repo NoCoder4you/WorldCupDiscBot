@@ -128,6 +128,47 @@ def test_official_result_embed_orders_late_entries_by_match_clock():
     ]
 
 
+def test_official_result_embed_orders_default_match_state_times():
+    """One-tap match-state controls should sort by their displayed default clocks."""
+    announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
+
+    embed = announcer._result_embed(
+        "Belgium",
+        "Senegal",
+        3,
+        2,
+        live_stats=[
+            {"event_type": "goal", "label": "Goal", "country": "Senegal", "match_time": "24"},
+            {"event_type": "goal", "label": "Goal", "country": "Senegal", "match_time": "51"},
+            {"event_type": "yellow_card", "label": "Yellow Card", "country": "Senegal", "match_time": "67"},
+            {"event_type": "goal", "label": "Goal", "country": "Belgium", "match_time": "86"},
+            {"event_type": "goal", "label": "Goal", "country": "Belgium", "match_time": "89"},
+            {"event_type": "yellow_card", "label": "Yellow Card", "country": "Belgium", "match_time": "90"},
+            {"event_type": "yellow_card", "label": "Yellow Card", "country": "Belgium", "match_time": "90"},
+            {"event_type": "var_decision", "label": "VAR Decision", "country": "Belgium", "match_time": "120+2"},
+            {"event_type": "penalty", "label": "Penalty", "country": "Belgium", "match_time": "120+2"},
+            {"event_type": "goal", "label": "Goal", "country": "Belgium", "match_time": "120+5"},
+            {"event_type": "extra_time", "label": "Extra Time", "match_time": ""},
+            {"event_type": "extra_time_half_time", "label": "Extra Time Half Time", "match_time": ""},
+        ],
+    )
+
+    assert embed.fields[0].value.splitlines() == [
+        "**Goal** - 24'  Senegal",
+        "**Goal** - 51'  Senegal",
+        "**Yellow Card** - 67'  Senegal",
+        "**Goal** - 86'  Belgium",
+        "**Goal** - 89'  Belgium",
+        "**Yellow Card** - 90'  Belgium",
+        "**Yellow Card** - 90'  Belgium",
+        "**Extra Time** - 90'",
+        "**Extra Time Half Time** - 105'",
+        "**VAR Decision** - 120+2'  Belgium",
+        "**Penalty** - 120+2'  Belgium",
+        "**Goal** - 120+5'  Belgium",
+    ]
+
+
 def test_match_picks_embed_includes_score_from_settlement():
     """The normal settlement embed should include scores entered in the UI."""
     announcer = FanZoneAnnouncer.__new__(FanZoneAnnouncer)
