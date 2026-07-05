@@ -2586,15 +2586,27 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       
       host.innerHTML = `
-        <div class="table-wrap">
-          <div class="table-head">
-            <div class="table-title">Bets</div>
-            <div class="table-actions">
-              <button id="bets-create-open" class="btn small">Create Bet</button>
-              <button id="bets-refresh" class="btn small">Refresh</button>
+        <div class="bets-layout">
+          <div class="table-wrap bets-section" id="bets-open-card">
+            <div class="table-head">
+              <div class="table-title">Open Bets</div>
+              <div class="table-actions">
+                <button id="bets-create-open" class="btn small">Create Bet</button>
+                <button id="bets-refresh" class="btn small">Refresh</button>
+              </div>
             </div>
+            <div class="table-scroll" id="bets-open-body"><div class="muted" style="padding:12px">Loading…</div></div>
           </div>
-          <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
+
+          <div class="table-wrap bets-section" id="bets-settled-card">
+            <div class="table-head">
+              <div class="table-title">Settled Bets</div>
+              <div class="table-actions">
+                <button id="bets-settled-refresh" class="btn small">Refresh</button>
+              </div>
+            </div>
+            <div class="table-scroll" id="bets-settled-body"><div class="muted" style="padding:12px">Loading…</div></div>
+          </div>
         </div>
       `;
 
@@ -2644,167 +2656,198 @@ window.loadOwnershipPage = loadOwnershipPage;
         console.error('[bets] load failed:', e);
       }
 
-      const scroller = host.querySelector('.table-scroll');
-      scroller.innerHTML = '';
+      const openBody = document.getElementById('bets-open-body');
+      const settledBody = document.getElementById('bets-settled-body');
+      if (!openBody || !settledBody) return;
+      openBody.innerHTML = '';
+      settledBody.innerHTML = '';
 
-      const table = document.createElement('table');
-      table.className = 'table';
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Wager</th>
-            <th>Option 1</th>
-            <th>Option 2</th>
-            <th>Winner</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      `;
-      const tbody = table.querySelector('tbody');
-
-      for (const bet of bets) {
-        const tr = document.createElement('tr');
-
-        const tdId = document.createElement('td');
-        tdId.textContent = bet.bet_id ?? '-';
-
-        const tdTitle = document.createElement('td');
-        tdTitle.textContent = bet.bet_title ?? '-';
-
-        const tdWager = document.createElement('td');
-        tdWager.textContent = bet.wager ?? '-';
-
-        
-        const o1Name = (bet.option1_display_name ??
-                       resolveDisplayName(bet.option1_user_id, bet.option1_user_name)) || '';
-        const o2Name = (bet.option2_display_name ??
-                       resolveDisplayName(bet.option2_user_id, bet.option2_user_name)) || '';
-
-        
-        const tdO1 = document.createElement('td');
-        tdO1.className = 'bet-opt bet-opt1';
-        const s1 = document.createElement('span');
-        s1.textContent = bet.option1 ?? '-';
-        s1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
-          ? `Claimed by: ${o1Name}`
-          : 'Unclaimed';
-        tdO1.appendChild(s1);
-
-        
-        const tdO2 = document.createElement('td');
-        tdO2.className = 'bet-opt bet-opt2';
-        const s2 = document.createElement('span');
-        s2.textContent = bet.option2 ?? '-';
-        s2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
-          ? `Claimed by: ${o2Name}`
-          : 'Unclaimed';
-        tdO2.appendChild(s2);
-
-        const option1OwnerId = bet.option1_user_id ? String(bet.option1_user_id) : '';
-        const option2OwnerId = bet.option2_user_id ? String(bet.option2_user_id) : '';
-        const isClaimed = !!option2OwnerId;
-        const claimableByCurrentUser = !!currentUid && !isClaimed && currentUid !== option1OwnerId;
-
-        
-        const tdWin = document.createElement('td');
-        tdWin.className = 'bet-winner';
-        const winner = bet.winner === 'option1' || bet.winner === 'option2' ? bet.winner : null;
-
-          if (showAdmin) {
-          
-          const box = document.createElement('div');
-          box.className = 'win-controls';
-
-          const b1 = document.createElement('button');
-          b1.className = 'btn xs' + (winner === 'option1' ? ' active' : '');
-          b1.textContent = 'Set O1';
-          b1.disabled = winner === 'option1';
-          b1.onclick = async () => {
-            try {
-              await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option1' });
-              loadAndRenderBets();
-            } catch (e) {
-              console.error('declare winner o1:', e);
-              if (typeof notify === 'function') notify('Failed to set winner', false);
-            }
-          };
-
-          const b2 = document.createElement('button');
-          b2.className = 'btn xs' + (winner === 'option2' ? ' active' : '');
-          b2.textContent = 'Set O2';
-          b2.disabled = winner === 'option2';
-          b2.onclick = async () => {
-            try {
-              await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option2' });
-              loadAndRenderBets();
-            } catch (e) {
-              console.error('declare winner o2:', e);
-              if (typeof notify === 'function') notify('Failed to set winner', false);
-            }
-          };
-
-          box.append(b1, b2);
-          tdWin.appendChild(box);
-        } else {
-          
-          const pill = document.createElement('span');
-          pill.className = 'pill bet-outcome-pill ' + (winner ? 'pill-winner' : 'pill-tbd');
-
-          // Always prefer the resolved display-name fields for winner text so the
-          // outcome column reflects the same friendly identity shown across the app.
-          const winnerDisplayName =
-            winner === 'option1' ? (o1Name || 'Option 1')
-            : winner === 'option2' ? (o2Name || 'Option 2')
-            : 'TBD';
-
-          pill.textContent = winnerDisplayName;
-          // Preserve the full value for hover/focus so long names remain accessible
-          // when the UI applies ellipsis for tight table layouts.
-          pill.title = winnerDisplayName;
-          tdWin.appendChild(pill);
-
-          // Public view: expose explicit claim controls in the winner column so
-          // users can claim directly from the Bets page without hunting inside
-          // tooltip-only option cells.
-          if (!winner && !isClaimed) {
-            const claimBtn = document.createElement('button');
-            claimBtn.className = 'btn xs';
-            claimBtn.type = 'button';
-            claimBtn.textContent = 'Claim Bet';
-            claimBtn.style.marginLeft = '8px';
-            claimBtn.disabled = !claimableByCurrentUser;
-            if (!currentUid) {
-              claimBtn.title = 'Log in with Discord to claim bets.';
-            } else if (currentUid === option1OwnerId) {
-              claimBtn.title = 'You cannot claim your own bet.';
-            }
-            claimBtn.onclick = async () => {
-              if (!claimableByCurrentUser) return;
-              claimBtn.disabled = true;
-              try {
-                await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});
-                notify('Bet claimed.', true);
-                await loadAndRenderBets();
-              } catch (e) {
-                console.error('[bets] claim failed:', e);
-                notify('Failed to claim bet.', false);
-                claimBtn.disabled = false;
-              }
-            };
-            tdWin.appendChild(claimBtn);
-          }
+      const createBetsTable = (rows, emptyText) => {
+        if (!rows.length) {
+          const empty = document.createElement('div');
+          empty.className = 'muted';
+          empty.style.padding = '12px';
+          empty.textContent = emptyText;
+          return empty;
         }
 
-        tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
-        tbody.appendChild(tr);
-      }
+        const table = document.createElement('table');
+        table.className = 'table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Wager</th>
+              <th>Option 1</th>
+              <th>Option 2</th>
+              <th>Winner</th>
+              ${showAdmin ? '<th>Actions</th>' : ''}
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector('tbody');
 
-      scroller.appendChild(table);
+        for (const bet of rows) {
+          const tr = document.createElement('tr');
+
+          const tdId = document.createElement('td');
+          tdId.textContent = bet.bet_id ?? '-';
+
+          const tdTitle = document.createElement('td');
+          tdTitle.textContent = bet.bet_title ?? '-';
+
+          const tdWager = document.createElement('td');
+          tdWager.textContent = bet.wager ?? '-';
+
+          const o1Name = (bet.option1_display_name ??
+                         resolveDisplayName(bet.option1_user_id, bet.option1_user_name)) || '';
+          const o2Name = (bet.option2_display_name ??
+                         resolveDisplayName(bet.option2_user_id, bet.option2_user_name)) || '';
+
+          const tdO1 = document.createElement('td');
+          tdO1.className = 'bet-opt bet-opt1';
+          const s1 = document.createElement('span');
+          s1.textContent = bet.option1 ?? '-';
+          s1.dataset.tip = (bet.option1_user_id || bet.option1_user_name)
+            ? `Claimed by: ${o1Name}`
+            : 'Unclaimed';
+          tdO1.appendChild(s1);
+
+          const tdO2 = document.createElement('td');
+          tdO2.className = 'bet-opt bet-opt2';
+          const s2 = document.createElement('span');
+          s2.textContent = bet.option2 ?? '-';
+          s2.dataset.tip = (bet.option2_user_id || bet.option2_user_name)
+            ? `Claimed by: ${o2Name}`
+            : 'Unclaimed';
+          tdO2.appendChild(s2);
+
+          const option1OwnerId = bet.option1_user_id ? String(bet.option1_user_id) : '';
+          const option2OwnerId = bet.option2_user_id ? String(bet.option2_user_id) : '';
+          const isClaimed = !!option2OwnerId;
+          const claimableByCurrentUser = !!currentUid && !isClaimed && currentUid !== option1OwnerId;
+
+          const tdWin = document.createElement('td');
+          tdWin.className = 'bet-winner';
+          const winner = bet.winner === 'option1' || bet.winner === 'option2' ? bet.winner : null;
+
+          if (showAdmin) {
+            const box = document.createElement('div');
+            box.className = 'win-controls';
+
+            const b1 = document.createElement('button');
+            b1.className = 'btn xs' + (winner === 'option1' ? ' active' : '');
+            b1.textContent = 'Set O1';
+            b1.disabled = winner === 'option1';
+            b1.onclick = async () => {
+              try {
+                await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option1' });
+                loadAndRenderBets();
+              } catch (e) {
+                console.error('declare winner o1:', e);
+                if (typeof notify === 'function') notify('Failed to set winner', false);
+              }
+            };
+
+            const b2 = document.createElement('button');
+            b2.className = 'btn xs' + (winner === 'option2' ? ' active' : '');
+            b2.textContent = 'Set O2';
+            b2.disabled = winner === 'option2';
+            b2.onclick = async () => {
+              try {
+                await postJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}/winner`, { winner: 'option2' });
+                loadAndRenderBets();
+              } catch (e) {
+                console.error('declare winner o2:', e);
+                if (typeof notify === 'function') notify('Failed to set winner', false);
+              }
+            };
+
+            box.append(b1, b2);
+            tdWin.appendChild(box);
+          } else {
+            const pill = document.createElement('span');
+            pill.className = 'pill bet-outcome-pill ' + (winner ? 'pill-winner' : 'pill-tbd');
+            const winnerDisplayName =
+              winner === 'option1' ? (o1Name || 'Option 1')
+              : winner === 'option2' ? (o2Name || 'Option 2')
+              : 'TBD';
+            pill.textContent = winnerDisplayName;
+            pill.title = winnerDisplayName;
+            tdWin.appendChild(pill);
+
+            if (!winner && !isClaimed) {
+              const claimBtn = document.createElement('button');
+              claimBtn.className = 'btn xs';
+              claimBtn.type = 'button';
+              claimBtn.textContent = 'Claim Bet';
+              claimBtn.style.marginLeft = '8px';
+              claimBtn.disabled = !claimableByCurrentUser;
+              if (!currentUid) {
+                claimBtn.title = 'Log in with Discord to claim bets.';
+              } else if (currentUid === option1OwnerId) {
+                claimBtn.title = 'You cannot claim your own bet.';
+              }
+              claimBtn.onclick = async () => {
+                if (!claimableByCurrentUser) return;
+                claimBtn.disabled = true;
+                try {
+                  await postJSON(`/api/bets/${encodeURIComponent(bet.bet_id)}/claim`, {});
+                  notify('Bet claimed.', true);
+                  await loadAndRenderBets();
+                } catch (e) {
+                  console.error('[bets] claim failed:', e);
+                  notify('Failed to claim bet.', false);
+                  claimBtn.disabled = false;
+                }
+              };
+              tdWin.appendChild(claimBtn);
+            }
+          }
+
+          tr.append(tdId, tdTitle, tdWager, tdO1, tdO2, tdWin);
+
+          if (showAdmin) {
+            const tdActions = document.createElement('td');
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn xs danger';
+            deleteBtn.type = 'button';
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.title = 'Delete this bet and its Discord message.';
+            deleteBtn.onclick = async () => {
+              if (!window.confirm(`Delete bet ${bet.bet_id}? This also deletes its Discord message.`)) return;
+              deleteBtn.disabled = true;
+              try {
+                await fetchJSON(`/admin/bets/${encodeURIComponent(bet.bet_id)}`, { method: 'DELETE' });
+                notify('Bet deleted.', true);
+                await loadAndRenderBets();
+              } catch (e) {
+                console.error('[bets] delete failed:', e);
+                notify('Failed to delete bet.', false);
+                deleteBtn.disabled = false;
+              }
+            };
+            tdActions.appendChild(deleteBtn);
+            tr.appendChild(tdActions);
+          }
+
+          tbody.appendChild(tr);
+        }
+
+        return table;
+      };
+
+      const activeBets = bets.filter(b => !(b && (b.winner === 'option1' || b.winner === 'option2')));
+      const settledBets = bets.filter(b => b && (b.winner === 'option1' || b.winner === 'option2'));
+      openBody.appendChild(createBetsTable(activeBets, 'No open bets.'));
+      settledBody.appendChild(createBetsTable(settledBets, 'No settled bets yet.'));
 
       const btn = document.getElementById('bets-refresh');
       if (btn) btn.onclick = () => loadAndRenderBets();
+      const settledBtn = document.getElementById('bets-settled-refresh');
+      if (settledBtn) settledBtn.onclick = () => loadAndRenderBets();
       const createBtn = document.getElementById('bets-create-open');
       if (createBtn) {
         createBtn.disabled = !currentUid;

@@ -5981,3 +5981,20 @@ body:not(.admin) .settings-rows {
     grid-template-columns: 1fr;
   }
 }
+
+/* Bets page mirrors the Splits page: open and settled wagers live in distinct table cards. */
+.bets-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#bets .bets-section {
+  max-width: 1320px;
+  width: 100%;
+  margin: 16px auto;
+}
+
+#bets .bets-section + .bets-section {
+  margin-top: 0;
+}
