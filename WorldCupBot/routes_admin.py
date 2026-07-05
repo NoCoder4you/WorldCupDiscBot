@@ -1245,6 +1245,45 @@ def create_admin_routes(ctx):
         log.info("Bet winner declared by %s (bet_id=%s winner=%s)", _user_label(), bet_id, found["winner"])
         return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
 
+
+    @bp.delete("/admin/bets/<bet_id>")
+    def bets_delete(bet_id):
+        """Remove a bet from storage and ask the bot to delete its Discord message."""
+        resp = require_admin()
+        if resp is not None: return resp
+
+        bets = _read_json(_bets_path(), [])
+        seq = bets if isinstance(bets, list) else bets.get("bets", [])
+        if not isinstance(seq, list):
+            return jsonify({"ok": False, "error": "bets_file_invalid"}), 500
+
+        found = None
+        kept = []
+        for b in seq:
+            if isinstance(b, dict) and str(b.get("bet_id")) == str(bet_id):
+                found = b
+            else:
+                kept.append(b)
+        if not found:
+            return jsonify({"ok": False, "error": "bet_not_found"}), 404
+
+        if isinstance(bets, list):
+            next_bets = kept
+        else:
+            next_bets = dict(bets)
+            next_bets["bets"] = kept
+        _write_json_atomic(_bets_path(), next_bets)
+
+        # Include message metadata in the command because the bet record has
+        # already been removed by the time the Discord bot consumes the queue.
+        _enqueue_command(ctx, "bet_deleted", {
+            "bet_id": str(bet_id),
+            "channel_id": found.get("channel_id"),
+            "message_id": found.get("message_id"),
+        })
+        log.info("Bet deleted by %s (bet_id=%s)", _user_label(), bet_id)
+        return jsonify({"ok": True, "bet": _enrich_bet_names(found)})
+
     # ---------- LOGS ----------
     @bp.get("/admin/log/<kind>")
     def admin_log_get(kind):

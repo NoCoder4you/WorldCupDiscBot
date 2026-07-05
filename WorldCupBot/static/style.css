@@ -5981,3 +5981,15 @@ body:not(.admin) .settings-rows {
     grid-template-columns: 1fr;
   }
 }
+
+/* Bets page separates active and settled records so completed wagers stay visible without crowding open bets. */
+.bets-card {
+  margin: 0 0 16px;
+}
+
+.bets-card-title {
+  color: var(--text, #f4f7fb);
+  font-weight: 800;
+  letter-spacing: .02em;
+  padding: 10px 12px;
+}
