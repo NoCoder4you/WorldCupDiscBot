@@ -299,33 +299,50 @@ class BetPageAnnouncer(commands.Cog):
         bet["channel_id"] = str(channel.id)
         self._save_bets(bets)
 
-    async def _handle_bet_claimed(self, bet_id: str):
-        bets, bet = self._find_bet(bet_id)
-        if not bet:
-            return
-
+    async def _fetch_bet_message(self, bet: dict):
+        """Return the Discord message backing a bet record, if it still exists."""
         try:
             channel_id = int(str(bet.get("channel_id") or "0"))
             message_id = int(str(bet.get("message_id") or "0"))
         except Exception:
-            return
+            return None
         if not channel_id or not message_id:
-            return
+            return None
 
         channel = self.bot.get_channel(channel_id)
         if channel is None:
             try:
                 channel = await self.bot.fetch_channel(channel_id)
             except Exception:
-                return
+                return None
 
         try:
-            msg = await channel.fetch_message(message_id)
+            return await channel.fetch_message(message_id)
         except Exception:
+            return None
+
+    async def _handle_bet_claimed(self, bet_id: str):
+        bets, bet = self._find_bet(bet_id)
+        if not bet:
+            return
+
+        msg = await self._fetch_bet_message(bet)
+        if not msg:
             return
 
         try:
             await msg.edit(embed=self._build_bet_embed(bet), view=None)
+        except Exception:
+            return
+
+    async def _handle_bet_deleted(self, data: dict):
+        """Delete the Discord announcement for a bet removed from the Bets page."""
+        bet = data if isinstance(data, dict) else {}
+        msg = await self._fetch_bet_message(bet)
+        if not msg:
+            return
+        try:
+            await msg.delete()
         except Exception:
             return
 
@@ -374,6 +391,10 @@ class BetPageAnnouncer(commands.Cog):
                 await self._handle_bet_created(bet_id)
             elif kind == "bet_claimed":
                 await self._handle_bet_claimed(bet_id)
+            elif kind == "bet_winner_declared":
+                await self._handle_bet_claimed(bet_id)
+            elif kind == "bet_deleted":
+                await self._handle_bet_deleted(data)
 
         compact_command_queue(
             self.queue_path,
