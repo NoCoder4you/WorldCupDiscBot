@@ -2586,15 +2586,27 @@ window.loadOwnershipPage = loadOwnershipPage;
 
       
       host.innerHTML = `
-        <div class="table-wrap">
-          <div class="table-head">
-            <div class="table-title">Bets</div>
-            <div class="table-actions">
-              <button id="bets-create-open" class="btn small">Create Bet</button>
-              <button id="bets-refresh" class="btn small">Refresh</button>
+        <div class="bets-layout">
+          <div class="table-wrap bets-section" id="bets-open-card">
+            <div class="table-head">
+              <div class="table-title">Open Bets</div>
+              <div class="table-actions">
+                <button id="bets-create-open" class="btn small">Create Bet</button>
+                <button id="bets-refresh" class="btn small">Refresh</button>
+              </div>
             </div>
+            <div class="table-scroll" id="bets-open-body"><div class="muted" style="padding:12px">Loading…</div></div>
           </div>
-          <div class="table-scroll"><div class="muted" style="padding:12px">Loading…</div></div>
+
+          <div class="table-wrap bets-section" id="bets-settled-card">
+            <div class="table-head">
+              <div class="table-title">Settled Bets</div>
+              <div class="table-actions">
+                <button id="bets-settled-refresh" class="btn small">Refresh</button>
+              </div>
+            </div>
+            <div class="table-scroll" id="bets-settled-body"><div class="muted" style="padding:12px">Loading…</div></div>
+          </div>
         </div>
       `;
 
@@ -2644,25 +2656,19 @@ window.loadOwnershipPage = loadOwnershipPage;
         console.error('[bets] load failed:', e);
       }
 
-      const scroller = host.querySelector('.table-scroll');
-      scroller.innerHTML = '';
+      const openBody = document.getElementById('bets-open-body');
+      const settledBody = document.getElementById('bets-settled-body');
+      if (!openBody || !settledBody) return;
+      openBody.innerHTML = '';
+      settledBody.innerHTML = '';
 
-      const createBetsTable = (title, rows, emptyText) => {
-        const card = document.createElement('div');
-        card.className = 'bets-card';
-
-        const heading = document.createElement('div');
-        heading.className = 'bets-card-title';
-        heading.textContent = title;
-        card.appendChild(heading);
-
+      const createBetsTable = (rows, emptyText) => {
         if (!rows.length) {
           const empty = document.createElement('div');
           empty.className = 'muted';
           empty.style.padding = '12px';
           empty.textContent = emptyText;
-          card.appendChild(empty);
-          return card;
+          return empty;
         }
 
         const table = document.createElement('table');
@@ -2830,17 +2836,18 @@ window.loadOwnershipPage = loadOwnershipPage;
           tbody.appendChild(tr);
         }
 
-        card.appendChild(table);
-        return card;
+        return table;
       };
 
       const activeBets = bets.filter(b => !(b && (b.winner === 'option1' || b.winner === 'option2')));
       const settledBets = bets.filter(b => b && (b.winner === 'option1' || b.winner === 'option2'));
-      scroller.appendChild(createBetsTable('Open Bets', activeBets, 'No open bets.'));
-      scroller.appendChild(createBetsTable('Settled Bets', settledBets, 'No settled bets yet.'));
+      openBody.appendChild(createBetsTable(activeBets, 'No open bets.'));
+      settledBody.appendChild(createBetsTable(settledBets, 'No settled bets yet.'));
 
       const btn = document.getElementById('bets-refresh');
       if (btn) btn.onclick = () => loadAndRenderBets();
+      const settledBtn = document.getElementById('bets-settled-refresh');
+      if (settledBtn) settledBtn.onclick = () => loadAndRenderBets();
       const createBtn = document.getElementById('bets-create-open');
       if (createBtn) {
         createBtn.disabled = !currentUid;

@@ -731,8 +731,10 @@ def test_bet_page_announcer_skips_redundant_state_writes():
 def test_bets_page_splits_open_and_settled_cards_and_exposes_delete_action():
     """Bets page should keep settled bets separated and let admins delete bets."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
-    assert "createBetsTable('Open Bets', activeBets" in app_js
-    assert "createBetsTable('Settled Bets', settledBets" in app_js
+    assert 'id="bets-open-card"' in app_js
+    assert 'id="bets-settled-card"' in app_js
+    assert "openBody.appendChild(createBetsTable(activeBets" in app_js
+    assert "settledBody.appendChild(createBetsTable(settledBets" in app_js
     assert "const activeBets = bets.filter" in app_js
     assert "const settledBets = bets.filter" in app_js
     assert "Delete this bet and its Discord message." in app_js

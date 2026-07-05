@@ -5982,14 +5982,19 @@ body:not(.admin) .settings-rows {
   }
 }
 
-/* Bets page separates active and settled records so completed wagers stay visible without crowding open bets. */
-.bets-card {
-  margin: 0 0 16px;
+/* Bets page mirrors the Splits page: open and settled wagers live in distinct table cards. */
+.bets-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.bets-card-title {
-  color: var(--text, #f4f7fb);
-  font-weight: 800;
-  letter-spacing: .02em;
-  padding: 10px 12px;
+#bets .bets-section {
+  max-width: 1320px;
+  width: 100%;
+  margin: 16px auto;
+}
+
+#bets .bets-section + .bets-section {
+  margin-top: 0;
 }
