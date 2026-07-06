@@ -1250,6 +1250,18 @@ def test_quick_fixture_delay_accepts_half_and_negative_hours(tmp_path):
     assert saved_match["utc"] == "2026-06-20T17:30:00Z"
     assert saved_match["time"] == "2026-06-20T17:30:00Z"
 
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    delay_commands = [command for command in commands if command.get("kind") == "fixture_kickoff_adjusted"]
+    assert len(delay_commands) == 2
+    assert delay_commands[-1]["data"]["home"] == "Japan"
+    assert delay_commands[-1]["data"]["away"] == "Ghana"
+    assert delay_commands[-1]["data"]["previous_utc"] == "2026-06-20T18:30:00Z"
+    assert delay_commands[-1]["data"]["utc"] == "2026-06-20T17:30:00Z"
+
 
 def test_quick_fixture_delay_rejects_invalid_hours(tmp_path):
     """Invalid delay values should not mutate the matches JSON file."""

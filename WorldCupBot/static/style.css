@@ -527,6 +527,20 @@ body:not(.user-admin-view) .dashboard-live-panel {
     background: #ffffff0a;
 }
 
+
+/* Hide browser number steppers on the kickoff adjustment field so the quick
+   options modal keeps the clean text-box look requested by operators. */
+.quick-delay-field input::-webkit-outer-spin-button,
+.quick-delay-field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quick-delay-field input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 .quick-final-stats {
     display: grid;
     gap: 8px;

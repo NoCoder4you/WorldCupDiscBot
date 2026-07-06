@@ -1813,7 +1813,18 @@ def create_admin_routes(ctx):
             fixture["utc"] = next_utc
             if "time" in fixture:
                 fixture["time"] = next_utc
-            updated = {"id": match_id, "utc": next_utc, "previous_utc": current_utc, "hours": hours}
+            updated = {
+                "id": match_id,
+                "home": str(fixture.get("home") or "").strip(),
+                "away": str(fixture.get("away") or "").strip(),
+                "utc": next_utc,
+                "previous_utc": current_utc,
+                "hours": hours,
+                # Include the fixture metadata needed by MatchStartAnnouncer so
+                # schedule-change notices use the same group/stage channel and
+                # country-role mentions as normal kickoff reminders.
+                "fixture": dict(fixture),
+            }
             break
 
         if updated is None:
@@ -1825,6 +1836,7 @@ def create_admin_routes(ctx):
             if key:
                 container[key] = fixtures
             _write_json_atomic(_matches_path(ctx), container)
+        _enqueue_command(ctx, "fixture_kickoff_adjusted", updated)
         log.info(
             "Fixture kickoff adjusted by %s (fixture_id=%s hours=%s utc=%s)",
             _user_label(),
