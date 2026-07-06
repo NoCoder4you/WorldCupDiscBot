@@ -1,4 +1,4 @@
-import os, json, time, glob, sys, re, shutil, zipfile, datetime
+import os, json, time, glob, sys, re, shutil, zipfile, datetime, math
 import requests
 from flask import Blueprint, jsonify, request, session, send_file, make_response
 import logging
@@ -1770,6 +1770,81 @@ def create_admin_routes(ctx):
             "channel": channel,
             "live_stats": fixture["live_stats"],
         })
+
+    @bp.post("/admin/fixtures/delay")
+    def admin_fixture_delay():
+        """Move one match kickoff by a signed number of hours.
+
+        Quick Options operators sometimes need to react to short-notice schedule
+        changes. Accept fractional hours (for example 0.5) and negative values
+        so matches can be delayed or brought forward while keeping matches.json
+        as the source of truth for both the public site and bot workers.
+        """
+        resp = require_quick_options()
+        if resp is not None:
+            return resp
+
+        body = request.get_json(silent=True) or {}
+        match_id = str(body.get("id") or body.get("match_id") or "").strip()
+        raw_hours = body.get("hours")
+        if not match_id or raw_hours in (None, ""):
+            return jsonify({"ok": False, "error": "missing_match_id_or_hours"}), 400
+        try:
+            hours = float(raw_hours)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "invalid_hours"}), 400
+        if not math.isfinite(hours) or abs(hours) > 72:
+            return jsonify({"ok": False, "error": "invalid_hours"}), 400
+
+        container, fixtures, key = _load_matches_payload()
+        updated = None
+        for fixture in fixtures:
+            if not isinstance(fixture, dict):
+                continue
+            fid = str(fixture.get("id") or fixture.get("fixture_id") or "").strip()
+            if fid != match_id:
+                continue
+            current_utc = str(fixture.get("utc") or fixture.get("time") or "").strip()
+            if not _valid_utc(current_utc):
+                return jsonify({"ok": False, "error": "invalid_existing_utc"}), 400
+            current_dt = datetime.datetime.strptime(current_utc, "%Y-%m-%dT%H:%M:%SZ")
+            next_dt = current_dt + datetime.timedelta(minutes=round(hours * 60))
+            next_utc = next_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+            fixture["utc"] = next_utc
+            if "time" in fixture:
+                fixture["time"] = next_utc
+            updated = {
+                "id": match_id,
+                "home": str(fixture.get("home") or "").strip(),
+                "away": str(fixture.get("away") or "").strip(),
+                "utc": next_utc,
+                "previous_utc": current_utc,
+                "hours": hours,
+                # Include the fixture metadata needed by MatchStartAnnouncer so
+                # schedule-change notices use the same group/stage channel and
+                # country-role mentions as normal kickoff reminders.
+                "fixture": dict(fixture),
+            }
+            break
+
+        if updated is None:
+            return jsonify({"ok": False, "error": "match_not_found"}), 404
+
+        if container is None:
+            _write_json_atomic(_matches_path(ctx), fixtures)
+        else:
+            if key:
+                container[key] = fixtures
+            _write_json_atomic(_matches_path(ctx), container)
+        _enqueue_command(ctx, "fixture_kickoff_adjusted", updated)
+        log.info(
+            "Fixture kickoff adjusted by %s (fixture_id=%s hours=%s utc=%s)",
+            _user_label(),
+            match_id,
+            hours,
+            updated["utc"],
+        )
+        return jsonify({"ok": True, **updated})
 
     @bp.post("/admin/fixtures")
     def admin_fixtures_set():

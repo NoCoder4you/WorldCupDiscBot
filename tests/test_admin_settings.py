@@ -1222,3 +1222,55 @@ def test_admin_bracket_slot_edit_preserves_existing_match_id(tmp_path):
     slots = json.loads((json_dir / "bracket_slots.json").read_text(encoding="utf-8"))
     assert slots["Round of 16"]["left"]["1"]["match_id"] == "BRKT-R16-L1-USA-CAN"
     assert slots["Round of 16"]["left"]["1"]["away"] == "Mexico"
+
+
+def test_quick_fixture_delay_accepts_half_and_negative_hours(tmp_path):
+    """Quick Options can shift matches.json kickoff times by signed fractional hours."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "matches.json").write_text(
+        json.dumps([{
+            "id": "M40",
+            "home": "Japan",
+            "away": "Ghana",
+            "utc": "2026-06-20T18:00:00Z",
+            "time": "2026-06-20T18:00:00Z",
+        }]),
+        encoding="utf-8",
+    )
+
+    delayed = client.post("/admin/fixtures/delay", json={"match_id": "M40", "hours": 0.5})
+    assert delayed.status_code == 200
+    assert delayed.get_json()["utc"] == "2026-06-20T18:30:00Z"
+
+    brought_forward = client.post("/admin/fixtures/delay", json={"match_id": "M40", "hours": -1})
+    assert brought_forward.status_code == 200
+    assert brought_forward.get_json()["utc"] == "2026-06-20T17:30:00Z"
+
+    saved_match = json.loads((json_dir / "matches.json").read_text(encoding="utf-8"))[0]
+    assert saved_match["utc"] == "2026-06-20T17:30:00Z"
+    assert saved_match["time"] == "2026-06-20T17:30:00Z"
+
+    commands = [
+        json.loads(line)
+        for line in (json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    delay_commands = [command for command in commands if command.get("kind") == "fixture_kickoff_adjusted"]
+    assert len(delay_commands) == 2
+    assert delay_commands[-1]["data"]["home"] == "Japan"
+    assert delay_commands[-1]["data"]["away"] == "Ghana"
+    assert delay_commands[-1]["data"]["previous_utc"] == "2026-06-20T18:30:00Z"
+    assert delay_commands[-1]["data"]["utc"] == "2026-06-20T17:30:00Z"
+
+
+def test_quick_fixture_delay_rejects_invalid_hours(tmp_path):
+    """Invalid delay values should not mutate the matches JSON file."""
+    client, json_dir = _build_admin_client(tmp_path)
+    original = [{"id": "M41", "home": "A", "away": "B", "utc": "2026-06-20T18:00:00Z"}]
+    (json_dir / "matches.json").write_text(json.dumps(original), encoding="utf-8")
+
+    response = client.post("/admin/fixtures/delay", json={"match_id": "M41", "hours": "later"})
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "invalid_hours"
+    assert json.loads((json_dir / "matches.json").read_text(encoding="utf-8")) == original
