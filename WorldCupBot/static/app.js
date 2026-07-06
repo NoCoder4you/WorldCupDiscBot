@@ -1195,8 +1195,49 @@ function stagePill(stage){
         ${flagHTML(country)} <span>${esc(country)}</span>
       </button>`).join('');
     document.getElementById('quick-event-time').value = '';
+    const delayHours = document.getElementById('quick-delay-hours');
+    if (delayHours) delayHours.value = '';
     backdrop.style.display = 'flex';
     modal.focus();
+  }
+
+  async function adjustQuickFixtureDelay() {
+    if (!isQuickAnnouncementContext()) {
+      closeQuickAnnouncementModal();
+      return;
+    }
+    const status = document.getElementById('quick-announce-status');
+    const input = document.getElementById('quick-delay-hours');
+    const raw = String(input?.value || '').trim();
+    const hours = Number(raw);
+    if (!quickAnnouncementFixture?.id) return;
+    // Signed decimal hours let operators delay by half-hours (0.5) or bring a
+    // match forward with negative values (-1) without manually editing JSON.
+    if (!raw || !Number.isFinite(hours) || Math.abs(hours) > 72) {
+      if (status) status.textContent = 'Enter signed hours between -72 and 72, such as 1, 0.5, or -1.';
+      return;
+    }
+    const button = document.getElementById('quick-delay-submit');
+    if (button) button.disabled = true;
+    if (status) status.textContent = '';
+    try {
+      const response = await fetch('/admin/fixtures/delay', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match_id: quickAnnouncementFixture.id, hours })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || `delay_failed_${response.status}`);
+      if (input) input.value = '';
+      notify(`Kickoff adjusted to ${formatFixtureDateTimeCompact(data.utc)}`, true);
+      closeQuickAnnouncementModal();
+      loadDashboardLiveGames();
+    } catch (error) {
+      if (status) status.textContent = `Could not adjust kickoff: ${error.message || error}`;
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   async function sendQuickAnnouncement(eventType, button) {
@@ -1395,6 +1436,7 @@ function stagePill(stage){
       document.getElementById('quick-full-time-open').hidden = false;
     }
     if (event.target.id === 'quick-full-time-submit') confirmQuickFullTime(event.target);
+    if (event.target.id === 'quick-delay-submit') adjustQuickFixtureDelay();
   });
 
   ['quick-home-score', 'quick-away-score'].forEach((id) => {
