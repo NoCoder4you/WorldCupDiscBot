@@ -26,9 +26,11 @@ class MatchStartAnnouncer(commands.Cog):
         self.country_roles_path = os.path.join(self.json_dir, "countryroles.json")
         self.team_meta_path = os.path.join(self.json_dir, "team_meta.json")
         self.state_path = os.path.join(self.json_dir, "match_start_announcer_state.json")
+        self.commands_path = os.path.join(self.json_dir, "bot_commands.jsonl")
 
         self._sent_hour_keys: set[str] = set()
         self._sent_kickoff_keys: set[str] = set()
+        self._commands_offset = 0
         self._load_state()
         self._loop.start()
 
@@ -51,6 +53,7 @@ class MatchStartAnnouncer(commands.Cog):
                 self._sent_hour_keys = {str(k) for k in hour_keys if str(k).strip()}
             if isinstance(kickoff_keys, list):
                 self._sent_kickoff_keys = {str(k) for k in kickoff_keys if str(k).strip()}
+            self._commands_offset = int(data.get("commands_offset") or 0)
         except Exception:
             self._sent_hour_keys = set()
             self._sent_kickoff_keys = set()
@@ -61,6 +64,7 @@ class MatchStartAnnouncer(commands.Cog):
                 json.dump({
                     "sent_hour_keys": sorted(self._sent_hour_keys)[-5000:],
                     "sent_kickoff_keys": sorted(self._sent_kickoff_keys)[-5000:],
+                    "commands_offset": int(self._commands_offset),
                 }, f)
         except Exception:
             pass
@@ -216,6 +220,89 @@ class MatchStartAnnouncer(commands.Cog):
             return "hour"
         return None
 
+    def _read_new_delay_commands(self) -> list[dict[str, Any]]:
+        """Read queued kickoff-adjustment announcements for this cog only.
+
+        The shared bot command queue is append-only and consumed by several cogs,
+        so this cog keeps its own byte offset and ignores unrelated command kinds.
+        """
+        try:
+            if not os.path.isfile(self.commands_path):
+                return []
+            size = os.path.getsize(self.commands_path)
+            if self._commands_offset > size:
+                self._commands_offset = 0
+            with open(self.commands_path, "r", encoding="utf-8", errors="ignore") as f:
+                f.seek(self._commands_offset)
+                lines = f.read().splitlines()
+                self._commands_offset = f.tell()
+        except Exception:
+            return []
+        finally:
+            self._save_state()
+
+        commands: list[dict[str, Any]] = []
+        for raw in lines:
+            if not raw.strip():
+                continue
+            try:
+                cmd = json.loads(raw)
+            except Exception:
+                continue
+            if cmd.get("kind") == "fixture_kickoff_adjusted" and isinstance(cmd.get("data"), dict):
+                commands.append(cmd["data"])
+        return commands
+
+    def _kickoff_adjusted_embed(self, home: str, away: str, previous_ts: int | None, kickoff_ts: int, hours: float) -> discord.Embed:
+        direction = "Delayed" if hours > 0 else "Brought forward" if hours < 0 else "Adjusted"
+        magnitude = abs(hours)
+        hours_label = f"{magnitude:g} hour" + ("" if magnitude == 1 else "s")
+        embed = discord.Embed(
+            title=f"📅 Match kickoff {direction.lower()}",
+            description=(
+                f"**{home}** vs **{away}**\n"
+                f"New kickoff: <t:{kickoff_ts}:F> (<t:{kickoff_ts}:R>)"
+            ),
+            color=discord.Color.blurple(),
+        )
+        if previous_ts:
+            embed.add_field(name="Previous kickoff", value=f"<t:{previous_ts}:F> (<t:{previous_ts}:R>)", inline=False)
+        embed.add_field(name="Adjustment", value=f"{direction} by {hours_label}", inline=False)
+        embed.set_footer(text="World Cup 2026")
+        embed.timestamp = discord.utils.utcnow()
+        return embed
+
+    async def _send_kickoff_adjustment(self, guild: discord.Guild, data: dict[str, Any]) -> None:
+        """Announce a staff-entered schedule change like normal start alerts.
+
+        Schedule changes should reach the same audience as start reminders, so
+        this reuses channel resolution and country-role mentions instead of
+        posting a generic dashboard toast only.
+        """
+        home = str(data.get("home") or "").strip()
+        away = str(data.get("away") or "").strip()
+        kickoff_ts = self._parse_utc_ts(str(data.get("utc") or ""))
+        previous_ts = self._parse_utc_ts(str(data.get("previous_utc") or ""))
+        if not (home and away and kickoff_ts):
+            return
+        try:
+            hours = float(data.get("hours") or 0)
+        except (TypeError, ValueError):
+            hours = 0.0
+        channel_name = self._resolve_channel_name(data.get("fixture") if isinstance(data.get("fixture"), dict) else data, home, away)
+        channel = await self._find_text_channel(guild, channel_name)
+        if not channel:
+            channel = guild.system_channel
+        if not channel and guild.text_channels:
+            channel = guild.text_channels[0]
+        if not channel:
+            return
+        await channel.send(
+            content=self._country_role_mentions(guild, home, away),
+            embed=self._kickoff_adjusted_embed(home, away, previous_ts, kickoff_ts, hours),
+            allowed_mentions=discord.AllowedMentions(roles=True),
+        )
+
     def _announcement_embed(self, home: str, away: str, kickoff_ts: int, reminder_kind: str) -> discord.Embed:
         if reminder_kind == "kickoff":
             title = "🚨 Kickoff is now"
@@ -238,6 +325,12 @@ class MatchStartAnnouncer(commands.Cog):
         guild = self._get_guild()
         if not guild:
             return
+
+        for data in self._read_new_delay_commands():
+            try:
+                await self._send_kickoff_adjustment(guild, data)
+            except Exception:
+                continue
 
         matches = self._load_matches()
 

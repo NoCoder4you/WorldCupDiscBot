@@ -497,6 +497,50 @@ body:not(.user-admin-view) .dashboard-live-panel {
     background: #ffffff0a;
 }
 
+
+.quick-delay-field {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    margin: 0 0 12px;
+}
+
+.quick-delay-field label {
+    display: grid;
+    gap: 6px;
+    min-width: 220px;
+    flex: 1 1 220px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.quick-delay-field input {
+    width: 100%;
+    padding: 10px 12px;
+    color: #e8f1fb;
+    font-size: 15px;
+    line-height: 1.3;
+    border: 1px solid var(--border, #213040);
+    border-radius: 10px;
+    outline: none;
+    background: #ffffff0a;
+}
+
+
+/* Hide browser number steppers on the kickoff adjustment field so the quick
+   options modal keeps the clean text-box look requested by operators. */
+.quick-delay-field input::-webkit-outer-spin-button,
+.quick-delay-field input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quick-delay-field input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
 .quick-final-stats {
     display: grid;
     gap: 8px;
