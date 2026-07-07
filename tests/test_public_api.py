@@ -502,6 +502,42 @@ def test_split_requests_respond_accept_updates_players_and_history(client, app):
     assert log_after[-1]["percentages"] == {"200": 75.0, "100": 25.0}
 
 
+def test_split_requests_respond_preserves_existing_custom_percentages(client, app):
+    """Accepting another split should reduce only the main owner's saved percentage."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    players_path = json_dir / "players.json"
+    players_path.write_text(json.dumps({
+        "200": {"display_name": "Hushes", "teams": [{"team": "France", "ownership": {"main_owner": 200, "split_with": [300], "percentages": {"200": 75, "300": 25}}}]},
+        "300": {"display_name": "Namoshi", "teams": [{"team": "France", "ownership": {"main_owner": 200, "split_with": []}}]},
+        "100": {"display_name": "ohdarlingg", "teams": []},
+    }), encoding="utf-8")
+
+    (json_dir / "split_requests.json").write_text(json.dumps({
+        "req-france": {
+            "requester_id": 100,
+            "main_owner_id": 200,
+            "team": "France",
+            "expires_at": 4102444800,
+            "requested_percentage": 25
+        }
+    }), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "200", "username": "Hushes"}
+
+    resp = client.post('/api/split_requests/respond', json={"id": "req-france", "action": "accept"})
+
+    assert resp.status_code == 200
+    players_after = json.loads(players_path.read_text(encoding="utf-8"))
+    france_owner_row = next(t for t in players_after["200"]["teams"] if t["team"] == "France")
+    assert france_owner_row["ownership"]["percentages"] == {"200": 50.0, "300": 25.0, "100": 25.0}
+    log_after = json.loads((json_dir / "split_requests_log.json").read_text(encoding="utf-8"))
+    assert log_after[-1]["percentages"] == {"200": 50.0, "300": 25.0, "100": 25.0}
+
+
 def test_split_requests_respond_forbidden_for_non_owner(client, app):
     """Only the receiving main owner can resolve a split request via web API."""
     base_dir = Path(app.config["BASE_DIR"])
