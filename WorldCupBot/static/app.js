@@ -1857,12 +1857,11 @@ function formatOwnershipPercent(value) {
   return Number.isInteger(num) ? `${num}%` : `${num.toFixed(1)}%`;
 }
 
-    function renderOwnershipTable(list) {
-      const tbody = document.querySelector('#ownership-tbody');
+    function renderOwnershipRows(tbody, rows, forceEliminated) {
       if (!tbody) return;
       tbody.innerHTML = '';
 
-      list.forEach(function (row) {
+      rows.forEach(function (row) {
         const tr = document.createElement('tr');
         tr.className = row.main_owner ? 'row-assigned' : 'row-unassigned';
         const groupKey = normalizeOwnershipTeam(row.country);
@@ -1881,7 +1880,6 @@ function formatOwnershipPercent(value) {
           return ownersCount > 1 ? shareLabel : '';
         };
 
-        
         const idVal = row.main_owner ? row.main_owner.id : '';
         const label = (row.main_owner && (row.main_owner.username || row.main_owner.id)) || '';
         const showId = !!(window.adminUnlocked && idVal && label !== idVal);
@@ -1918,7 +1916,7 @@ function formatOwnershipPercent(value) {
           stageCell = stagePill(current);
         }
 
-        tr.classList.toggle('is-eliminated', current === 'Eliminated');
+        tr.classList.toggle('is-eliminated', forceEliminated || current === 'Eliminated');
         tr.innerHTML = `
           <td id="country">${flagHTML(row.country)} <span class="country-name">${row.country}</span></td>
           <td><span class="ownership-group">${groupLabel}</span></td>
@@ -1932,21 +1930,41 @@ function formatOwnershipPercent(value) {
 
         tbody.appendChild(tr);
       });
+    }
+
+    function renderOwnershipTable(list) {
+      const activeTbody = document.querySelector('#ownership-tbody');
+      const eliminatedTbody = document.querySelector('#ownership-eliminated-tbody');
+      if (!activeTbody) return;
+
+      // Keep eliminated countries out of the main table and render them in a
+      // separate card, mirroring the split page's two-card structure while
+      // preserving the existing red eliminated row treatment in that card.
+      const activeRows = [];
+      const eliminatedRows = [];
+      list.forEach(function (row) {
+        const current = normalizeStage(
+          (ownershipState.stages && ownershipState.stages[row.country]) || ''
+        );
+        if (current === 'Eliminated') eliminatedRows.push(row);
+        else activeRows.push(row);
+      });
+
+      renderOwnershipRows(activeTbody, activeRows, false);
+      renderOwnershipRows(eliminatedTbody, eliminatedRows, true);
 
       if (isAdminUI()) {
         enhanceStageSelects();
       }
 
-      
       document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
         el.style.display = isAdminUI() ? '' : 'none';
       });
 
-      const tbl = tbody.closest('table');
-      if (tbl) {
+      document.querySelectorAll('#ownership table').forEach(tbl => {
         const headAdmin = tbl.querySelector('thead th.admin-col, thead th[data-admin]');
         if (headAdmin) headAdmin.style.display = isAdminUI() ? '' : 'none';
-      }
+      });
     }
 
 function sortMerged(by) {
