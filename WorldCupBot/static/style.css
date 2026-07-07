@@ -2621,12 +2621,40 @@ body.user-admin-view #ownership .ownership-card {
     justify-content: flex-end;
 }
 
+
+/* Eliminated ownership teams live in their own card, mirroring the two-card
+   Splits page while keeping the existing red strike-through effect intact. */
+#ownership .ownership-card-eliminated {
+    margin-top: 16px;
+}
+
+#ownership .ownership-header-compact {
+    min-height: auto;
+    padding-bottom: 12px;
+}
 #ownership .ownership-table-scroll {
     height: auto !important;
     max-height: none !important;
     overflow-y: visible;
     overflow-x: visible;
     box-shadow: inset 0 1px 0 #ffffff0a;
+}
+
+/* Keep the active ownership table from consuming the full viewport. Without
+   this cap, a long active list pushes the eliminated card below the visible
+   area and makes it look like the second list is hidden behind the first card. */
+#ownership .ownership-card:not(.ownership-card-eliminated) .ownership-table-scroll {
+    max-height: min(58dvh, 560px) !important;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* Give eliminated teams their own compact scroll area so the card stays
+   visible while still supporting long eliminated lists later in the tournament. */
+#ownership .ownership-card-eliminated .ownership-table-scroll {
+    max-height: min(28dvh, 260px) !important;
+    overflow-y: auto;
+    overflow-x: auto;
 }
 
 #ownership .ownership-table {
