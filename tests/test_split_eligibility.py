@@ -127,3 +127,17 @@ def test_effective_split_percentages_match_logged_and_persisted_share():
 
     assert requested_share == 10.0
     assert percentages == {"200": 45.0, "300": 45.0, "100": 10.0}
+
+
+def test_effective_split_percentages_preserve_existing_custom_split_shares():
+    """Accepted split requests should subtract new shares from the main owner only."""
+    requested_share, percentages = calculate_effective_split_percentages(
+        200,
+        [300],
+        100,
+        {"requested_percentage": 25},
+        {"200": 75, "300": 25},
+    )
+
+    assert requested_share == 25.0
+    assert percentages == {"200": 50.0, "300": 25.0, "100": 25.0}
