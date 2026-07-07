@@ -2621,6 +2621,17 @@ body.user-admin-view #ownership .ownership-card {
     justify-content: flex-end;
 }
 
+
+/* Eliminated ownership teams live in their own card, mirroring the two-card
+   Splits page while keeping the existing red strike-through effect intact. */
+#ownership .ownership-card-eliminated {
+    margin-top: 16px;
+}
+
+#ownership .ownership-header-compact {
+    min-height: auto;
+    padding-bottom: 12px;
+}
 #ownership .ownership-table-scroll {
     height: auto !important;
     max-height: none !important;
