@@ -255,19 +255,33 @@ def calculate_split_percentages(existing_owner_ids, requester_id, requested_shar
     percentages[str(requester_id)] = requested_share
     return percentages
 
-def calculate_effective_split_percentages(main_owner_id, existing_split_with, requester_id, request):
+def calculate_effective_split_percentages(main_owner_id, existing_split_with, requester_id, request, existing_percentages=None):
     """Calculate the final percentage map for an accepted split request.
 
     This helper is shared by persistence and logging so split_requests_log.json
-    records the exact percentage state that was applied to players.json.
+    records the exact percentage state that was applied to players.json. Existing
+    custom split percentages are authoritative: a new accepted split comes out of
+    the main owner's current share, while existing split owners keep their
+    recorded percentages.
     """
+    existing_owner_ids = [main_owner_id] + [oid for oid in existing_split_with if str(oid) != str(main_owner_id)]
+    existing_map = {str(k): float(v) for k, v in (existing_percentages or {}).items() if v is not None}
+    main_key = str(main_owner_id)
+    main_share = existing_map.get(main_key)
+    if main_share is None:
+        main_share = calculate_remaining_percentage(len(existing_split_with))
+
     requested_share = (request or {}).get("requested_percentage")
     if requested_share is None:
-        remaining = calculate_remaining_percentage(len(existing_split_with))
-        requested_share = remaining / 2
-    remaining = calculate_remaining_percentage(len(existing_split_with))
-    requested_share = min(float(requested_share), remaining)
-    existing_owner_ids = [main_owner_id] + [oid for oid in existing_split_with if oid != main_owner_id]
+        requested_share = main_share / 2
+    requested_share = min(float(requested_share), float(main_share))
+
+    if existing_map:
+        percentages = {str(owner_id): existing_map.get(str(owner_id), 0.0) for owner_id in existing_owner_ids}
+        percentages[main_key] = max(0.0, float(main_share) - requested_share)
+        percentages[str(requester_id)] = requested_share
+        return requested_share, percentages
+
     return requested_share, calculate_split_percentages(existing_owner_ids, requester_id, requested_share)
 
 def find_public_players_channel(guild):
@@ -666,6 +680,7 @@ class SplitOwnership(commands.Cog):
                 existing_split_with,
                 requester.id,
                 req,
+                main_team_obj.get("ownership", {}).get("percentages"),
             )
 
         # Log the result

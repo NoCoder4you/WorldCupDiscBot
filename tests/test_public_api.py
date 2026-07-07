@@ -502,6 +502,42 @@ def test_split_requests_respond_accept_updates_players_and_history(client, app):
     assert log_after[-1]["percentages"] == {"200": 75.0, "100": 25.0}
 
 
+def test_split_requests_respond_preserves_existing_custom_percentages(client, app):
+    """Accepting another split should reduce only the main owner's saved percentage."""
+    base_dir = Path(app.config["BASE_DIR"])
+    json_dir = base_dir / "JSON"
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    players_path = json_dir / "players.json"
+    players_path.write_text(json.dumps({
+        "200": {"display_name": "Hushes", "teams": [{"team": "France", "ownership": {"main_owner": 200, "split_with": [300], "percentages": {"200": 75, "300": 25}}}]},
+        "300": {"display_name": "Namoshi", "teams": [{"team": "France", "ownership": {"main_owner": 200, "split_with": []}}]},
+        "100": {"display_name": "ohdarlingg", "teams": []},
+    }), encoding="utf-8")
+
+    (json_dir / "split_requests.json").write_text(json.dumps({
+        "req-france": {
+            "requester_id": 100,
+            "main_owner_id": 200,
+            "team": "France",
+            "expires_at": 4102444800,
+            "requested_percentage": 25
+        }
+    }), encoding="utf-8")
+
+    with client.session_transaction() as sess:
+        sess["wc_user"] = {"discord_id": "200", "username": "Hushes"}
+
+    resp = client.post('/api/split_requests/respond', json={"id": "req-france", "action": "accept"})
+
+    assert resp.status_code == 200
+    players_after = json.loads(players_path.read_text(encoding="utf-8"))
+    france_owner_row = next(t for t in players_after["200"]["teams"] if t["team"] == "France")
+    assert france_owner_row["ownership"]["percentages"] == {"200": 50.0, "300": 25.0, "100": 25.0}
+    log_after = json.loads((json_dir / "split_requests_log.json").read_text(encoding="utf-8"))
+    assert log_after[-1]["percentages"] == {"200": 50.0, "300": 25.0, "100": 25.0}
+
+
 def test_split_requests_respond_forbidden_for_non_owner(client, app):
     """Only the receiving main owner can resolve a split request via web API."""
     base_dir = Path(app.config["BASE_DIR"])
@@ -845,6 +881,20 @@ def test_world_map_stage_label_uses_stage_not_ownership():
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
     assert "stageEl.textContent  = 'Stage: ' + (stage || '-');" in app_js
     assert "stageEl.textContent  = 'Ownership: ' + (stage || '-');" not in app_js
+
+
+def test_ownership_split_cell_rolls_multiple_split_owners_equally():
+    """Ownership table should roll multiple split owners instead of hiding later entries."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert 'class="split-owner-roll"' in app_js
+    assert '--split-owner-count: ${splitItems.length}' in app_js
+    assert 'class="split-owner-track"' in app_js
+    assert 'class="split-owner-item"' in app_js
+    assert '.split-owner-item {' in style_css
+    assert 'flex: 0 0 calc(100% / (var(--split-owner-count, 2) * 2));' in style_css
+    assert '@keyframes split-owner-roll' in style_css
 
 
 def test_world_map_prize_share_uses_ownership_percentages():

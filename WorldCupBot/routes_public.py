@@ -1790,16 +1790,41 @@ def create_public_routes(ctx):
             req_team["ownership"].setdefault("split_with", [])
 
             # Store the same custom percentage map that the public web page
-            # displays, then include it in split_requests_log.json below.
-            remaining = 100 / (1 + max(len(existing_split_with), 0))
+            # displays, then include it in split_requests_log.json below. When a
+            # team already has custom percentages, the new split is taken only
+            # from the main owner's current share so existing split owners keep
+            # their recorded shares.
+            existing_percentages = {}
+            all_existing_split_ids = [str(oid) for oid in existing_split_with if str(oid) != owner_id]
+            for pdata in players.values():
+                if not isinstance(pdata, dict):
+                    continue
+                for team_entry in pdata.get("teams", []) or []:
+                    if not isinstance(team_entry, dict) or team_entry.get("team") != team:
+                        continue
+                    own = team_entry.get("ownership") or {}
+                    for sid in own.get("split_with", []) or []:
+                        sid = str(sid)
+                        if sid and sid != owner_id and sid not in all_existing_split_ids and sid != req_id:
+                            all_existing_split_ids.append(sid)
+                    pct_map = own.get("percentages")
+                    if isinstance(pct_map, dict) and pct_map:
+                        existing_percentages.update({str(k): float(v) for k, v in pct_map.items() if v is not None})
+
+            main_share = existing_percentages.get(owner_id, 100 / (1 + max(len(all_existing_split_ids), 0)))
             requested_percentage = entry.get("requested_percentage")
             if requested_percentage is None:
-                requested_percentage = remaining / 2
-            requested_percentage = min(float(requested_percentage), remaining)
-            existing_owner_ids = [owner_id] + [str(oid) for oid in existing_split_with if str(oid) != owner_id]
-            existing_share = (100 - requested_percentage) / len(existing_owner_ids) if existing_owner_ids else 0
-            percentages = {str(existing_owner): existing_share for existing_owner in existing_owner_ids}
-            percentages[str(req_id)] = requested_percentage
+                requested_percentage = main_share / 2
+            requested_percentage = min(float(requested_percentage), float(main_share))
+            existing_owner_ids = [owner_id] + all_existing_split_ids
+            if existing_percentages:
+                percentages = {str(existing_owner): existing_percentages.get(str(existing_owner), 0.0) for existing_owner in existing_owner_ids}
+                percentages[owner_id] = max(0.0, float(main_share) - requested_percentage)
+                percentages[str(req_id)] = requested_percentage
+            else:
+                existing_share = (100 - requested_percentage) / len(existing_owner_ids) if existing_owner_ids else 0
+                percentages = {str(existing_owner): existing_share for existing_owner in existing_owner_ids}
+                percentages[str(req_id)] = requested_percentage
             for pdata in players.values():
                 if not isinstance(pdata, dict):
                     continue
