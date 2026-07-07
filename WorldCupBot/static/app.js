@@ -2368,7 +2368,11 @@ document.addEventListener('change', async (e) => {
     if (!r.ok || j.ok === false) throw new Error(j.error || 'save failed');
 
     ownershipState.stages = ownershipState.stages || {};
-    ownershipState.stages[team] = stage;
+    ownershipState.stages[team] = normalizeStage(stage);
+    // Stage changes can move a country between the active and eliminated
+    // cards, so immediately re-render the sorted/filtered ownership view
+    // instead of waiting for the next manual sort, filter, or page reload.
+    sortMerged(ownershipState.lastSort || 'country');
     notify(`Stage updated: ${team} → ${stage}`, true);
 
     if (location.hash === '#user' || state.currentPage === 'user') {
