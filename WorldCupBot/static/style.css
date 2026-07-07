@@ -2366,6 +2366,74 @@ body.admin #bot-actions[style*="grid-template-columns: 1fr;"] {
     text-align: center;
 }
 
+/* Roll multiple split owners through the split cell so each co-owner receives
+   equal visual space instead of the first name dominating a narrow column. */
+.split-owner-roll {
+    --split-roll-duration: 12s;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    position: relative;
+    white-space: nowrap;
+}
+
+.split-owner-roll::before,
+.split-owner-roll::after {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 18px;
+    z-index: 1;
+}
+
+.split-owner-roll::before {
+    left: 0;
+    background: linear-gradient(90deg, #101827 0%, transparent 100%);
+}
+
+.split-owner-roll::after {
+    right: 0;
+    background: linear-gradient(270deg, #101827 0%, transparent 100%);
+}
+
+.split-owner-track {
+    align-items: center;
+    animation: split-owner-roll var(--split-roll-duration) linear infinite;
+    display: inline-flex;
+    min-width: 200%;
+}
+
+.split-owner-item {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 0 calc(100% / (var(--split-owner-count, 2) * 2));
+    justify-content: center;
+    padding: 0 14px;
+}
+
+.split-owner-roll:hover .split-owner-track {
+    animation-play-state: paused;
+}
+
+@keyframes split-owner-roll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .split-owner-track {
+        animation: none;
+        min-width: 100%;
+        transform: none;
+    }
+
+    .split-owner-item {
+        flex: 1 1 0;
+    }
+}
+
 /* Compact pill buttons up top */
 .ownership-actions .btn.sm {
     border-radius: 999px;

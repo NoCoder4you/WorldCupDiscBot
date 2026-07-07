@@ -883,6 +883,20 @@ def test_world_map_stage_label_uses_stage_not_ownership():
     assert "stageEl.textContent  = 'Ownership: ' + (stage || '-');" not in app_js
 
 
+def test_ownership_split_cell_rolls_multiple_split_owners_equally():
+    """Ownership table should roll multiple split owners instead of hiding later entries."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+
+    assert 'class="split-owner-roll"' in app_js
+    assert '--split-owner-count: ${splitItems.length}' in app_js
+    assert 'class="split-owner-track"' in app_js
+    assert 'class="split-owner-item"' in app_js
+    assert '.split-owner-item {' in style_css
+    assert 'flex: 0 0 calc(100% / (var(--split-owner-count, 2) * 2));' in style_css
+    assert '@keyframes split-owner-roll' in style_css
+
+
 def test_world_map_prize_share_uses_ownership_percentages():
     """World map prize share should mirror the Ownership page percentage data."""
     app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
