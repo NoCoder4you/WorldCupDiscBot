@@ -5052,6 +5052,7 @@ select.select-dark:disabled {
 /* Open BELOW by default */
 .stage-select-wrap .stage-select-list.open {
   display: block;
+  position: fixed;
   top: calc(100% + 4px);
   bottom: auto;
   z-index: 10001;
