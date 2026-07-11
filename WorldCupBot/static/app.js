@@ -2106,6 +2106,40 @@ function enhanceStageSelects() {
 function initStageDropdowns() {
   const wraps = document.querySelectorAll('#ownership .stage-select-wrap');
 
+  const positionOpenList = (wrap, btn, list) => {
+    const btnRect = btn.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const gap = 4;
+    const maxHeight = 240;
+    const spaceBelow = vh - btnRect.bottom;
+    const spaceAbove = btnRect.top;
+    const openUp = spaceBelow < (maxHeight + gap) && spaceAbove > spaceBelow;
+
+    // iPad Safari clips absolutely positioned dropdowns inside horizontally or
+    // vertically scrolling table wrappers.  Pin the menu to the viewport while
+    // it is open so every option remains visible above neighbouring rows.
+    list.style.left = `${btnRect.left}px`;
+    list.style.width = `${btnRect.width}px`;
+    list.style.maxHeight = `${Math.min(maxHeight, Math.max(120, (openUp ? spaceAbove : spaceBelow) - gap * 2))}px`;
+    if (openUp) {
+      list.style.top = 'auto';
+      list.style.bottom = `${Math.max(gap, vh - btnRect.top + gap)}px`;
+      wrap.classList.add('drop-up');
+    } else {
+      list.style.top = `${btnRect.bottom + gap}px`;
+      list.style.bottom = 'auto';
+      wrap.classList.remove('drop-up');
+    }
+  };
+
+  const closeStageList = (list) => {
+    list.classList.remove('open');
+    list.removeAttribute('style');
+    list.closest('.stage-select-wrap')?.classList.remove('drop-up');
+    list.closest('.stage-select-wrap')?.classList.remove('is-open');
+    list.closest('tr')?.classList.remove('stage-select-open');
+  };
+
   wraps.forEach(wrap => {
     const btn  = wrap.querySelector('.stage-select-display');
     const list = wrap.querySelector('.stage-select-list');
@@ -2117,19 +2151,13 @@ function initStageDropdowns() {
       
       document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
         if (ul !== list) {
-          ul.classList.remove('open');
-          ul.closest('.stage-select-wrap')?.classList.remove('drop-up');
-          ul.closest('.stage-select-wrap')?.classList.remove('is-open');
-          ul.closest('tr')?.classList.remove('stage-select-open');
+          closeStageList(ul);
         }
       });
 
       
       if (list.classList.contains('open')) {
-        list.classList.remove('open');
-        wrap.classList.remove('drop-up');
-        wrap.classList.remove('is-open');
-        wrap.closest('tr')?.classList.remove('stage-select-open');
+        closeStageList(list);
         return;
       }
 
@@ -2137,20 +2165,7 @@ function initStageDropdowns() {
       list.classList.add('open');
       wrap.classList.add('is-open');
       wrap.closest('tr')?.classList.add('stage-select-open');
-      const listRect = list.getBoundingClientRect();
-      const btnRect  = btn.getBoundingClientRect();
-      const vh       = window.innerHeight || document.documentElement.clientHeight;
-
-      const spaceBelow = vh - btnRect.bottom;
-      const spaceAbove = btnRect.top;
-      const needed     = Math.min(listRect.height, 240) + 8; 
-
-      
-      if (spaceBelow < needed && spaceAbove > spaceBelow) {
-        wrap.classList.add('drop-up');   
-      } else {
-        wrap.classList.remove('drop-up'); 
-      }
+      positionOpenList(wrap, btn, list);
     });
 
     
@@ -2160,10 +2175,22 @@ function initStageDropdowns() {
   
   document.addEventListener('click', () => {
     document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
-      ul.classList.remove('open');
-      ul.closest('.stage-select-wrap')?.classList.remove('drop-up');
+      closeStageList(ul);
     });
   });
+
+  if (!window.__ownershipStageViewportListeners) {
+    window.__ownershipStageViewportListeners = true;
+    ['scroll', 'resize'].forEach(eventName => {
+      window.addEventListener(eventName, () => {
+        document.querySelectorAll('#ownership .stage-select-list.open').forEach(list => {
+          const wrap = list.closest('.stage-select-wrap');
+          const btn = wrap?.querySelector('.stage-select-display');
+          if (wrap && btn) positionOpenList(wrap, btn, list);
+        });
+      }, true);
+    });
+  }
 }
 
 
