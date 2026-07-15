@@ -1955,9 +1955,9 @@ function formatOwnershipPercent(value) {
       renderOwnershipRows(activeTbody, activeRows, false);
       renderOwnershipRows(eliminatedTbody, eliminatedRows, true);
 
-      if (isAdminUI()) {
-        enhanceStageSelects();
-      }
+      // Use the browser's native select for stage changes. The previous custom
+      // floating menu was prone to pointer/position mismatches inside the
+      // scrollable ownership table, which made clicks choose the wrong stage.
 
       document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
         el.style.display = isAdminUI() ? '' : 'none';
@@ -1988,7 +1988,6 @@ function sortMerged(by) {
     });
   }
   renderOwnershipTable(applyOwnershipGroupFilter(list));
-  initStageDropdowns();
 }
 
 function applyOwnershipGroupFilter(list) {
@@ -2007,157 +2006,6 @@ function setOwnershipGroupFilter(filter) {
     btn.classList.toggle('active', btnGroup === ownershipState.groupFilter);
   });
   sortMerged(ownershipState.lastSort || 'country');
-}
-
-function enhanceStageSelects() {
-  const selects = document.querySelectorAll('#ownership select.stage-select');
-
-  // The ownership table is re-rendered after sorting/filtering and after every
-  // stage save.  Always unwrap an existing custom control before rebuilding it
-  // so the hidden native select remains the single source of truth.
-  selects.forEach(sel => {
-    const wrap = sel.closest('.stage-select-wrap');
-    if (wrap) {
-      wrap.parentNode.insertBefore(sel, wrap);
-      wrap.remove();
-    }
-  });
-
-  selects.forEach(sel => {
-    const wrap = document.createElement('div');
-    wrap.className = 'stage-select-wrap';
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'stage-select-display';
-    btn.textContent = sel.options[sel.selectedIndex]?.text || 'Stage';
-
-    const list = document.createElement('ul');
-    list.className = 'stage-select-list';
-
-    Array.from(sel.options).forEach(opt => {
-      const li = document.createElement('li');
-      li.className = 'stage-select-option';
-      li.dataset.value = opt.value;
-      li.textContent = opt.textContent;
-      if (opt.selected) li.classList.add('selected');
-
-      // Use pointerdown so the intended option is captured before a surrounding
-      // scroll/table click handler can close or reposition the floating list.
-      li.addEventListener('pointerdown', ev => {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        sel.value = opt.value;
-        btn.textContent = opt.textContent;
-        list.querySelectorAll('.stage-select-option.selected')
-            .forEach(x => x.classList.remove('selected'));
-        li.classList.add('selected');
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-        closeOwnershipStageLists();
-      });
-
-      list.appendChild(li);
-    });
-
-    sel.parentNode.insertBefore(wrap, sel);
-    wrap.appendChild(btn);
-    wrap.appendChild(list);
-    wrap.appendChild(sel);
-  });
-}
-
-function closeOwnershipStageLists() {
-  document.querySelectorAll('#ownership .stage-select-display.open')
-    .forEach(btn => btn.classList.remove('open'));
-  document.querySelectorAll('#ownership .stage-select-list.open')
-    .forEach(list => {
-      list.classList.remove('open');
-      list.removeAttribute('style');
-      list.closest('.stage-select-wrap')?.classList.remove('drop-up');
-      list.closest('.stage-select-wrap')?.classList.remove('is-open');
-      list.closest('tr')?.classList.remove('stage-select-open');
-    });
-}
-
-function initStageDropdowns() {
-  const wraps = document.querySelectorAll('#ownership .stage-select-wrap');
-
-  const positionOpenList = (wrap, btn, list) => {
-    const btnRect = btn.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-    const gap = 4;
-    const maxHeight = 240;
-    const spaceBelow = vh - btnRect.bottom;
-    const spaceAbove = btnRect.top;
-    const openUp = spaceBelow < (maxHeight + gap) && spaceAbove > spaceBelow;
-
-    // iPad Safari clips absolutely positioned dropdowns inside horizontally or
-    // vertically scrolling table wrappers.  Pin the menu to the viewport while
-    // it is open so every option remains visible above neighbouring rows.
-    list.style.left = `${btnRect.left}px`;
-    list.style.width = `${btnRect.width}px`;
-    list.style.maxHeight = `${Math.min(maxHeight, Math.max(120, (openUp ? spaceAbove : spaceBelow) - gap * 2))}px`;
-    if (openUp) {
-      list.style.top = 'auto';
-      list.style.bottom = `${Math.max(gap, vh - btnRect.top + gap)}px`;
-      wrap.classList.add('drop-up');
-    } else {
-      list.style.top = `${btnRect.bottom + gap}px`;
-      list.style.bottom = 'auto';
-      wrap.classList.remove('drop-up');
-    }
-  };
-
-  wraps.forEach(wrap => {
-    const btn  = wrap.querySelector('.stage-select-display');
-    const list = wrap.querySelector('.stage-select-list');
-    if (!btn || !list) return;
-
-    btn.addEventListener('click', ev => {
-      ev.stopPropagation();
-
-      
-      document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
-        if (ul !== list) closeOwnershipStageLists();
-      });
-
-      
-      if (list.classList.contains('open')) {
-        closeOwnershipStageLists();
-        return;
-      }
-
-      
-      btn.classList.add('open');
-      list.classList.add('open');
-      wrap.classList.add('is-open');
-      wrap.closest('tr')?.classList.add('stage-select-open');
-      positionOpenList(wrap, btn, list);
-    });
-
-    
-    list.addEventListener('click', ev => ev.stopPropagation());
-  });
-
-  
-  if (!window.__ownershipStageDocumentListener) {
-    window.__ownershipStageDocumentListener = true;
-    document.addEventListener('click', closeOwnershipStageLists);
-  }
-
-  if (!window.__ownershipStageViewportListeners) {
-    window.__ownershipStageViewportListeners = true;
-    ['scroll', 'resize'].forEach(eventName => {
-      window.addEventListener(eventName, () => {
-        document.querySelectorAll('#ownership .stage-select-list.open').forEach(list => {
-          const wrap = list.closest('.stage-select-wrap');
-          const btn = wrap?.querySelector('.stage-select-display');
-          if (wrap && btn) positionOpenList(wrap, btn, list);
-        });
-      }, true);
-    });
-  }
 }
 
 

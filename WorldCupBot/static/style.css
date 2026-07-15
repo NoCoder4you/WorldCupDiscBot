@@ -4994,91 +4994,31 @@ select.select-dark:disabled {
   cursor: not-allowed;
 }
 
-/* --- Ownership page: custom stage dropdown --- */
+/* --- Ownership page: native stage dropdown --- */
 
-/* hide the native select but keep it for JS/value */
+/* Keep the stage picker native so the browser handles option hit-testing
+   reliably inside the scrollable ownership tables. */
 #ownership select.stage-select {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-/* wrapper that anchors the fake control */
-.stage-select-wrap {
-  position: relative;
-  display: inline-block;
-  min-width: 150px;
-}
-
-/* Closed button */
-.stage-select-display {
+  width: 100%;
+  min-width: 160px;
   background: #0d141d;
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 14px;
+  text-align: center;
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
-  min-width: 75%;
+  outline: none;
 }
 
-.stage-select-display:hover {
-  background: #111b28;
+#ownership select.stage-select:focus {
+  box-shadow: 0 0 0 3px #00ffc833;
 }
 
-/* Dropdown list – completely out of flow by default */
-.stage-select-list {
-  position: absolute;
-  left: 0;
-  right: 0;
-  max-height: 240px;
-  overflow-y: auto;
-
+#ownership select.stage-select option {
   background: #0f1823;
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 4px 0;
-
-  display: none;          /* 🔑 no layout impact when closed */
-  z-index: 9999;
-}
-
-/* Open BELOW by default */
-.stage-select-wrap .stage-select-list.open {
-  display: block;
-  position: fixed;
-  top: calc(100% + 4px);
-  bottom: auto;
-  z-index: 10001;
-}
-
-/* Open ABOVE when JS adds .drop-up */
-.stage-select-wrap.drop-up .stage-select-list.open {
-  top: auto;
-  bottom: calc(100% + 4px);
-}
-
-/* Options */
-.stage-select-option {
-  padding: 8px 12px;
   color: var(--text);
-  cursor: pointer;
-  transition: background .12s ease;
-}
-
-.stage-select-option:hover {
-  background: #00ffc81a;
-}
-
-.stage-select-option.selected {
-  background: #00ffc82e;
-  font-weight: 600;
 }
 
 /* USERS PAGE */
