@@ -840,6 +840,50 @@ def test_auto_backup_runs_on_any_admin_request_when_due(tmp_path):
     assert backups, "expected a backup zip to be created by the before_request scheduler"
 
 
+def test_admin_stage_placement_update_queues_discord_embed_command(tmp_path):
+    """Ownership page placement changes should enqueue the normal Discord embed command."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "players.json").write_text(
+        json.dumps({
+            "200": {
+                "display_name": "Owner",
+                "teams": [{"team": "Brazil", "ownership": {"main_owner": 200, "split_with": []}}],
+            }
+        }),
+        encoding="utf-8",
+    )
+    (json_dir / "notification_settings.json").write_text(json.dumps({"200": {"channel": "dms"}}), encoding="utf-8")
+    (json_dir / "team_stage.json").write_text(json.dumps({"Brazil": "Final"}), encoding="utf-8")
+
+    response = client.post("/admin/teams/stage", json={"team": "Brazil", "stage": "2nd Place"})
+
+    assert response.status_code == 200
+    assert response.get_json()["stage"] == "2nd Place"
+    command = json.loads((json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert command["kind"] == "team_stage_progress"
+    assert command["data"] == {
+        "team": "Brazil",
+        "stage": "2nd Place",
+        "previous_stage": "Final",
+        "owner_ids": ["200"],
+        "channel": "announcements",
+    }
+
+
+def test_admin_stage_alias_is_canonicalized_before_queueing(tmp_path):
+    """Aliases such as Runner-up should still save and announce canonical placement labels."""
+    client, json_dir = _build_admin_client(tmp_path)
+    (json_dir / "team_stage.json").write_text(json.dumps({"Brazil": "Final"}), encoding="utf-8")
+
+    response = client.post("/admin/teams/stage", json={"team": "Brazil", "stage": "Runner-up"})
+
+    assert response.status_code == 200
+    assert response.get_json()["stage"] == "2nd Place"
+    saved = json.loads((json_dir / "team_stage.json").read_text(encoding="utf-8"))
+    assert saved["Brazil"] == "2nd Place"
+    command = json.loads((json_dir / "bot_commands.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert command["data"]["stage"] == "2nd Place"
+
 def test_admin_ownership_reassign_rewrites_players_json(tmp_path):
     """Reassigning ownership should move the team row to the new main owner."""
     client, json_dir = _build_admin_client(tmp_path)
