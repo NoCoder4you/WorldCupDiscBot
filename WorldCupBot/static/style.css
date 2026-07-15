@@ -3995,6 +3995,21 @@ select.select-dark:disabled {
     background: #3f4754;
 }
 
+.map-legend .key.box.placement-first {
+    background: #ffd700;
+    box-shadow: 0 0 8px #ffd700cc;
+}
+
+.map-legend .key.box.placement-second {
+    background: #d9e2ef;
+    box-shadow: 0 0 8px #f8fbffcc;
+}
+
+.map-legend .key.box.placement-third {
+    background: #cd7f32;
+    box-shadow: 0 0 8px #f0b06acc;
+}
+
 .map-legend .key.box.eliminated {
     background: #dc2626;
 }
@@ -4038,6 +4053,27 @@ select.select-dark:disabled {
 #map-svg-host .country.eliminated.self,
 #map-svg-host .country.eliminated.self * {
     fill: #ef4444;
+}
+
+/* Final placements should read like medals on the World Map. These classes
+   intentionally override ownership/elimination colors only after a team has a
+   final placement stage, while owner details remain available in the tooltip. */
+#map-svg-host .country.placement-first,
+#map-svg-host .country.placement-first * {
+    fill: #ffd700;
+    filter: drop-shadow(0 0 4px #ffd700ee) drop-shadow(0 0 12px #fff2a6aa);
+}
+
+#map-svg-host .country.placement-second,
+#map-svg-host .country.placement-second * {
+    fill: #d9e2ef;
+    filter: drop-shadow(0 0 4px #d9e2efee) drop-shadow(0 0 12px #f8fbffaa);
+}
+
+#map-svg-host .country.placement-third,
+#map-svg-host .country.placement-third * {
+    fill: #cd7f32;
+    filter: drop-shadow(0 0 4px #cd7f32ee) drop-shadow(0 0 12px #f0b06aaa);
 }
 
 #map-svg-host svg g {

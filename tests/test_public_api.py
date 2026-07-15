@@ -402,6 +402,24 @@ def test_backend_stage_constants_accept_runner_up_and_third_place():
     assert normalize_stage("Third Place") == "3rd Place"
 
 
+def test_world_map_shows_medal_placement_styles():
+    """World Map highlights final placements with medal-colored classes and legend keys."""
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    style_css = (ROOT / "WorldCupBot" / "static" / "style.css").read_text(encoding="utf-8")
+    index_html = (ROOT / "WorldCupBot" / "static" / "index.html").read_text(encoding="utf-8")
+
+    assert "if (stage === 'Winner') return 'placement-first'" in app_js
+    assert "if (stage === '2nd Place') return 'placement-second'" in app_js
+    assert "if (stage === '3rd Place') return 'placement-third'" in app_js
+    assert "placement-first','placement-second','placement-third" in app_js
+    assert ".country.placement-first" in style_css and "#ffd700" in style_css
+    assert ".country.placement-second" in style_css and "#d9e2ef" in style_css
+    assert ".country.placement-third" in style_css and "#cd7f32" in style_css
+    assert "1st Place" in index_html
+    assert "2nd Place" in index_html
+    assert "3rd Place" in index_html
+
+
 def test_me_respects_masquerade_without_app_base_dir_config(tmp_path):
     """
     Ensure masquerade still works when app.config["BASE_DIR"] is unset.
