@@ -1903,16 +1903,19 @@ function formatOwnershipPercent(value) {
 
         const current = normalizeStage(
           (ownershipState.stages && ownershipState.stages[row.country]) || ''
-        );
+        ) || 'Group Stage';
         let stageCell = '';
         if (isAdminUI()) {
           const opts = STAGE_ORDER.map(v =>
             `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`
           ).join('');
           stageCell = `
-            <select class="stage-select" data-team="${row.country}">
-              ${opts}
-            </select>
+            <span class="stage-select-shell">
+              <button type="button" class="stage-select-display" aria-haspopup="listbox" aria-expanded="false">${current}</button>
+              <select class="stage-select" data-team="${row.country}" aria-hidden="true" tabindex="-1">
+                ${opts}
+              </select>
+            </span>
           `;
         } else {
           stageCell = stagePill(current);
@@ -1955,9 +1958,10 @@ function formatOwnershipPercent(value) {
       renderOwnershipRows(activeTbody, activeRows, false);
       renderOwnershipRows(eliminatedTbody, eliminatedRows, true);
 
-      if (isAdminUI()) {
-        enhanceStageSelects();
-      }
+      // Stage pickers use a custom-looking button/list for the admin UI, but
+      // each choice writes into the hidden native select and dispatches the
+      // existing change event so saving stays centralized in one handler.
+      initOwnershipStageDropdowns();
 
       document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
         el.style.display = isAdminUI() ? '' : 'none';
@@ -1988,7 +1992,6 @@ function sortMerged(by) {
     });
   }
   renderOwnershipTable(applyOwnershipGroupFilter(list));
-  initStageDropdowns();
 }
 
 function applyOwnershipGroupFilter(list) {
@@ -2009,187 +2012,82 @@ function setOwnershipGroupFilter(filter) {
   sortMerged(ownershipState.lastSort || 'country');
 }
 
-function enhanceStageSelects() {
-  const selects = document.querySelectorAll('#ownership select.stage-select');
-
-  
-  selects.forEach(sel => {
-    const wrap = sel.closest('.stage-select-wrap');
-    if (wrap) {
-      wrap.parentNode.insertBefore(sel, wrap);
-      wrap.remove();
-    }
-  });
-
-  const closeAll = () => {
-    document.querySelectorAll('.stage-select-display.open')
-      .forEach(btn => btn.classList.remove('open'));
-    document.querySelectorAll('.stage-select-list.open')
-      .forEach(list => list.classList.remove('open'));
-    document.querySelectorAll('.stage-select-wrap.is-open')
-      .forEach(wrap => wrap.classList.remove('is-open'));
-    document.querySelectorAll('#ownership .ownership-table tbody tr.stage-select-open')
-      .forEach(row => row.classList.remove('stage-select-open'));
-  };
-
-  selects.forEach(sel => {
-    const wrap = document.createElement('div');
-    wrap.className = 'stage-select-wrap';
-
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'stage-select-display';
-    btn.textContent = sel.options[sel.selectedIndex]?.text || 'Stage';
-
-    const list = document.createElement('ul');
-    list.className = 'stage-select-list';
-
-    Array.from(sel.options).forEach(opt => {
-      const li = document.createElement('li');
-      li.className = 'stage-select-option';
-      li.dataset.value = opt.value;
-      li.textContent = opt.textContent;
-      if (opt.selected) li.classList.add('selected');
-
-      li.addEventListener('click', () => {
-        
-        sel.value = opt.value;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-
-        
-        btn.textContent = opt.textContent;
-
-        
-        list.querySelectorAll('.stage-select-option.selected')
-            .forEach(x => x.classList.remove('selected'));
-        li.classList.add('selected');
-
-        closeAll();
-      });
-
-      list.appendChild(li);
-    });
-
-    
-    sel.parentNode.insertBefore(wrap, sel);
-    wrap.appendChild(btn);
-    wrap.appendChild(list);
-    wrap.appendChild(sel);
-  });
-
-  
-  document.addEventListener('click', (evt) => {
-    const wrap = evt.target.closest('.stage-select-wrap');
-
-    
-    if (!wrap) {
-      closeAll();
-      return;
-    }
-
-    
-    const btn = evt.target.closest('.stage-select-display');
-    if (btn) {
-      const list = wrap.querySelector('.stage-select-list');
-      const isOpen = btn.classList.contains('open');
-      closeAll();
-      if (!isOpen) {
-        btn.classList.add('open');
-        list.classList.add('open');
-        wrap.classList.add('is-open');
-        wrap.closest('tr')?.classList.add('stage-select-open');
-      }
-    }
+function closeOwnershipStageDropdown() {
+  const openList = document.querySelector('.stage-select-list.open');
+  if (openList) openList.remove();
+  document.querySelectorAll('#ownership .stage-select-display.open').forEach(btn => {
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
   });
 }
 
-function initStageDropdowns() {
-  const wraps = document.querySelectorAll('#ownership .stage-select-wrap');
-
-  const positionOpenList = (wrap, btn, list) => {
-    const btnRect = btn.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-    const gap = 4;
-    const maxHeight = 240;
-    const spaceBelow = vh - btnRect.bottom;
-    const spaceAbove = btnRect.top;
-    const openUp = spaceBelow < (maxHeight + gap) && spaceAbove > spaceBelow;
-
-    // iPad Safari clips absolutely positioned dropdowns inside horizontally or
-    // vertically scrolling table wrappers.  Pin the menu to the viewport while
-    // it is open so every option remains visible above neighbouring rows.
-    list.style.left = `${btnRect.left}px`;
-    list.style.width = `${btnRect.width}px`;
-    list.style.maxHeight = `${Math.min(maxHeight, Math.max(120, (openUp ? spaceAbove : spaceBelow) - gap * 2))}px`;
-    if (openUp) {
-      list.style.top = 'auto';
-      list.style.bottom = `${Math.max(gap, vh - btnRect.top + gap)}px`;
-      wrap.classList.add('drop-up');
-    } else {
-      list.style.top = `${btnRect.bottom + gap}px`;
-      list.style.bottom = 'auto';
-      wrap.classList.remove('drop-up');
-    }
-  };
-
-  const closeStageList = (list) => {
-    list.classList.remove('open');
-    list.removeAttribute('style');
-    list.closest('.stage-select-wrap')?.classList.remove('drop-up');
-    list.closest('.stage-select-wrap')?.classList.remove('is-open');
-    list.closest('tr')?.classList.remove('stage-select-open');
-  };
-
-  wraps.forEach(wrap => {
-    const btn  = wrap.querySelector('.stage-select-display');
-    const list = wrap.querySelector('.stage-select-list');
-    if (!btn || !list) return;
+function initOwnershipStageDropdowns() {
+  document.querySelectorAll('#ownership .stage-select-shell').forEach(shell => {
+    const btn = shell.querySelector('.stage-select-display');
+    const sel = shell.querySelector('select.stage-select');
+    if (!btn || !sel || btn.dataset.stageReady === '1') return;
+    btn.dataset.stageReady = '1';
 
     btn.addEventListener('click', ev => {
+      ev.preventDefault();
       ev.stopPropagation();
 
-      
-      document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
-        if (ul !== list) {
-          closeStageList(ul);
-        }
+      const wasOpen = btn.classList.contains('open');
+      closeOwnershipStageDropdown();
+      if (wasOpen) return;
+
+      const rect = btn.getBoundingClientRect();
+      const list = document.createElement('ul');
+      list.className = 'stage-select-list open';
+      list.setAttribute('role', 'listbox');
+      const gap = 4;
+      const maxHeight = 260;
+      const spaceBelow = window.innerHeight - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+      const listHeight = Math.max(140, Math.min(maxHeight, openUp ? spaceAbove : spaceBelow));
+      list.style.left = `${rect.left}px`;
+      list.style.top = openUp ? `${Math.max(gap, rect.top - listHeight - gap)}px` : `${rect.bottom + gap}px`;
+      list.style.width = `${rect.width}px`;
+      list.style.maxHeight = `${listHeight}px`;
+
+      Array.from(sel.options).forEach(opt => {
+        const item = document.createElement('li');
+        item.className = 'stage-select-option';
+        item.setAttribute('role', 'option');
+        item.dataset.value = opt.value;
+        item.textContent = opt.textContent;
+        if (opt.value === sel.value) item.classList.add('selected');
+
+        // Capture the intended option before any table click/scroll handler can
+        // move focus or close the portal list, then reuse the normal select
+        // change flow so the server update logic remains in one place.
+        item.addEventListener('pointerdown', pickEv => {
+          pickEv.preventDefault();
+          pickEv.stopPropagation();
+          sel.value = opt.value;
+          btn.textContent = opt.textContent;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          closeOwnershipStageDropdown();
+        });
+
+        list.appendChild(item);
       });
 
-      
-      if (list.classList.contains('open')) {
-        closeStageList(list);
-        return;
-      }
-
-      
-      list.classList.add('open');
-      wrap.classList.add('is-open');
-      wrap.closest('tr')?.classList.add('stage-select-open');
-      positionOpenList(wrap, btn, list);
-    });
-
-    
-    list.addEventListener('click', ev => ev.stopPropagation());
-  });
-
-  
-  document.addEventListener('click', () => {
-    document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
-      closeStageList(ul);
+      document.body.appendChild(list);
+      btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
     });
   });
 
-  if (!window.__ownershipStageViewportListeners) {
-    window.__ownershipStageViewportListeners = true;
-    ['scroll', 'resize'].forEach(eventName => {
-      window.addEventListener(eventName, () => {
-        document.querySelectorAll('#ownership .stage-select-list.open').forEach(list => {
-          const wrap = list.closest('.stage-select-wrap');
-          const btn = wrap?.querySelector('.stage-select-display');
-          if (wrap && btn) positionOpenList(wrap, btn, list);
-        });
-      }, true);
+  if (!window.__ownershipStageDropdownGlobalHandlers) {
+    window.__ownershipStageDropdownGlobalHandlers = true;
+    document.addEventListener('pointerdown', ev => {
+      if (ev.target.closest?.('.stage-select-list, .stage-select-shell')) return;
+      closeOwnershipStageDropdown();
     });
+    window.addEventListener('scroll', closeOwnershipStageDropdown, true);
+    window.addEventListener('resize', closeOwnershipStageDropdown);
   }
 }
 

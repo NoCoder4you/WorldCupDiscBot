@@ -4996,7 +4996,15 @@ select.select-dark:disabled {
 
 /* --- Ownership page: custom stage dropdown --- */
 
-/* hide the native select but keep it for JS/value */
+/* Keep a hidden native select as the form/value source, while the button and
+   portal list provide the dark custom UI without being clipped by the table. */
+#ownership .stage-select-shell {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  min-width: 160px;
+}
+
 #ownership select.stage-select {
   position: absolute;
   opacity: 0;
@@ -5008,63 +5016,41 @@ select.select-dark:disabled {
   border: 0;
 }
 
-/* wrapper that anchors the fake control */
-.stage-select-wrap {
-  position: relative;
-  display: inline-block;
-  min-width: 150px;
-}
-
-/* Closed button */
-.stage-select-display {
+#ownership .stage-select-display {
+  width: 100%;
+  min-width: 160px;
   background: #0d141d;
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 14px;
+  font-weight: 500;
+  text-align: center;
   cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
-  min-width: 75%;
+  outline: none;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
 
-.stage-select-display:hover {
+#ownership .stage-select-display:hover,
+#ownership .stage-select-display.open {
   background: #111b28;
+  box-shadow: 0 0 0 1px rgba(0, 255, 200, 0.14);
 }
 
-/* Dropdown list – completely out of flow by default */
 .stage-select-list {
-  position: absolute;
-  left: 0;
-  right: 0;
-  max-height: 240px;
+  position: fixed;
   overflow-y: auto;
-
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
   background: #0f1823;
   border: 1px solid var(--accent);
   border-radius: 8px;
-  padding: 4px 0;
-
-  display: none;          /* 🔑 no layout impact when closed */
-  z-index: 9999;
-}
-
-/* Open BELOW by default */
-.stage-select-wrap .stage-select-list.open {
-  display: block;
-  position: fixed;
-  top: calc(100% + 4px);
-  bottom: auto;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
   z-index: 10001;
 }
 
-/* Open ABOVE when JS adds .drop-up */
-.stage-select-wrap.drop-up .stage-select-list.open {
-  top: auto;
-  bottom: calc(100% + 4px);
-}
-
-/* Options */
 .stage-select-option {
   padding: 8px 12px;
   color: var(--text);
