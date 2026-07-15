@@ -4996,8 +4996,8 @@ select.select-dark:disabled {
 
 /* --- Ownership page: styled native stage dropdown --- */
 
-/* The select stays native for reliable option selection; this wrapper recreates
-   the previous custom pill styling without a separate floating option list. */
+/* Keep a hidden native select as the form/value source, while the button and
+   portal list provide the dark custom UI without being clipped by the table. */
 #ownership .stage-select-shell {
   position: relative;
   display: inline-flex;
@@ -5005,24 +5005,21 @@ select.select-dark:disabled {
   min-width: 160px;
 }
 
-#ownership .stage-select-shell::after {
-  content: "▾";
+#ownership select.stage-select {
   position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--accent);
-  font-size: 12px;
-  line-height: 1;
+  opacity: 0;
   pointer-events: none;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
-#ownership select.stage-select {
-  appearance: none;
-  -webkit-appearance: none;
+#ownership .stage-select-display {
   width: 100%;
   min-width: 160px;
-  background: linear-gradient(180deg, #111b28 0%, #0d141d 100%);
+  background: #0d141d;
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 8px;
@@ -5031,23 +5028,32 @@ select.select-dark:disabled {
   font-size: 14px;
   font-weight: 500;
   text-align: center;
-  text-align-last: center;
   cursor: pointer;
   outline: none;
   transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
 
-#ownership select.stage-select:hover {
-  background: linear-gradient(180deg, #152235 0%, #101a27 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 255, 200, 0.14), 0 0 0 1px rgba(0, 255, 200, 0.12);
+#ownership .stage-select-display:hover,
+#ownership .stage-select-display.open {
+  background: #111b28;
+  box-shadow: 0 0 0 1px rgba(0, 255, 200, 0.14);
 }
 
-#ownership select.stage-select:focus {
-  box-shadow: 0 0 0 3px #00ffc833, inset 0 0 0 1px rgba(0, 255, 200, 0.16);
-}
-
-#ownership select.stage-select option {
+.stage-select-list {
+  position: fixed;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
   background: #0f1823;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  z-index: 10001;
+}
+
+.stage-select-option {
+  padding: 8px 12px;
   color: var(--text);
 }
 

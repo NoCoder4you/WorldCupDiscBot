@@ -1903,7 +1903,7 @@ function formatOwnershipPercent(value) {
 
         const current = normalizeStage(
           (ownershipState.stages && ownershipState.stages[row.country]) || ''
-        );
+        ) || 'Group Stage';
         let stageCell = '';
         if (isAdminUI()) {
           const opts = STAGE_ORDER.map(v =>
@@ -1911,7 +1911,8 @@ function formatOwnershipPercent(value) {
           ).join('');
           stageCell = `
             <span class="stage-select-shell">
-              <select class="stage-select" data-team="${row.country}">
+              <button type="button" class="stage-select-display" aria-haspopup="listbox" aria-expanded="false">${current}</button>
+              <select class="stage-select" data-team="${row.country}" aria-hidden="true" tabindex="-1">
                 ${opts}
               </select>
             </span>
@@ -1957,9 +1958,10 @@ function formatOwnershipPercent(value) {
       renderOwnershipRows(activeTbody, activeRows, false);
       renderOwnershipRows(eliminatedTbody, eliminatedRows, true);
 
-      // Keep the stage picker as a styled native select. Native option
-      // hit-testing avoids the previous floating-menu coordinate bug while the
-      // wrapper/CSS below preserves the custom pill appearance.
+      // Stage pickers use a custom-looking button/list for the admin UI, but
+      // each choice writes into the hidden native select and dispatches the
+      // existing change event so saving stays centralized in one handler.
+      initOwnershipStageDropdowns();
 
       document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
         el.style.display = isAdminUI() ? '' : 'none';
@@ -2008,6 +2010,85 @@ function setOwnershipGroupFilter(filter) {
     btn.classList.toggle('active', btnGroup === ownershipState.groupFilter);
   });
   sortMerged(ownershipState.lastSort || 'country');
+}
+
+function closeOwnershipStageDropdown() {
+  const openList = document.querySelector('.stage-select-list.open');
+  if (openList) openList.remove();
+  document.querySelectorAll('#ownership .stage-select-display.open').forEach(btn => {
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function initOwnershipStageDropdowns() {
+  document.querySelectorAll('#ownership .stage-select-shell').forEach(shell => {
+    const btn = shell.querySelector('.stage-select-display');
+    const sel = shell.querySelector('select.stage-select');
+    if (!btn || !sel || btn.dataset.stageReady === '1') return;
+    btn.dataset.stageReady = '1';
+
+    btn.addEventListener('click', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const wasOpen = btn.classList.contains('open');
+      closeOwnershipStageDropdown();
+      if (wasOpen) return;
+
+      const rect = btn.getBoundingClientRect();
+      const list = document.createElement('ul');
+      list.className = 'stage-select-list open';
+      list.setAttribute('role', 'listbox');
+      const gap = 4;
+      const maxHeight = 260;
+      const spaceBelow = window.innerHeight - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+      const listHeight = Math.max(140, Math.min(maxHeight, openUp ? spaceAbove : spaceBelow));
+      list.style.left = `${rect.left}px`;
+      list.style.top = openUp ? `${Math.max(gap, rect.top - listHeight - gap)}px` : `${rect.bottom + gap}px`;
+      list.style.width = `${rect.width}px`;
+      list.style.maxHeight = `${listHeight}px`;
+
+      Array.from(sel.options).forEach(opt => {
+        const item = document.createElement('li');
+        item.className = 'stage-select-option';
+        item.setAttribute('role', 'option');
+        item.dataset.value = opt.value;
+        item.textContent = opt.textContent;
+        if (opt.value === sel.value) item.classList.add('selected');
+
+        // Capture the intended option before any table click/scroll handler can
+        // move focus or close the portal list, then reuse the normal select
+        // change flow so the server update logic remains in one place.
+        item.addEventListener('pointerdown', pickEv => {
+          pickEv.preventDefault();
+          pickEv.stopPropagation();
+          sel.value = opt.value;
+          btn.textContent = opt.textContent;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          closeOwnershipStageDropdown();
+        });
+
+        list.appendChild(item);
+      });
+
+      document.body.appendChild(list);
+      btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    });
+  });
+
+  if (!window.__ownershipStageDropdownGlobalHandlers) {
+    window.__ownershipStageDropdownGlobalHandlers = true;
+    document.addEventListener('pointerdown', ev => {
+      if (ev.target.closest?.('.stage-select-list, .stage-select-shell')) return;
+      closeOwnershipStageDropdown();
+    });
+    window.addEventListener('scroll', closeOwnershipStageDropdown, true);
+    window.addEventListener('resize', closeOwnershipStageDropdown);
+  }
 }
 
 
