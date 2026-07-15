@@ -5005,6 +5005,15 @@ select.select-dark:disabled {
   min-width: 160px;
 }
 
+/* Keep a hidden native select as the form/value source, while the button and
+   portal list provide the dark custom UI without being clipped by the table. */
+#ownership .stage-select-shell {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  min-width: 160px;
+}
+
 #ownership select.stage-select {
   position: absolute;
   opacity: 0;

@@ -2074,6 +2074,12 @@ function initOwnershipStageDropdowns() {
         list.appendChild(item);
       });
 
+      // Keep wheel/touch scrolling inside the portal list from bubbling to the
+      // ownership table/page, otherwise the global scroll closer would dismiss
+      // the menu before users can reach the lower stage options.
+      list.addEventListener('wheel', scrollEv => scrollEv.stopPropagation(), { passive: true });
+      list.addEventListener('touchmove', scrollEv => scrollEv.stopPropagation(), { passive: true });
+
       document.body.appendChild(list);
       btn.classList.add('open');
       btn.setAttribute('aria-expanded', 'true');
@@ -2086,7 +2092,10 @@ function initOwnershipStageDropdowns() {
       if (ev.target.closest?.('.stage-select-list, .stage-select-shell')) return;
       closeOwnershipStageDropdown();
     });
-    window.addEventListener('scroll', closeOwnershipStageDropdown, true);
+    window.addEventListener('scroll', ev => {
+      if (ev.target?.closest?.('.stage-select-list')) return;
+      closeOwnershipStageDropdown();
+    }, true);
     window.addEventListener('resize', closeOwnershipStageDropdown);
   }
 }
