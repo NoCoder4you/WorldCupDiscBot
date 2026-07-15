@@ -7,6 +7,8 @@ STAGE_ORDER = [
     "Semi-finals",
     "Third Place Play-off",
     "Final",
+    "2nd Place",
+    "3rd Place",
     "Winner",
 ]
 
@@ -17,10 +19,16 @@ STAGE_ALIASES = {
     "Quarter Finals": "Quarter-finals",
     "Semi Final": "Semi-finals",
     "Semi Finals": "Semi-finals",
+    # Outcome labels are distinct from match-round labels so admins can
+    # mark runners-up/third-place finishers from the Ownership page.
     "Third Place Play": "Third Place Play-off",
     "Third Place Playoff": "Third Place Play-off",
-    "Third Place": "Third Place Play-off",
+    "Third Place": "3rd Place",
     "3rd Place Play-off": "Third Place Play-off",
+    "Third Place Match": "Third Place Play-off",
+    "Second Place": "2nd Place",
+    "Runner-up": "2nd Place",
+    "Runner Up": "2nd Place",
 }
 
 STAGE_CHANNEL_SLUGS = {
@@ -30,6 +38,8 @@ STAGE_CHANNEL_SLUGS = {
     "Semi-finals": "semi-finals",
     "Third Place Play-off": "third-place-play",
     "Final": "final",
+    "2nd Place": "final",
+    "3rd Place": "third-place-play",
     "Winner": "final",
 }
 

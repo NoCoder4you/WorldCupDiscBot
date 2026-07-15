@@ -10,6 +10,8 @@
     'Semi-finals',
     'Third Place Play-off',
     'Final',
+    '2nd Place',
+    '3rd Place',
     'Winner'
   ];
 
@@ -24,11 +26,16 @@
     'Quarter Finals': 'Quarter-finals',
     'Semi Final': 'Semi-finals',
     'Semi Finals': 'Semi-finals',
-    'Third Place': 'Third Place Play-off',
+    // Outcome labels are distinct from match-round labels so admins can
+    // mark runners-up/third-place finishers from the Ownership page.
+    'Third Place': '3rd Place',
     'Third Place Play': 'Third Place Play-off',
     'Third Place Playoff': 'Third Place Play-off',
     '3rd Place Play-off': 'Third Place Play-off',
-    'Second Place': 'Final'
+    'Third Place Match': 'Third Place Play-off',
+    'Second Place': '2nd Place',
+    'Runner-up': '2nd Place',
+    'Runner Up': '2nd Place'
   };
 
   const STAGE_PROGRESS = {
@@ -40,6 +47,8 @@
     'Semi-finals': 70,
     'Third Place Play-off': 80,
     Final: 90,
+    '2nd Place': 95,
+    '3rd Place': 85,
     Winner: 100
   };
 

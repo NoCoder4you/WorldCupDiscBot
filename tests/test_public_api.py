@@ -1,5 +1,6 @@
 from flask import Flask
 import json
+import sys
 from pathlib import Path
 
 
@@ -369,6 +370,36 @@ def test_app_bootstraps_stage_constants_without_stage_js():
     assert "if (!window.WorldCupStages) {" in app_js
     assert "const STAGE_ORDER = [" in app_js
     assert "const STAGE_PROGRESS = {" in app_js
+
+
+def test_ownership_stage_options_include_runner_up_and_third_place():
+    """Ownership page stage dropdowns are generated from shared constants.
+
+    Keep the 2nd/3rd place outcome labels available in both the bootstrapped
+    app constants and the standalone stage.js asset used by other pages.
+    """
+    app_js = (ROOT / "WorldCupBot" / "static" / "app.js").read_text(encoding="utf-8")
+    stage_js = (ROOT / "WorldCupBot" / "static" / "stage.js").read_text(encoding="utf-8")
+
+    for source in (app_js, stage_js):
+        assert "'2nd Place'" in source
+        assert "'3rd Place'" in source
+        assert "'Second Place': '2nd Place'" in source
+        assert "'Third Place': '3rd Place'" in source
+
+
+def test_backend_stage_constants_accept_runner_up_and_third_place():
+    """Server-side stage validation accepts Ownership page outcome labels."""
+    sys.path.insert(0, str(ROOT / "WorldCupBot"))
+    try:
+        from stage_constants import STAGE_ALLOWED, STAGE_ORDER, normalize_stage
+    finally:
+        sys.path.pop(0)
+
+    assert "2nd Place" in STAGE_ORDER
+    assert "3rd Place" in STAGE_ALLOWED
+    assert normalize_stage("Second Place") == "2nd Place"
+    assert normalize_stage("Third Place") == "3rd Place"
 
 
 def test_me_respects_masquerade_without_app_base_dir_config(tmp_path):
