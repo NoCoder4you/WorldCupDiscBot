@@ -1910,9 +1910,11 @@ function formatOwnershipPercent(value) {
             `<option value="${v}" ${v === current ? 'selected' : ''}>${v}</option>`
           ).join('');
           stageCell = `
-            <select class="stage-select" data-team="${row.country}">
-              ${opts}
-            </select>
+            <span class="stage-select-shell">
+              <select class="stage-select" data-team="${row.country}">
+                ${opts}
+              </select>
+            </span>
           `;
         } else {
           stageCell = stagePill(current);
@@ -1955,9 +1957,9 @@ function formatOwnershipPercent(value) {
       renderOwnershipRows(activeTbody, activeRows, false);
       renderOwnershipRows(eliminatedTbody, eliminatedRows, true);
 
-      // Use the browser's native select for stage changes. The previous custom
-      // floating menu was prone to pointer/position mismatches inside the
-      // scrollable ownership table, which made clicks choose the wrong stage.
+      // Keep the stage picker as a styled native select. Native option
+      // hit-testing avoids the previous floating-menu coordinate bug while the
+      // wrapper/CSS below preserves the custom pill appearance.
 
       document.querySelectorAll('.admin-col,[data-admin]').forEach(el => {
         el.style.display = isAdminUI() ? '' : 'none';

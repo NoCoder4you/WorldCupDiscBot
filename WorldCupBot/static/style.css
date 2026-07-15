@@ -4994,26 +4994,56 @@ select.select-dark:disabled {
   cursor: not-allowed;
 }
 
-/* --- Ownership page: native stage dropdown --- */
+/* --- Ownership page: styled native stage dropdown --- */
 
-/* Keep the stage picker native so the browser handles option hit-testing
-   reliably inside the scrollable ownership tables. */
-#ownership select.stage-select {
+/* The select stays native for reliable option selection; this wrapper recreates
+   the previous custom pill styling without a separate floating option list. */
+#ownership .stage-select-shell {
+  position: relative;
+  display: inline-flex;
   width: 100%;
   min-width: 160px;
-  background: #0d141d;
+}
+
+#ownership .stage-select-shell::after {
+  content: "▾";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+#ownership select.stage-select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 160px;
+  background: linear-gradient(180deg, #111b28 0%, #0d141d 100%);
   color: var(--text);
   border: 1px solid var(--accent);
   border-radius: 8px;
-  padding: 6px 10px;
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 200, 0.08);
+  padding: 6px 30px 6px 10px;
   font-size: 14px;
+  font-weight: 500;
   text-align: center;
+  text-align-last: center;
   cursor: pointer;
   outline: none;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+#ownership select.stage-select:hover {
+  background: linear-gradient(180deg, #152235 0%, #101a27 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 255, 200, 0.14), 0 0 0 1px rgba(0, 255, 200, 0.12);
 }
 
 #ownership select.stage-select:focus {
-  box-shadow: 0 0 0 3px #00ffc833;
+  box-shadow: 0 0 0 3px #00ffc833, inset 0 0 0 1px rgba(0, 255, 200, 0.16);
 }
 
 #ownership select.stage-select option {
