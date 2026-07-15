@@ -7,6 +7,8 @@ STAGE_ORDER = [
     "Semi-finals",
     "Third Place Play-off",
     "Final",
+    "2nd Place",
+    "3rd Place",
     "Winner",
 ]
 
@@ -17,10 +19,17 @@ STAGE_ALIASES = {
     "Quarter Finals": "Quarter-finals",
     "Semi Final": "Semi-finals",
     "Semi Finals": "Semi-finals",
+    # Keep legacy imported fixture labels such as "Third Place" mapped to
+    # the play-off round; final-placement outcomes must use explicit labels
+    # like "3rd Place" so bracket fixtures do not disappear.
     "Third Place Play": "Third Place Play-off",
     "Third Place Playoff": "Third Place Play-off",
     "Third Place": "Third Place Play-off",
     "3rd Place Play-off": "Third Place Play-off",
+    "Third Place Match": "Third Place Play-off",
+    "Second Place": "2nd Place",
+    "Runner-up": "2nd Place",
+    "Runner Up": "2nd Place",
 }
 
 STAGE_CHANNEL_SLUGS = {
@@ -30,6 +39,8 @@ STAGE_CHANNEL_SLUGS = {
     "Semi-finals": "semi-finals",
     "Third Place Play-off": "third-place-play",
     "Final": "final",
+    "2nd Place": "final",
+    "3rd Place": "third-place-play",
     "Winner": "final",
 }
 

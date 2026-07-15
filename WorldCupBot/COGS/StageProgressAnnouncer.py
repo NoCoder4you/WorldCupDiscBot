@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands, tasks
 
 from queue_utils import compact_command_queue
-from stage_constants import STAGE_CHANNEL_MAP
+from stage_constants import STAGE_CHANNEL_MAP, normalize_stage
 
 log = logging.getLogger(__name__)
 
@@ -252,23 +252,28 @@ class StageProgressAnnouncer(commands.Cog):
         except Exception:
             return
 
-    def _stage_line(self, team: str, stage: str) -> str:
-        stage = str(stage or "").strip()
+    def _placement_copy(self, team: str, stage: str) -> tuple[str, str, discord.Color]:
+        stage = normalize_stage(stage)
+        if stage == "Winner":
+            return ("🏆 Final Placement", f"**{team}** finished in **1st Place**.", discord.Color.gold())
+        if stage == "2nd Place":
+            return ("🥈 Final Placement", f"**{team}** finished in **2nd Place**.", discord.Color.light_grey())
+        if stage == "3rd Place":
+            return ("🥉 Final Placement", f"**{team}** finished in **3rd Place**.", discord.Color(0xCD7F32))
         if stage == "Eliminated":
-            return f"**{team}** was eliminated."
-        return f"**{team}** advanced to **{stage}**."
+            return ("Stage Update", f"**{team}** was eliminated.", discord.Color.red())
+        # Non-placement updates are true progression events, so keep the
+        # advancement language used by existing stage embeds.
+        return ("Stage Update", f"**{team}** advanced to **{stage}**.", discord.Color.blue())
+
+    def _stage_line(self, team: str, stage: str) -> str:
+        return self._placement_copy(team, stage)[1]
 
     def _public_embed(self, team: str, stage: str, thumb_iso: str | None):
-        stage = str(stage or "").strip()
-        if stage == "Eliminated":
-            title = "Stage Update"
-            color = discord.Color.red()
-        else:
-            title = "Stage Update"
-            color = discord.Color.blue()
+        title, description, color = self._placement_copy(team, stage)
         e = discord.Embed(
             title=title,
-            description=self._stage_line(team, stage),
+            description=description,
             color=color
         )
         url = self._flag_url(thumb_iso or "")
@@ -279,8 +284,10 @@ class StageProgressAnnouncer(commands.Cog):
         return e
 
     def _dm_embed(self, team: str, stage: str, thumb_iso: str | None):
-        stage = str(stage or "").strip()
-        if stage == "Eliminated":
+        stage = normalize_stage(stage)
+        if stage in ("Winner", "2nd Place", "3rd Place"):
+            title, description, color = self._placement_copy(team, stage)
+        elif stage == "Eliminated":
             title = "🚫 Your team was eliminated"
             color = discord.Color.red()
             description = f"**{team}** was eliminated."

@@ -10,6 +10,8 @@
     'Semi-finals',
     'Third Place Play-off',
     'Final',
+    '2nd Place',
+    '3rd Place',
     'Winner'
   ];
 
@@ -24,11 +26,17 @@
     'Quarter Finals': 'Quarter-finals',
     'Semi Final': 'Semi-finals',
     'Semi Finals': 'Semi-finals',
+    // Keep legacy imported fixture labels such as "Third Place" mapped to
+    // the play-off round; final-placement outcomes must use explicit labels
+    // like "3rd Place" so bracket fixtures do not disappear.
     'Third Place': 'Third Place Play-off',
     'Third Place Play': 'Third Place Play-off',
     'Third Place Playoff': 'Third Place Play-off',
     '3rd Place Play-off': 'Third Place Play-off',
-    'Second Place': 'Final'
+    'Third Place Match': 'Third Place Play-off',
+    'Second Place': '2nd Place',
+    'Runner-up': '2nd Place',
+    'Runner Up': '2nd Place'
   };
 
   const STAGE_PROGRESS = {
@@ -40,6 +48,8 @@
     'Semi-finals': 70,
     'Third Place Play-off': 80,
     Final: 90,
+    '2nd Place': 95,
+    '3rd Place': 85,
     Winner: 100
   };
 

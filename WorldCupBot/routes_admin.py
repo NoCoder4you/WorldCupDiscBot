@@ -1336,6 +1336,12 @@ def create_admin_routes(ctx):
         stage_norm = normalize_stage(stage)
         if stage_norm == "Eliminated":
             return f"{team} was eliminated."
+        if stage_norm == "Winner":
+            return f"{team} finished in 1st place."
+        if stage_norm in ("2nd Place", "3rd Place"):
+            # Placement outcomes are not advancement rounds, so owner bell
+            # notifications should say the team finished in that position.
+            return f"{team} finished in {stage_norm}."
         return f"{team} advanced to {stage_norm}."
 
     def _append_stage_notifications(discord_ids: list[str], team: str, stage: str, ts: int):
@@ -1393,7 +1399,8 @@ def create_admin_routes(ctx):
         if resp is not None: return resp
         body = request.get_json(silent=True) or {}
         team = (body.get("team") or "").strip()
-        stage = (body.get("stage") or "").strip()
+        stage_raw = (body.get("stage") or "").strip()
+        stage = normalize_stage(stage_raw)
 
         if not team or not stage:
             return jsonify({"ok": False, "error": "missing team or stage"}), 400
@@ -1405,8 +1412,10 @@ def create_admin_routes(ctx):
         if not isinstance(data, dict): data = {}
         prev_stage = data.get(team) or ""
         prev_stage_norm = normalize_stage(prev_stage) or "Group Stage"
-        next_stage_norm = normalize_stage(stage)
-        data[team] = stage
+        next_stage_norm = stage
+        # Store canonical labels so the Discord announcer and World Map see the
+        # same placement values even if an alias such as "Runner-up" is posted.
+        data[team] = next_stage_norm
         _write_json_atomic(path, data)
         log.info(
             "Team stage updated by %s (team=%s stage=%s previous_stage=%s)",
@@ -1438,7 +1447,7 @@ def create_admin_routes(ctx):
                 "owner_ids": dm_owner_ids,
                 "channel": channel_name,
             })
-        return jsonify({"ok": True, "team": team, "stage": stage})
+        return jsonify({"ok": True, "team": team, "stage": next_stage_norm})
 
     # ---------- Masquerade Mode ----------
     @bp.post("/admin/masquerade/start")

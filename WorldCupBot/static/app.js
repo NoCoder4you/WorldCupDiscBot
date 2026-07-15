@@ -23,6 +23,8 @@
       'Semi-finals',
       'Third Place Play-off',
       'Final',
+      '2nd Place',
+      '3rd Place',
       'Winner',
     ];
 
@@ -37,11 +39,17 @@
       'Quarter Finals': 'Quarter-finals',
       'Semi Final': 'Semi-finals',
       'Semi Finals': 'Semi-finals',
+      // Keep legacy imported fixture labels such as "Third Place" mapped to
+      // the play-off round; final-placement outcomes must use explicit labels
+      // like "3rd Place" so bracket fixtures do not disappear.
       'Third Place': 'Third Place Play-off',
       'Third Place Play': 'Third Place Play-off',
       'Third Place Playoff': 'Third Place Play-off',
       '3rd Place Play-off': 'Third Place Play-off',
-      'Second Place': 'Final',
+      'Third Place Match': 'Third Place Play-off',
+      'Second Place': '2nd Place',
+      'Runner-up': '2nd Place',
+      'Runner Up': '2nd Place',
     };
 
     const STAGE_PROGRESS = {
@@ -53,6 +61,8 @@
       'Semi-finals': 70,
       'Third Place Play-off': 80,
       Final: 90,
+      '2nd Place': 95,
+      '3rd Place': 85,
       Winner: 100,
     };
 
@@ -5164,8 +5174,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return normalizeTeamName(fromIso);
   }
 
+  function normalizeMapStage(rawStage){
+    const normalizer = window.WorldCupStages && window.WorldCupStages.normalizeStage;
+    return typeof normalizer === 'function'
+      ? normalizer(rawStage)
+      : String(rawStage || '').trim();
+  }
+
+  function mapPlacementClass(rawStage){
+    const stage = normalizeMapStage(rawStage);
+    // Medal placements are final outcomes, so they intentionally override
+    // normal ownership colors on the world map without changing owner data.
+    if (stage === 'Winner') return 'placement-first';
+    if (stage === '2nd Place') return 'placement-second';
+    if (stage === '3rd Place') return 'placement-third';
+    return '';
+  }
+
   function formatMapStageLabel(rawStage){
-    const clean = String(rawStage || '').trim();
+    const clean = normalizeMapStage(rawStage);
     if (!clean) return '-';
 
     // Keep bracket stages readable while shortening group-stage wording.
@@ -5502,8 +5529,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const group = (teamGroup[team] || teamGroup[normTeam] || isoGroup[iso] || '') || '';
 
       const rawStage = (stageMap[team] || stageMap[normTeam]) || '';
-      const isEliminated = String(rawStage || '').trim().toLowerCase() === 'eliminated';
-      const stage = formatMapStageLabel(rawStage);
+      const normalizedStage = normalizeMapStage(rawStage);
+      const isEliminated = normalizedStage.toLowerCase() === 'eliminated';
+      const placementClass = mapPlacementClass(normalizedStage);
+      const stage = formatMapStageLabel(normalizedStage);
 
       // Elimination is a tournament status, not an ownership status. Keep the
       // existing ownership class for labels, then add an eliminated modifier so
@@ -5512,9 +5541,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const matchObj = nextMatchByIso[iso] || nextMatchByIso[inferIso] || null;
       const nextMatch = matchObj ? matchObj.label : '';
 
-      el.classList.remove('owned','split','free','nq','dim','self','eliminated');
+      el.classList.remove('owned','split','free','nq','dim','self','eliminated','placement-first','placement-second','placement-third');
       el.classList.add(status);
       if (isEliminated && status !== 'nq') el.classList.add('eliminated');
+      if (placementClass && status !== 'nq') el.classList.add(placementClass);
 
       
       el.dataset.owners      = ownersText;

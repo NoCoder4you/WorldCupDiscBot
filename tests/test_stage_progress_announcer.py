@@ -99,3 +99,26 @@ def test_eliminated_from_group_stage_uses_team_group_channel(tmp_path):
     assert ann._stage_update_channel(
         "Haïti", "Eliminated", "announcements", "Group Stage"
     ) == "group-c"
+
+
+def test_final_placement_embeds_use_placement_language():
+    """Placement embeds must say a team finished in-place rather than advanced."""
+    ann = _stub()
+
+    public = ann._public_embed("Brazil", "2nd Place", None)
+    dm = ann._dm_embed("Croatia", "3rd Place", None)
+    winner = ann._public_embed("Argentina", "Winner", None)
+
+    assert public.title == "🥈 Final Placement"
+    assert public.description == "**Brazil** finished in **2nd Place**."
+    assert dm.title == "🥉 Final Placement"
+    assert dm.description == "**Croatia** finished in **3rd Place**."
+    assert winner.description == "**Argentina** finished in **1st Place**."
+
+
+def test_placement_stage_updates_use_configured_stage_channels():
+    """New placement stages should resolve to public channels so embeds can be sent."""
+    ann = _stub()
+
+    assert ann._stage_update_channel("Brazil", "2nd Place", "announcements", "Final") == "final"
+    assert ann._stage_update_channel("Croatia", "3rd Place", "announcements", "Third Place Play-off") == "third-place-play"
