@@ -2012,7 +2012,9 @@ function setOwnershipGroupFilter(filter) {
 function enhanceStageSelects() {
   const selects = document.querySelectorAll('#ownership select.stage-select');
 
-  
+  // The ownership table is re-rendered after sorting/filtering and after every
+  // stage save.  Always unwrap an existing custom control before rebuilding it
+  // so the hidden native select remains the single source of truth.
   selects.forEach(sel => {
     const wrap = sel.closest('.stage-select-wrap');
     if (wrap) {
@@ -2020,17 +2022,6 @@ function enhanceStageSelects() {
       wrap.remove();
     }
   });
-
-  const closeAll = () => {
-    document.querySelectorAll('.stage-select-display.open')
-      .forEach(btn => btn.classList.remove('open'));
-    document.querySelectorAll('.stage-select-list.open')
-      .forEach(list => list.classList.remove('open'));
-    document.querySelectorAll('.stage-select-wrap.is-open')
-      .forEach(wrap => wrap.classList.remove('is-open'));
-    document.querySelectorAll('#ownership .ownership-table tbody tr.stage-select-open')
-      .forEach(row => row.classList.remove('stage-select-open'));
-  };
 
   selects.forEach(sel => {
     const wrap = document.createElement('div');
@@ -2051,56 +2042,42 @@ function enhanceStageSelects() {
       li.textContent = opt.textContent;
       if (opt.selected) li.classList.add('selected');
 
-      li.addEventListener('click', () => {
-        
+      // Use pointerdown so the intended option is captured before a surrounding
+      // scroll/table click handler can close or reposition the floating list.
+      li.addEventListener('pointerdown', ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
         sel.value = opt.value;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-
-        
         btn.textContent = opt.textContent;
-
-        
         list.querySelectorAll('.stage-select-option.selected')
             .forEach(x => x.classList.remove('selected'));
         li.classList.add('selected');
-
-        closeAll();
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        closeOwnershipStageLists();
       });
 
       list.appendChild(li);
     });
 
-    
     sel.parentNode.insertBefore(wrap, sel);
     wrap.appendChild(btn);
     wrap.appendChild(list);
     wrap.appendChild(sel);
   });
+}
 
-  
-  document.addEventListener('click', (evt) => {
-    const wrap = evt.target.closest('.stage-select-wrap');
-
-    
-    if (!wrap) {
-      closeAll();
-      return;
-    }
-
-    
-    const btn = evt.target.closest('.stage-select-display');
-    if (btn) {
-      const list = wrap.querySelector('.stage-select-list');
-      const isOpen = btn.classList.contains('open');
-      closeAll();
-      if (!isOpen) {
-        btn.classList.add('open');
-        list.classList.add('open');
-        wrap.classList.add('is-open');
-        wrap.closest('tr')?.classList.add('stage-select-open');
-      }
-    }
-  });
+function closeOwnershipStageLists() {
+  document.querySelectorAll('#ownership .stage-select-display.open')
+    .forEach(btn => btn.classList.remove('open'));
+  document.querySelectorAll('#ownership .stage-select-list.open')
+    .forEach(list => {
+      list.classList.remove('open');
+      list.removeAttribute('style');
+      list.closest('.stage-select-wrap')?.classList.remove('drop-up');
+      list.closest('.stage-select-wrap')?.classList.remove('is-open');
+      list.closest('tr')?.classList.remove('stage-select-open');
+    });
 }
 
 function initStageDropdowns() {
@@ -2132,14 +2109,6 @@ function initStageDropdowns() {
     }
   };
 
-  const closeStageList = (list) => {
-    list.classList.remove('open');
-    list.removeAttribute('style');
-    list.closest('.stage-select-wrap')?.classList.remove('drop-up');
-    list.closest('.stage-select-wrap')?.classList.remove('is-open');
-    list.closest('tr')?.classList.remove('stage-select-open');
-  };
-
   wraps.forEach(wrap => {
     const btn  = wrap.querySelector('.stage-select-display');
     const list = wrap.querySelector('.stage-select-list');
@@ -2150,18 +2119,17 @@ function initStageDropdowns() {
 
       
       document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
-        if (ul !== list) {
-          closeStageList(ul);
-        }
+        if (ul !== list) closeOwnershipStageLists();
       });
 
       
       if (list.classList.contains('open')) {
-        closeStageList(list);
+        closeOwnershipStageLists();
         return;
       }
 
       
+      btn.classList.add('open');
       list.classList.add('open');
       wrap.classList.add('is-open');
       wrap.closest('tr')?.classList.add('stage-select-open');
@@ -2173,11 +2141,10 @@ function initStageDropdowns() {
   });
 
   
-  document.addEventListener('click', () => {
-    document.querySelectorAll('#ownership .stage-select-list.open').forEach(ul => {
-      closeStageList(ul);
-    });
-  });
+  if (!window.__ownershipStageDocumentListener) {
+    window.__ownershipStageDocumentListener = true;
+    document.addEventListener('click', closeOwnershipStageLists);
+  }
 
   if (!window.__ownershipStageViewportListeners) {
     window.__ownershipStageViewportListeners = true;
