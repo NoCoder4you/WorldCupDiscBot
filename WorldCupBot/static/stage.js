@@ -26,9 +26,10 @@
     'Quarter Finals': 'Quarter-finals',
     'Semi Final': 'Semi-finals',
     'Semi Finals': 'Semi-finals',
-    // Outcome labels are distinct from match-round labels so admins can
-    // mark runners-up/third-place finishers from the Ownership page.
-    'Third Place': '3rd Place',
+    // Keep legacy imported fixture labels such as "Third Place" mapped to
+    // the play-off round; final-placement outcomes must use explicit labels
+    // like "3rd Place" so bracket fixtures do not disappear.
+    'Third Place': 'Third Place Play-off',
     'Third Place Play': 'Third Place Play-off',
     'Third Place Playoff': 'Third Place Play-off',
     '3rd Place Play-off': 'Third Place Play-off',

@@ -385,11 +385,11 @@ def test_ownership_stage_options_include_runner_up_and_third_place():
         assert "'2nd Place'" in source
         assert "'3rd Place'" in source
         assert "'Second Place': '2nd Place'" in source
-        assert "'Third Place': '3rd Place'" in source
+        assert "'Third Place': 'Third Place Play-off'" in source
 
 
-def test_backend_stage_constants_accept_runner_up_and_third_place():
-    """Server-side stage validation accepts Ownership page outcome labels."""
+def test_backend_stage_constants_keep_third_place_round_alias_and_explicit_outcome():
+    """Server-side aliases keep Third Place as a round while accepting explicit 3rd Place."""
     sys.path.insert(0, str(ROOT / "WorldCupBot"))
     try:
         from stage_constants import STAGE_ALLOWED, STAGE_ORDER, normalize_stage
@@ -399,7 +399,8 @@ def test_backend_stage_constants_accept_runner_up_and_third_place():
     assert "2nd Place" in STAGE_ORDER
     assert "3rd Place" in STAGE_ALLOWED
     assert normalize_stage("Second Place") == "2nd Place"
-    assert normalize_stage("Third Place") == "3rd Place"
+    assert normalize_stage("Third Place") == "Third Place Play-off"
+    assert normalize_stage("3rd Place") == "3rd Place"
 
 
 def test_world_map_shows_medal_placement_styles():
